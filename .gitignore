@@ -1,0 +1,39 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Compiled artifacts
+build/
+dist/
+*.exe
+*.egg-info/
+
+# Logs
+logs/
+
+# Virtual environment
+venv/
+
+# IDE files
+*.spec
+*.iml
+.idea/
+
+# OS generated files
+.DS_Store
+
+# Text editor temporary files
+*.swp
+*.bak
+
+# Dependency caches
+.venv/
+env/
+pip-wheel-metadata/
+
+# Requirement cache
+.requirements.txt.cache/
+
+# Executables
+DqaTestTool.exe
