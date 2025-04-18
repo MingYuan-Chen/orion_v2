@@ -193,19 +193,34 @@ class DeviceManagerWidget(QWidget):
             # Get device ID
             device_id = device.get('id', None)
             if not device_id:
-                QMessageBox.warning(self, "Warning", "Device ID is missing. Cannot open console.")
+                QMessageBox.warning(self, "Warning", "Device ID is missing. Cannot open main window.")
                 return
                 
-            # Here you would open the console for the selected device
-            # For now we just show a message
-            logger.info(f"Opening console for device: {device_id}")
-            QMessageBox.information(self, "Console", f"Opening console for {device['name']}...")
+            # Import MainWindowController and create a new instance for this device
+            from gui.views.main_window import MainWindowController
             
-            # 在這裡您可以編寫代碼打開控制台並發送命令
-            # 例如：self.view_model.send_command(device_id, "help")
+            # Create a new main window controller for this device
+            # If we don't already have a storage for device windows, create one
+            if not hasattr(self, 'device_windows'):
+                self.device_windows = {}
+            
+            # Create or reuse a controller for this device
+            if device_id in self.device_windows and self.device_windows[device_id]:
+                # Show existing window if it already exists
+                controller = self.device_windows[device_id]
+                controller.window.setWindowState(controller.window.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+                controller.window.activateWindow()
+                controller.window.raise_()
+                logger.info(f"Raised existing main window for device: {device_id}")
+            else:
+                # Create new window controller for this device
+                controller = MainWindowController(device_id, self.view_model)
+                self.device_windows[device_id] = controller
+                controller.show()
+                logger.info(f"Opened new main window for device: {device_id}")
             
         except Exception as e:
-            error_msg = f"Failed to open console: {str(e)}"
+            error_msg = f"Failed to open main window: {str(e)}"
             logger.error(error_msg, exc_info=True)
             QMessageBox.critical(self, "Error", error_msg)
     
