@@ -10,9 +10,10 @@ class SerialDeviceWorker(QObject):
     disconnection_result = Signal(str, bool, str)  # device_id, success, message
     command_result = Signal(str, str, str)  # device_id, command, response
     
-    def __init__(self, device_manager: DeviceManagerModel):
+    def __init__(self, device_manager, device_id):
         super().__init__()
         self.device_manager = device_manager
+        self.device_id = device_id
         
     @Slot(str, str, int, int)
     def connect_device(self, device_id: str, port: str, baudrate: int, timeout: int):

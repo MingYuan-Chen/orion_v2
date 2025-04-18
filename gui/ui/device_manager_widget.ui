@@ -188,7 +188,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="push_button_open_console">
+      <widget class="QPushButton" name="push_button_open_main_window">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -202,7 +202,7 @@
         <string notr="true">background-color: rgb(190, 255, 175);</string>
        </property>
        <property name="text">
-        <string>Open Console</string>
+        <string>Open Main Window</string>
        </property>
       </widget>
      </item>

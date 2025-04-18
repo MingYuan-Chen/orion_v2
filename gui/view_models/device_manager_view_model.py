@@ -15,34 +15,58 @@ class DeviceManagerViewModel(QObject):
         super().__init__()
         self.device_manager = DeviceManagerModel()
         
-        # create worker thread
-        self.worker_thread = QThread()
-        self.worker = SerialDeviceWorker(self.device_manager)
-        self.worker.moveToThread(self.worker_thread)
+        # 存儲每個設備的worker和線程
+        self.device_workers = {}  # {device_id: (worker, thread)}
         
-        # connect signals
-        self.worker.connection_result.connect(self.device_connected)
-        self.worker.disconnection_result.connect(self.device_disconnected)
-        self.worker.command_result.connect(self.command_completed)
+    def create_device_worker(self, device_id):
+        # 為新設備創建專屬worker和線程
+        worker_thread = QThread()
+        worker = SerialDeviceWorker(self.device_manager, device_id)
+        worker.moveToThread(worker_thread)
         
-        # start thread
-        self.worker_thread.start()
+        # 連接信號（需要在信號中傳遞設備ID以區分來源）
+        worker.connection_result.connect(self.device_connected)
+        worker.disconnection_result.connect(self.device_disconnected)
+        worker.command_result.connect(self.command_completed)
         
-    def connect_serial_device(self, device_id: str, port: str, baudrate: int = 115200, timeout: int = 3):
-        """connect serial device"""
-        self.worker.connect_device(device_id, port, baudrate, timeout)
+        # 存儲引用
+        self.device_workers[device_id] = (worker, worker_thread)
+        logger.info(f"create device worker: {device_id} with thread: {worker_thread}")
         
-    def disconnect_device(self, device_id: str):
-        """disconnect device"""
-        self.worker.disconnect_device(device_id)
+        # 啟動線程
+        worker_thread.start()
+        
+        return worker
+        
+    def connect_serial_device(self, device_id, port, baudrate, latency):
+        """使用用戶指定的 device_id 連接設備"""
+        worker = self.create_device_worker(device_id)
+        
+        # 使用worker連接設備
+        worker.connect_device(device_id, port, baudrate, latency)
+        
+    def disconnect_device(self, device_id):
+        if device_id in self.device_workers:
+            worker, thread = self.device_workers[device_id]
+            worker.disconnect_device(device_id)
+            
+            # 可選：斷開連接後清理worker
+            thread.quit()
+            thread.wait()
+            del self.device_workers[device_id]
+            logger.info(f"disconnect device: {device_id} with thread: {thread}")
         
     def send_command(self, device_id: str, command: str, timeout: int = 10):
         """send command to device"""
-        self.worker.send_command(device_id, command, timeout)
+        if device_id in self.device_workers:
+            worker, _ = self.device_workers[device_id]
+            worker.send_command(device_id, command, timeout)
         
     def disconnect_all_devices(self):
         """disconnect all devices"""
-        self.worker.disconnect_all_devices()
+        for device_id, (worker, thread) in self.device_workers.items():
+            worker.disconnect_device(device_id)
+            logger.info(f"disconnect device: {device_id} with thread: {thread}")
         
     def get_connected_devices(self) -> List[str]:
         """get connected device ids"""
@@ -59,10 +83,11 @@ class DeviceManagerViewModel(QObject):
         # disconnect all devices
         self.disconnect_all_devices()
         
-        # stop thread
-        if self.worker_thread.isRunning():
-            self.worker_thread.quit()
-            self.worker_thread.wait()
+        # stop threads
+        for device_id, (_, thread) in self.device_workers.items():
+            if thread.isRunning():
+                thread.quit()
+                thread.wait()
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
@@ -84,10 +109,10 @@ if __name__ == "__main__":
     view_model.device_disconnected.connect(on_device_disconnected)
 
     # connect device
-    view_model.connect_serial_device("device_1", "COM4", 115200, 3)
+    view_model.connect_serial_device("COM4", 115200, 0)
 
     # 3 seconds later, disconnect device
-    QTimer.singleShot(3000, lambda: view_model.disconnect_device("device_1"))
+    QTimer.singleShot(3000, lambda: view_model.disconnect_device("device_COM4"))
 
     # enter event loop
     app.exec()

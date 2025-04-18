@@ -114,7 +114,7 @@ class DeviceManagerWidget(QWidget):
             # Connect button events
             self.ui_widget.push_button_new_device.clicked.connect(self._on_new_device_clicked)
             self.ui_widget.push_button_disconnect.clicked.connect(self._on_disconnect_clicked)
-            self.ui_widget.push_button_open_console.clicked.connect(self._on_open_console_clicked)
+            self.ui_widget.push_button_open_main_window.clicked.connect(self._on_open_main_window_clicked)
             self.ui_widget.push_button_refresh.clicked.connect(self._refresh_device_list)
             
             # Connect other events
@@ -176,8 +176,8 @@ class DeviceManagerWidget(QWidget):
             logger.error(error_msg, exc_info=True)
             QMessageBox.critical(self, "Error", error_msg)
     
-    def _on_open_console_clicked(self):
-        """Handle open console button click"""
+    def _on_open_main_window_clicked(self):
+        """Handle open main window button click"""
         selected_row = self.ui_widget.table_widget_devices.currentRow()
         if selected_row < 0:
             return
@@ -215,7 +215,7 @@ class DeviceManagerWidget(QWidget):
         has_selection = self.ui_widget.table_widget_devices.currentRow() >= 0
         
         self.ui_widget.push_button_disconnect.setEnabled(has_selection)
-        self.ui_widget.push_button_open_console.setEnabled(has_selection)
+        self.ui_widget.push_button_open_main_window.setEnabled(has_selection)
         
         # In a real app, you might want to check the device status to determine if buttons should be enabled
         if has_selection:
@@ -225,8 +225,8 @@ class DeviceManagerWidget(QWidget):
             # Only enable disconnect button if device is connected
             self.ui_widget.push_button_disconnect.setEnabled(device['status'] == 'Connected')
             
-            # Only enable open console button if device is connected
-            self.ui_widget.push_button_open_console.setEnabled(device['status'] == 'Connected')
+            # Only enable open main window button if device is connected
+            self.ui_widget.push_button_open_main_window.setEnabled(device['status'] == 'Connected')
     
     def _get_filtered_devices(self):
         """Get devices filtered by the selected filter type"""
@@ -336,7 +336,6 @@ class DeviceManagerWidget(QWidget):
                 self.refresh_timer.stop()
             
             # 清理資源並斷開所有設備
-            self.view_model.disconnect_all_devices()
             self.view_model.cleanup_resources()
             
             logger.info("Device manager resources cleaned up")
