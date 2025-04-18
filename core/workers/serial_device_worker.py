@@ -1,126 +1,155 @@
-from PySide6.QtCore import QObject, Signal, Slot
-from typing import Dict, Optional, List
+from PySide6.QtCore import QObject, Signal, Slot, QMutex, QThread
+from typing import Dict, Optional, List, Any
+import uuid
+import time
 from core.models.device_manager_model import DeviceManagerModel
 from util.logger import logger
 
 
 class SerialDeviceWorker(QObject):
-    """serial device worker object, handle device operations"""
+    """
+    Serial Device Worker Class
+    
+    Responsible for executing device operations in a separate thread, such as connecting, disconnecting, and sending commands.
+    Each operation completes by emitting a signal to notify the result.
+    Supports concurrent multi-device operations, and can be extended for various device services.
+    """
+    # Define external signals
     connection_result = Signal(str, bool, str)  # device_id, success, message
     disconnection_result = Signal(str, bool, str)  # device_id, success, message
     command_result = Signal(str, str, str)  # device_id, command, response
     
-    def __init__(self, device_manager, device_id):
+    # Define internal signals for passing commands between threads
+    _connect_device_signal = Signal(str, str, int, int)  # device_id, port, baudrate, timeout
+    _disconnect_device_signal = Signal(str)  # device_id
+    _send_command_signal = Signal(str, str, int)  # device_id, command, timeout
+    
+    def __init__(self, device_manager: DeviceManagerModel):
         super().__init__()
         self.device_manager = device_manager
-        self.device_id = device_id
+        self.command_mutex = QMutex()
         
-    @Slot(str, str, int, int)
+        # Create thread and move worker to thread
+        self.thread = QThread()
+        self.thread.setObjectName(f"SerialDeviceWorker_{uuid.uuid4().hex[:8]}")
+        self.moveToThread(self.thread)
+        
+        # Connect thread signals
+        self.thread.started.connect(self._on_thread_started)
+        self.thread.finished.connect(self._on_thread_finished)
+        
+        # Connect internal signals to actual execution slots
+        self._connect_device_signal.connect(self._execute_connect_device)
+        self._disconnect_device_signal.connect(self._execute_disconnect_device)
+        self._send_command_signal.connect(self._execute_send_command)
+        
+        # Start thread
+        self.thread.start()
+        
+    def _on_thread_started(self):
+        """Handle thread start"""
+        logger.info(f"SerialDeviceWorker thread started: {self.thread.objectName()}")
+        
+    def _on_thread_finished(self):
+        """Handle thread finish"""
+        logger.info(f"SerialDeviceWorker thread finished: {self.thread.objectName()}")
+        
+    def cleanup(self):
+        """Clean up resources, stop thread"""
+        if self.thread.isRunning():
+            self.thread.quit()
+            if not self.thread.wait(3000):  # 等待最多3秒
+                logger.warning(f"Force terminate SerialDeviceWorker thread: {self.thread.objectName()}")
+                self.thread.terminate()
+                self.thread.wait()
+                
+    def __del__(self):
+        """Destructor, ensure resources are released"""
+        self.cleanup()
+    
+    # External interface methods - these methods are called from the main thread, only emit signals
+        
     def connect_device(self, device_id: str, port: str, baudrate: int, timeout: int):
-        """connect device"""
+        """Connect serial device - execute in worker thread by emitting signals
+        
+        Args:
+            device_id: device ID
+            port: serial port name
+            baudrate: baud rate
+            timeout: timeout (seconds)
+        """
+        logger.info(f"Request to connect device {device_id} to port {port}")
+        self._connect_device_signal.emit(device_id, port, baudrate, timeout)
+            
+    def disconnect_device(self, device_id: str):
+        """Disconnect device - execute in worker thread by emitting signals
+        
+        Args:
+            device_id: device ID
+        """
+        logger.info(f"Request to disconnect device {device_id}")
+        self._disconnect_device_signal.emit(device_id)
+            
+    def send_command(self, device_id: str, command: str, timeout: int):
+        """Send command to device - execute in worker thread by emitting signals
+        
+        Args:
+            device_id: device ID
+            command: command to send
+            timeout: timeout (seconds)
+        """
+        logger.info(f"Request to send command to device {device_id}: {command}")
+        self._send_command_signal.emit(device_id, command, timeout)
+    
+    # Actual execution methods - these slots are executed in the worker thread
+    
+    @Slot(str, str, int, int)
+    def _execute_connect_device(self, device_id: str, port: str, baudrate: int, timeout: int):
+        """Actual execute device connection operation (in worker thread)"""
         try:
+            logger.info(f"Connecting device {device_id} to port {port}")
+            
+            # Create device and connect
             device = self.device_manager.create_serial_device(device_id, port, baudrate, timeout)
             if not device:
-                self.connection_result.emit(device_id, False, f"can't create device {device_id}")
+                self.connection_result.emit(device_id, False, f"Failed to create device {device_id}")
                 return
                 
             success = device.connect()
             if success:
-                self.connection_result.emit(device_id, True, f"success to connect to device {device_id} on port {port}")
+                self.connection_result.emit(device_id, True, f"Successfully connected device {device_id} to port {port}")
             else:
-                self.connection_result.emit(device_id, False, f"can't connect to device {device_id} on port {port}")
+                self.connection_result.emit(device_id, False, f"Failed to connect device {device_id} to port {port}")
         except Exception as e:
-            logger.error(f"error to connect device {device_id}: {str(e)}")
-            self.connection_result.emit(device_id, False, f"error to connect device {device_id}: {str(e)}")
-            
-    @Slot(str)
-    def disconnect_device(self, device_id: str):
-        """disconnect device"""
+            logger.error(f"Error connecting device {device_id}: {str(e)}")
+            self.connection_result.emit(device_id, False, f"Error connecting device: {str(e)}")
+    
+    @Slot(str)        
+    def _execute_disconnect_device(self, device_id: str):
+        """Actual execute device disconnection operation (in worker thread)"""
         try:
+            logger.info(f"Disconnecting device {device_id}")
+            
             success = self.device_manager.disconnect_device(device_id)
             if success:
-                self.disconnection_result.emit(device_id, True, f"success to disconnect device {device_id}")
+                self.disconnection_result.emit(device_id, True, f"Successfully disconnected device {device_id}")
             else:
-                self.disconnection_result.emit(device_id, False, f"can't disconnect device {device_id}")
+                self.disconnection_result.emit(device_id, False, f"Failed to disconnect device {device_id}")
         except Exception as e:
-            logger.error(f"error to disconnect device {device_id}: {str(e)}")
-            self.disconnection_result.emit(device_id, False, f"error to disconnect device {device_id}: {str(e)}")
-            
-    @Slot(str, str, int)
-    def send_command(self, device_id: str, command: str, timeout: int = 10):
-        """send command to device"""
+            logger.error(f"Error disconnecting device {device_id}: {str(e)}")
+            self.disconnection_result.emit(device_id, False, f"Error disconnecting device: {str(e)}")
+    
+    @Slot(str, str, int)        
+    def _execute_send_command(self, device_id: str, command: str, timeout: int):
+        """Actual execute send command operation (in worker thread)"""
         try:
+            logger.info(f"Sending command to device {device_id}: {command}")
+            
+            # Execute command
             response = self.device_manager.send_command(device_id, command, timeout)
+            logger.info(f"Command completed: {device_id}, {command}")
             self.command_result.emit(device_id, command, response)
         except Exception as e:
-            logger.error(f"error to send command to device {device_id}: {str(e)}")
-            self.command_result.emit(device_id, command, f"error to send command to device {device_id}: {str(e)}")
-            
-    @Slot()
-    def disconnect_all_devices(self):
-        """disconnect all devices"""
-        try:
-            self.device_manager.disconnect_all()
-            for device_id in list(self.device_manager.devices.keys()):
-                self.disconnection_result.emit(device_id, True, f"success to disconnect device {device_id}")
-        except Exception as e:
-            logger.error(f"error to disconnect all devices: {str(e)}") 
-
-
-if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
-    from PySide6.QtCore import QTimer
-    from core.models.device_manager_model import DeviceManagerModel
-    import sys
-
-    # create application
-    app = QApplication(sys.argv)
-    
-    # create necessary model and worker object
-    device_manager = DeviceManagerModel()
-    worker = SerialDeviceWorker(device_manager)
-    
-    # connect signal to slot function to display result
-    def on_connection_result(device_id, success, message):
-        print(f"connection result: device={device_id}, success={success}, message={message}")
-        # if connection success, wait 2 seconds and send command
-        if success:
-            QTimer.singleShot(2000, lambda: send_test_command(device_id))
-    
-    def on_disconnection_result(device_id, success, message):
-        print(f"disconnection result: device={device_id}, success={success}, message={message}")
-        # if test finished, quit app
-        QTimer.singleShot(1000, app.quit)
-    
-    def on_command_result(device_id, command, response):
-        print(f"command result: device={device_id}")
-        print(f"command: {command}")
-        print(f"response: {response}")
-        # if command finished, disconnect device
-        QTimer.singleShot(10000, lambda: disconnect_device(device_id))
-    
-    def send_test_command(device_id):
-        print(f"send test command to device {device_id}...")
-        worker.send_command(device_id, "cat /sys/class/gpio/gpio133/value", 5)  # try to send ls command
-    
-    def disconnect_device(device_id):
-        print(f"disconnect device {device_id}...")
-        worker.disconnect_device(device_id)
-    
-    # connect signal
-    worker.connection_result.connect(on_connection_result)
-    worker.disconnection_result.connect(on_disconnection_result)
-    worker.command_result.connect(on_command_result)
-    
-    # start test - connect device
-    device_id = "test_device"
-    port = "COM4"  # please modify to your actual COM port
-    print(f"try to connect device {device_id} to port {port}...")
-    worker.connect_device(device_id, port, 115200, 3)
-    
-    # if 10 seconds not finished, force quit
-    QTimer.singleShot(30000, app.quit)
-    
-    # execute application
-    sys.exit(app.exec())
+            logger.error(f"Error sending command {command} to device {device_id}: {str(e)}")
+            self.command_result.emit(device_id, command, f"Error: {str(e)}")
 

@@ -10,7 +10,7 @@ import sys
 import time
 import random
 from PySide6.QtWidgets import QDialog, QMessageBox, QApplication, QVBoxLayout
-from PySide6.QtCore import QFile, Signal, Slot, QIODevice
+from PySide6.QtCore import QFile, Signal, Slot, QIODevice, Qt
 from PySide6.QtUiTools import QUiLoader
 from util.logger import logger
 
@@ -178,27 +178,28 @@ class DeviceConnectionDialog(QDialog):
         self.reject()
     
     def _connect_serial(self):
-        """連接到串行設備"""
-        # 獲取連接參數
+        """Connect to serial device"""
+        # Get connection parameters
         port = self.ui_widget.combo_box_port.currentText()
         baudrate = int(self.ui_widget.combo_box_baudrate.currentText())
         latency = int(self.ui_widget.combo_box_latency.currentText())
         
-        # 檢查是否有視圖模型
+        # Check if view model exists
         if hasattr(self, 'view_model') and self.view_model:
             logger.info(f"Using view model to connect to device: {port}")
             
-            # 禁用連接按鈕並顯示連接狀態
+            # Disable connect button and show connecting status
             self.ui_widget.push_button_connect.setEnabled(False)
             self.ui_widget.push_button_connect.setText("Connecting...")
-            QApplication.processEvents()  # 確保 UI 更新
+            QApplication.processEvents()  # Ensure UI updates
             
-            # 生成設備ID (可以根據需要調整)
+            # Generate device ID (adjust as needed)
             device_id = f"serial_{port.replace('/', '_').replace(':', '_')}"
             
-            # 使用視圖模型進行連接
+            # Use view model to connect
             self.view_model.connect_serial_device(device_id, port, baudrate, latency)
-            # 連接結果由信號處理函數處理
+            
+            # Note: Connection results will be handled by _on_device_connected_result function
             return
     
     def _connect_ssh(self):
@@ -297,65 +298,74 @@ class DeviceConnectionDialog(QDialog):
             QMessageBox.critical(self, "Connection Error", error_msg)
 
     def set_view_model(self, view_model):
-        """設置視圖模型用於設備操作
+        """Set view model for device operations
         
         Args:
-            view_model: DeviceManagerViewModel 實例
+            view_model: DeviceManagerViewModel instance
         """
         self.view_model = view_model
         
-        # 連接視圖模型的信號
-        self.view_model.device_connected.connect(self._on_device_connected_result)
+        # Connect view model signals
+        self.view_model.connection_result.connect(self._on_device_connected_result)
         logger.debug("DeviceConnectionDialog: view model signals connected")
 
     @Slot(str, bool, str)
     def _on_device_connected_result(self, device_id, success, message):
-        """處理來自視圖模型的設備連接結果
+        """Handle device connection result from view model
         
         Args:
-            device_id: 設備ID
-            success: 連接是否成功
-            message: 連接結果消息
+            device_id: device ID
+            success: connection success
+            message: connection result message
         """
-        # 重新啟用連接按鈕
+        # Re-enable connect button
         self.ui_widget.push_button_connect.setEnabled(True)
         self.ui_widget.push_button_connect.setText("Connect")
         
         if success:
-            # 連接成功
+            # Connection successful
             logger.info(f"Successfully connected to device {device_id}")
             
-            # 從設備ID解析信息
+            # Parse information from device ID
             parts = device_id.split('_')
             device_type = parts[0] if len(parts) > 0 else "serial"
             address = parts[1] if len(parts) > 1 else device_id
             
-            # 獲取連接參數
+            # Get connection parameters
             port = self.ui_widget.combo_box_port.currentText()
             baudrate = self.ui_widget.combo_box_baudrate.currentText()
             latency = self.ui_widget.combo_box_latency.currentText()
             
-            # 創建設備信息返回給調用者
+            # If view model exists, update device details
+            if hasattr(self, 'view_model') and self.view_model:
+                details = {
+                    'port': port,
+                    'baudrate': baudrate,
+                    'latency': latency
+                }
+                self.view_model.update_device_info(device_id, details)
+            
+            # Create device info to return to caller
             self.connected_device = {
-                'id': device_id,  # 新增: 保存設備ID供後續使用
+                'id': device_id,
                 'name': f"Serial Device ({port})",
                 'type': 'Serial',
                 'address': port,
                 'status': 'Connected',
                 'details': {
-                    'port': port,  # 新增: 保存端口信息
+                    'port': port,
                     'baudrate': baudrate,
                     'latency': latency
                 }
             }
             
-            # 成功關閉對話框
+            # Successfully close dialog
             self.accept()
         else:
-            # 連接失敗
+            # Connection failed
             logger.error(f"Failed to connect to device: {message}")
             
-            # 顯示錯誤對話框
+            # Show error dialog
             QMessageBox.critical(self, "Connection Error", message)
 
 

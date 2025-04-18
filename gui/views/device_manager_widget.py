@@ -30,12 +30,10 @@ class DeviceManagerWidget(QWidget):
         self.view_model = DeviceManagerViewModel()
         
         # Connect view model signals
-        self.view_model.device_connected.connect(self._on_device_connected)
-        self.view_model.device_disconnected.connect(self._on_device_disconnected)
-        self.view_model.command_completed.connect(self._on_command_completed)
-        
-        # Initialize device list (in real application, this would be stored in a database or config)
-        self.devices = []
+        self.view_model.connection_result.connect(self._on_device_connected)
+        self.view_model.disconnection_result.connect(self._on_device_disconnected)
+        self.view_model.command_result.connect(self._on_command_completed)
+        self.view_model.device_list_changed.connect(self._on_device_list_changed)
         
         # Load UI
         self._load_ui_direct()
@@ -135,15 +133,12 @@ class DeviceManagerWidget(QWidget):
             if hasattr(dialog, 'set_view_model'):
                 dialog.set_view_model(self.view_model)
             
-            result = dialog.exec()
+            # Execute dialog
+            dialog.exec()
             
-            if result == DeviceConnectionDialog.Accepted and dialog.connected_device:
-                # 設備已經在對話框中連接，只需添加到本地列表即可
-                if not any(d.get('id') == dialog.connected_device.get('id') for d in self.devices):
-                    # 只有在設備不在本地列表中時才添加
-                    self.devices.append(dialog.connected_device)
-                    logger.info(f"New device added: {dialog.connected_device['name']}")
-                    self._refresh_device_list()
+            # No need to manually manage device list
+            # When device connection is successful, the view_model will automatically emit the device_list_changed signal
+            
         except Exception as e:
             error_msg = f"Failed to open device connection dialog: {str(e)}"
             logger.error(error_msg, exc_info=True)
@@ -204,26 +199,26 @@ class DeviceManagerWidget(QWidget):
             if not hasattr(self, 'device_windows'):
                 self.device_windows = {}
             
-            # 檢查窗口是否已存在且仍然有效
+            # Check if window already exists and is still valid
             create_new_window = True
             if device_id in self.device_windows and self.device_windows[device_id]:
                 controller = self.device_windows[device_id]
-                # 檢查窗口是否仍然有效
+                # Check if window is still valid
                 if controller.window.isVisible():
-                    # 窗口存在且可見，激活它
+                    # Window exists and is visible, activate it
                     controller.window.setWindowState(controller.window.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
                     controller.window.activateWindow()
                     controller.window.raise_()
                     logger.info(f"Raised existing main window for device: {device_id}")
                     create_new_window = False
                 else:
-                    # 窗口不可見，可能已關閉但引用仍存在
+                    # Window is not visible, possibly closed but reference still exists
                     logger.info(f"Window for device {device_id} exists but is not visible, creating new window")
             
             if create_new_window:
-                # 創建新窗口
+                # Create new window
                 controller = MainWindowController(device_id, self.view_model)
-                # 連接窗口關閉信號
+                # Connect window closed signal
                 controller.window_closed.connect(self._on_device_window_closed)
                 self.device_windows[device_id] = controller
                 controller.show()
@@ -236,11 +231,11 @@ class DeviceManagerWidget(QWidget):
     
     @Slot(str)
     def _on_device_window_closed(self, device_id):
-        """處理設備窗口關閉事件"""
+        """Handle device window closed event"""
         logger.info(f"Device window closed: {device_id}")
-        # 從設備窗口字典中移除引用
+        # Remove reference from device window dictionary
         if hasattr(self, 'device_windows') and device_id in self.device_windows:
-            # 移除窗口引用
+            # Remove window reference
             del self.device_windows[device_id]
             logger.debug(f"Removed window reference for device: {device_id}")
     
@@ -264,32 +259,11 @@ class DeviceManagerWidget(QWidget):
             self.ui_widget.push_button_open_main_window.setEnabled(device['status'] == 'Connected')
     
     def _get_filtered_devices(self):
-        """Get devices filtered by the selected filter type"""
+        """Get devices filtered by selected filter type"""
         filter_type = self.ui_widget.combo_box_filter.currentText()
         
-        # 合併兩個來源的設備
-        all_devices = self.devices.copy()
-        
-        # 添加來自 view model 的設備
-        vm_device_ids = self.view_model.get_connected_devices()
-        for device_id in vm_device_ids:
-            # 檢查設備是否已存在
-            if not any(d.get('id') == device_id for d in all_devices):
-                # 為視圖模型設備創建新條目
-                is_connected = self.view_model.is_device_connected(device_id)
-                
-                # 從設備ID中提取信息
-                parts = device_id.split('_')
-                device_type = parts[0].capitalize() if len(parts) > 0 else 'Serial'
-                device_address = parts[1] if len(parts) > 1 else device_id
-                
-                all_devices.append({
-                    'id': device_id,
-                    'name': f"{device_type} Device ({device_address})",
-                    'type': device_type,
-                    'address': device_address,
-                    'status': 'Connected' if is_connected else 'Disconnected'
-                })
+        # Get devices from view model
+        all_devices = self.view_model.get_connected_devices()
         
         if filter_type == "All Devices":
             return all_devices
@@ -347,10 +321,8 @@ class DeviceManagerWidget(QWidget):
         """Handle device disconnection event from view model"""
         if success:
             logger.info(f"Device disconnected: {device_id}")
-            # Remove device from local list if it exists
-            self.devices = [d for d in self.devices if d.get('id') != device_id]
-            # Refresh device list
-            self._refresh_device_list()
+            # No need to manually manage device list
+            # The view will update through the _on_device_list_changed signal
         else:
             logger.error(f"Device disconnection failed: {device_id} - {message}")
             QMessageBox.warning(self, "Disconnection Failed", message)
@@ -361,26 +333,49 @@ class DeviceManagerWidget(QWidget):
         logger.info(f"Command completed for device {device_id}")
         logger.debug(f"Command: {command}")
         logger.debug(f"Response: {response}")
-        # 在實際應用中，您可能會更新控制台視圖來顯示響應
+        # In actual application, you may update the console view to display the response
+    
+    @Slot(list)
+    def _on_device_list_changed(self, devices_list):
+        """Handle device list change signal
+        
+        Args:
+            devices_list: updated device list
+        """
+        logger.debug(f"Device list updated, {len(devices_list)} devices")
+        self._refresh_device_list()
     
     def closeEvent(self, event):
         """Handle close event for window"""
         try:
-            # 停止刷新計時器
+            # Close all open main windows
+            if hasattr(self, 'device_windows') and self.device_windows:
+                # Copy dictionary keys, as we will modify the dictionary during iteration
+                device_ids = list(self.device_windows.keys())
+                for device_id in device_ids:
+                    if device_id in self.device_windows and self.device_windows[device_id]:
+                        logger.info(f"Closing main window for device: {device_id}")
+                        self.device_windows[device_id].close()
+                # Clear window dictionary
+                self.device_windows.clear()
+            
+            # Stop refresh timer
             if hasattr(self, 'refresh_timer'):
                 self.refresh_timer.stop()
             
-            # 清理資源並斷開所有設備
-            self.view_model.cleanup_resources()
+            # Clean up resources and disconnect all devices
+            if hasattr(self, 'view_model') and self.view_model:
+                logger.info("Cleaning up view model resources")
+                self.view_model.cleanup()
             
             logger.info("Device manager resources cleaned up")
             event.accept()
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")
-            event.accept()  # 仍然接受事件以關閉窗口
+            event.accept()  # Still accept event to close window
 
 
-# 如果直接運行此文件，則創建應用並顯示窗口
+# If this file is run directly, create an application and display the window
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = DeviceManagerWidget()
