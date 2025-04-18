@@ -40,11 +40,11 @@ class LoginDialog(QDialog):
             if hasattr(sys, '_MEIPASS'):
                 # PyInstaller creates a temp folder and stores path in _MEIPASS
                 base_path = sys._MEIPASS
-                ui_file_path = os.path.join(base_path, 'gui', 'ui', 'login.ui')
+                ui_file_path = os.path.join(base_path, 'gui', 'ui', 'login_dialog.ui')
             else:
                 # Normal development environment
                 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                ui_file_path = os.path.join(current_dir, "ui", "login.ui")
+                ui_file_path = os.path.join(current_dir, "ui", "login_dialog.ui")
                 
             logger.debug(f"Loading UI from: {ui_file_path}")
             

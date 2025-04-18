@@ -7,10 +7,11 @@ Handle the display of device manager UI and device management
 
 import os
 import sys
-from PySide6.QtWidgets import QWidget, QMessageBox, QTableWidgetItem, QVBoxLayout
-from PySide6.QtCore import QFile, Qt, QIODevice
+from PySide6.QtWidgets import QWidget, QMessageBox, QTableWidgetItem, QVBoxLayout, QApplication
+from PySide6.QtCore import QFile, Qt, QIODevice, Slot, QTimer
 from PySide6.QtUiTools import QUiLoader
-from gui.views.device_connection import DeviceConnectionDialog
+from gui.views.device_connection_dialog import DeviceConnectionDialog
+from gui.view_models.device_manager_view_model import DeviceManagerViewModel
 from util.logger import logger
 
 
@@ -25,6 +26,14 @@ class DeviceManagerWidget(QWidget):
         """
         super().__init__(parent)
         
+        # Initialize view model
+        self.view_model = DeviceManagerViewModel()
+        
+        # Connect view model signals
+        self.view_model.device_connected.connect(self._on_device_connected)
+        self.view_model.device_disconnected.connect(self._on_device_disconnected)
+        self.view_model.command_completed.connect(self._on_command_completed)
+        
         # Initialize device list (in real application, this would be stored in a database or config)
         self.devices = []
         
@@ -37,6 +46,15 @@ class DeviceManagerWidget(QWidget):
         # Initial refresh
         self._refresh_device_list()
         
+        # Setup periodic refresh
+        self._setup_refresh_timer()
+        
+    def _setup_refresh_timer(self, interval_ms=5000):
+        """Setup periodic refresh timer"""
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self._refresh_device_list)
+        self.refresh_timer.start(interval_ms)
+        
     def _load_ui_direct(self):
         """Load UI with a more direct approach"""
         try:
@@ -44,11 +62,11 @@ class DeviceManagerWidget(QWidget):
             if hasattr(sys, '_MEIPASS'):
                 # PyInstaller creates a temp folder and stores path in _MEIPASS
                 base_path = sys._MEIPASS
-                ui_file_path = os.path.join(base_path, 'gui', 'ui', 'device_manager.ui')
+                ui_file_path = os.path.join(base_path, 'gui', 'ui', 'device_manager_widget.ui')
             else:
                 # Normal development environment
                 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                ui_file_path = os.path.join(current_dir, "ui", "device_manager.ui")
+                ui_file_path = os.path.join(current_dir, "ui", "device_manager_widget.ui")
                 
             logger.debug(f"Loading UI from: {ui_file_path}")
             
@@ -112,15 +130,20 @@ class DeviceManagerWidget(QWidget):
         try:
             # Create and show device connection dialog
             dialog = DeviceConnectionDialog(self)
+            
+            # Check if dialog can accept the view model
+            if hasattr(dialog, 'set_view_model'):
+                dialog.set_view_model(self.view_model)
+            
             result = dialog.exec()
             
             if result == DeviceConnectionDialog.Accepted and dialog.connected_device:
-                # Add the new device to our list
-                self.devices.append(dialog.connected_device)
-                logger.info(f"New device added: {dialog.connected_device['name']}")
-                
-                # Refresh the device list
-                self._refresh_device_list()
+                # 設備已經在對話框中連接，只需添加到本地列表即可
+                if not any(d.get('id') == dialog.connected_device.get('id') for d in self.devices):
+                    # 只有在設備不在本地列表中時才添加
+                    self.devices.append(dialog.connected_device)
+                    logger.info(f"New device added: {dialog.connected_device['name']}")
+                    self._refresh_device_list()
         except Exception as e:
             error_msg = f"Failed to open device connection dialog: {str(e)}"
             logger.error(error_msg, exc_info=True)
@@ -128,7 +151,6 @@ class DeviceManagerWidget(QWidget):
     
     def _on_disconnect_clicked(self):
         """Handle disconnect button click"""
-        # Get selected row
         selected_row = self.ui_widget.table_widget_devices.currentRow()
         if selected_row < 0:
             return
@@ -137,17 +159,18 @@ class DeviceManagerWidget(QWidget):
             # Get device from the current row
             device = self._get_filtered_devices()[selected_row]
             
-            # In a real application, you would disconnect from the device here
-            logger.info(f"Disconnecting from device: {device['name']}")
-            
-            # Update device status
-            device['status'] = 'Disconnected'
-            
-            # Refresh the device list
-            self._refresh_device_list()
-            
-            # Show success message
-            QMessageBox.information(self, "Success", f"Device {device['name']} disconnected successfully.")
+            # Get device ID
+            device_id = device.get('id', None)
+            if device_id:
+                # Use view model to disconnect
+                self.view_model.disconnect_device(device_id)
+            else:
+                # For devices not yet managed by view model
+                logger.info(f"Disconnecting from device: {device['name']}")
+                device['status'] = 'Disconnected'
+                self._refresh_device_list()
+                QMessageBox.information(self, "Success", f"Device {device['name']} disconnected successfully.")
+                
         except Exception as e:
             error_msg = f"Failed to disconnect device: {str(e)}"
             logger.error(error_msg, exc_info=True)
@@ -155,7 +178,6 @@ class DeviceManagerWidget(QWidget):
     
     def _on_open_console_clicked(self):
         """Handle open console button click"""
-        # Get selected row
         selected_row = self.ui_widget.table_widget_devices.currentRow()
         if selected_row < 0:
             return
@@ -167,12 +189,20 @@ class DeviceManagerWidget(QWidget):
             if device['status'] != 'Connected':
                 QMessageBox.warning(self, "Warning", "Device is not connected. Please connect first.")
                 return
-                
-            # In a real application, you would open the console for the selected device
-            logger.info(f"Opening console for device: {device['name']}")
             
-            # Show a message for now (in a real app, you would open the console window)
+            # Get device ID
+            device_id = device.get('id', None)
+            if not device_id:
+                QMessageBox.warning(self, "Warning", "Device ID is missing. Cannot open console.")
+                return
+                
+            # Here you would open the console for the selected device
+            # For now we just show a message
+            logger.info(f"Opening console for device: {device_id}")
             QMessageBox.information(self, "Console", f"Opening console for {device['name']}...")
+            
+            # 在這裡您可以編寫代碼打開控制台並發送命令
+            # 例如：self.view_model.send_command(device_id, "help")
             
         except Exception as e:
             error_msg = f"Failed to open console: {str(e)}"
@@ -199,17 +229,37 @@ class DeviceManagerWidget(QWidget):
             self.ui_widget.push_button_open_console.setEnabled(device['status'] == 'Connected')
     
     def _get_filtered_devices(self):
-        """Get devices filtered by the selected filter type
-        
-        Returns:
-            filtered list of devices
-        """
+        """Get devices filtered by the selected filter type"""
         filter_type = self.ui_widget.combo_box_filter.currentText()
         
+        # 合併兩個來源的設備
+        all_devices = self.devices.copy()
+        
+        # 添加來自 view model 的設備
+        vm_device_ids = self.view_model.get_connected_devices()
+        for device_id in vm_device_ids:
+            # 檢查設備是否已存在
+            if not any(d.get('id') == device_id for d in all_devices):
+                # 為視圖模型設備創建新條目
+                is_connected = self.view_model.is_device_connected(device_id)
+                
+                # 從設備ID中提取信息
+                parts = device_id.split('_')
+                device_type = parts[0].capitalize() if len(parts) > 0 else 'Serial'
+                device_address = parts[1] if len(parts) > 1 else device_id
+                
+                all_devices.append({
+                    'id': device_id,
+                    'name': f"{device_type} Device ({device_address})",
+                    'type': device_type,
+                    'address': device_address,
+                    'status': 'Connected' if is_connected else 'Disconnected'
+                })
+        
         if filter_type == "All Devices":
-            return self.devices
+            return all_devices
         else:
-            return [device for device in self.devices if device['type'] == filter_type]
+            return [device for device in all_devices if device['type'] == filter_type]
     
     def _refresh_device_list(self):
         """Refresh the device list in the table"""
@@ -244,13 +294,61 @@ class DeviceManagerWidget(QWidget):
         
         # Update button states
         self._on_device_selection_changed()
+    
+    @Slot(str, bool, str)
+    def _on_device_connected(self, device_id, success, message):
+        """Handle device connection event from view model"""
+        if success:
+            logger.info(f"Device connected: {device_id}")
+            # Refresh device list to show the new device
+            self._refresh_device_list()
+            # Optionally show a notification
+            # QMessageBox.information(self, "Connection Success", message)
+        else:
+            logger.error(f"Device connection failed: {device_id} - {message}")
+    
+    @Slot(str, bool, str)
+    def _on_device_disconnected(self, device_id, success, message):
+        """Handle device disconnection event from view model"""
+        if success:
+            logger.info(f"Device disconnected: {device_id}")
+            # Remove device from local list if it exists
+            self.devices = [d for d in self.devices if d.get('id') != device_id]
+            # Refresh device list
+            self._refresh_device_list()
+        else:
+            logger.error(f"Device disconnection failed: {device_id} - {message}")
+            QMessageBox.warning(self, "Disconnection Failed", message)
+    
+    @Slot(str, str, str)
+    def _on_command_completed(self, device_id, command, response):
+        """Handle command completed event from view model"""
+        logger.info(f"Command completed for device {device_id}")
+        logger.debug(f"Command: {command}")
+        logger.debug(f"Response: {response}")
+        # 在實際應用中，您可能會更新控制台視圖來顯示響應
+    
+    def closeEvent(self, event):
+        """Handle close event for window"""
+        try:
+            # 停止刷新計時器
+            if hasattr(self, 'refresh_timer'):
+                self.refresh_timer.stop()
+            
+            # 清理資源並斷開所有設備
+            self.view_model.disconnect_all_devices()
+            self.view_model.cleanup_resources()
+            
+            logger.info("Device manager resources cleaned up")
+            event.accept()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
+            event.accept()  # 仍然接受事件以關閉窗口
 
 
-# For testing
+# 如果直接運行此文件，則創建應用並顯示窗口
 if __name__ == "__main__":
-    # Test the device manager widget
-    from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    widget = DeviceManagerWidget()
-    widget.show()
+    window = DeviceManagerWidget()
+    window.show()
     sys.exit(app.exec()) 

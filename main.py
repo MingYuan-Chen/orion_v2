@@ -5,8 +5,8 @@ Main entry point for the application
 
 import sys
 from PySide6.QtWidgets import QApplication
-from gui.views.login import LoginDialog
-from gui.views.device_manager import DeviceManagerWidget
+from gui.views.login_dialog import LoginDialog
+from gui.views.device_manager_widget import DeviceManagerWidget
 from util.logger import logger
 
 
