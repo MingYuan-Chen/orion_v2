@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 from gui.views.login_dialog import LoginDialog
 from gui.views.device_manager_widget import DeviceManagerWidget
 from util.logger import logger
+import os
 
 
 def main():
@@ -19,6 +20,23 @@ def main():
         # Set application name and style
         app.setApplicationName("VT Hydra")
         app.setStyle("Fusion")  # Use Fusion style for a modern look
+        
+        # Set application icon
+        if hasattr(sys, '_MEIPASS'):
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            icon_path = os.path.join(sys._MEIPASS, 'resources', 'icons', 'header.ico')
+        else:
+            # Normal development environment
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            icon_path = os.path.join(current_dir, "resources", "icons", "header.ico")
+            
+        if os.path.exists(icon_path):
+            from PySide6.QtGui import QIcon
+            app_icon = QIcon(icon_path)
+            app.setWindowIcon(app_icon)
+            logger.info("Application icon set successfully")
+        else:
+            logger.warning(f"Icon file not found: {icon_path}")
         
         # Start with login screen
         login_dialog = LoginDialog()

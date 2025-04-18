@@ -61,12 +61,18 @@ class DeviceManagerWidget(QWidget):
                 # PyInstaller creates a temp folder and stores path in _MEIPASS
                 base_path = sys._MEIPASS
                 ui_file_path = os.path.join(base_path, 'gui', 'ui', 'device_manager_widget.ui')
+                icon_path = os.path.join(base_path, 'resources', 'icons', 'header.ico')
             else:
                 # Normal development environment
                 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 ui_file_path = os.path.join(current_dir, "ui", "device_manager_widget.ui")
                 
+                # Get icon path - go up two directories to find resources
+                base_dir = os.path.dirname(os.path.dirname(current_dir))
+                icon_path = os.path.join(base_dir, "resources", "icons", "header.ico")
+                
             logger.debug(f"Loading UI from: {ui_file_path}")
+            logger.debug(f"Icon path: {icon_path}")
             
             # Create main layout
             main_layout = QVBoxLayout(self)
@@ -98,6 +104,14 @@ class DeviceManagerWidget(QWidget):
             # Set UI properties
             self.setWindowTitle("Device Manager")
             self.resize(self.ui_widget.size())
+            
+            # Set application icon
+            if os.path.exists(icon_path):
+                from PySide6.QtGui import QIcon
+                self.setWindowIcon(QIcon(icon_path))
+                logger.debug("Application icon set successfully")
+            else:
+                logger.warning(f"Icon file not found: {icon_path}")
             
             logger.debug("Device manager UI loaded successfully")
             

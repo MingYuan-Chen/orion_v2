@@ -4,7 +4,10 @@ from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
 import datetime
 from util.logger import logger
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon
+import os
+import sys
+from PySide6.QtCore import QFile
 
 
 class MainWindowController(QObject):
@@ -31,10 +34,59 @@ class MainWindowController(QObject):
         self.view_model = view_model
         
         # Load UI
-        self.window = QUiLoader().load("gui/ui/main_window.ui")
+        try:
+            # Get UI file path - support PyInstaller
+            if hasattr(sys, '_MEIPASS'):
+                # PyInstaller creates a temp folder and stores path in _MEIPASS
+                base_path = sys._MEIPASS
+                ui_file_path = os.path.join(base_path, 'gui', 'ui', 'main_window.ui')
+                icon_path = os.path.join(base_path, 'resources', 'icons', 'header.ico')
+            else:
+                # Normal development environment
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                gui_dir = os.path.dirname(current_dir)
+                ui_file_path = os.path.join(gui_dir, "ui", "main_window.ui")
+                
+                # Get icon path - go up two levels from gui/views
+                base_dir = os.path.dirname(gui_dir)
+                icon_path = os.path.join(base_dir, "resources", "icons", "header.ico")
+            
+            logger.debug(f"Loading main window UI from: {ui_file_path}")
+            
+            # Load UI file
+            ui_file = QFile(ui_file_path)
+            if not ui_file.open(QFile.ReadOnly):
+                error_msg = f"Cannot open {ui_file_path}: {ui_file.errorString()}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            
+            # Load UI using QUiLoader
+            loader = QUiLoader()
+            self.window = loader.load(ui_file)
+            ui_file.close()
+            
+            if not self.window:
+                error_msg = f"Failed to load UI file: {loader.errorString()}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            
+            logger.debug(f"Main window UI loaded successfully for device {device_id}")
+        except Exception as e:
+            logger.error(f"Failed to load main window UI: {str(e)}")
+            raise
         
         # Set window title
         self.window.setWindowTitle(f"System Monitoring - Device {device_id}")
+        
+        # Set window icon
+        try:
+            if os.path.exists(icon_path):
+                self.window.setWindowIcon(QIcon(icon_path))
+                logger.debug(f"Main window icon set successfully for device {device_id}")
+            else:
+                logger.warning(f"Icon file not found: {icon_path}")
+        except Exception as e:
+            logger.error(f"Failed to set window icon: {str(e)}")
         
         # Initialize tables
         self._init_tables()
@@ -124,9 +176,6 @@ class MainWindowController(QObject):
         logs_table.setColumnWidth(0, 180)  # Timestamp column
         logs_table.setColumnWidth(1, 80)   # Level column
         
-        # Add some sample logs
-        self._add_sample_logs()
-        
         # Connect command send button
         self.window.pushButton_send_command.clicked.connect(self._on_send_command)
         self.window.lineEdit_command.returnPressed.connect(self._on_send_command)
@@ -138,40 +187,6 @@ class MainWindowController(QObject):
         # Connect refresh and clear buttons
         self.window.pushButton_refresh_logs.clicked.connect(self._refresh_logs)
         self.window.pushButton_clear_logs.clicked.connect(self._clear_logs)
-    
-    def _add_sample_logs(self):
-        """Add sample log data"""
-        sample_logs = [
-            ("2025-04-15 13:45:27", "INFO", "System startup completed"),
-            ("2025-04-15 13:45:28", "INFO", "Hardware initialization successful"),
-            ("2025-04-15 13:45:29", "INFO", "Network services started"),
-            ("2025-04-15 13:45:30", "WARNING", "Battery health check recommended"),
-            ("2025-04-15 13:45:31", "ERROR", "Touch calibration failed"),
-            ("2025-04-15 13:45:32", "INFO", "Storage check completed"),
-            ("2025-04-15 13:45:33", "DEBUG", "CPU temperature: 45°C"),
-        ]
-        
-        logs_table = self.window.tableWidget_logs
-        logs_table.setRowCount(len(sample_logs))
-        
-        for row, (timestamp, level, message) in enumerate(sample_logs):
-            # Create and set items
-            timestamp_item = QTableWidgetItem(timestamp)
-            level_item = QTableWidgetItem(level)
-            message_item = QTableWidgetItem(message)
-            
-            # Set log level as data for filtering
-            timestamp_item.setData(Qt.UserRole, level)
-            level_item.setData(Qt.UserRole, level)
-            message_item.setData(Qt.UserRole, level)
-            
-            # Set log level as attribute for styling
-            logs_table.setItem(row, 0, timestamp_item)
-            logs_table.setItem(row, 1, level_item)
-            logs_table.setItem(row, 2, message_item)
-            
-            # Set color
-            self._set_log_item_color(row, level)
     
     def _set_log_item_color(self, row, level):
         """Set log item color"""
