@@ -1,16 +1,19 @@
 from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot, QObject, QEvent
 from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
 import datetime
 from util.logger import logger
 
 
-class MainWindowController:
+class MainWindowController(QObject):
     """
     控制器類用於管理設備監控主窗口
     每個設備會創建一個獨立的實例
     """
+    # 添加窗口關閉信號
+    window_closed = Signal(str)  # 發送設備ID
+    
     def __init__(self, device_id, view_model):
         """
         初始化主窗口控制器
@@ -19,6 +22,9 @@ class MainWindowController:
             device_id: 設備ID
             view_model: DeviceManagerViewModel 實例
         """
+        # 調用 QObject 初始化
+        super().__init__()
+        
         # 保存設備ID和視圖模型
         self.device_id = device_id
         self.view_model = view_model
@@ -42,6 +48,19 @@ class MainWindowController:
         
         # 初始載入設備數據
         self._update_dashboard()
+        
+        # 安裝事件過濾器來捕獲窗口關閉事件
+        self.window.installEventFilter(self)
+    
+    def eventFilter(self, obj, event):
+        """過濾窗口事件以捕獲關閉事件"""
+        if obj is self.window and event.type() == QEvent.Close:
+            logger.info(f"Main window for device {self.device_id} is closing")
+            # 停止更新計時器
+            self.update_timer.stop()
+            # 發出窗口關閉信號
+            self.window_closed.emit(self.device_id)
+        return super().eventFilter(obj, event)
     
     def _init_tables(self):
         """初始化表格設置"""

@@ -204,17 +204,27 @@ class DeviceManagerWidget(QWidget):
             if not hasattr(self, 'device_windows'):
                 self.device_windows = {}
             
-            # Create or reuse a controller for this device
+            # 檢查窗口是否已存在且仍然有效
+            create_new_window = True
             if device_id in self.device_windows and self.device_windows[device_id]:
-                # Show existing window if it already exists
                 controller = self.device_windows[device_id]
-                controller.window.setWindowState(controller.window.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
-                controller.window.activateWindow()
-                controller.window.raise_()
-                logger.info(f"Raised existing main window for device: {device_id}")
-            else:
-                # Create new window controller for this device
+                # 檢查窗口是否仍然有效
+                if controller.window.isVisible():
+                    # 窗口存在且可見，激活它
+                    controller.window.setWindowState(controller.window.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+                    controller.window.activateWindow()
+                    controller.window.raise_()
+                    logger.info(f"Raised existing main window for device: {device_id}")
+                    create_new_window = False
+                else:
+                    # 窗口不可見，可能已關閉但引用仍存在
+                    logger.info(f"Window for device {device_id} exists but is not visible, creating new window")
+            
+            if create_new_window:
+                # 創建新窗口
                 controller = MainWindowController(device_id, self.view_model)
+                # 連接窗口關閉信號
+                controller.window_closed.connect(self._on_device_window_closed)
                 self.device_windows[device_id] = controller
                 controller.show()
                 logger.info(f"Opened new main window for device: {device_id}")
@@ -223,6 +233,16 @@ class DeviceManagerWidget(QWidget):
             error_msg = f"Failed to open main window: {str(e)}"
             logger.error(error_msg, exc_info=True)
             QMessageBox.critical(self, "Error", error_msg)
+    
+    @Slot(str)
+    def _on_device_window_closed(self, device_id):
+        """處理設備窗口關閉事件"""
+        logger.info(f"Device window closed: {device_id}")
+        # 從設備窗口字典中移除引用
+        if hasattr(self, 'device_windows') and device_id in self.device_windows:
+            # 移除窗口引用
+            del self.device_windows[device_id]
+            logger.debug(f"Removed window reference for device: {device_id}")
     
     def _on_device_selection_changed(self):
         """Handle device selection change in the table"""
