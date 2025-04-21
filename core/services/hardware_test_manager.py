@@ -100,27 +100,59 @@ class HardwareTestManagerService(QObject):
             device_id: Device ID
             test_id: Test ID
         """
-        if test_id not in self.test_workers:
+        # 檢查測試類型
+        worker_class = None
+        if test_id == "usb_ports":
+            from core.tests.usb_ports_test_worker import UsbPortsTestWorker
+            worker_class = UsbPortsTestWorker
+        # 其他測試類型...
+        # elif test_id == "touch_screen":
+        #     from core.tests.touch_screen_test_worker import TouchScreenTestWorker
+        #     worker_class = TouchScreenTestWorker
+        
+        if not worker_class:
             error_msg = f"Unknown test: {test_id}"
             logger.error(error_msg)
             self.test_completed.emit(test_id, False, error_msg)
             return
         
-        # If there is a test running, stop it first
+        # 如果有測試正在運行，先停止它
         if self.active_test_worker is not None:
             logger.warning(f"Stop current running test: {self.active_test_id}")
             self.active_test_worker.stop_test()
-            
-        # Set current active test
+        
+        # 重新創建工作器 (這是關鍵修改)
+        worker = worker_class(self.device_worker)
+        
+        # 連接信號
+        worker.test_step_completed.connect(
+            lambda step_index, success, message: 
+                self.test_step_completed.emit(test_id, step_index, success, message)
+        )
+        worker.test_step_retrying.connect(
+            lambda step_index, retry_count, max_retries, error_message:
+                self.test_step_retrying.emit(test_id, step_index, retry_count, max_retries, error_message)
+        )
+        worker.test_progress.connect(
+            lambda current, total: 
+                self.test_progress.emit(test_id, current, total)
+        )
+        worker.test_completed.connect(
+            lambda success, message: 
+                self._handle_test_completion(test_id, success, message)
+        )
+        
+        # 更新字典和活動測試
+        self.test_workers[test_id] = worker
         self.active_test_id = test_id
-        self.active_test_worker = self.test_workers[test_id]
+        self.active_test_worker = worker
         
         logger.info(f"Start test: {test_id}, device ID: {device_id}")
         
-        # Notify test started
+        # 通知測試已啟動
         self.test_started.emit(test_id)
         
-        # Start test worker
+        # 啟動測試工作器
         self.active_test_worker.start_test(device_id)
     
     def stop_current_test(self):
@@ -152,40 +184,44 @@ class HardwareTestManagerService(QObject):
         self.active_test_worker = None
 
     def cleanup(self):
-        """Clean up resources, stop thread"""
+        """Clean up hardware test manager resources"""
         try:
-            logger.debug(f"Cleaning up SerialDeviceWorker resources: {self.thread.objectName() if hasattr(self, 'thread') and self.thread else 'unknown'}")
+            logger.debug("Cleaning up HardwareTestManagerService resources")
             
-            # Disconnect all signal connections, avoid triggering callbacks during thread shutdown
+            # 停止當前測試
+            if self.active_test_worker:
+                self.active_test_worker.stop_test()
+                self.active_test_id = None
+                self.active_test_worker = None
+            
+            # 斷開所有信號
             try:
-                self._connect_device_signal.disconnect()
-                self._disconnect_device_signal.disconnect()
-                self._send_command_signal.disconnect()
-                # Do not disconnect external signals, because they may still be used by other objects
+                self.test_started.disconnect()
+                self.test_completed.disconnect()
+                self.test_step_completed.disconnect()
+                self.test_step_retrying.disconnect()
+                self.test_progress.disconnect()
             except Exception:
-                # Signals may already be disconnected, ignore errors
+                # 信號可能已經斷開，忽略錯誤
                 pass
             
-            # Check if the thread still exists and is valid
-            if hasattr(self, 'thread') and self.thread:
-                thread_name = self.thread.objectName()
+            # 清理所有測試工作器
+            for test_id, worker in list(self.test_workers.items()):
                 try:
-                    if self.thread.isRunning():
-                        logger.info(f"Stopping thread: {thread_name}")
-                        self.thread.quit()
-                        if not self.thread.wait(3000):  # Wait up to 3 seconds
-                            logger.warning(f"Thread did not terminate within specified time: {thread_name}")
-                            # Do not force terminate, avoid possible crashes
-                except RuntimeError:
-                    # Thread may already be deleted
-                    logger.warning(f"Thread object may have been deleted: {thread_name}")
+                    worker.stop_test()  # 確保所有測試都停止
+                except Exception as e:
+                    logger.warning(f"Error stopping test worker {test_id}: {e}")
+                
+            # 清空工作器字典，讓垃圾回收處理這些對象
+            self.test_workers.clear()
+            
         except Exception as e:
-            logger.error(f"Error during SerialDeviceWorker cleanup: {e}")
+            logger.error(f"Error during HardwareTestManagerService cleanup: {e}")
 
     def __del__(self):
         """Destructor, ensure resources are released"""
         try:
-            logger.debug("SerialDeviceWorker is being destroyed")
+            logger.debug("HardwareTestManagerService is being destroyed")
             # Do not call cleanup in the destructor to avoid accessing deleted objects
         except Exception:
             # Avoid throwing exceptions in the destructor

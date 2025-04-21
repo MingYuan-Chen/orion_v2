@@ -6,7 +6,7 @@ from typing import List, Callable, Dict, Any, Tuple
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import logging
 
-# 獲取logger
+# Get logger
 logger = logging.getLogger(__name__)
 
 class TestStep:
@@ -41,7 +41,7 @@ class TestStep:
 class BaseTestWorker(QObject):
     """Base test worker class, provide test execution framework and retry mechanism"""
     
-    # 信號定義
+    # Signal definition
     test_step_completed = Signal(int, bool, str)  # step_index, success, message
     test_step_retrying = Signal(int, int, int, str)  # step_index, retry_count, max_retries, error_message
     test_progress = Signal(int, int)  # current_step, total_steps
@@ -64,7 +64,7 @@ class BaseTestWorker(QObject):
         self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(self._retry_current_step)
         
-        # 保存信號連接以便後續斷開
+        # Save signal connection for later disconnection
         self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
         
     def prepare_test_steps(self) -> List[TestStep]:
@@ -112,15 +112,15 @@ class BaseTestWorker(QObject):
         self.current_step_index = -1
         self.current_device_id = None
         
-        # 斷開信號連接
+        # Disconnect signals
         self._disconnect_signals()
     
     def _disconnect_signals(self):
         """
-        斷開所有信號連接，避免測試結束後仍處理命令響應
+        Disconnect all signals, avoid processing command results after test completion
         """
         try:
-            # 嘗試斷開命令結果信號
+            # Try to disconnect command result signal
             if self.device_worker and self.command_connection:
                 self.device_worker.command_result.disconnect(self._on_command_result)
             logger.debug("Test worker signals disconnected")
@@ -137,7 +137,7 @@ class BaseTestWorker(QObject):
             logger.info("All test steps completed, test passed")
             self.test_completed.emit(True, "Test completed")
             
-            # 斷開信號連接
+            # Disconnect signals
             self._disconnect_signals()
             return
             
@@ -266,7 +266,7 @@ class BaseTestWorker(QObject):
             logger.error(f"Test failed: {message}")
             self.test_completed.emit(False, f"Test failed: {message}")
             
-            # 斷開信號連接
+            # Disconnect signals
             self._disconnect_signals()
             return
             
