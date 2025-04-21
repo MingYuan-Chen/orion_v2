@@ -46,7 +46,9 @@ class HardwareTestManagerService(QObject):
         # Currently only implement USB test
         from core.tests.usb_ports_test_worker import UsbPortsTestWorker
         self._register_worker("usb_ports", UsbPortsTestWorker)
-        
+        from core.tests.emmc_test_worker import EmmcTestWorker
+        self._register_worker("emmc", EmmcTestWorker)
+
         # self._register_worker("touch_screen", TouchScreenTestWorker)
         
         logger.info(f"Registered test workers: {', '.join(self.test_workers.keys())}")
@@ -105,6 +107,9 @@ class HardwareTestManagerService(QObject):
         if test_id == "usb_ports":
             from core.tests.usb_ports_test_worker import UsbPortsTestWorker
             worker_class = UsbPortsTestWorker
+        elif test_id == "emmc":
+            from core.tests.emmc_test_worker import EmmcTestWorker
+            worker_class = EmmcTestWorker
         # 其他測試類型...
         # elif test_id == "touch_screen":
         #     from core.tests.touch_screen_test_worker import TouchScreenTestWorker

@@ -326,71 +326,108 @@ class MainWindowController(QObject):
     
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
-        # Configure USB test steps table
-        usb_table = self.window.tableWidget_usb_test_steps
-        usb_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        usb_table.horizontalHeader().setStretchLastSection(True)
-        usb_table.setColumnWidth(0, 150)  # Step column
-        usb_table.setColumnWidth(1, 80)   # Status column
+        # 配置共用的測試步驟表格
+        hw_test_table = self.window.tableWidget_hardware_test_steps
+        hw_test_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        hw_test_table.horizontalHeader().setStretchLastSection(True)
+        hw_test_table.setColumnWidth(0, 150)  # Step column
+        hw_test_table.setColumnWidth(1, 80)   # Status column
         
-        # Connect USB test button
-        self.window.button_usb_test.clicked.connect(self._on_usb_test_clicked)
+        # 連接 USB 測試按鈕
+        self.window.button_usb_test.clicked.connect(lambda: self._start_hardware_test("usb_ports"))
         
-        # Hide progress bar initially
-        self.window.progressBar_usb_test.setVisible(False)
+        # 連接 eMMC 測試按鈕
+        self.window.button_emmc_test.clicked.connect(lambda: self._start_hardware_test("emmc"))
         
-        # Set initial state
+        # eeprom 測試按鈕保留 UI 但暫不實現功能
+        self.window.button_eeprom_test.clicked.connect(lambda: self._show_not_implemented("EEPROM Test"))
+        
+        # 默認隱藏進度條
+        self.window.progressBar_hardware_test.setVisible(False)
+        
+        # 設置初始狀態
         self._update_test_ui_state("usb_ports", "not_started")
+        self._update_test_ui_state("emmc", "not_started")
+        self._update_test_ui_state("eeprom", "not_started")
+    
+    def _start_hardware_test(self, test_id: str):
+        """
+        通用方法啟動硬體測試
+        
+        Args:
+            test_id: 測試 ID
+        """
+        # 清除先前的測試結果
+        self.window.tableWidget_hardware_test_steps.setRowCount(0)
+        
+        # 啟動測試
+        self.hw_test_manager.start_test(self.device_id, test_id)
+        
+        # 記錄測試開始
+        self._add_log_entry("INFO", f"Starting {test_id} test for device {self.device_id}")
+    
+    def _show_not_implemented(self, feature_name: str):
+        """
+        顯示功能未實現訊息
+        
+        Args:
+            feature_name: 功能名稱
+        """
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(self.window, "功能未實現", 
+                               f"{feature_name} 功能尚未實現，敬請期待！")
+        self._add_log_entry("INFO", f"{feature_name} 功能請求 - 未實現")
     
     def _update_test_ui_state(self, test_id: str, state: str, message: str = ""):
         """
-        Update test UI state
+        更新測試 UI 狀態
         
         Args:
-            test_id: Test ID
-            state: State ('not_started', 'running', 'pass', 'fail')
-            message: Optional message
+            test_id: 測試 ID
+            state: 狀態 ('not_started', 'running', 'pass', 'fail')
+            message: 可選訊息
         """
+        # 根據測試 ID 確定要更新的 UI 元件
         if test_id == "usb_ports":
             status_label = self.window.label_usb_status
             button = self.window.button_usb_test
-            progress_bar = self.window.progressBar_usb_test
+        elif test_id == "emmc":
+            status_label = self.window.label_emmc_status
+            button = self.window.button_emmc_test
+        elif test_id == "eeprom":
+            status_label = self.window.label_eeprom_status
+            button = self.window.button_eeprom_test
+        else:
+            # 未知測試 ID，不更新 UI
+            return
+        
+        # 共用的進度條
+        progress_bar = self.window.progressBar_hardware_test
+        
+        # 根據狀態更新 UI
+        if state == "not_started":
+            status_label.setStyleSheet("background-color: #333333; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+            button.setText("Start Test")
+            button.setEnabled(True)
+            progress_bar.setVisible(False)
             
-            # Update status indicator
-            if state == "not_started":
-                status_label.setStyleSheet("background-color: #333333; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-                button.setText("Start Test")
-                button.setEnabled(True)
-                progress_bar.setVisible(False)
-                
-            elif state == "running":
-                status_label.setStyleSheet("background-color: #FFA500; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-                button.setText("Running...")
-                button.setEnabled(False)
-                progress_bar.setVisible(True)
-                
-            elif state == "pass":
-                status_label.setStyleSheet("background-color: #00AA00; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-                button.setText("Start Test")
-                button.setEnabled(True)
-                progress_bar.setVisible(False)
-                
-            elif state == "fail":
-                status_label.setStyleSheet("background-color: #FF0000; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-                button.setText("Start Test")
-                button.setEnabled(True)
-                progress_bar.setVisible(False)
-    
-    def _on_usb_test_clicked(self):
-        """Handle USB test button click"""
-        # Clear previous test results
-        self.window.tableWidget_usb_test_steps.setRowCount(0)
-        
-        # Start USB ports test
-        self.hw_test_manager.start_test(self.device_id, "usb_ports")
-        
-        # Log test start
-        self._add_log_entry("INFO", f"Starting USB ports test for device {self.device_id}")
+        elif state == "running":
+            status_label.setStyleSheet("background-color: #FFA500; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+            button.setText("Running...")
+            button.setEnabled(False)
+            progress_bar.setVisible(True)
+            
+        elif state == "pass":
+            status_label.setStyleSheet("background-color: #00AA00; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+            button.setText("Start Test")
+            button.setEnabled(True)
+            progress_bar.setVisible(False)
+            
+        elif state == "fail":
+            status_label.setStyleSheet("background-color: #FF0000; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+            button.setText("Start Test")
+            button.setEnabled(True)
+            progress_bar.setVisible(False)
     
     @Slot(str)
     def _on_test_started(self, test_id: str):
@@ -437,15 +474,15 @@ class MainWindowController(QObject):
     @Slot(str, int, bool, str)
     def _on_test_step_completed(self, test_id: str, step_index: int, success: bool, message: str):
         """
-        Handle test step completed event
+        處理測試步驟完成事件
         
         Args:
-            test_id: Test ID
-            step_index: Step index
-            success: Whether step passed
-            message: Step result message
+            test_id: 測試 ID
+            step_index: 步驟索引
+            success: 步驟是否成功
+            message: 步驟結果訊息
         """
-        # Store step results
+        # 儲存步驟結果
         if test_id in self.test_results:
             self.test_results[test_id]["steps"].append({
                 "index": step_index,
@@ -453,31 +490,30 @@ class MainWindowController(QObject):
                 "message": message
             })
         
-        # Update test step UI
-        if test_id == "usb_ports":
-            table = self.window.tableWidget_usb_test_steps
-            row = table.rowCount()
-            table.insertRow(row)
-            
-            # Get step from test worker
-            step_description = ""
-            if len(self.hw_test_manager.test_workers[test_id].steps) > step_index:
-                step = self.hw_test_manager.test_workers[test_id].steps[step_index]
-                step_description = step.description
-            
-            # Add step details
-            table.setItem(row, 0, QTableWidgetItem(step_description))
-            table.setItem(row, 1, QTableWidgetItem("Pass" if success else "Fail"))
-            table.setItem(row, 2, QTableWidgetItem(message))
-            
-            # Set row color
-            color = QColor("#00AA00") if success else QColor("#FF0000")
-            for col in range(table.columnCount()):
-                item = table.item(row, col)
-                if item:
-                    item.setForeground(color)
+        # 更新測試步驟 UI
+        table = self.window.tableWidget_hardware_test_steps
+        row = table.rowCount()
+        table.insertRow(row)
         
-        # Log step completion
+        # 獲取步驟描述
+        step_description = ""
+        if test_id in self.hw_test_manager.test_workers and len(self.hw_test_manager.test_workers[test_id].steps) > step_index:
+            step = self.hw_test_manager.test_workers[test_id].steps[step_index]
+            step_description = step.description
+        
+        # 添加步驟詳情
+        table.setItem(row, 0, QTableWidgetItem(step_description))
+        table.setItem(row, 1, QTableWidgetItem("Pass" if success else "Fail"))
+        table.setItem(row, 2, QTableWidgetItem(message))
+        
+        # 設置行顏色
+        color = QColor("#00AA00") if success else QColor("#FF0000")
+        for col in range(table.columnCount()):
+            item = table.item(row, col)
+            if item:
+                item.setForeground(color)
+        
+        # 記錄步驟完成
         log_level = "INFO" if success else "WARNING"
         self._add_log_entry(log_level, f"Test {test_id} step {step_index+1}: {message}")
     
@@ -499,19 +535,18 @@ class MainWindowController(QObject):
     @Slot(str, int, int)
     def _on_test_progress(self, test_id: str, current_step: int, total_steps: int):
         """
-        Handle test progress event
+        處理測試進度事件
         
         Args:
-            test_id: Test ID
-            current_step: Current step index (1-based)
-            total_steps: Total steps count
+            test_id: 測試 ID
+            current_step: 當前步驟索引（從1開始）
+            total_steps: 總步驟數
         """
-        # Update progress bar
-        if test_id == "usb_ports":
-            progress_pct = int((current_step / total_steps) * 100)
-            self.window.progressBar_usb_test.setValue(progress_pct)
-            
-        # Log progress (every 25%)
+        # 更新進度條
+        progress_pct = int((current_step / total_steps) * 100)
+        self.window.progressBar_hardware_test.setValue(progress_pct)
+        
+        # 記錄進度（每 25% 記錄一次）
         if current_step % max(1, total_steps // 4) == 0 or current_step == total_steps:
             self._add_log_entry("INFO", f"Test {test_id} progress: {current_step}/{total_steps} ({progress_pct}%)")
     

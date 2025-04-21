@@ -24,7 +24,7 @@ class UsbPortsTestWorker(BaseTestWorker):
                 command="dd if=/dev/zero of=/run/media/sda1/usb_throughput bs=1M count=200 status=progress", 
                 expected_response="copied", 
                 timeout=5, 
-                description="Write 200MB to usb_throughput",
+                description="Write to usb_throughput",
                 max_retries=1,           # Maximum retries 1 time
                 retry_delay=500          # 0.5 seconds later retry
             ),
@@ -32,7 +32,7 @@ class UsbPortsTestWorker(BaseTestWorker):
                 command="dd if=/run/media/sda1/usb_throughput of=/dev/null bs=1M", 
                 expected_response="copied", 
                 timeout=10, 
-                description="Read 200MB from usb_throughput",
+                description="Read from usb_throughput",
                 max_retries=3,           # Read operation may need multiple attempts
                 retry_delay=1000         # 1 second later retry
             ),
