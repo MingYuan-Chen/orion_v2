@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor, QIcon
 import os
 import sys
 from PySide6.QtCore import QFile
+from core.services.hardware_test_manager import HardwareTestManagerService
 
 
 class MainWindowController(QObject):
@@ -94,8 +95,17 @@ class MainWindowController(QObject):
         # Initialize logs view
         self._init_logs_view()
         
+        # Create hardware test manager
+        self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
+        
         # Connect signals and slots
         self._connect_signals()
+        
+        # Initialize test results storage
+        self.test_results = {}
+        
+        # Initialize functionality test UI
+        self._init_functionality_test_ui()
         
         # Set auto update timer
         self.update_timer = QTimer()
@@ -264,7 +274,7 @@ class MainWindowController(QObject):
         self.window.lineEdit_command.clear()
         
         # Add command record to logs
-        self._add_log_entry("INFO", f"Command sent: {command}")
+        self._add_log_entry("INFO", f"[Command] {command}")
     
     def _add_log_entry(self, level, message, timestamp=None):
         """Add new log entry"""
@@ -295,15 +305,238 @@ class MainWindowController(QObject):
         logs_table.scrollToBottom()
     
     def _connect_signals(self):
-        """Connect UI signals and slots"""
-        # Connect button click events
+        """Connect signals and slots"""
+        # Connect command result signal from view model
+        self.view_model.command_result.connect(self._on_command_completed)
+        
+        # Connect hardware detection and config buttons
         self.window.pushButton_detect_hw.clicked.connect(self._on_detect_hardware)
         self.window.pushButton_save_config.clicked.connect(self._on_save_config)
+        
+        # Connect diagnostic test buttons
         self.window.pushButton_run_tests.clicked.connect(self._on_run_tests)
         self.window.pushButton_export_report.clicked.connect(self._on_export_report)
         
-        # Connect view model signals
-        self.view_model.command_result.connect(self._on_command_completed)
+        # Connect hardware test manager signals
+        self.hw_test_manager.test_started.connect(self._on_test_started)
+        self.hw_test_manager.test_completed.connect(self._on_test_completed)
+        self.hw_test_manager.test_step_completed.connect(self._on_test_step_completed)
+        self.hw_test_manager.test_step_retrying.connect(self._on_test_step_retrying)
+        self.hw_test_manager.test_progress.connect(self._on_test_progress)
+    
+    def _init_functionality_test_ui(self):
+        """Initialize functionality test UI elements"""
+        # Configure USB test steps table
+        usb_table = self.window.tableWidget_usb_test_steps
+        usb_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        usb_table.horizontalHeader().setStretchLastSection(True)
+        usb_table.setColumnWidth(0, 150)  # Step column
+        usb_table.setColumnWidth(1, 80)   # Status column
+        
+        # Connect USB test button
+        self.window.button_usb_test.clicked.connect(self._on_usb_test_clicked)
+        
+        # Hide progress bar initially
+        self.window.progressBar_usb_test.setVisible(False)
+        
+        # Set initial state
+        self._update_test_ui_state("usb_ports", "not_started")
+    
+    def _update_test_ui_state(self, test_id: str, state: str, message: str = ""):
+        """
+        Update test UI state
+        
+        Args:
+            test_id: Test ID
+            state: State ('not_started', 'running', 'pass', 'fail')
+            message: Optional message
+        """
+        if test_id == "usb_ports":
+            status_label = self.window.label_usb_status
+            button = self.window.button_usb_test
+            progress_bar = self.window.progressBar_usb_test
+            
+            # Update status indicator
+            if state == "not_started":
+                status_label.setStyleSheet("background-color: #333333; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+                button.setText("Start Test")
+                button.setEnabled(True)
+                progress_bar.setVisible(False)
+                
+            elif state == "running":
+                status_label.setStyleSheet("background-color: #FFA500; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+                button.setText("Running...")
+                button.setEnabled(False)
+                progress_bar.setVisible(True)
+                
+            elif state == "pass":
+                status_label.setStyleSheet("background-color: #00AA00; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+                button.setText("Start Test")
+                button.setEnabled(True)
+                progress_bar.setVisible(False)
+                
+            elif state == "fail":
+                status_label.setStyleSheet("background-color: #FF0000; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
+                button.setText("Start Test")
+                button.setEnabled(True)
+                progress_bar.setVisible(False)
+    
+    def _on_usb_test_clicked(self):
+        """Handle USB test button click"""
+        # Clear previous test results
+        self.window.tableWidget_usb_test_steps.setRowCount(0)
+        
+        # Start USB ports test
+        self.hw_test_manager.start_test(self.device_id, "usb_ports")
+        
+        # Log test start
+        self._add_log_entry("INFO", f"Starting USB ports test for device {self.device_id}")
+    
+    @Slot(str)
+    def _on_test_started(self, test_id: str):
+        """
+        Handle test started event
+        
+        Args:
+            test_id: Test ID
+        """
+        # Update test UI state
+        self._update_test_ui_state(test_id, "running")
+        
+        # Initialize test results storage
+        self.test_results[test_id] = {
+            "steps": [],
+            "success": None,
+            "message": ""
+        }
+        
+        logger.info(f"Test started: {test_id} for device {self.device_id}")
+    
+    @Slot(str, bool, str)
+    def _on_test_completed(self, test_id: str, success: bool, message: str):
+        """
+        Handle test completed event
+        
+        Args:
+            test_id: Test ID
+            success: Whether test passed
+            message: Result message
+        """
+        # Store test results
+        if test_id in self.test_results:
+            self.test_results[test_id]["success"] = success
+            self.test_results[test_id]["message"] = message
+        
+        # Update test UI state
+        self._update_test_ui_state(test_id, "pass" if success else "fail", message)
+        
+        # Log test completion
+        log_level = "INFO" if success else "ERROR"
+        self._add_log_entry(log_level, f"Test {test_id} completed: {message}")
+    
+    @Slot(str, int, bool, str)
+    def _on_test_step_completed(self, test_id: str, step_index: int, success: bool, message: str):
+        """
+        Handle test step completed event
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            success: Whether step passed
+            message: Step result message
+        """
+        # Store step results
+        if test_id in self.test_results:
+            self.test_results[test_id]["steps"].append({
+                "index": step_index,
+                "success": success,
+                "message": message
+            })
+        
+        # Update test step UI
+        if test_id == "usb_ports":
+            table = self.window.tableWidget_usb_test_steps
+            row = table.rowCount()
+            table.insertRow(row)
+            
+            # Get step from test worker
+            step_description = ""
+            if len(self.hw_test_manager.test_workers[test_id].steps) > step_index:
+                step = self.hw_test_manager.test_workers[test_id].steps[step_index]
+                step_description = step.description
+            
+            # Add step details
+            table.setItem(row, 0, QTableWidgetItem(step_description))
+            table.setItem(row, 1, QTableWidgetItem("Pass" if success else "Fail"))
+            table.setItem(row, 2, QTableWidgetItem(message))
+            
+            # Set row color
+            color = QColor("#00AA00") if success else QColor("#FF0000")
+            for col in range(table.columnCount()):
+                item = table.item(row, col)
+                if item:
+                    item.setForeground(color)
+        
+        # Log step completion
+        log_level = "INFO" if success else "WARNING"
+        self._add_log_entry(log_level, f"Test {test_id} step {step_index+1}: {message}")
+    
+    @Slot(str, int, int, int, str)
+    def _on_test_step_retrying(self, test_id: str, step_index: int, retry_count: int, max_retries: int, error: str):
+        """
+        Handle test step retry event
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            retry_count: Current retry count
+            max_retries: Maximum retry count
+            error: Error message
+        """
+        # Log retry
+        self._add_log_entry("WARNING", f"Test {test_id} step {step_index+1} retrying ({retry_count}/{max_retries}): {error}")
+    
+    @Slot(str, int, int)
+    def _on_test_progress(self, test_id: str, current_step: int, total_steps: int):
+        """
+        Handle test progress event
+        
+        Args:
+            test_id: Test ID
+            current_step: Current step index (1-based)
+            total_steps: Total steps count
+        """
+        # Update progress bar
+        if test_id == "usb_ports":
+            progress_pct = int((current_step / total_steps) * 100)
+            self.window.progressBar_usb_test.setValue(progress_pct)
+            
+        # Log progress (every 25%)
+        if current_step % max(1, total_steps // 4) == 0 or current_step == total_steps:
+            self._add_log_entry("INFO", f"Test {test_id} progress: {current_step}/{total_steps} ({progress_pct}%)")
+    
+    @Slot(str, str, str)
+    def _on_command_completed(self, device_id: str, command: str, response: str):
+        """
+        Handle command completed event
+        
+        Args:
+            device_id: Device ID
+            command: Command sent
+            response: Command response
+        """
+        # Only process commands for this device
+        if device_id != self.device_id:
+            return
+            
+        # Log command and response
+        self._add_log_entry("DEBUG", f"[Response] {response}")
+        
+        # Process response based on command
+        if command.startswith("get_logs"):
+            self._process_logs_response(response)
+        elif command.startswith("get_hw_info"):
+            self._process_hardware_info(response)
     
     def _update_dashboard(self):
         """Update dashboard information"""
@@ -346,27 +579,6 @@ class MainWindowController(QObject):
         """Export report button click event"""
         logger.info(f"Exporting diagnostic report for device: {self.device_id}")
         # Implement exporting diagnostic report logic
-    
-    @Slot(str, str, str)
-    def _on_command_completed(self, device_id, command, response):
-        """Process command completion event"""
-        # Only process commands related to current device
-        if device_id != self.device_id:
-            return
-            
-        logger.debug(f"Command completed for device {device_id}: {command}")
-        
-        # Add command response to logs
-        if command == "get_logs":
-            # If it is get logs command, parse response and update logs view
-            self._process_logs_response(response)
-        elif command == "get_hardware_info":
-            # If it is get hardware info command, update hardware table
-            self._process_hardware_info(response)
-            self._add_log_entry("INFO", f"Hardware information updated")
-        else:
-            # Other commands, add response to logs directly
-            self._add_log_entry("DEBUG", f"Response for '{command}': {response}")
     
     def _process_logs_response(self, response):
         """Process logs response"""
