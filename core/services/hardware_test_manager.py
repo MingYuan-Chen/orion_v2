@@ -48,6 +48,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("usb_ports", UsbPortsTestWorker)
         from core.tests.emmc_test_worker import EmmcTestWorker
         self._register_worker("emmc", EmmcTestWorker)
+        from core.tests.eeprom_test_worker import EepromTestWorker
+        self._register_worker("eeprom", EepromTestWorker)
 
         # self._register_worker("touch_screen", TouchScreenTestWorker)
         
@@ -110,6 +112,9 @@ class HardwareTestManagerService(QObject):
         elif test_id == "emmc":
             from core.tests.emmc_test_worker import EmmcTestWorker
             worker_class = EmmcTestWorker
+        elif test_id == "eeprom":
+            from core.tests.eeprom_test_worker import EepromTestWorker
+            worker_class = EepromTestWorker
         # 其他測試類型...
         # elif test_id == "touch_screen":
         #     from core.tests.touch_screen_test_worker import TouchScreenTestWorker
