@@ -651,6 +651,22 @@ class MainWindowController(QObject):
     
     def close(self):
         """Close window and release resources"""
+        logger.info(f"Closing main window for device: {self.device_id}")
+        
+        # Stop all tests
+        if hasattr(self, 'hw_test_manager'):
+            self.hw_test_manager.stop_current_test()
+        
+        # Clean up hardware test manager resources
+        if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
+            logger.info("Cleaning up hardware test manager")
+            self.hw_test_manager.cleanup()
+        
+        # Clean up view_model resources
+        if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
+            logger.info("Cleaning up view model")
+            self.view_model.cleanup()
+        
         # Stop update timer
         if hasattr(self, 'update_timer') and self.update_timer.isActive():
             self.update_timer.stop()

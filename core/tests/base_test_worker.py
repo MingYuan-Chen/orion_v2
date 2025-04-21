@@ -56,7 +56,6 @@ class BaseTestWorker(QObject):
         """
         super().__init__()
         self.device_worker = device_worker
-        self.device_worker.command_result.connect(self._on_command_result)
         
         self.current_device_id = None
         self.steps = []
@@ -64,6 +63,9 @@ class BaseTestWorker(QObject):
         self.retry_timer = QTimer()
         self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(self._retry_current_step)
+        
+        # 保存信號連接以便後續斷開
+        self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
         
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -109,6 +111,21 @@ class BaseTestWorker(QObject):
         # Reset test state
         self.current_step_index = -1
         self.current_device_id = None
+        
+        # 斷開信號連接
+        self._disconnect_signals()
+    
+    def _disconnect_signals(self):
+        """
+        斷開所有信號連接，避免測試結束後仍處理命令響應
+        """
+        try:
+            # 嘗試斷開命令結果信號
+            if self.device_worker and self.command_connection:
+                self.device_worker.command_result.disconnect(self._on_command_result)
+            logger.debug("Test worker signals disconnected")
+        except Exception as e:
+            logger.warning(f"Error disconnecting signals: {e}")
     
     def _execute_next_step(self):
         """Execute next test step"""
@@ -119,6 +136,9 @@ class BaseTestWorker(QObject):
             # Test completed, all steps passed
             logger.info("All test steps completed, test passed")
             self.test_completed.emit(True, "Test completed")
+            
+            # 斷開信號連接
+            self._disconnect_signals()
             return
             
         # Get current step
@@ -245,6 +265,9 @@ class BaseTestWorker(QObject):
         if not passed:
             logger.error(f"Test failed: {message}")
             self.test_completed.emit(False, f"Test failed: {message}")
+            
+            # 斷開信號連接
+            self._disconnect_signals()
             return
             
         # Execute next step

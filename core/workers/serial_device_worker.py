@@ -58,14 +58,19 @@ class SerialDeviceWorker(QObject):
         """Clean up resources, stop thread"""
         if self.thread.isRunning():
             self.thread.quit()
-            if not self.thread.wait(3000):  # 等待最多3秒
+            if not self.thread.wait(3000):  # Wait up to 3 seconds
                 logger.warning(f"Force terminate SerialDeviceWorker thread: {self.thread.objectName()}")
                 self.thread.terminate()
                 self.thread.wait()
                 
     def __del__(self):
         """Destructor, ensure resources are released"""
-        self.cleanup()
+        try:
+            logger.debug("SerialDeviceWorker is being destroyed")
+            # Do not call self.cleanup() in the destructor to avoid accessing deleted objects
+        except Exception:
+            # Avoid throwing exceptions in the destructor
+            pass
     
     # External interface methods - these methods are called from the main thread, only emit signals
         

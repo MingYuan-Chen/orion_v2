@@ -149,4 +149,44 @@ class HardwareTestManagerService(QObject):
         
         # Clear current active test
         self.active_test_id = None
-        self.active_test_worker = None 
+        self.active_test_worker = None
+
+    def cleanup(self):
+        """Clean up resources, stop thread"""
+        try:
+            logger.debug(f"Cleaning up SerialDeviceWorker resources: {self.thread.objectName() if hasattr(self, 'thread') and self.thread else 'unknown'}")
+            
+            # Disconnect all signal connections, avoid triggering callbacks during thread shutdown
+            try:
+                self._connect_device_signal.disconnect()
+                self._disconnect_device_signal.disconnect()
+                self._send_command_signal.disconnect()
+                # Do not disconnect external signals, because they may still be used by other objects
+            except Exception:
+                # Signals may already be disconnected, ignore errors
+                pass
+            
+            # Check if the thread still exists and is valid
+            if hasattr(self, 'thread') and self.thread:
+                thread_name = self.thread.objectName()
+                try:
+                    if self.thread.isRunning():
+                        logger.info(f"Stopping thread: {thread_name}")
+                        self.thread.quit()
+                        if not self.thread.wait(3000):  # Wait up to 3 seconds
+                            logger.warning(f"Thread did not terminate within specified time: {thread_name}")
+                            # Do not force terminate, avoid possible crashes
+                except RuntimeError:
+                    # Thread may already be deleted
+                    logger.warning(f"Thread object may have been deleted: {thread_name}")
+        except Exception as e:
+            logger.error(f"Error during SerialDeviceWorker cleanup: {e}")
+
+    def __del__(self):
+        """Destructor, ensure resources are released"""
+        try:
+            logger.debug("SerialDeviceWorker is being destroyed")
+            # Do not call cleanup in the destructor to avoid accessing deleted objects
+        except Exception:
+            # Avoid throwing exceptions in the destructor
+            pass 
