@@ -2,7 +2,7 @@ import time
 import serial
 from typing import Optional
 from util.logger import logger
-from .device_model import DeviceModel
+from core.models.device_model import DeviceModel
 
 class SerialDeviceModel(DeviceModel):
     """Serial device model class"""
@@ -148,4 +148,12 @@ class SerialDeviceModel(DeviceModel):
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             logger.error(f"Command: '{command}' failed: {error_msg}")
-            return error_msg 
+            return error_msg
+
+if __name__ == "__main__":
+    """Test serial device model"""
+    device_id = "serial_COM4"
+    device = SerialDeviceModel(device_id)
+    device.connect()
+    device.send_command("ls")
+    device.disconnect()

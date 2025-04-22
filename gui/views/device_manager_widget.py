@@ -360,33 +360,30 @@ class DeviceManagerWidget(QWidget):
         self._refresh_device_list()
     
     def closeEvent(self, event):
-        """Handle close event for window"""
-        try:
-            # Close all open main windows
-            if hasattr(self, 'device_windows') and self.device_windows:
-                # Copy dictionary keys, as we will modify the dictionary during iteration
-                device_ids = list(self.device_windows.keys())
-                for device_id in device_ids:
-                    if device_id in self.device_windows and self.device_windows[device_id]:
-                        logger.info(f"Closing main window for device: {device_id}")
-                        self.device_windows[device_id].close()
-                # Clear window dictionary
-                self.device_windows.clear()
-            
-            # Stop refresh timer
-            if hasattr(self, 'refresh_timer'):
-                self.refresh_timer.stop()
-            
-            # Clean up resources and disconnect all devices
-            if hasattr(self, 'view_model') and self.view_model:
-                logger.info("Cleaning up view model resources")
-                self.view_model.cleanup()
-            
-            logger.info("Device manager resources cleaned up")
-            event.accept()
-        except Exception as e:
-            logger.error(f"Error during cleanup: {str(e)}")
-            event.accept()  # Still accept event to close window
+        """Handle window close event"""
+        # Close all device windows
+        for device_id, controller in list(self.device_windows.items()):
+            controller.close()
+        
+        # Clear device window dictionary
+        self.device_windows.clear()
+        
+        # Clean up device manager resources
+        if hasattr(self, 'device_manager') and self.device_manager:
+            self.device_manager.cleanup()
+            self.device_manager = None
+        
+        # Wait for a short time to ensure resources are released
+        QTimer.singleShot(100, self._final_cleanup)
+        
+        # Accept close event
+        event.accept()
+    
+    def _final_cleanup(self):
+        """Final cleanup, ensure all resources are released"""
+        import gc
+        gc.collect()  # Force garbage collection
+        logger.info("Device manager widget cleanup completed")
 
 
 # If this file is run directly, create an application and display the window

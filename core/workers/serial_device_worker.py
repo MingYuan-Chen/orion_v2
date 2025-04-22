@@ -4,7 +4,7 @@ import uuid
 import time
 from core.models.device_manager_model import DeviceManagerModel
 from util.logger import logger
-
+import sys
 
 class SerialDeviceWorker(QObject):
     """
@@ -157,4 +157,44 @@ class SerialDeviceWorker(QObject):
         except Exception as e:
             logger.error(f"Error sending command {command} to device {device_id}: {str(e)}")
             self.command_result.emit(device_id, command, f"Error: {str(e)}")
+
+
+if __name__ == "__main__":
+    
+    def main():
+        from core.models.device_manager_model import DeviceManagerModel
+        from util.logger import logger
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+
+        # Create application
+        app = QApplication(sys.argv)    
+        device_manager = DeviceManagerModel()
+        serial_device_worker = SerialDeviceWorker(device_manager)
+
+        def on_connection_result(device_id, success, message):
+            logger.info(f"Connection result: {device_id}, {success}, {message}")
+            serial_device_worker.send_command("device1", "ls", 5)
+
+        def on_disconnection_result(device_id, success, message):
+            logger.info(f"Disconnection result: {device_id}, {success}, {message}")
+
+        def on_command_result(device_id, command, response):
+            logger.info(f"Command result: {device_id}, {command}, {response}")
+            serial_device_worker.disconnect_device("device1")
+        # Connect signals
+        serial_device_worker.connection_result.connect(on_connection_result)
+        serial_device_worker.disconnection_result.connect(on_disconnection_result)
+        serial_device_worker.command_result.connect(on_command_result)
+
+        # Test connection
+        serial_device_worker.connect_device("device1", "COM4", 115200, 10)
+        
+        
+        QTimer.singleShot(25000, lambda: serial_device_worker.cleanup())
+        QTimer.singleShot(30000, lambda: QApplication.quit())
+        sys.exit(app.exec())
+
+    sys.exit(main())
+
 

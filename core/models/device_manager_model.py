@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from util.logger import logger
-from .device_model import DeviceModel
-from .serial_device_model import SerialDeviceModel
+from core.models.device_model import DeviceModel
+from core.models.serial_device_model import SerialDeviceModel
 
 class DeviceManagerModel:
     """Model class for managing device connections"""
@@ -94,3 +94,10 @@ class DeviceManagerModel:
         logger.error(f"Failed to create serial device {device_id}")
         return None 
 
+if __name__ == "__main__":
+    """Test device manager model"""
+    device_manager_model = DeviceManagerModel()
+    device_manager_model.create_serial_device("serial_COM4", port="COM4", baudrate=115200, timeout=3)
+    device_manager_model.connect_device("serial_COM4")
+    device_manager_model.send_command("serial_COM4", "ls")
+    device_manager_model.disconnect_device("serial_COM4")
