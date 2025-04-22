@@ -89,9 +89,6 @@ class MainWindowController(QObject):
         except Exception as e:
             logger.error(f"Failed to set window icon: {str(e)}")
         
-        # Initialize tables
-        self._init_tables()
-        
         # Initialize logs view
         self._init_logs_view()
         
@@ -127,53 +124,6 @@ class MainWindowController(QObject):
             # Emit window close signal
             self.window_closed.emit(self.device_id)
         return super().eventFilter(obj, event)
-    
-    def _init_tables(self):
-        """Initialize table settings"""
-        # Configure hardware table
-        hw_table = self.window.tableWidget_hw
-        hw_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        
-        # Configure diagnostic table
-        diag_table = self.window.tableWidget_diagnostic
-        diag_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        
-        # Add some sample data
-        self._populate_sample_data()
-    
-    def _populate_sample_data(self):
-        """Add sample data to tables"""
-        # Hardware table sample data
-        hw_table = self.window.tableWidget_hw
-        hw_table.setRowCount(4)
-        
-        components = [
-            ("CPU", "NXP i.MX6 Quad", "CPU-2023-0123", "Normal"),
-            ("Memory", "DDR4-8GB", "MEM-2023-9876", "Normal"),
-            ("Storage", "eMMC 128GB", "STO-2023-4567", "Normal"),
-            ("Battery", "MD-BAT", "240500734", "Normal")
-        ]
-        
-        for row, (comp, part, serial, status) in enumerate(components):
-            hw_table.setItem(row, 0, QTableWidgetItem(comp))
-            hw_table.setItem(row, 1, QTableWidgetItem(part))
-            hw_table.setItem(row, 2, QTableWidgetItem(serial))
-            hw_table.setItem(row, 3, QTableWidgetItem(status))
-        
-        # Diagnostic table sample data
-        diag_table = self.window.tableWidget_diagnostic
-        diag_table.setRowCount(3)
-        
-        tests = [
-            ("System Boot Test", "Passed", "00:01:23"),
-            ("Memory Test", "Passed", "00:03:45"),
-            ("Storage Test", "Passed", "00:02:12")
-        ]
-        
-        for row, (test, status, time) in enumerate(tests):
-            diag_table.setItem(row, 0, QTableWidgetItem(test))
-            diag_table.setItem(row, 1, QTableWidgetItem(status))
-            diag_table.setItem(row, 2, QTableWidgetItem(time))
     
     def _init_logs_view(self):
         """Initialize logs view settings"""
@@ -308,14 +258,6 @@ class MainWindowController(QObject):
         """Connect signals and slots"""
         # Connect command result signal from view model
         self.view_model.command_result.connect(self._on_command_completed)
-        
-        # Connect hardware detection and config buttons
-        self.window.pushButton_detect_hw.clicked.connect(self._on_detect_hardware)
-        self.window.pushButton_save_config.clicked.connect(self._on_save_config)
-        
-        # Connect diagnostic test buttons
-        self.window.pushButton_run_tests.clicked.connect(self._on_run_tests)
-        self.window.pushButton_export_report.clicked.connect(self._on_export_report)
         
         # Connect hardware test manager signals
         self.hw_test_manager.test_started.connect(self._on_test_started)
@@ -561,8 +503,6 @@ class MainWindowController(QObject):
         # Process response based on command
         if command.startswith("get_logs"):
             self._process_logs_response(response)
-        elif command.startswith("get_hw_info"):
-            self._process_hardware_info(response)
     
     def _update_dashboard(self):
         """Update dashboard information"""
@@ -581,30 +521,6 @@ class MainWindowController(QObject):
         battery_level = 78  # This should be obtained from device
         self.window.progressBar_charge.setValue(battery_level)
         self.window.value_charge.setText(f"{battery_level}%")
-    
-    def _on_detect_hardware(self):
-        """Detect hardware button click event"""
-        logger.info(f"Detecting hardware for device: {self.device_id}")
-        # In actual application, you should send command to device to get hardware information
-        # Then update table
-        
-        # Example: Assume we send command and get response
-        self.view_model.send_command(self.device_id, "get_hardware_info")
-    
-    def _on_save_config(self):
-        """Save configuration button click event"""
-        logger.info(f"Saving configuration for device: {self.device_id}")
-        # Implement saving configuration logic
-    
-    def _on_run_tests(self):
-        """Run tests button click event"""
-        logger.info(f"Running diagnostic tests for device: {self.device_id}")
-        # Implement running diagnostic tests logic
-    
-    def _on_export_report(self):
-        """Export report button click event"""
-        logger.info(f"Exporting diagnostic report for device: {self.device_id}")
-        # Implement exporting diagnostic report logic
     
     def _process_logs_response(self, response):
         """Process logs response"""
@@ -632,44 +548,6 @@ class MainWindowController(QObject):
         except Exception as e:
             logger.error(f"Error processing logs response: {str(e)}")
             self._add_log_entry("ERROR", f"Failed to process logs: {str(e)}")
-    
-    def _process_hardware_info(self, response):
-        """Process hardware info response"""
-        # In actual application, parse device returned hardware info and update table
-        try:
-            # Assume response is JSON format of hardware info
-            # Here is just a simple example, actual implementation needs to be based on device returned format
-            hw_table = self.window.tableWidget_hw
-            hw_table.setRowCount(0)  # Clear table
-            
-            # Add some sample data (actual application should parse response)
-            components = [
-                ("CPU", "NXP i.MX6 Quad", "CPU-2023-0123", "Normal"),
-                ("Memory", "DDR4-8GB", "MEM-2023-9876", "Normal"),
-                ("Storage", "eMMC 128GB", "STO-2023-4567", "Normal"),
-                ("Battery", "MD-BAT", "240500734", "Normal"),
-                ("Touchscreen", "GT911", "TCH-2023-5678", "Error")
-            ]
-            
-            hw_table.setRowCount(len(components))
-            for row, (comp, part, serial, status) in enumerate(components):
-                hw_table.setItem(row, 0, QTableWidgetItem(comp))
-                hw_table.setItem(row, 1, QTableWidgetItem(part))
-                hw_table.setItem(row, 2, QTableWidgetItem(serial))
-                
-                status_item = QTableWidgetItem(status)
-                if status == "Error":
-                    status_item.setForeground(Qt.red)
-                elif status == "Warning":
-                    status_item.setForeground(QColor("#FFD700"))  # Yellow
-                else:
-                    status_item.setForeground(Qt.green)
-                    
-                hw_table.setItem(row, 3, status_item)
-        
-        except Exception as e:
-            logger.error(f"Error processing hardware info: {str(e)}")
-            self._add_log_entry("ERROR", f"Failed to process hardware info: {str(e)}")
     
     def show(self):
         """Show window"""
