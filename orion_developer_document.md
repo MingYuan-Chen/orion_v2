@@ -43,38 +43,27 @@ Orion採用分層架構設計，遵循MVVM（Model-View-ViewModel）設計模式
 
 ```mermaid
 graph TD
-    subgraph GUI
-        A[DeviceManagerWidget]
-        B[LoginDialog]
-        C[其他UI元件]
-        A --> B
-        A --> C
-    end
+    A[DeviceManagerWidget] --- B[LoginDialog]
+    A --- C[其他UI元件]
     
-    subgraph ViewModel
-        D[DeviceManagerViewModel]
-    end
+    D[DeviceManagerViewModel]
     
-    subgraph Core
-        E[HardwareTestManagerService]
-        F[BaseTestWorker]
-        G[SerialDeviceWorker]
-        H[UsbPortsTestWorker]
-        I[EmmcTestWorker]
-        J[EepromTestWorker]
-    end
+    E[HardwareTestManagerService]
+    F[BaseTestWorker]
+    G[SerialDeviceWorker]
+    H[UsbPortsTestWorker]
+    I[EmmcTestWorker]
+    J[EepromTestWorker]
     
-    subgraph Util
-        K[Logger]
-    end
+    K[Logger]
     
     A <--> D
     D <--> G
     D <--> E
     E --> F
-    F <|-- H
-    F <|-- I
-    F <|-- J
+    F --> H
+    F --> I
+    F --> J
     G <--> H
     G <--> I
     G <--> J
