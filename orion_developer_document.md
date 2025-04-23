@@ -105,10 +105,10 @@ GUI模組採用MVVM架構，包含以下子模組：
 
 ```mermaid
 graph TD
-    A[views/]
-    B[view_models/]
-    C[widgets/]
-    D[ui/]
+    A[views]
+    B[view_models]
+    C[widgets]
+    D[ui]
     
     A --> A1[login_dialog.py]
     A --> A2[device_manager_widget.py]
@@ -136,10 +136,10 @@ graph TD
 
 ```mermaid
 graph TD
-    A[services/]
-    B[workers/]
-    C[tests/]
-    D[models/]
+    A[services]
+    B[workers]
+    C[tests]
+    D[models]
     
     A --> A1[hardware_test_manager.py]
     A --> A2[system_info.py]
