@@ -1,15 +1,100 @@
-from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem
+from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem, QInputDialog, QLineEdit
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QObject, QEvent
 from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
 import datetime
 from util.logger import logger
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import QColor, QIcon, QFont
 import os
 import sys
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 
+
+class DarkEditDialog(QDialog):
+    """Custom dark theme edit dialog"""
+    
+    def __init__(self, parent=None, title="Edit", label_text="Enter value:", initial_text=""):
+        super().__init__(parent)
+        
+        # Set window properties
+        self.setWindowTitle(title)
+        self.resize(350, 120)
+        
+        # Set dark theme style
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QLabel {
+                color: white;
+                font-weight: bold;
+            }
+            QLineEdit {
+                background-color: #3E3E3E;
+                color: #4FC3F7;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 5px;
+                selection-background-color: #0078D7;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+        """)
+        
+        # Create layout
+        main_layout = QVBoxLayout(self)
+        
+        # Add label with bold font
+        self.label = QLabel(label_text)
+        font = self.label.font()
+        font.setBold(True)
+        self.label.setFont(font)
+        main_layout.addWidget(self.label)
+        
+        # Add line edit
+        self.line_edit = QLineEdit(initial_text)
+        self.line_edit.selectAll()  # Select all text for easy editing
+        main_layout.addWidget(self.line_edit)
+        
+        # Add buttons
+        button_layout = QHBoxLayout()
+        
+        # Add space to push buttons to the right
+        button_layout.addStretch()
+        
+        # Cancel button
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_button)
+        
+        # OK button
+        self.ok_button = QPushButton("OK")
+        self.ok_button.clicked.connect(self.accept)
+        self.ok_button.setDefault(True)  # Make it the default button (Enter key)
+        button_layout.addWidget(self.ok_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        # Set focus to the line edit
+        self.line_edit.setFocus()
+    
+    def get_text(self):
+        """Get the entered text"""
+        return self.line_edit.text()
 
 class MainWindowController(QObject):
     """
@@ -33,6 +118,14 @@ class MainWindowController(QObject):
         # Save device ID and view model
         self.device_id = device_id
         self.view_model = view_model
+        
+        # Add update status flag
+        self.is_updating = False
+        
+        # Ensure view_model has system_info_service
+        if not hasattr(self.view_model, 'system_info_service') and hasattr(self.view_model, '_serial_worker'):
+            from core.services.system_info import SystemInfoService
+            self.view_model.system_info_service = SystemInfoService(self.view_model._serial_worker)
         
         # Load UI
         try:
@@ -104,23 +197,27 @@ class MainWindowController(QObject):
         # Initialize functionality test UI
         self._init_functionality_test_ui()
         
-        # Set auto update timer
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self._update_dashboard)
-        self.update_timer.start(5000)  # Update every 5 seconds
+        # Connect refresh button
+        self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
         
-        # Load device data
-        self._update_dashboard()
+        # Initialize display status as "Initializing"
+        self._set_initializing_state()
         
         # Install event filter to capture window close event
         self.window.installEventFilter(self)
+        
+        # Connect edit button signals
+        self.window.button_edit_model_name.clicked.connect(self._on_edit_model_name)
+        self.window.button_edit_serial_number.clicked.connect(self._on_edit_serial_number)
+        self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
+        self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
         if obj is self.window and event.type() == QEvent.Close:
             logger.info(f"Main window for device {self.device_id} is closing")
             # Stop update timer
-            self.update_timer.stop()
+            # self.update_timer.stop()
             # Emit window close signal
             self.window_closed.emit(self.device_id)
         return super().eventFilter(obj, event)
@@ -135,6 +232,12 @@ class MainWindowController(QObject):
         # Set column width
         logs_table.setColumnWidth(0, 180)  # Timestamp column
         logs_table.setColumnWidth(1, 80)   # Level column
+        
+        # 启用自动调整行高以显示完整内容
+        logs_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        
+        # 设置表格自动换行
+        logs_table.setWordWrap(True)
         
         # Connect command send button
         self.window.pushButton_send_command.clicked.connect(self._on_send_command)
@@ -244,9 +347,17 @@ class MainWindowController(QObject):
         level_item = QTableWidgetItem(level)
         message_item = QTableWidgetItem(message)
         
+        # 设置消息项目对齐方式
+        message_item.setTextAlignment(Qt.AlignTop | Qt.AlignLeft)
+        
+        # 不再尝试设置TextWordWrap标志 - 这将通过表格属性来处理
+        
         logs_table.setItem(current_row_count, 0, timestamp_item)
         logs_table.setItem(current_row_count, 1, level_item)
         logs_table.setItem(current_row_count, 2, message_item)
+        
+        # 调整新行的高度
+        logs_table.resizeRowToContents(current_row_count)
         
         # Set color
         self._set_log_item_color(current_row_count, level)
@@ -265,6 +376,11 @@ class MainWindowController(QObject):
         self.hw_test_manager.test_step_completed.connect(self._on_test_step_completed)
         self.hw_test_manager.test_step_retrying.connect(self._on_test_step_retrying)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
+        
+        # 添加系统信息服务的信号连接
+        if hasattr(self.view_model, 'system_info_service'):
+            self.view_model.system_info_service.info_received.connect(self._on_system_info_received)
+            self.view_model.system_info_service.info_error.connect(self._on_system_info_error)
     
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -550,8 +666,11 @@ class MainWindowController(QObject):
             self._add_log_entry("ERROR", f"Failed to process logs: {str(e)}")
     
     def show(self):
-        """Show window"""
+        """Show window and trigger system info update"""
         self.window.show()
+        
+        # Trigger system info update after window is shown
+        QTimer.singleShot(100, self._on_refresh_system_info)
     
     def close(self):
         """Close window and release resources"""
@@ -572,8 +691,8 @@ class MainWindowController(QObject):
             self.view_model.cleanup()
         
         # Stop update timer
-        if hasattr(self, 'update_timer') and self.update_timer.isActive():
-            self.update_timer.stop()
+        # if hasattr(self, 'update_timer') and self.update_timer.isActive():
+        #     self.update_timer.stop()
         
         # Remove event filter
         if hasattr(self, 'window'):
@@ -586,3 +705,233 @@ class MainWindowController(QObject):
         self.window_closed.emit(self.device_id)
         
         logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+
+    def _set_initializing_state(self):
+        """Set all system info display to initializing state"""
+        # System basic info
+        self.window.value_model_name.setText("Initializing...")
+        self.window.value_serial_number.setText("Initializing...")
+        self.window.value_cpu.setText("Initializing...")
+        self.window.value_memory.setText("Initializing...")
+        self.window.value_storage.setText("Initializing...")
+        
+        # Battery info
+        self.window.value_battery_model.setText("Initializing...")
+        self.window.value_battery_serial.setText("Initializing...")
+        self.window.progressBar_charge.setValue(0)
+        self.window.value_charge.setText("Initializing...")
+        self.window.value_voltage.setText("Initializing...")
+        self.window.value_current.setText("Initializing...")
+        self.window.value_temperature.setText("Initializing...")
+
+    def _set_ui_controls_enabled(self, enabled=True):
+        """Set all control buttons enabled"""
+        # Refresh button
+        self.window.pushButton_refresh.setEnabled(enabled)
+        
+        # Function test buttons
+        self.window.button_usb_test.setEnabled(enabled)
+        self.window.button_emmc_test.setEnabled(enabled)
+        self.window.button_eeprom_test.setEnabled(enabled)
+        
+        # Log related buttons
+        self.window.pushButton_refresh_logs.setEnabled(enabled)
+        self.window.pushButton_clear_logs.setEnabled(enabled)
+        self.window.pushButton_send_command.setEnabled(enabled)
+        self.window.lineEdit_command.setEnabled(enabled)
+
+    def _on_refresh_system_info(self):
+        """Handle refresh button click"""
+        # If already updating, ignore this click
+        if self.is_updating:
+            return
+        
+        self.is_updating = True
+        self._add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
+        
+        # Disable all control buttons
+        self._set_ui_controls_enabled(False)
+        
+        # Do not reset to initializing state, keep current displayed data
+        # self._set_initializing_state()  # Remove this line
+        
+        # Update timestamp, add updating mark
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.window.label_last_updated.setText(f"Last updated: {current_time} (updating...)")
+        
+        # Get system_info_service instance directly from view_model
+        system_info_service = getattr(self.view_model, 'system_info_service', None)
+        
+        if system_info_service:
+            # Ensure update_system_info method exists
+            if hasattr(system_info_service, 'update_system_info'):
+                logger.info(f"Trigger system info service update, device ID: {self.device_id}")
+                system_info_service.update_system_info(self.device_id)
+            else:
+                logger.error("system_info_service does not have update_system_info method")
+                self._on_system_info_update_completed()
+        else:
+            logger.warning("system_info_service not found, using simulated data")
+            # If no system info service, wait a while then restore button status
+            QTimer.singleShot(2000, self._on_system_info_update_completed)
+
+    def _on_system_info_received(self, device_id, system_info):
+        """System info received completed"""
+        # Only process current device info
+        if device_id != self.device_id:
+            return
+        
+        # Use received data to update display
+        self._update_system_info_display(system_info)
+        
+        # Restore button status
+        self.is_updating = False
+        self._set_ui_controls_enabled(True)
+        
+        # Update timestamp
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.window.label_last_updated.setText(f"Last updated: {current_time}")
+        
+        self._add_log_entry("INFO", "System info update completed")
+
+    def _on_system_info_error(self, device_id, error_message):
+        """System info update error"""
+        # Only process current device info
+        if device_id != self.device_id:
+            return
+        
+        # Record error
+        self._add_log_entry("ERROR", f"System info update failed: {error_message}")
+        
+        # Restore button status
+        self.is_updating = False
+        self._set_ui_controls_enabled(True)
+        
+        # Update timestamp
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.window.label_last_updated.setText(f"Last updated: {current_time} (failed)")
+
+    def _update_system_info_display(self, system_info):
+        """Update system info display"""
+        # CPU info
+        if "cpu" in system_info and "model" in system_info["cpu"]:
+            self.window.value_cpu.setText(system_info["cpu"]["model"])
+        
+        # Memory info
+        if "memory" in system_info:
+            mem_info = system_info["memory"]
+            if "total" in mem_info and "used" in mem_info:
+                mem_text = f"{mem_info['total']} ({mem_info['used']} Used)"
+                self.window.value_memory.setText(mem_text)
+        
+        # Storage info
+        if "storage" in system_info:
+            storage_info = system_info["storage"]
+            if "total" in storage_info and "available" in storage_info:
+                storage_text = f"{storage_info['total']} ({storage_info['available']} Available)"
+                self.window.value_storage.setText(storage_text)
+        
+        # Battery info
+        if "battery" in system_info:
+            battery_info = system_info["battery"]
+            
+            # Battery charge
+            if "relative_state" in battery_info:
+                self.window.progressBar_charge.setValue(battery_info["relative_state"])
+                self.window.value_charge.setText(f"{battery_info['relative_state']}%")
+            
+            # Voltage
+            if "charging_voltage" in battery_info:
+                self.window.value_voltage.setText(f"{battery_info['charging_voltage']} V")
+            
+            # Current
+            if "charging_current" in battery_info:
+                self.window.value_current.setText(f"{battery_info['charging_current']} A")
+            
+            # Temperature
+            if "temperature" in battery_info:
+                self.window.value_temperature.setText(f"{battery_info['temperature']}°C")
+
+    def _on_system_info_update_completed(self):
+        """System info update completed callback (for the case without system info service)"""
+        # Restore button status
+        self.is_updating = False
+        self._set_ui_controls_enabled(True)
+        
+        # Update timestamp
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.window.label_last_updated.setText(f"Last updated: {current_time}")
+        
+        self._add_log_entry("INFO", "System info update completed (simulated data)")
+
+    def _on_edit_model_name(self):
+        """Handle model name edit button click"""
+        current_text = self.window.value_model_name.text()
+        
+        # Create and show custom dark dialog
+        dialog = DarkEditDialog(
+            self.window, 
+            "Edit model name",
+            "Please enter the new model name:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.window.value_model_name.setText(new_text)
+                # Maybe need to update backend data
+    
+    def _on_edit_serial_number(self):
+        """Handle serial number edit button click"""
+        current_text = self.window.value_serial_number.text()
+        
+        # Create and show custom dark dialog
+        dialog = DarkEditDialog(
+            self.window, 
+            "Edit serial number",
+            "Please enter the new serial number:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.window.value_serial_number.setText(new_text)
+                # Maybe need to update backend data
+    
+    def _on_edit_battery_model(self):
+        """Handle battery model edit button click"""
+        current_text = self.window.value_battery_model.text()
+        
+        # Create and show custom dark dialog
+        dialog = DarkEditDialog(
+            self.window, 
+            "Edit battery model",
+            "Please enter the new battery model:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.window.value_battery_model.setText(new_text)
+                # Maybe need to update backend data
+    
+    def _on_edit_battery_serial(self):
+        """Handle battery serial edit button click"""
+        current_text = self.window.value_battery_serial.text()
+        
+        # Create and show custom dark dialog
+        dialog = DarkEditDialog(
+            self.window, 
+            "Edit battery serial",
+            "Please enter the new battery serial number:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.window.value_battery_serial.setText(new_text)
+                # Maybe need to update backend data

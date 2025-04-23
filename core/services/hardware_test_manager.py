@@ -104,7 +104,7 @@ class HardwareTestManagerService(QObject):
             device_id: Device ID
             test_id: Test ID
         """
-        # 檢查測試類型
+        # Check if the test ID is valid
         worker_class = None
         if test_id == "usb_ports":
             from core.tests.usb_ports_test_worker import UsbPortsTestWorker
@@ -115,7 +115,7 @@ class HardwareTestManagerService(QObject):
         elif test_id == "eeprom":
             from core.tests.eeprom_test_worker import EepromTestWorker
             worker_class = EepromTestWorker
-        # 其他測試類型...
+        # Other test types...
         # elif test_id == "touch_screen":
         #     from core.tests.touch_screen_test_worker import TouchScreenTestWorker
         #     worker_class = TouchScreenTestWorker
@@ -126,15 +126,15 @@ class HardwareTestManagerService(QObject):
             self.test_completed.emit(test_id, False, error_msg)
             return
         
-        # 如果有測試正在運行，先停止它
+        # If there is a test running, stop it first
         if self.active_test_worker is not None:
             logger.warning(f"Stop current running test: {self.active_test_id}")
             self.active_test_worker.stop_test()
         
-        # 重新創建工作器 (這是關鍵修改)
+        # Re-create worker (this is a key modification)
         worker = worker_class(self.device_worker)
         
-        # 連接信號
+        # Connect signals
         worker.test_step_completed.connect(
             lambda step_index, success, message: 
                 self.test_step_completed.emit(test_id, step_index, success, message)
@@ -152,17 +152,17 @@ class HardwareTestManagerService(QObject):
                 self._handle_test_completion(test_id, success, message)
         )
         
-        # 更新字典和活動測試
+        # Update dictionary and active test
         self.test_workers[test_id] = worker
         self.active_test_id = test_id
         self.active_test_worker = worker
         
         logger.info(f"Start test: {test_id}, device ID: {device_id}")
         
-        # 通知測試已啟動
+        # Notify test started
         self.test_started.emit(test_id)
         
-        # 啟動測試工作器
+        # Start test worker
         self.active_test_worker.start_test(device_id)
     
     def stop_current_test(self):
@@ -198,13 +198,13 @@ class HardwareTestManagerService(QObject):
         try:
             logger.debug("Cleaning up HardwareTestManagerService resources")
             
-            # 停止當前測試
+            # Stop current test
             if self.active_test_worker:
                 self.active_test_worker.stop_test()
                 self.active_test_id = None
                 self.active_test_worker = None
             
-            # 斷開所有信號
+            # Disconnect all signals
             try:
                 self.test_started.disconnect()
                 self.test_completed.disconnect()
@@ -212,17 +212,17 @@ class HardwareTestManagerService(QObject):
                 self.test_step_retrying.disconnect()
                 self.test_progress.disconnect()
             except Exception:
-                # 信號可能已經斷開，忽略錯誤
+                # Signals may already be disconnected, ignore errors
                 pass
             
-            # 清理所有測試工作器
+            # Clean up all test workers
             for test_id, worker in list(self.test_workers.items()):
                 try:
-                    worker.stop_test()  # 確保所有測試都停止
+                    worker.stop_test()  # Ensure all tests are stopped
                 except Exception as e:
                     logger.warning(f"Error stopping test worker {test_id}: {e}")
                 
-            # 清空工作器字典，讓垃圾回收處理這些對象
+            # Clear worker dictionary, let garbage collection handle these objects
             self.test_workers.clear()
             
         except Exception as e:

@@ -35,6 +35,10 @@ class DeviceManagerViewModel(QObject):
         self._serial_worker.disconnection_result.connect(self._on_disconnection_completed)
         self._serial_worker.command_result.connect(self._on_command_completed)
         
+        # 初始化 SystemInfoService
+        from core.services.system_info import SystemInfoService
+        self.system_info_service = SystemInfoService(self._serial_worker)
+        
     def cleanup(self):
         """Clean up all resources"""
         # Disconnect all devices
