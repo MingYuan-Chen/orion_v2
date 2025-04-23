@@ -43,16 +43,19 @@ Orion採用分層架構設計，遵循MVVM（Model-View-ViewModel）設計模式
 
 ```mermaid
 graph TD
-    subgraph "表現層 (GUI)"
-        A[DeviceManagerWidget] --> B[LoginDialog]
-        A --> C[其他UI元件]
+    subgraph GUI
+        A[DeviceManagerWidget]
+        B[LoginDialog]
+        C[其他UI元件]
+        A --> B
+        A --> C
     end
     
-    subgraph "視圖模型層 (ViewModel)"
+    subgraph ViewModel
         D[DeviceManagerViewModel]
     end
     
-    subgraph "業務邏輯層 (Core)"
+    subgraph Core
         E[HardwareTestManagerService]
         F[BaseTestWorker]
         G[SerialDeviceWorker]
@@ -61,29 +64,20 @@ graph TD
         J[EepromTestWorker]
     end
     
-    subgraph "工具層 (Util)"
+    subgraph Util
         K[Logger]
     end
     
-    %% 視圖與視圖模型的連接
     A <--> D
-    
-    %% 視圖模型與業務邏輯的連接
     D <--> G
     D <--> E
-    
-    %% 測試管理器與測試工作者的連接
     E --> F
     F <|-- H
     F <|-- I
     F <|-- J
-    
-    %% 工作執行緒與測試工作者的關係
     G <--> H
     G <--> I
     G <--> J
-    
-    %% 日誌記錄器與所有元件的關係
     K -.-> A
     K -.-> D
     K -.-> E
@@ -111,16 +105,16 @@ GUI模組採用MVVM架構，包含以下子模組：
 
 ```mermaid
 graph TD
-    subgraph "GUI模組 (gui/)"
-        A[views/] --> A1[login_dialog.py]
-        A --> A2[device_manager_widget.py]
-        
-        B[view_models/] --> B1[device_manager_view_model.py]
-        
-        C[widgets/] --> C1[自定義UI元件]
-        
-        D[ui/] --> D1[介面資源檔案]
-    end
+    A[views/]
+    B[view_models/]
+    C[widgets/]
+    D[ui/]
+    
+    A --> A1[login_dialog.py]
+    A --> A2[device_manager_widget.py]
+    B --> B1[device_manager_view_model.py]
+    C --> C1[自定義UI元件]
+    D --> D1[介面資源檔案]
 ```
 
 - **views/**: 包含各種視圖介面
@@ -142,19 +136,19 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "核心邏輯 (core/)"
-        A[services/] --> A1[hardware_test_manager.py]
-        A --> A2[system_info.py]
-        
-        B[workers/] --> B1[serial_device_worker.py]
-        
-        C[tests/] --> C1[base_test_worker.py]
-        C --> C2[usb_ports_test_worker.py]
-        C --> C3[emmc_test_worker.py]
-        C --> C4[eeprom_test_worker.py]
-        
-        D[models/] --> D1[資料模型類別]
-    end
+    A[services/]
+    B[workers/]
+    C[tests/]
+    D[models/]
+    
+    A --> A1[hardware_test_manager.py]
+    A --> A2[system_info.py]
+    B --> B1[serial_device_worker.py]
+    C --> C1[base_test_worker.py]
+    C --> C2[usb_ports_test_worker.py]
+    C --> C3[emmc_test_worker.py]
+    C --> C4[eeprom_test_worker.py]
+    D --> D1[資料模型類別]
 ```
 
 - **services/**: 核心服務
@@ -179,10 +173,11 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "公共元件 (util/)"
-        A[logger.py] --> A1[日誌記錄功能]
-        B[其他工具類] --> B1[輔助功能]
-    end
+    A[logger.py]
+    B[其他工具類]
+    
+    A --> A1[日誌記錄功能]
+    B --> B1[輔助功能]
 ```
 
 - `logger.py`: 日誌記錄器，提供統一的日誌記錄介面
@@ -304,16 +299,18 @@ Orion系統採用Qt的信號槽機制和工作執行緒來實現非同步處理�
 
 ```mermaid
 graph TD
-    subgraph "非同步處理機制"
-        A[UI執行緒] -- "信號槽" --> B[工作執行緒]
-        B -- "信號通知" --> A
-        
-        B -- "發送命令" --> C[硬體裝置]
-        C -- "命令回應" --> B
-        
-        D[QTimer] -- "延時觸發" --> E[重試機制]
-        E --> B
-    end
+    A[UI執行緒]
+    B[工作執行緒]
+    C[硬體裝置]
+    D[QTimer]
+    E[重試機制]
+    
+    A -- "信號槽" --> B
+    B -- "信號通知" --> A
+    B -- "發送命令" --> C
+    C -- "命令回應" --> B
+    D -- "延時觸發" --> E
+    E --> B
 ```
 
 1. **工作執行緒**：
@@ -339,16 +336,16 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "擴充點"
-        A[測試模組擴充] --> A1[繼承BaseTestWorker]
-        A --> A2[實現特定測試邏輯]
-        
-        B[裝置支援擴充] --> B1[新增裝置驅動]
-        B --> B2[新增裝置通訊協定]
-        
-        C[UI擴充] --> C1[新增視圖元件]
-        C --> C2[擴充ViewModel]
-    end
+    A[測試模組擴充]
+    B[裝置支援擴充]
+    C[UI擴充]
+    
+    A --> A1[繼承BaseTestWorker]
+    A --> A2[實現特定測試邏輯]
+    B --> B1[新增裝置驅動]
+    B --> B2[新增裝置通訊協定]
+    C --> C1[新增視圖元件]
+    C --> C2[擴充ViewModel]
 ```
 
 1. **模組化架構**：
@@ -373,9 +370,14 @@ graph TD
 
 ```mermaid
 graph TD
-    A[步驟 1: 建立測試工作執行緒類別] --> B[步驟 2: 在測試管理程式中註冊]
-    B --> C[步驟 3: 更新UI介面]
-    C --> D[步驟 4: 測試和驗證]
+    A[步驟1: 建立測試類別]
+    B[步驟2: 註冊測試模組]
+    C[步驟3: 更新UI介面]
+    D[步驟4: 測試和驗證]
+    
+    A --> B
+    B --> C
+    C --> D
 ```
 
 1. **建立測試工作執行緒類別**：
