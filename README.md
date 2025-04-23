@@ -95,7 +95,8 @@ VT_Hydra_2504_v2/
 ├── core/
 │   ├── models/         # Data models
 │   ├── services/       # Business logic services
-│   └── workers/        # Background workers
+│   ├── workers/        # Background workers
+│   └── tests/          # Hardware test workers
 ├── gui/
 │   ├── ui/             # UI definition files
 │   ├── views/          # View controllers
@@ -133,11 +134,11 @@ VT_Hydra_2504_v2/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-organization/VT_Hydra_2504_v2.git
-cd VT_Hydra_2504_v2
+git clone https://192.168.26.172:8080/VT_Hydra_2504.git
+cd VT_Hydra_2504
 
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 
 # Run tests
 pytest
@@ -147,13 +148,13 @@ pytest
 
 ```bash
 # Using PyInstaller
-pyinstaller --name "VT_Hydra_Manager" --windowed --icon=resources/icons/header.ico main.py
+pyinstaller main.spec
 ```
 
 ## License
 
-Copyright © 2024. All rights reserved.
+Copyright © 2025. All rights reserved.
 
 ---
 
-*For technical support, please contact the device manufacturer* 
+*For technical support, please contact frank_chen@promate.com* 
