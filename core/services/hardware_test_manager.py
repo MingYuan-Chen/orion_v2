@@ -50,19 +50,25 @@ class HardwareTestManagerService(QObject):
         self._register_worker("emmc", EmmcTestWorker)
         from core.tests.eeprom_test_worker import EepromTestWorker
         self._register_worker("eeprom", EepromTestWorker)
+        from core.tests.battery_test_discharging_worker import BatteryTestDischargingWorker
+        self._register_worker("battery_discharging", BatteryTestDischargingWorker)
 
         # self._register_worker("touch_screen", TouchScreenTestWorker)
         
         logger.info(f"Registered test workers: {', '.join(self.test_workers.keys())}")
     
-    def _register_worker(self, test_id: str, worker_class):
+    def _create_and_connect_worker(self, test_id: str, worker_class):
         """
-        Register a single test worker
+        Create a worker instance and connect its signals
         
         Args:
-            test_id: Test ID, used to identify different test types
+            test_id: Test ID
             worker_class: Test worker class
+            
+        Returns:
+            Created worker instance
         """
+        # Create worker instance
         worker = worker_class(self.device_worker)
         
         # Connect worker signals to manager signals
@@ -82,6 +88,22 @@ class HardwareTestManagerService(QObject):
             lambda success, message: 
                 self._handle_test_completion(test_id, success, message)
         )
+        
+        # Save worker class for later use
+        worker.worker_class = worker_class
+        
+        return worker
+    
+    def _register_worker(self, test_id: str, worker_class):
+        """
+        Register a single test worker
+        
+        Args:
+            test_id: Test ID, used to identify different test types
+            worker_class: Test worker class
+        """
+        # Create worker and connect signals
+        worker = self._create_and_connect_worker(test_id, worker_class)
         
         # Store worker
         self.test_workers[test_id] = worker
@@ -105,52 +127,22 @@ class HardwareTestManagerService(QObject):
             test_id: Test ID
         """
         # Check if the test ID is valid
-        worker_class = None
-        if test_id == "usb_ports":
-            from core.tests.usb_ports_test_worker import UsbPortsTestWorker
-            worker_class = UsbPortsTestWorker
-        elif test_id == "emmc":
-            from core.tests.emmc_test_worker import EmmcTestWorker
-            worker_class = EmmcTestWorker
-        elif test_id == "eeprom":
-            from core.tests.eeprom_test_worker import EepromTestWorker
-            worker_class = EepromTestWorker
-        # Other test types...
-        # elif test_id == "touch_screen":
-        #     from core.tests.touch_screen_test_worker import TouchScreenTestWorker
-        #     worker_class = TouchScreenTestWorker
-        
-        if not worker_class:
+        if test_id not in self.test_workers:
             error_msg = f"Unknown test: {test_id}"
             logger.error(error_msg)
             self.test_completed.emit(test_id, False, error_msg)
             return
+        
+        # Get worker class from the worker
+        worker_class = self.test_workers[test_id].worker_class
         
         # If there is a test running, stop it first
         if self.active_test_worker is not None:
             logger.warning(f"Stop current running test: {self.active_test_id}")
             self.active_test_worker.stop_test()
         
-        # Re-create worker (this is a key modification)
-        worker = worker_class(self.device_worker)
-        
-        # Connect signals
-        worker.test_step_completed.connect(
-            lambda step_index, success, message: 
-                self.test_step_completed.emit(test_id, step_index, success, message)
-        )
-        worker.test_step_retrying.connect(
-            lambda step_index, retry_count, max_retries, error_message:
-                self.test_step_retrying.emit(test_id, step_index, retry_count, max_retries, error_message)
-        )
-        worker.test_progress.connect(
-            lambda current, total: 
-                self.test_progress.emit(test_id, current, total)
-        )
-        worker.test_completed.connect(
-            lambda success, message: 
-                self._handle_test_completion(test_id, success, message)
-        )
+        # Create worker and connect signals
+        worker = self._create_and_connect_worker(test_id, worker_class)
         
         # Update dictionary and active test
         self.test_workers[test_id] = worker

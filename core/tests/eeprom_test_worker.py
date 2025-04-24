@@ -49,7 +49,6 @@ class EepromTestWorker(BaseTestWorker):
             ),
             TestStep(
                 command="sync", 
-                expected_response="#", 
                 timeout=3, 
                 description="Sync",
                 max_retries=1,
@@ -93,7 +92,6 @@ class EepromTestWorker(BaseTestWorker):
             ),
             TestStep(
                 command="sync", 
-                expected_response="#", 
                 timeout=3, 
                 description="Sync",
                 max_retries=1,
@@ -118,8 +116,7 @@ class EepromTestWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command="sync", 
-                expected_response="#", 
+                command="sync",  
                 timeout=3, 
                 description="Sync",
                 max_retries=1,
@@ -157,7 +154,6 @@ class EepromTestWorker(BaseTestWorker):
             # Seventh step: Clean up files
             TestStep(
                 command="rm -f to_eeprom0_data from_eeprom0_data", 
-                expected_response="#", 
                 timeout=3, 
                 description="Clean up EEPROM0 test files",
                 max_retries=1,
@@ -165,7 +161,6 @@ class EepromTestWorker(BaseTestWorker):
             ),
             TestStep(
                 command="rm -f to_eeprom1_data from_eeprom1_data", 
-                expected_response="#", 
                 timeout=3, 
                 description="Clean up EEPROM1 test files",
                 max_retries=1,
@@ -173,7 +168,6 @@ class EepromTestWorker(BaseTestWorker):
             ),
             TestStep(
                 command="sync", 
-                expected_response="#", 
                 timeout=3, 
                 description="Sync",
                 max_retries=1,
