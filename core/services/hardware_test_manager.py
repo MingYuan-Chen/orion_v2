@@ -50,8 +50,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("emmc", EmmcTestWorker, continue_on_failure=True)
         from core.tests.eeprom_test_worker import EepromTestWorker
         self._register_worker("eeprom", EepromTestWorker, continue_on_failure=True)
-        from core.tests.battery_test_discharging_worker import BatteryTestDischargingWorker
-        self._register_worker("battery_discharging", BatteryTestDischargingWorker, continue_on_failure=True)
+        from core.tests.battery_test_worker import BatteryTestWorker
+        self._register_worker("battery", BatteryTestWorker, continue_on_failure=True)
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)
         
