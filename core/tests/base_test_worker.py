@@ -47,12 +47,13 @@ class BaseTestWorker(QObject):
     test_progress = Signal(int, int)  # current_step, total_steps
     test_completed = Signal(bool, str)  # success, message
     
-    def __init__(self, device_worker):
+    def __init__(self, device_worker, continue_on_failure=True):
         """
         Initialize test worker
         
         Args:
             device_worker: Device worker object, must provide send_command method and command_result signal
+            continue_on_failure: Whether to continue testing after a step fails
         """
         super().__init__()
         self.device_worker = device_worker
@@ -64,8 +65,22 @@ class BaseTestWorker(QObject):
         self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(self._retry_current_step)
         
+        # Add failed step tracking
+        self.failed_steps = []
+        self.continue_on_failure = continue_on_failure  # Set to True to continue after failure
+        
         # Save signal connection for later disconnection
         self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
+        
+    def set_continue_on_failure(self, value: bool):
+        """
+        Set whether to continue testing after a step fails
+        
+        Args:
+            value: True to continue, False to stop
+        """
+        self.continue_on_failure = value
+        logger.debug(f"Set continue_on_failure to {value}")
         
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -87,6 +102,9 @@ class BaseTestWorker(QObject):
         self.current_device_id = device_id
         self.steps = self.prepare_test_steps()
         self.current_step_index = -1
+        
+        # Clear failed step records
+        self.failed_steps = []
         
         # Stop possible existing retry timer
         if self.retry_timer.isActive():
@@ -133,9 +151,17 @@ class BaseTestWorker(QObject):
         
         # Check if all steps are completed
         if self.current_step_index >= len(self.steps):
-            # Test completed, all steps passed
-            logger.info("All test steps completed, test passed")
-            self.test_completed.emit(True, "Test completed")
+            # All steps completed, check if test passed based on failed steps
+            is_test_passed = len(self.failed_steps) == 0
+            
+            if is_test_passed:
+                logger.info("All test steps completed, test passed")
+                self.test_completed.emit(True, "Test completed successfully")
+            else:
+                # Test completed but with failed steps
+                failed_steps_str = ", ".join([f"Step {i+1}" for i in self.failed_steps])
+                logger.warning(f"Test completed with {len(self.failed_steps)} failed steps: {failed_steps_str}")
+                self.test_completed.emit(False, f"Test completed with {len(self.failed_steps)} failed steps: {failed_steps_str}")
             
             # Disconnect signals
             self._disconnect_signals()
@@ -255,20 +281,23 @@ class BaseTestWorker(QObject):
             if step.retry_count > 0:
                 message = f"{message} (Retried {step.retry_count} times successfully)"
         else:
+            # Final failure, add current step index to failed list
+            self.failed_steps.append(self.current_step_index)
+            
             # Final failure, add retry count
             message = f"{message} (Retried {step.retry_count} times still failed)"
         
         # Send step completed signal
         self.test_step_completed.emit(self.current_step_index, passed, message)
         
-        # If test step failed and reached maximum retries, test failed
-        if not passed:
-            logger.error(f"Test failed: {message}")
-            self.test_completed.emit(False, f"Test failed: {message}")
-            
-            # Disconnect signals
+        # Based on continue_on_failure, decide whether to continue
+        if not passed and not self.continue_on_failure:
+            # If step failed and set to not continue after failure, end test
+            failed_steps_str = ", ".join([f"Step {i+1}" for i in self.failed_steps])
+            logger.error(f"Test stopped due to step failure. Failed steps: {failed_steps_str}")
+            self.test_completed.emit(False, f"Test stopped at step {self.current_step_index+1}. Failed steps: {failed_steps_str}")
             self._disconnect_signals()
             return
-            
-        # Execute next step
+        
+        # Continue to execute next step
         self._execute_next_step() 
