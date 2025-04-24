@@ -45,19 +45,19 @@ class HardwareTestManagerService(QObject):
         """Register all module test workers"""
         # Currently only implement USB test
         from core.tests.usb_ports_test_worker import UsbPortsTestWorker
-        self._register_worker("usb_ports", UsbPortsTestWorker)
+        self._register_worker("usb_ports", UsbPortsTestWorker, continue_on_failure=True)
         from core.tests.emmc_test_worker import EmmcTestWorker
-        self._register_worker("emmc", EmmcTestWorker)
+        self._register_worker("emmc", EmmcTestWorker, continue_on_failure=True)
         from core.tests.eeprom_test_worker import EepromTestWorker
-        self._register_worker("eeprom", EepromTestWorker)
+        self._register_worker("eeprom", EepromTestWorker, continue_on_failure=True)
         from core.tests.battery_test_discharging_worker import BatteryTestDischargingWorker
-        self._register_worker("battery_discharging", BatteryTestDischargingWorker)
+        self._register_worker("battery_discharging", BatteryTestDischargingWorker, continue_on_failure=True)
 
-        # self._register_worker("touch_screen", TouchScreenTestWorker)
+        # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)
         
         logger.info(f"Registered test workers: {', '.join(self.test_workers.keys())}")
     
-    def _create_and_connect_worker(self, test_id: str, worker_class):
+    def _create_and_connect_worker(self, test_id: str, worker_class, continue_on_failure: bool = True):
         """
         Create a worker instance and connect its signals
         
@@ -69,7 +69,7 @@ class HardwareTestManagerService(QObject):
             Created worker instance
         """
         # Create worker instance
-        worker = worker_class(self.device_worker)
+        worker = worker_class(self.device_worker, continue_on_failure=continue_on_failure)
         
         # Connect worker signals to manager signals
         worker.test_step_completed.connect(
@@ -94,7 +94,7 @@ class HardwareTestManagerService(QObject):
         
         return worker
     
-    def _register_worker(self, test_id: str, worker_class):
+    def _register_worker(self, test_id: str, worker_class, continue_on_failure: bool = True):
         """
         Register a single test worker
         
@@ -103,7 +103,7 @@ class HardwareTestManagerService(QObject):
             worker_class: Test worker class
         """
         # Create worker and connect signals
-        worker = self._create_and_connect_worker(test_id, worker_class)
+        worker = self._create_and_connect_worker(test_id, worker_class, continue_on_failure)
         
         # Store worker
         self.test_workers[test_id] = worker

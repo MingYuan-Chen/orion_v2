@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class EepromTestWorker(BaseTestWorker):
     """EEPROM test worker, implement EEPROM function test for device"""
     
-    def __init__(self, device_worker):
-        super().__init__(device_worker)
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
         self.i2c_bus = "/dev/i2c-0"
         self.eeprom0 = "0x55"  # external 128Kbit EEPROM chip
         self.eeprom1 = "0x57"  # 1Kbit EEPROM inside RTC

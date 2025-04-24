@@ -12,6 +12,28 @@ logger = logging.getLogger(__name__)
 class BatteryTestDischargingWorker(BaseTestWorker):
     """Battery test worker, implement battery discharging test for device"""
     
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
+        self.get_battery_state = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"
+        self.get_temperature = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2"
+        self.get_led_status = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
+        self.get_current = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2"
+        self.LED_STATUS_MAP = {
+            0: "Off", 8: "Off", 16: "Off", 24: "Off",
+            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
+            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
+            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
+            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
+            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
+            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
+            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+        }
+        self.current_dc = None
+        self.current_led = None
+        self.current_temperature = None
+        self.current_battery_state = None
+
+    
     def prepare_test_steps(self) -> List[TestStep]:
         """
         Prepare battery discharging test steps
@@ -21,22 +43,42 @@ class BatteryTestDischargingWorker(BaseTestWorker):
         """
         return [
             TestStep(
-                command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2", 
-                validation_func=self._validate_battery_state_in_step_1,
+                command="cat /sys/class/gpio/gpio133/value", 
+                validation_func=self._validate_dc_status,
                 timeout=5, 
-                description="Validate battery state should be more than 90%",
-                max_retries=3,           # Maximum retries 1 time
+                description="Validate dc status",
+                max_retries=1,           # Maximum retries 1 time
                 retry_delay=500          # 0.5 seconds later retry
             ),
-            self.create_wait_step(
-                wait_time_ms=10000,  # 10 seconds
-                description="Wait for battery discharging"
+            TestStep(
+                command=self.get_battery_state, 
+                validation_func=self._validate_battery_state,
+                timeout=5, 
+                description="Validate battery state",
+                max_retries=3,           # Maximum retries 3 times
+                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
-                command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2", 
-                validation_func=self._validate_battery_state_in_step_2,
+                command=self.get_temperature, 
+                validation_func=self._validate_temperature,
                 timeout=10, 
-                description="Validate battery discharging should be more than 30%",
+                description="Validate battery temperature",
+                max_retries=2,           # Maximum retries 2 times
+                retry_delay=1500         # 1.5 seconds later retry
+            ),
+            TestStep(
+                command=self.get_current, 
+                validation_func=self._validate_current,
+                timeout=10, 
+                description="Validate batterycurrent",
+                max_retries=2,           # Maximum retries 2 times
+                retry_delay=1500         # 1.5 seconds later retry
+            ),
+            TestStep(
+                command=self.get_led_status, 
+                validation_func=self._validate_led_status,
+                timeout=10, 
+                description="Validate led status",
                 max_retries=2,           # Maximum retries 2 times
                 retry_delay=1500         # 1.5 seconds later retry
             )
@@ -116,9 +158,33 @@ class BatteryTestDischargingWorker(BaseTestWorker):
             logger.error(f"Error in battery info parsing for {command_name}: {str(e)}")
             return None
     
-    def _validate_battery_state_in_step_1(self, response: str) -> Tuple[bool, str]:
+    def _validate_dc_status(self, response: str) -> Tuple[bool, str]:
         """
-        Validate battery state in step 1
+        Validate dc status
+        
+        Args:
+            response: Device response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            value = self._parse_battery_info("dc_status", response)
+            if type(value) != int:
+                return False, f"Unexpected dc status: {value}"
+            
+            if value not in [0, 1]:
+                return False, f"Unexpected dc status: {value}"
+            
+            self.current_dc = value
+            return True, f"DC status: {value} {'discharging' if value == 0 else 'charging'}"
+        except Exception as e:
+            logger.error(f"exception in dc status: {e}")
+            return False, f"exception in dc status: {e}"
+
+    def _validate_battery_state(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate battery state
         
         Args:
             response: Device response string
@@ -134,17 +200,15 @@ class BatteryTestDischargingWorker(BaseTestWorker):
             if value < 0 or value > 100:
                 return False, f"Unreasonable battery state: {value}"
             
-            if value < 90:
-                return False, f"Battery state is less than 90%: {value}"
-            
-            return True, f"Battery state: {value}"
+            self.current_battery_state = value
+            return True, f"Battery state: {value}%"
         except Exception as e:
-            logger.error(f"exception in discharging step 1: {e}")
-            return False, f"exception in discharging step 1: {e}"
+            logger.error(f"exception in discharging state: {e}")
+            return False, f"exception in discharging state: {e}"
         
-    def _validate_battery_state_in_step_2(self, response: str) -> Tuple[bool, str]:
+    def _validate_temperature(self, response: str) -> Tuple[bool, str]:
         """
-        Validate battery state in step 2
+        Validate battery temperature
         
         Args:
             response: Device response string
@@ -153,17 +217,81 @@ class BatteryTestDischargingWorker(BaseTestWorker):
             (success flag, message) tuple
         """
         try:
-            value = self._parse_battery_info("relative_state", response)
-            if type(value) != int:
-                return False, f"Unexpected battery state: {value}"
+            value = self._parse_battery_info("temperature", response)
+            if type(value) != float:
+                return False, f"Unexpected battery temperature: {value}"
             
             if value < 0 or value > 100:
-                return False, f"Unreasonable battery state: {value}"
+                return False, f"Unreasonable battery temperature: {value}"
             
-            if value < 30:
-                return False, f"Battery discharging is less than 30%: {value}"
-            
-            return True, f"Battery state: {value}"
+            self.current_temperature = value
+            return True, f"Battery temperature: {value}°C"
         except Exception as e:
-            logger.error(f"exception in discharging step 2: {e}")
-            return False, f"exception in discharging step 2: {e}"
+            logger.error(f"exception in discharging temperature: {e}")
+            return False, f"exception in discharging temperature: {e}"
+    
+    def _validate_led_status(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate LED status
+        
+        Args:
+            response: Device response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            value = self._parse_battery_info("led_status", response)
+            if type(value) != int:
+                return False, f"Unexpected led status: {value}"
+            
+            if value not in self.LED_STATUS_MAP:
+                return False, f"Unexpected led status: {value}"
+            
+            if self.current_dc == 0:
+                if self.current_battery_state > 10 and self.current_battery_state <= 100:
+                    if value not in [0, 16]:
+                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+                else:
+                    if value not in [12, 28]:
+                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            else:
+                if self.current_battery_state == 100:
+                    if value not in [2, 18]:
+                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+                elif self.current_battery_state > 10 and self.current_battery_state <= 99:
+                    if value not in [1, 17]:
+                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+                else:
+                    if value not in [12, 28]:
+                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+
+            self.current_led = value
+            return True, f"LED status: {self.LED_STATUS_MAP[value]}"
+        except Exception as e:
+            logger.error(f"exception in discharging led status: {e}")
+            return False, f"exception in discharging led status: {e}"
+        
+    def _validate_current(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate current
+        
+        Args:
+            response: Device response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            value = self._parse_battery_info("charging_current", response)
+            if type(value) != float:
+                return False, f"Unexpected current: {value}"
+            
+            if value < 1.8 or value > 2.5:
+                return False, f"Unreasonable current: {value}"
+            
+            return True, f"Current: {value}"
+        except Exception as e:
+            logger.error(f"exception in discharging current: {e}")
+            return False, f"exception in discharging current: {e}"
+

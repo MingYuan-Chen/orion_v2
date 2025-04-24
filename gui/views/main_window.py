@@ -677,7 +677,7 @@ class MainWindowController(QObject):
         self.window.show()
         
         # Trigger system info update after window is shown
-        QTimer.singleShot(100, self._on_refresh_system_info)
+        # QTimer.singleShot(100, self._on_refresh_system_info)
     
     def close(self):
         """Close window and release resources"""
