@@ -37,6 +37,8 @@ class TestStep:
         self.retry_delay = retry_delay  # Retry delay (milliseconds)
         self.retry_count = 0            # Current retry count
         self.retry_messages = []        # Retry error messages
+        self.is_wait_step = False       # Whether this is a special wait step
+        self.wait_time = 0              # Wait time in milliseconds
 
 class BaseTestWorker(QObject):
     """Base test worker class, provide test execution framework and retry mechanism"""
@@ -69,9 +71,14 @@ class BaseTestWorker(QObject):
         self.failed_steps = []
         self.continue_on_failure = continue_on_failure  # Set to True to continue after failure
         
+        # Add wait timer for wait steps
+        self.wait_timer = QTimer()
+        self.wait_timer.setSingleShot(True)
+        self.wait_timer.timeout.connect(self._wait_completed)
+        
         # Save signal connection for later disconnection
         self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
-        
+    
     def set_continue_on_failure(self, value: bool):
         """
         Set whether to continue testing after a step fails
@@ -81,6 +88,33 @@ class BaseTestWorker(QObject):
         """
         self.continue_on_failure = value
         logger.debug(f"Set continue_on_failure to {value}")
+    
+    def create_wait_step(self, wait_time_ms: int, description: str = None) -> TestStep:
+        """
+        Create a special wait step that will pause the test execution for the specified time
+        
+        Args:
+            wait_time_ms: Wait time in milliseconds
+            description: Step description (optional)
+            
+        Returns:
+            TestStep object configured as a wait step
+        """
+        if description is None:
+            description = f"Wait for {wait_time_ms} ms"
+            
+        # Create a dummy step that won't actually send a command
+        step = TestStep(
+            command="",  # Empty command
+            description=description,
+            timeout=max(1, wait_time_ms // 1000)  # Convert to seconds for timeout
+        )
+        
+        # Mark as a wait step
+        step.is_wait_step = True
+        step.wait_time = wait_time_ms
+        
+        return step
         
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -110,6 +144,10 @@ class BaseTestWorker(QObject):
         if self.retry_timer.isActive():
             self.retry_timer.stop()
             
+        # Stop possible existing wait timer
+        if self.wait_timer.isActive():
+            self.wait_timer.stop()
+            
         # Initialize progress
         self.test_progress.emit(0, len(self.steps))
         
@@ -121,6 +159,9 @@ class BaseTestWorker(QObject):
         logger.info("Manually stop test")
         if self.retry_timer.isActive():
             self.retry_timer.stop()
+            
+        if self.wait_timer.isActive():
+            self.wait_timer.stop()
         
         # Emit test completed signal, marked as cancelled
         if self.current_step_index >= 0:
@@ -177,10 +218,40 @@ class BaseTestWorker(QObject):
         # Update progress
         self.test_progress.emit(self.current_step_index + 1, len(self.steps))
         
+        # Check if this is a wait step
+        if step.is_wait_step:
+            logger.debug(f"Execute wait step {self.current_step_index+1}/{len(self.steps)}: {step.description} ({step.wait_time} ms)")
+            # Start wait timer
+            self.wait_timer.setInterval(step.wait_time)
+            self.wait_timer.start()
+            return
+        
+        # Normal command step
         logger.debug(f"Execute test step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
         
         # Send command
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
+    
+    def _wait_completed(self):
+        """Handle wait step completion"""
+        # Get current step
+        if self.current_step_index < 0 or self.current_step_index >= len(self.steps):
+            return
+            
+        step = self.steps[self.current_step_index]
+        if not step.is_wait_step:
+            return
+            
+        # Mark as passed
+        step.passed = True
+        
+        # Emit step completed signal
+        message = f"Wait completed: {step.description}"
+        logger.debug(message)
+        self.test_step_completed.emit(self.current_step_index, True, message)
+        
+        # Continue to next step
+        self._execute_next_step()
     
     def _retry_current_step(self):
         """Retry current step"""

@@ -50,6 +50,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("emmc", EmmcTestWorker)
         from core.tests.eeprom_test_worker import EepromTestWorker
         self._register_worker("eeprom", EepromTestWorker)
+        from core.tests.battery_test_discharging_worker import BatteryTestDischargingWorker
+        self._register_worker("battery_discharging", BatteryTestDischargingWorker)
 
         # self._register_worker("touch_screen", TouchScreenTestWorker)
         

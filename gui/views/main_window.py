@@ -400,6 +400,9 @@ class MainWindowController(QObject):
         # Connect eeprom test button
         self.window.button_eeprom_test.clicked.connect(lambda: self._start_hardware_test("eeprom"))
         
+        # Connect battery discharge test button
+        self.window.button_battery_discharge_test.clicked.connect(lambda: self._start_hardware_test("battery_discharging"))
+        
         # Default hide progress bar
         self.window.progressBar_hardware_test.setVisible(False)
         
@@ -407,6 +410,7 @@ class MainWindowController(QObject):
         self._update_test_ui_state("usb_ports", "not_started")
         self._update_test_ui_state("emmc", "not_started")
         self._update_test_ui_state("eeprom", "not_started")
+        self._update_test_ui_state("battery_discharging", "not_started")
     
     def _start_hardware_test(self, test_id: str):
         """
@@ -443,6 +447,9 @@ class MainWindowController(QObject):
         elif test_id == "eeprom":
             status_label = self.window.label_eeprom_status
             button = self.window.button_eeprom_test
+        elif test_id == "battery_discharging":
+            status_label = self.window.label_battery_discharge_status
+            button = self.window.button_battery_discharge_test
         else:
             # Unknown test ID, do not update UI
             return
@@ -733,6 +740,7 @@ class MainWindowController(QObject):
         self.window.button_usb_test.setEnabled(enabled)
         self.window.button_emmc_test.setEnabled(enabled)
         self.window.button_eeprom_test.setEnabled(enabled)
+        self.window.button_battery_discharge_test.setEnabled(enabled)
         
         # Log related buttons
         self.window.pushButton_refresh_logs.setEnabled(enabled)
