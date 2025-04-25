@@ -9,6 +9,7 @@ from gui.views.login_dialog import LoginDialog
 from gui.views.device_manager_widget import DeviceManagerWidget
 from util.logger import logger
 import os
+from PySide6.QtCore import Qt
 
 
 def main():
@@ -17,8 +18,16 @@ def main():
         # Create application
         app = QApplication(sys.argv)
         
-        # Set application name and style
+        # 設置更完整的應用程序標識
         app.setApplicationName("VT Hydra")
+        app.setApplicationDisplayName("VT Hydra Device Manager")
+        app.setOrganizationName("Orion")
+        app.setOrganizationDomain("orion.com")
+        app.setApplicationVersion("1.0.0.0")
+        
+        # 確保 Qt 知道所有窗口屬於同一應用程序實例
+        app.setAttribute(Qt.AA_UseHighDpiPixmaps)  # 使用高 DPI 圖像
+        
         app.setStyle("Fusion")  # Use Fusion style for a modern look
         
         # Set application icon
@@ -38,6 +47,16 @@ def main():
         else:
             logger.warning(f"Icon file not found: {icon_path}")
         
+        # 設置進程 ID，用於任務管理器顯示
+        if sys.platform == 'win32':
+            import ctypes
+            app_id = 'Orion.VTHydra.DeviceManager.2504'  # 格式: 組織.產品.應用.版本
+            try:
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+                logger.debug(f"Set Windows Application User Model ID: {app_id}")
+            except Exception as e:
+                logger.warning(f"Failed to set Application User Model ID: {e}")
+        
         # Start with login screen
         login_dialog = LoginDialog()
         login_result = login_dialog.exec()
@@ -51,7 +70,7 @@ def main():
             device_manager.show()
             
             # Run main event loop
-            sys.exit(app.exec())
+            return app.exec()
         else:
             logger.info("Login cancelled or failed. Exiting application.")
             return 0

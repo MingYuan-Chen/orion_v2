@@ -10,6 +10,7 @@ import os
 import sys
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
+from PySide6.QtWidgets import QApplication
 
 
 class DarkEditDialog(QDialog):
@@ -169,18 +170,8 @@ class MainWindowController(QObject):
             logger.error(f"Failed to load main window UI: {str(e)}")
             raise
         
-        # Set window title
-        self.window.setWindowTitle(f"System Monitoring - Device {device_id}")
-        
-        # Set window icon
-        try:
-            if os.path.exists(icon_path):
-                self.window.setWindowIcon(QIcon(icon_path))
-                logger.debug(f"Main window icon set successfully for device {device_id}")
-            else:
-                logger.warning(f"Icon file not found: {icon_path}")
-        except Exception as e:
-            logger.error(f"Failed to set window icon: {str(e)}")
+        # Set window properties
+        self._set_window_properties()
         
         # Initialize logs view
         self._init_logs_view()
@@ -233,10 +224,10 @@ class MainWindowController(QObject):
         logs_table.setColumnWidth(0, 180)  # Timestamp column
         logs_table.setColumnWidth(1, 80)   # Level column
         
-        # 启用自动调整行高以显示完整内容
+        # Enable automatic row height adjustment to display full content
         logs_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         
-        # 设置表格自动换行
+        # Set table to automatically wrap text
         logs_table.setWordWrap(True)
         
         # Connect command send button
@@ -674,7 +665,15 @@ class MainWindowController(QObject):
     
     def show(self):
         """Show window and trigger system info update"""
+        # Check window properties again before showing, ensure it's part of the main application
+        self._set_window_properties()
+        
+        # 啟動窗口
         self.window.show()
+        
+        # 確保窗口提升到前面並激活
+        self.window.raise_()
+        self.window.activateWindow()
         
         # Trigger system info update after window is shown
         # QTimer.singleShot(100, self._on_refresh_system_info)
@@ -683,38 +682,38 @@ class MainWindowController(QObject):
         """Close window and release resources"""
         logger.info(f"Closing main window for device: {self.device_id}")
         
-        # 1. 停止所有正在進行的測試
+        # 1. Stop all ongoing tests
         if hasattr(self, 'hw_test_manager'):
             self.hw_test_manager.stop_current_test()
         
-        # 2. 清理硬件測試管理器資源
+        # 2. Clean up hardware test manager resources
         if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
             logger.info("Cleaning up hardware test manager")
             self.hw_test_manager.cleanup()
         
-        # 3. 清理 view_model 資源
+        # 3. Clean up view_model resources
         if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
             logger.info("Cleaning up view model")
             self.view_model.cleanup()
         
-        # 4. 斷開所有信號連接
+        # 4. Disconnect all signals
         try:
-            # 斷開 view_model 的信號
+            # Disconnect view_model signals
             if hasattr(self, 'view_model') and self.view_model:
                 try:
                     self.view_model.command_result.disconnect(self._on_command_completed)
                 except Exception:
-                    pass  # 如果已斷開連接，則忽略錯誤
+                    pass  # If already disconnected, ignore error
                 
-                # 斷開系統信息服務信號
+                # Disconnect system info service signals
                 if hasattr(self.view_model, 'system_info_service'):
                     try:
                         self.view_model.system_info_service.info_received.disconnect(self._on_system_info_received)
                         self.view_model.system_info_service.info_error.disconnect(self._on_system_info_error)
                     except Exception:
-                        pass  # 信號可能已斷開連接
+                        pass  # Signals may already be disconnected
             
-            # 斷開硬件測試管理器信號
+            # Disconnect hardware test manager signals
             if hasattr(self, 'hw_test_manager'):
                 try:
                     self.hw_test_manager.test_started.disconnect(self._on_test_started)
@@ -723,9 +722,9 @@ class MainWindowController(QObject):
                     self.hw_test_manager.test_step_retrying.disconnect(self._on_test_step_retrying)
                     self.hw_test_manager.test_progress.disconnect(self._on_test_progress)
                 except Exception:
-                    pass  # 忽略已斷開的信號錯誤
+                    pass  # Ignore already disconnected signal errors
             
-            # 斷開 window 按鈕信號
+            # Disconnect window button signals
             if hasattr(self, 'window'):
                 try:
                     self.window.pushButton_refresh.clicked.disconnect(self._on_refresh_system_info)
@@ -740,43 +739,43 @@ class MainWindowController(QObject):
                     self.window.comboBox_log_level.currentIndexChanged.disconnect(self._filter_logs)
                     self.window.comboBox_time_range.currentIndexChanged.disconnect(self._filter_logs)
                     
-                    # 測試按鈕信號
+                    # Test buttons signals
                     self.window.button_usb_test.clicked.disconnect()
                     self.window.button_emmc_test.clicked.disconnect()
                     self.window.button_eeprom_test.clicked.disconnect()
                     self.window.button_battery_test.clicked.disconnect()
                 except Exception:
-                    pass  # 忽略已斷開的信號錯誤
+                    pass  # Ignore already disconnected signal errors
             
-            # 斷開我們的信號
+            # Disconnect our signals
             try:
                 self.window_closed.disconnect()
             except Exception:
-                pass  # 忽略已斷開的信號錯誤
+                pass  # Ignore already disconnected signal errors
                 
         except Exception as e:
             logger.warning(f"Error while disconnecting signals: {e}")
         
-        # 5. 停止所有計時器
+        # 5. Stop all timers
         if hasattr(self, 'retry_timer') and hasattr(self.retry_timer, 'stop'):
             self.retry_timer.stop()
             
-        # 停止可能存在的 QTimers（單次使用的定時器）
+        # Stop any existing QTimers (one-time timers)
         for timer in QTimer.findChildren(self, QTimer):
             if timer.isActive():
                 timer.stop()
         
-        # 6. 移除事件過濾器
+        # 6. Remove event filter
         if hasattr(self, 'window'):
             self.window.removeEventFilter(self)
             
-        # 7. 關閉窗口
+        # 7. Close window
         self.window.close()
             
-        # 8. 發出窗口關閉信號
+        # 8. Emit window closed signal
         self.window_closed.emit(self.device_id)
         
-        # 9. 清除引用
+        # 9. Clear references
         self.test_results.clear()
         
         logger.info(f"Main window resources cleaned up for device: {self.device_id}")
@@ -1011,3 +1010,39 @@ class MainWindowController(QObject):
             if new_text:
                 self.window.value_battery_serial.setText(new_text)
                 # Maybe need to update backend data
+
+    def _set_window_properties(self):
+        """Set window properties, ensure it is recognized as part of the main application"""
+        try:
+            # Get application instance
+            app = QApplication.instance()
+            if not app:
+                logger.warning("Unable to get QApplication instance")
+                return
+                
+            # Get global application display name
+            app_name = app.applicationDisplayName() or app.applicationName() or "VT Hydra System Monitor"
+            
+            # Use application icon
+            if app.windowIcon() and not self.window.windowIcon():
+                self.window.setWindowIcon(app.windowIcon())
+                
+            # Set window title to include application name
+            title = f"{app_name} - Device {self.device_id} Monitoring"
+            self.window.setWindowTitle(title)
+            
+            # Set window flags to ensure it is recognized as the main application window
+            self.window.setWindowFlags(self.window.windowFlags() | Qt.Window)
+            
+            # Set taskbar related properties on Windows
+            if sys.platform == 'win32':
+                try:
+                    # We don't directly call Win32 API here
+                    # Let the system naturally associate the window - rely on the application identifier set earlier
+                    pass
+                except Exception as e:
+                    logger.warning(f"Unable to set Windows window properties: {e}")
+            
+            logger.debug(f"Window properties set: {title}")
+        except Exception as e:
+            logger.warning(f"Error setting window properties: {e}")
