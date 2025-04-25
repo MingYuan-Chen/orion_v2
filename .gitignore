@@ -34,6 +34,3 @@ pip-wheel-metadata/
 
 # Requirement cache
 .requirements.txt.cache/
-
-# Executables
-DqaTestTool.exe
