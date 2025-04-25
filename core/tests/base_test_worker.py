@@ -327,7 +327,7 @@ class BaseTestWorker(QObject):
         else:
             # No validation condition, default passed
             passed = True
-            message = "Step passed (no validation condition)"
+            message = "Step passed: skip validation"
             
         # Set step result
         step.passed = passed

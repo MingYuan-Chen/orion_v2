@@ -339,16 +339,15 @@ class MainWindowController(QObject):
         level_item = QTableWidgetItem(level)
         message_item = QTableWidgetItem(message)
         
-        # 设置消息项目对齐方式
+        # Set message item alignment
         message_item.setTextAlignment(Qt.AlignTop | Qt.AlignLeft)
         
-        # 不再尝试设置TextWordWrap标志 - 这将通过表格属性来处理
-        
+        # Set items to table
         logs_table.setItem(current_row_count, 0, timestamp_item)
         logs_table.setItem(current_row_count, 1, level_item)
         logs_table.setItem(current_row_count, 2, message_item)
         
-        # 调整新行的高度
+        # Adjust new row height
         logs_table.resizeRowToContents(current_row_count)
         
         # Set color
@@ -384,24 +383,24 @@ class MainWindowController(QObject):
         hw_test_table.setColumnWidth(1, 80)   # Status column
         
         # Set table minimum height
-        hw_test_table.verticalHeader().setDefaultSectionSize(30)  # 每行高度設為30像素
+        hw_test_table.verticalHeader().setDefaultSectionSize(30)  # Set row height to 30 pixels
         hw_test_table.setMinimumHeight(180)   # Set minimum height
         
-        # 設置測試模組為固定高度
+        # Set test modules to fixed height
         test_groups = [
             self.window.groupBox_usb_test,
             self.window.groupBox_emmc_test,
             self.window.groupBox_eeprom_test,
             self.window.groupBox_battery_test,
             self.window.groupBox_backlight_test,
-            self.window.groupBox_led_test  # 新增LED測試群組
+            self.window.groupBox_led_test  # Add LED test group
         ]
         
         for group in test_groups:
             if group:
-                group.setFixedHeight(50)  # 固定每個測試模組的高度
+                group.setFixedHeight(50)  # Set fixed height for each test module
         
-        # 為測試模組創建滾動區域
+        # Create scroll area for test modules
         self._create_tests_scroll_area()
         
         # Connect USB test button
@@ -434,42 +433,42 @@ class MainWindowController(QObject):
         self._update_test_ui_state("led", "not_started")  # 設置LED測試初始狀態
     
     def _create_tests_scroll_area(self):
-        """創建測試模塊的滾動區域，使Progress部分保持獨立且始終可見"""
+        """Create scroll area for test modules, keeping Progress section independent and always visible"""
         try:
             from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QPushButton
             
-            # 獲取功能測試頁面布局
+            # Get functionality test page layout
             tab_functionality = self.window.tab_functionality
             original_layout = tab_functionality.layout()
             
             if not original_layout:
-                logger.error("找不到功能測試頁面布局")
+                logger.error("Cannot find functionality test page layout")
                 return
                 
-            # 創建新的滾動區域
+            # Create new scroll area
             scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)  # 允許內容調整大小
-            scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)  # 無邊框
-            scroll_area.setStyleSheet("background-color: #252526;")  # 設置與TabWidget::pane相同的背景色
+            scroll_area.setWidgetResizable(True)  # Allow content to adjust size
+            scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)  # No frame
+            scroll_area.setStyleSheet("background-color: #252526;")  # Set same background color as TabWidget::pane
             
-            # 創建滾動區域的內容容器
+            # Create scroll area content container
             scroll_content = QWidget()
-            scroll_content.setStyleSheet("background-color: #252526;")  # 設置內容容器背景色
+            scroll_content.setStyleSheet("background-color: #252526;")  # Set content container background color
             scroll_layout = QVBoxLayout(scroll_content)
             scroll_layout.setContentsMargins(0, 0, 0, 0)
-            scroll_layout.setSpacing(10)  # 設置測試模組之間的間距
+            scroll_layout.setSpacing(10)  # Set spacing between test modules
             
-            # 保存標題和測試進度組件
+            # Save title and test progress group
             title_widget = None
             progress_group = None
             
-            # 獲取標題（通常是第一個控件）
+            # Get title (usually the first widget)
             if original_layout.count() > 0:
                 title_widget = original_layout.itemAt(0).widget()
                 if title_widget and title_widget.objectName() == "label_hardware_tests":
                     original_layout.removeWidget(title_widget)
                 
-            # 尋找測試進度組件（通常是倒數第二個，在spacer之前）
+            # Find test progress group (usually the second last, before spacer)
             progress_index = -1
             for i in range(original_layout.count()):
                 item = original_layout.itemAt(i)
@@ -478,17 +477,17 @@ class MainWindowController(QObject):
                     progress_index = i
                     break
             
-            # 清除原布局中除了spacer之外的所有控件
+            # Clear all widgets except spacer in original layout
             items_to_move = []
             for i in range(original_layout.count()):
                 item = original_layout.itemAt(i)
-                # 跳過spacer和進度組件
+                # Skip spacer and progress group
                 if ((not item.spacerItem()) and 
                     (not item.widget() or 
                      (item.widget() and item.widget() != progress_group))):
                     items_to_move.append(item)
             
-            # 移除並收集測試模組
+            # Remove and collect test modules
             test_modules = []
             for item in items_to_move:
                 if item.widget() and "groupBox" in item.widget().objectName() and "hardware_test_results" not in item.widget().objectName():
@@ -496,12 +495,12 @@ class MainWindowController(QObject):
                     original_layout.removeWidget(widget)
                     test_modules.append(widget)
             
-            # 將測試模組添加到滾動區域中並修復按鈕樣式
+            # Add test modules to scroll area and fix button styles
             for module in test_modules:
-                # 添加模組到滾動區域
+                # Add module to scroll area
                 scroll_layout.addWidget(module)
                 
-                # 找到模組中的所有按鈕並應用樣式
+                # Find all buttons in module and apply styles
                 buttons = module.findChildren(QPushButton)
                 for button in buttons:
                     button.setStyleSheet("""
@@ -520,28 +519,28 @@ class MainWindowController(QObject):
                         }
                     """)
             
-            # 設置滾動區域的內容
+            # Set scroll area content
             scroll_area.setWidget(scroll_content)
             
-            # 設置滾動區域的最大高度
+            # Set scroll area maximum height
             scroll_area.setMinimumHeight(180)
-            scroll_area.setMaximumHeight(310)  # 設置合適的最大高度
+            scroll_area.setMaximumHeight(320)  # Set appropriate maximum height
             
-            # 重建布局
-            # 1. 先添加標題
+            # Rebuild layout
+            # 1. Add title first
             if title_widget:
                 original_layout.insertWidget(0, title_widget)
                 
-            # 2. 然後添加滾動區域
+            # 2. Then add scroll area
             original_layout.insertWidget(1, scroll_area)
             
-            # 3. 確保測試進度組件移到合適位置（如果之前已移除）
+            # 3. Ensure test progress group is moved to appropriate position (if previously removed)
             if progress_group and progress_group.parent() != tab_functionality:
                 original_layout.addWidget(progress_group)
 
-            logger.info("成功創建測試模組滾動區域")
+            logger.info("Successfully created test module scroll area")
         except Exception as e:
-            logger.error(f"創建測試模組滾動區域時出錯: {str(e)}")
+            logger.error(f"Error creating test module scroll area: {str(e)}")
     
     def _start_hardware_test(self, test_id: str):
         """
@@ -584,7 +583,7 @@ class MainWindowController(QObject):
         elif test_id == "backlight":
             status_label = self.window.label_backlight_status
             button = self.window.button_backlight_test
-        elif test_id == "led":  # 添加對LED測試的支持
+        elif test_id == "led":
             status_label = self.window.label_led_status
             button = self.window.button_led_test
         else:
