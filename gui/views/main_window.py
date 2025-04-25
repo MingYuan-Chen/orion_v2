@@ -368,7 +368,7 @@ class MainWindowController(QObject):
         self.hw_test_manager.test_step_retrying.connect(self._on_test_step_retrying)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
         
-        # 添加系统信息服务的信号连接
+        # Add system info service signals
         if hasattr(self.view_model, 'system_info_service'):
             self.view_model.system_info_service.info_received.connect(self._on_system_info_received)
             self.view_model.system_info_service.info_error.connect(self._on_system_info_error)
@@ -379,8 +379,12 @@ class MainWindowController(QObject):
         hw_test_table = self.window.tableWidget_hardware_test_steps
         hw_test_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         hw_test_table.horizontalHeader().setStretchLastSection(True)
-        hw_test_table.setColumnWidth(0, 150)  # Step column
+        hw_test_table.setColumnWidth(0, 200)  # Step column
         hw_test_table.setColumnWidth(1, 80)   # Status column
+        
+        # Set table minimum height
+        hw_test_table.verticalHeader().setDefaultSectionSize(30)  # 每行高度設為30像素
+        hw_test_table.setMinimumHeight(180)   # Set minimum height
         
         # Connect USB test button
         self.window.button_usb_test.clicked.connect(lambda: self._start_hardware_test("usb_ports"))
