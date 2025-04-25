@@ -44,7 +44,9 @@ Orion採用分層架構設計，遵循MVVM（Model-View-ViewModel）設計模式
 ```mermaid
 graph TD
     A[DeviceManagerWidget] --- B[LoginDialog]
-    A --- C[其他UI元件]
+    A --- C[DeviceConnectionDialog]
+    
+    M[MainWindowController]
     
     D[DeviceManagerViewModel]
     
@@ -58,8 +60,11 @@ graph TD
     K[Logger]
     
     A <--> D
+    A --> M
+    M <--> D
     D <--> G
     D <--> E
+    M <--> E
     E --> F
     F --> H
     F --> I
@@ -68,14 +73,17 @@ graph TD
     G <--> I
     G <--> J
     K -.-> A
+    K -.-> M
     K -.-> D
     K -.-> E
     K -.-> F
     K -.-> G
 ```
 
-- **DeviceManagerWidget**：主要UI介面，負責使用者互動
+- **DeviceManagerWidget**：裝置管理介面，負責裝置連線並開啟裝置專屬的主視窗
   
+- **MainWindowController**：主窗口控制器，直接與使用者互動，管理單個裝置的顯示和操作界面
+
 - **DeviceManagerViewModel**：視圖模型，連接UI和業務邏輯
   
 - **SerialDeviceWorker**：裝置通訊工作執行緒，負責與硬體裝置的串列通訊
@@ -99,16 +107,18 @@ graph TD
     C[widgets]
     D[ui]
     
-    A --> A1[login_dialog.py]
+    A --> A1[device_connection_dialog.py]
     A --> A2[device_manager_widget.py]
+    A --> A3[main_window.py]
     B --> B1[device_manager_view_model.py]
     C --> C1[自定義UI元件]
     D --> D1[介面資源檔案]
 ```
 
 - **views/**: 包含各種視圖介面
-  - `login_dialog.py`: 登入介面
+  - `device_connection_dialog.py`: 裝置連線主介面
   - `device_manager_widget.py`: 裝置管理主介面
+  - `main_window.py`: 裝置監控主窗口控制器，處理單一裝置的監控介面
 
 - **view_models/**: 視圖模型，負責業務邏輯與UI的連接
   - `device_manager_view_model.py`: 裝置管理視圖模型，處理裝置連接和命令發送等操作
@@ -137,7 +147,9 @@ graph TD
     C --> C2[usb_ports_test_worker.py]
     C --> C3[emmc_test_worker.py]
     C --> C4[eeprom_test_worker.py]
-    D --> D1[資料模型類別]
+    C --> C5[backlight_test_worker.py]
+    C --> C6[led_test_worker.py]
+    D --> D1[device_manager_model.py]
 ```
 
 - **services/**: 核心服務
@@ -148,13 +160,15 @@ graph TD
   - `serial_device_worker.py`: 串列裝置工作執行緒，負責與裝置通訊
 
 - **tests/**: 測試模組
-  - `base_test_worker.py`: 基礎測試工作執行緒，提供測試框架
+  - `base_test_worker.py`: 基礎測試工作執行緒，提供測試步驟定義和執行框架
   - `usb_ports_test_worker.py`: USB連接埠測試
   - `emmc_test_worker.py`: EMMC測試
   - `eeprom_test_worker.py`: EEPROM測試
+  - `backlight_test_worker.py`: 背光測試
+  - `led_test_worker.py`: LED測試
 
 - **models/**: 資料模型
-  - 定義各種資料結構和模型類別
+  - `device_manager_model.py`: 裝置管理模型，處理裝置數據和狀態
 
 ### 3.3 公共元件 (util/)
 
@@ -181,6 +195,7 @@ sequenceDiagram
     participant User as 使用者
     participant Login as 登入介面
     participant DM as 裝置管理器
+    participant MC as 主窗口控制器
     participant VM as 視圖模型
     participant Worker as 裝置工作執行緒
     participant TestMgr as 測試管理服務
@@ -193,9 +208,10 @@ sequenceDiagram
     VM->>Worker: 建立連接
     Worker-->>VM: 連接結果
     VM-->>DM: 更新UI
+    DM->>MC: 開啟裝置監控窗口
     
-    User->>DM: 選擇測試類型
-    DM->>TestMgr: 請求執行測試
+    User->>MC: 選擇測試類型
+    MC->>TestMgr: 請求執行測試
     TestMgr->>TestWorker: 建立和執行測試
     TestWorker->>Worker: 發送命令
     Worker-->>TestWorker: 命令結果
@@ -203,12 +219,20 @@ sequenceDiagram
     loop 測試步驟
         TestWorker->>TestWorker: 執行下一步驟
         TestWorker-->>TestMgr: 步驟結果
-        TestMgr-->>DM: 更新測試進度
+        TestMgr-->>MC: 更新測試進度
+        MC-->>User: 顯示測試進度
     end
     
     TestWorker-->>TestMgr: 測試完成
-    TestMgr-->>DM: 顯示測試結果
-    DM-->>User: 查看測試報告
+    TestMgr-->>MC: 測試結果
+    MC-->>User: 顯示測試結果
+    
+    User->>MC: 請求系統資訊
+    MC->>VM: 獲取系統資訊
+    VM->>Worker: 發送系統資訊命令
+    Worker-->>VM: 返回系統資訊
+    VM-->>MC: 更新系統資訊
+    MC-->>User: 顯示系統資訊
 ```
 
 1. **系統啟動**：
@@ -224,17 +248,23 @@ sequenceDiagram
    - 使用者在裝置管理介面選擇並連接裝置
    - `DeviceManagerViewModel`處理連接請求
    - `SerialDeviceWorker`執行實際的裝置連接操作
+   - 連接成功後，開啟`MainWindowController`管理的裝置監控視窗
 
-4. **測試執行**：
-   - 使用者選擇要執行的測試類型
-   - `HardwareTestManagerService`建立相應的測試工作執行緒
-   - 測試工作執行緒執行預定義的測試步驟
-   - 結果即時回饋到UI介面
+4. **裝置監控與控制**：
+   - `MainWindowController`負責顯示裝置狀態和系統資訊
+   - 使用者可以發送命令、查看日誌和執行硬體測試
+   - 系統資訊可以通過刷新按鈕更新
 
-5. **結果處理**：
-   - 測試完成後，結果顯示在UI介面
-   - 使用者可以查看詳細的測試報告
-   - 可以選擇儲存或匯出測試結果
+5. **測試執行**：
+   - 使用者在裝置監控視窗中選擇測試類型
+   - `MainWindowController`通過`HardwareTestManagerService`請求執行測試
+   - 測試管理服務建立相應的測試工作執行緒
+   - 測試步驟執行過程中實時反饋到UI介面
+
+6. **結果處理**：
+   - 測試完成後，結果顯示在裝置監控介面
+   - 使用者可以查看詳細的測試日誌和步驟結果
+   - 可以選擇進行其他測試或返回裝置管理介面
 
 ## 5. 系統狀態機
 
@@ -253,6 +283,9 @@ stateDiagram-v2
     測試執行狀態 --> 測試完成狀態: 測試完成
     測試執行狀態 --> 裝置連接狀態: 取消測試
     
+    裝置連接狀態 --> 系統資訊更新狀態: 點擊刷新按鈕
+    系統資訊更新狀態 --> 裝置連接狀態: 更新完成/更新失敗
+    
     測試完成狀態 --> 裝置連接狀態: 返回
     測試完成狀態 --> 測試執行狀態: 重新測試
     
@@ -261,26 +294,32 @@ stateDiagram-v2
     測試完成狀態 --> [*]: 登出
 ```
 
-1. **初始狀態**：系統啟動，等待登入
+1. **初始狀態**：系統啟動，顯示裝置連線對話框
 
 2. **已登入狀態**：使用者已登入，但尚未連接裝置
 
 3. **裝置連接狀態**：
    - 已連接一個或多個裝置
    - 裝置資訊顯示在介面上
-   - 可以執行測試操作
+   - 可以執行測試操作或查看系統資訊
 
-4. **測試執行狀態**：
+4. **系統資訊更新狀態**：
+   - 點擊刷新按鈕後進入此狀態
+   - 系統向裝置發送請求，獲取最新系統資訊
+   - UI控制按鈕暫時禁用，避免重複操作
+   - 更新完成或失敗後返回裝置連接狀態
+
+5. **測試執行狀態**：
    - 測試正在執行中
    - UI顯示測試進度和中間結果
    - 使用者可以取消測試
 
-5. **測試完成狀態**：
+6. **測試完成狀態**：
    - 測試執行完畢
    - 顯示測試結果和詳細資訊
    - 可以返回到裝置連接狀態或執行其他測試
 
-狀態轉換由使用者操作和系統事件觸發，例如登入成功、裝置連接/斷開、測試開始/完成等。
+狀態轉換由使用者操作和系統事件觸發，例如登入成功、裝置連接/斷開、測試開始/完成、刷新系統資訊等。每個狀態都有對應的UI反饋，確保使用者清楚了解當前系統狀態。
 
 ## 6. 非同步處理機制
 
