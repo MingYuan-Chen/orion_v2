@@ -683,33 +683,101 @@ class MainWindowController(QObject):
         """Close window and release resources"""
         logger.info(f"Closing main window for device: {self.device_id}")
         
-        # Stop all tests
+        # 1. 停止所有正在進行的測試
         if hasattr(self, 'hw_test_manager'):
             self.hw_test_manager.stop_current_test()
         
-        # Clean up hardware test manager resources
+        # 2. 清理硬件測試管理器資源
         if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
             logger.info("Cleaning up hardware test manager")
             self.hw_test_manager.cleanup()
         
-        # Clean up view_model resources
+        # 3. 清理 view_model 資源
         if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
             logger.info("Cleaning up view model")
             self.view_model.cleanup()
         
-        # Stop update timer
-        # if hasattr(self, 'update_timer') and self.update_timer.isActive():
-        #     self.update_timer.stop()
+        # 4. 斷開所有信號連接
+        try:
+            # 斷開 view_model 的信號
+            if hasattr(self, 'view_model') and self.view_model:
+                try:
+                    self.view_model.command_result.disconnect(self._on_command_completed)
+                except Exception:
+                    pass  # 如果已斷開連接，則忽略錯誤
+                
+                # 斷開系統信息服務信號
+                if hasattr(self.view_model, 'system_info_service'):
+                    try:
+                        self.view_model.system_info_service.info_received.disconnect(self._on_system_info_received)
+                        self.view_model.system_info_service.info_error.disconnect(self._on_system_info_error)
+                    except Exception:
+                        pass  # 信號可能已斷開連接
+            
+            # 斷開硬件測試管理器信號
+            if hasattr(self, 'hw_test_manager'):
+                try:
+                    self.hw_test_manager.test_started.disconnect(self._on_test_started)
+                    self.hw_test_manager.test_completed.disconnect(self._on_test_completed)
+                    self.hw_test_manager.test_step_completed.disconnect(self._on_test_step_completed)
+                    self.hw_test_manager.test_step_retrying.disconnect(self._on_test_step_retrying)
+                    self.hw_test_manager.test_progress.disconnect(self._on_test_progress)
+                except Exception:
+                    pass  # 忽略已斷開的信號錯誤
+            
+            # 斷開 window 按鈕信號
+            if hasattr(self, 'window'):
+                try:
+                    self.window.pushButton_refresh.clicked.disconnect(self._on_refresh_system_info)
+                    self.window.pushButton_refresh_logs.clicked.disconnect(self._refresh_logs)
+                    self.window.pushButton_clear_logs.clicked.disconnect(self._clear_logs)
+                    self.window.pushButton_send_command.clicked.disconnect(self._on_send_command)
+                    self.window.lineEdit_command.returnPressed.disconnect(self._on_send_command)
+                    self.window.button_edit_model_name.clicked.disconnect(self._on_edit_model_name)
+                    self.window.button_edit_serial_number.clicked.disconnect(self._on_edit_serial_number)
+                    self.window.button_edit_battery_model.clicked.disconnect(self._on_edit_battery_model)
+                    self.window.button_edit_battery_serial.clicked.disconnect(self._on_edit_battery_serial)
+                    self.window.comboBox_log_level.currentIndexChanged.disconnect(self._filter_logs)
+                    self.window.comboBox_time_range.currentIndexChanged.disconnect(self._filter_logs)
+                    
+                    # 測試按鈕信號
+                    self.window.button_usb_test.clicked.disconnect()
+                    self.window.button_emmc_test.clicked.disconnect()
+                    self.window.button_eeprom_test.clicked.disconnect()
+                    self.window.button_battery_test.clicked.disconnect()
+                except Exception:
+                    pass  # 忽略已斷開的信號錯誤
+            
+            # 斷開我們的信號
+            try:
+                self.window_closed.disconnect()
+            except Exception:
+                pass  # 忽略已斷開的信號錯誤
+                
+        except Exception as e:
+            logger.warning(f"Error while disconnecting signals: {e}")
         
-        # Remove event filter
+        # 5. 停止所有計時器
+        if hasattr(self, 'retry_timer') and hasattr(self.retry_timer, 'stop'):
+            self.retry_timer.stop()
+            
+        # 停止可能存在的 QTimers（單次使用的定時器）
+        for timer in QTimer.findChildren(self, QTimer):
+            if timer.isActive():
+                timer.stop()
+        
+        # 6. 移除事件過濾器
         if hasattr(self, 'window'):
             self.window.removeEventFilter(self)
             
-        # Close window
+        # 7. 關閉窗口
         self.window.close()
             
-        # Emit window closed signal (if not already emitted)
+        # 8. 發出窗口關閉信號
         self.window_closed.emit(self.device_id)
+        
+        # 9. 清除引用
+        self.test_results.clear()
         
         logger.info(f"Main window resources cleaned up for device: {self.device_id}")
 

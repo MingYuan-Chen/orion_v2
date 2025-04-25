@@ -35,23 +35,150 @@ class DeviceManagerViewModel(QObject):
         self._serial_worker.disconnection_result.connect(self._on_disconnection_completed)
         self._serial_worker.command_result.connect(self._on_command_completed)
         
-        # 初始化 SystemInfoService
+        # Initialize SystemInfoService
         from core.services.system_info import SystemInfoService
         self.system_info_service = SystemInfoService(self._serial_worker)
         
     def cleanup(self):
-        """Clean up all resources"""
-        # Disconnect all devices
-        for device_id in list(self.connected_devices.keys()):
-            self.disconnect_device(device_id)
+        """Release resources and clean up"""
+        # Prevent duplicate cleanup
+        if hasattr(self, '_is_cleaning_up') and self._is_cleaning_up:
+            logger.warning("DeviceManagerViewModel is already in the cleanup process, avoid duplicate cleanup")
+            return
             
-        # Clean up worker thread
-        if self._serial_worker:
-            self._serial_worker.cleanup()
+        # Security check: If the C++ object has been deleted, skip cleanup
+        try:
+            # Try a simple operation to check if the object is valid
+            self.blockSignals(True)
+        except RuntimeError as e:
+            if "C++ object" in str(e) and "deleted" in str(e):
+                logger.warning("DeviceManagerViewModel C++ object has been deleted, skip cleanup")
+                return
+            # If it's another RuntimeError, continue trying to clean up
+        except Exception as e:
+            logger.warning(f"Error checking object validity: {e}")
+        
+        # Set cleanup flag
+        self._is_cleaning_up = True
+        
+        logger.info("DeviceManagerViewModel starts cleaning up resources")
+        
+        try:
+            # 1. Ensure any active timers are stopped
+            if hasattr(self, '_refresh_timer') and self._refresh_timer and self._refresh_timer.isActive():
+                self._refresh_timer.stop()
+                logger.debug("Stopped device refresh timer")
             
+            # 2. Disconnect all signal connections - Disconnect signals before disconnecting devices to avoid triggering callbacks
+            try:
+                # First block sending new signals
+                self.blockSignals(True)
+                
+                # Then disconnect signals from worker
+                if hasattr(self, '_serial_worker') and self._serial_worker:
+                    try:
+                        # Check if signals have receivers
+                        try:
+                            self._serial_worker.connection_result.disconnect(self._on_connection_completed)
+                        except Exception:
+                            pass
+                            
+                        try:
+                            self._serial_worker.disconnection_result.disconnect(self._on_disconnection_completed)
+                        except Exception:
+                            pass
+                            
+                        try:
+                            self._serial_worker.command_result.disconnect(self._on_command_completed)
+                        except Exception:
+                            pass
+                            
+                        logger.debug("Worker signal connections disconnected")
+                    except Exception as e:
+                        logger.warning(f"Error disconnecting worker signals: {e}")
+            except Exception as e:
+                logger.warning(f"Error disconnecting signal connections: {e}")
+            
+            # 3. Disconnect all connected devices - Since signals have been disconnected, this will not trigger callbacks
+            if hasattr(self, 'device_manager') and self.device_manager:
+                try:
+                    # Directly use the disconnect_all method of device_manager, not through this class
+                    logger.info("Disconnect all devices directly")
+                    self.device_manager.disconnect_all()
+                except Exception as e:
+                    logger.error(f"Error disconnecting all devices: {e}")
+            
+            # 4. Stop and release worker thread
+            if hasattr(self, '_serial_worker') and self._serial_worker:
+                try:
+                    logger.info("Stopping and releasing worker thread")
+                    # Ensure the thread object exists and is accessible
+                    if hasattr(self._serial_worker, 'thread') and self._serial_worker.thread:
+                        # Check if the thread is still running
+                        if self._serial_worker.thread.isRunning():
+                            # Try to exit the worker thread normally
+                            self._serial_worker.thread.requestInterruption()
+                            if not self._serial_worker.thread.wait(1000):
+                                logger.warning("Worker thread unresponsive, force termination")
+                                self._serial_worker.thread.terminate()
+                                self._serial_worker.thread.wait(1000)  # Give the thread more time to terminate
+                            logger.debug("Device worker thread stopped")
+                        
+                    # Call the cleanup method of serial_worker (if it exists)
+                    if hasattr(self._serial_worker, 'cleanup'):
+                        try:
+                            self._serial_worker.cleanup()
+                        except Exception as e:
+                            logger.warning(f"Error calling serial_worker.cleanup(): {e}")
+                        
+                    # Clear the reference and notify Python to reclaim memory
+                    worker_ref = self._serial_worker
+                    self._serial_worker = None
+                    del worker_ref
+                    
+                except Exception as e:
+                    logger.error(f"Error stopping worker thread: {e}")
+            
+            # 5. Release device manager model
+            if hasattr(self, 'device_manager') and self.device_manager:
+                try:
+                    logger.info("Cleaning up device manager model")
+                    device_manager_ref = self.device_manager
+                    self.device_manager = None
+                    del device_manager_ref
+                    logger.debug("Device manager model cleaned up")
+                except Exception as e:
+                    logger.error(f"Error cleaning up device manager model: {e}")
+            
+            # 6. Clear all device-related collections
+            if hasattr(self, 'connected_devices'):
+                self.connected_devices.clear()
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up DeviceManagerViewModel resources: {e}")
+        finally:
+            # Regardless of success or failure, reset the cleanup flag and record completion
+            self._is_cleaning_up = False
+            logger.info("DeviceManagerViewModel resources cleaned up")
+        
     def __del__(self):
         """Ensure resources are released"""
-        self.cleanup()
+        try:
+            # Check if the object is still valid
+            if hasattr(self, 'blockSignals'):
+                try:
+                    # Try a simple operation to test object validity
+                    self.blockSignals(True)
+                    # If the object is valid and not in the cleanup process, call cleanup
+                    if not hasattr(self, '_is_cleaning_up') or not self._is_cleaning_up:
+                        logger.debug("DeviceManagerViewModel destructor calling cleanup")
+                        self.cleanup()
+                except Exception:
+                    # Object is invalid, ignore cleanup
+                    pass
+        except Exception:
+            # Avoid throwing exceptions in the destructor
+            pass
         
     @Slot(str, bool, str)
     def _on_connection_completed(self, device_id: str, success: bool, message: str):
