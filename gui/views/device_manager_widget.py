@@ -26,7 +26,7 @@ class DeviceManagerWidget(QWidget):
         """
         super().__init__(parent)
         
-        # 初始化防重入標記
+        # Initialize the re-entry flag
         self._is_closing = False
         
         # Initialize view model
@@ -50,7 +50,10 @@ class DeviceManagerWidget(QWidget):
         # Setup periodic refresh
         self._setup_refresh_timer()
         
-        # 連接應用程序退出信號
+        # Ensure this window is recognized as part of the main application
+        self._set_window_properties()
+        
+        # Connect application quit signal
         app = QApplication.instance()
         if app:
             app.aboutToQuit.connect(self._on_app_quit)
@@ -529,6 +532,29 @@ class DeviceManagerWidget(QWidget):
                 logger.error(f"Error cleaning up view_model when quitting application: {e}")
         
         logger.info("Application quit cleanup completed")
+
+    def _set_window_properties(self):
+        """Set window properties to ensure it's recognized as part of the main application"""
+        try:
+            # Get global application instance
+            app = QApplication.instance()
+            if app:
+                # Use application icon
+                if app.windowIcon():
+                    self.setWindowIcon(app.windowIcon())
+                
+                # Set window title to include application name
+                if app.applicationDisplayName():
+                    self.setWindowTitle(f"{app.applicationDisplayName()}")
+                else:
+                    self.setWindowTitle("VT Hydra Device Manager")
+                
+                # Ensure this window is recognized as the main application window by Windows
+                self.setWindowFlags(self.windowFlags() | Qt.Window)
+                
+                logger.debug("Main window properties set successfully")
+        except Exception as e:
+            logger.warning(f"Error setting main window properties: {e}")
 
 
 # If this file is run directly, create an application and display the window

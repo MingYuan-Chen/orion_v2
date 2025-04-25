@@ -29,7 +29,7 @@ class SerialDeviceWorker(QObject):
         self.device_manager = device_manager
         self.command_mutex = QMutex()
         
-        # 新增防重入標記
+        # Add a flag to prevent re-entry
         self._is_cleaning = False
         
         # Create thread and move worker to thread
