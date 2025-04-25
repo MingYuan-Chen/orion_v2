@@ -11,6 +11,7 @@ import sys
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 
 
 class DarkEditDialog(QDialog):
@@ -386,6 +387,23 @@ class MainWindowController(QObject):
         hw_test_table.verticalHeader().setDefaultSectionSize(30)  # 每行高度設為30像素
         hw_test_table.setMinimumHeight(180)   # Set minimum height
         
+        # 設置測試模組為固定高度
+        test_groups = [
+            self.window.groupBox_usb_test,
+            self.window.groupBox_emmc_test,
+            self.window.groupBox_eeprom_test,
+            self.window.groupBox_battery_test,
+            self.window.groupBox_backlight_test,
+            self.window.groupBox_led_test  # 新增LED測試群組
+        ]
+        
+        for group in test_groups:
+            if group:
+                group.setFixedHeight(50)  # 固定每個測試模組的高度
+        
+        # 為測試模組創建滾動區域
+        self._create_tests_scroll_area()
+        
         # Connect USB test button
         self.window.button_usb_test.clicked.connect(lambda: self._start_hardware_test("usb_ports"))
         
@@ -401,6 +419,9 @@ class MainWindowController(QObject):
         # Connect backlight test button
         self.window.button_backlight_test.clicked.connect(lambda: self._start_hardware_test("backlight"))
         
+        # Connect LED test button
+        self.window.button_led_test.clicked.connect(lambda: self._start_hardware_test("led"))
+        
         # Default hide progress bar
         self.window.progressBar_hardware_test.setVisible(False)
         
@@ -410,6 +431,117 @@ class MainWindowController(QObject):
         self._update_test_ui_state("eeprom", "not_started")
         self._update_test_ui_state("battery", "not_started")
         self._update_test_ui_state("backlight", "not_started")
+        self._update_test_ui_state("led", "not_started")  # 設置LED測試初始狀態
+    
+    def _create_tests_scroll_area(self):
+        """創建測試模塊的滾動區域，使Progress部分保持獨立且始終可見"""
+        try:
+            from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QPushButton
+            
+            # 獲取功能測試頁面布局
+            tab_functionality = self.window.tab_functionality
+            original_layout = tab_functionality.layout()
+            
+            if not original_layout:
+                logger.error("找不到功能測試頁面布局")
+                return
+                
+            # 創建新的滾動區域
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)  # 允許內容調整大小
+            scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)  # 無邊框
+            scroll_area.setStyleSheet("background-color: #252526;")  # 設置與TabWidget::pane相同的背景色
+            
+            # 創建滾動區域的內容容器
+            scroll_content = QWidget()
+            scroll_content.setStyleSheet("background-color: #252526;")  # 設置內容容器背景色
+            scroll_layout = QVBoxLayout(scroll_content)
+            scroll_layout.setContentsMargins(0, 0, 0, 0)
+            scroll_layout.setSpacing(10)  # 設置測試模組之間的間距
+            
+            # 保存標題和測試進度組件
+            title_widget = None
+            progress_group = None
+            
+            # 獲取標題（通常是第一個控件）
+            if original_layout.count() > 0:
+                title_widget = original_layout.itemAt(0).widget()
+                if title_widget and title_widget.objectName() == "label_hardware_tests":
+                    original_layout.removeWidget(title_widget)
+                
+            # 尋找測試進度組件（通常是倒數第二個，在spacer之前）
+            progress_index = -1
+            for i in range(original_layout.count()):
+                item = original_layout.itemAt(i)
+                if item.widget() and item.widget().objectName() == "groupBox_hardware_test_results":
+                    progress_group = item.widget()
+                    progress_index = i
+                    break
+            
+            # 清除原布局中除了spacer之外的所有控件
+            items_to_move = []
+            for i in range(original_layout.count()):
+                item = original_layout.itemAt(i)
+                # 跳過spacer和進度組件
+                if ((not item.spacerItem()) and 
+                    (not item.widget() or 
+                     (item.widget() and item.widget() != progress_group))):
+                    items_to_move.append(item)
+            
+            # 移除並收集測試模組
+            test_modules = []
+            for item in items_to_move:
+                if item.widget() and "groupBox" in item.widget().objectName() and "hardware_test_results" not in item.widget().objectName():
+                    widget = item.widget()
+                    original_layout.removeWidget(widget)
+                    test_modules.append(widget)
+            
+            # 將測試模組添加到滾動區域中並修復按鈕樣式
+            for module in test_modules:
+                # 添加模組到滾動區域
+                scroll_layout.addWidget(module)
+                
+                # 找到模組中的所有按鈕並應用樣式
+                buttons = module.findChildren(QPushButton)
+                for button in buttons:
+                    button.setStyleSheet("""
+                        QPushButton {
+                            background-color: #0078D7;
+                            color: white;
+                            border: none;
+                            padding: 5px 15px;
+                            border-radius: 2px;
+                        }
+                        QPushButton:hover {
+                            background-color: #1C97EA;
+                        }
+                        QPushButton:pressed {
+                            background-color: #00559F;
+                        }
+                    """)
+            
+            # 設置滾動區域的內容
+            scroll_area.setWidget(scroll_content)
+            
+            # 設置滾動區域的最大高度
+            scroll_area.setMinimumHeight(180)
+            scroll_area.setMaximumHeight(310)  # 設置合適的最大高度
+            
+            # 重建布局
+            # 1. 先添加標題
+            if title_widget:
+                original_layout.insertWidget(0, title_widget)
+                
+            # 2. 然後添加滾動區域
+            original_layout.insertWidget(1, scroll_area)
+            
+            # 3. 確保測試進度組件移到合適位置（如果之前已移除）
+            if progress_group and progress_group.parent() != tab_functionality:
+                original_layout.addWidget(progress_group)
+
+            logger.info("成功創建測試模組滾動區域")
+        except Exception as e:
+            logger.error(f"創建測試模組滾動區域時出錯: {str(e)}")
     
     def _start_hardware_test(self, test_id: str):
         """
@@ -452,6 +584,9 @@ class MainWindowController(QObject):
         elif test_id == "backlight":
             status_label = self.window.label_backlight_status
             button = self.window.button_backlight_test
+        elif test_id == "led":  # 添加對LED測試的支持
+            status_label = self.window.label_led_status
+            button = self.window.button_led_test
         else:
             # Unknown test ID, do not update UI
             return
@@ -756,6 +891,7 @@ class MainWindowController(QObject):
                     self.window.button_eeprom_test.clicked.disconnect()
                     self.window.button_battery_test.clicked.disconnect()
                     self.window.button_backlight_test.clicked.disconnect()
+                    self.window.button_led_test.clicked.disconnect()  # 斷開LED測試按鈕的信號連接
                 except Exception:
                     pass  # Ignore already disconnected signal errors
             
@@ -821,6 +957,7 @@ class MainWindowController(QObject):
         self.window.button_eeprom_test.setEnabled(enabled)
         self.window.button_battery_test.setEnabled(enabled)
         self.window.button_backlight_test.setEnabled(enabled)
+        self.window.button_led_test.setEnabled(enabled)  # 啟用/禁用LED測試按鈕
         
         # Log related buttons
         self.window.pushButton_refresh_logs.setEnabled(enabled)
