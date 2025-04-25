@@ -26,6 +26,9 @@ class DeviceManagerWidget(QWidget):
         """
         super().__init__(parent)
         
+        # 初始化防重入標記
+        self._is_closing = False
+        
         # Initialize view model
         self.view_model = DeviceManagerViewModel()
         
@@ -46,6 +49,11 @@ class DeviceManagerWidget(QWidget):
         
         # Setup periodic refresh
         self._setup_refresh_timer()
+        
+        # 連接應用程序退出信號
+        app = QApplication.instance()
+        if app:
+            app.aboutToQuit.connect(self._on_app_quit)
         
     def _setup_refresh_timer(self, interval_ms=5000):
         """Setup periodic refresh timer"""
@@ -361,29 +369,166 @@ class DeviceManagerWidget(QWidget):
     
     def closeEvent(self, event):
         """Handle window close event"""
-        # Close all device windows
-        for device_id, controller in list(self.device_windows.items()):
-            controller.close()
+        # Prevent duplicate processing of close events
+        if hasattr(self, '_is_closing') and self._is_closing:
+            logger.debug("Close event is already being processed, ignore duplicate calls")
+            event.accept()
+            return
+            
+        # Set the closing flag
+        self._is_closing = True
         
-        # Clear device window dictionary
-        self.device_windows.clear()
+        logger.info("DeviceManagerWidget closeEvent triggered")
         
-        # Clean up device manager resources
-        if hasattr(self, 'device_manager') and self.device_manager:
-            self.device_manager.cleanup()
-            self.device_manager = None
+        # 1. Stop the auto-scan timer
+        if hasattr(self, 'refresh_timer') and self.refresh_timer.isActive():
+            self.refresh_timer.stop()
+            logger.debug("Auto-scan timer stopped")
         
-        # Wait for a short time to ensure resources are released
-        QTimer.singleShot(100, self._final_cleanup)
-        
-        # Accept close event
-        event.accept()
+        # 2. Close all device windows
+        if hasattr(self, 'device_windows') and self.device_windows:
+            for device_id, controller in list(self.device_windows.items()):
+                logger.info(f"Closing window for device: {device_id}")
+                controller.close()
+            
+            # Wait a moment to ensure all windows are closed
+            QTimer.singleShot(100, self._continue_close_event)
+            
+            # Delay accepting the close event
+            event.ignore()
+        else:
+            # If there are no device windows, continue the close process directly
+            self._continue_close_event()
+            event.accept()
     
+    def _continue_close_event(self):
+        """Continue the close event process after device windows are closed"""
+        # Prevent duplicate processing
+        if not hasattr(self, '_is_closing') or not self._is_closing:
+            logger.warning("Close process called improperly, exiting")
+            return
+            
+        logger.info("Continuing device manager widget close process")
+        
+        # 3. Clear the device window dictionary
+        if hasattr(self, 'device_windows'):
+            self.device_windows.clear()
+        
+        # 4. Disconnect all signal connections
+        try:
+            # Disconnect view_model signals
+            if hasattr(self, 'view_model') and self.view_model:
+                try:
+                    self.view_model.connection_result.disconnect(self._on_device_connected)
+                    self.view_model.disconnection_result.disconnect(self._on_device_disconnected)
+                    self.view_model.command_result.disconnect(self._on_command_completed)
+                    self.view_model.device_list_changed.disconnect(self._on_device_list_changed)
+                except Exception as e:
+                    logger.warning(f"Error disconnecting view_model signals: {e}")
+        except Exception as e:
+            logger.warning(f"Error disconnecting signals: {e}")
+        
+        # 5. Clean up view_model resources
+        if hasattr(self, 'view_model') and self.view_model:
+            try:
+                logger.info("Cleaning up view_model resources")
+                self.view_model.cleanup()
+                # Important: Clear the reference, avoid circular references
+                self.view_model = None
+            except Exception as e:
+                logger.warning(f"Error cleaning up view_model: {e}")
+        
+        # 6. Clean up UI elements
+        try:
+            # Clear all tables
+            if hasattr(self.ui_widget, 'table_widget_devices'):
+                self.ui_widget.table_widget_devices.setRowCount(0)
+                
+            # Disable all buttons
+            if hasattr(self.ui_widget, 'push_button_refresh'):
+                self.ui_widget.push_button_refresh.setEnabled(False)
+            if hasattr(self.ui_widget, 'push_button_new_device'):
+                self.ui_widget.push_button_new_device.setEnabled(False)
+            if hasattr(self.ui_widget, 'push_button_disconnect'):
+                self.ui_widget.push_button_disconnect.setEnabled(False)
+            if hasattr(self.ui_widget, 'push_button_open_main_window'):
+                self.ui_widget.push_button_open_main_window.setEnabled(False)
+                
+        except Exception as e:
+            logger.warning(f"Error during UI cleanup: {e}")
+        
+        # 7. Clean up Qt timers and events
+        try:
+            # Remove all timers
+            for timer in self.findChildren(QTimer):
+                if timer.isActive():
+                    timer.stop()
+                    logger.debug(f"Stopped timer: {timer}")
+                    
+            # Clean up event filters (if any)
+            if hasattr(self, '_event_filter') and self._event_filter:
+                QApplication.instance().removeEventFilter(self._event_filter)
+                self._event_filter = None
+                logger.debug("Removed event filter")
+                
+        except Exception as e:
+            logger.warning(f"Error cleaning up Qt resources: {e}")
+        
+        logger.info("All DeviceManagerWidget resources have been cleaned up")
+        
+        # Remove the final close call, avoid infinite loop
+        # If this is called from a timer callback, do not call close() again
+        # if self.isVisible():
+        #     self.close()
+        
     def _final_cleanup(self):
-        """Final cleanup, ensure all resources are released"""
-        import gc
-        gc.collect()  # Force garbage collection
-        logger.info("Device manager widget cleanup completed")
+        """Final cleanup after resources are released - Replaced by _continue_close_event"""
+        logger.warning("_final_cleanup method is deprecated, please use _continue_close_event")
+
+    def _on_app_quit(self):
+        """Handle application quit event"""
+        logger.info("Application is quitting, final cleanup")
+        
+        # Check if already in the closing or cleanup process
+        if hasattr(self, '_is_closing') and self._is_closing:
+            logger.info("Already in the closing process, skip application quit cleanup")
+            return
+        
+        # Set the exit cleanup flag
+        self._is_closing = True
+        
+        # Release the timer
+        if hasattr(self, 'refresh_timer') and self.refresh_timer.isActive():
+            self.refresh_timer.stop()
+        
+        # Check if view_model has been cleaned up
+        # If view_model is None, it has been cleaned up
+        if hasattr(self, 'view_model') and self.view_model is not None:
+            try:
+                # Avoid calling methods on deleted objects
+                try:
+                    # Try a simple operation to test object validity
+                    self.view_model.blockSignals(True)
+                    
+                    # Object is valid, call cleanup
+                    logger.info("Cleaning up view_model when quitting application")
+                    self.view_model.cleanup()
+                except RuntimeError as e:
+                    # Object has been deleted, skip cleanup
+                    if "C++ object" in str(e) and "deleted" in str(e):
+                        logger.warning("View_model C++ object has been deleted, skip cleanup")
+                    else:
+                        # Other RuntimeError
+                        logger.error(f"Error cleaning up view_model: {e}")
+                except Exception as e:
+                    logger.error(f"Unknown error cleaning up view_model: {e}")
+                    
+                # Clear the reference
+                self.view_model = None
+            except Exception as e:
+                logger.error(f"Error cleaning up view_model when quitting application: {e}")
+        
+        logger.info("Application quit cleanup completed")
 
 
 # If this file is run directly, create an application and display the window

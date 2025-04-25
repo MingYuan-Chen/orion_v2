@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 class UsbPortsTestWorker(BaseTestWorker):
     """USB ports test worker, implement USB port function test for device"""
     
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
+    
     def prepare_test_steps(self) -> List[TestStep]:
         """
         Prepare USB test steps

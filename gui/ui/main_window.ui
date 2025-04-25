@@ -750,20 +750,20 @@ QLabel.initializing {
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_battery_discharge_test">
+         <widget class="QGroupBox" name="groupBox_battery_test">
           <property name="title">
-           <string>Battery Discharge Test</string>
+           <string>Battery Test</string>
           </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_battery_discharge_test">
+          <layout class="QHBoxLayout" name="horizontalLayout_battery_test">
            <item>
-            <widget class="QLabel" name="label_battery_discharge_test">
+            <widget class="QLabel" name="label_battery_test">
              <property name="text">
-              <string>Battery Discharge Test</string>
+              <string>Battery Test</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="label_battery_discharge_status">
+            <widget class="QLabel" name="label_battery_status">
              <property name="styleSheet">
               <string notr="true">QLabel {
     background-color: #333333;
@@ -780,7 +780,7 @@ QLabel.initializing {
             </widget>
            </item>
            <item>
-            <spacer name="horizontalSpacer_battery_discharge">
+            <spacer name="horizontalSpacer_battery">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -793,7 +793,7 @@ QLabel.initializing {
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="button_battery_discharge_test">
+            <widget class="QPushButton" name="button_battery_test">
              <property name="text">
               <string>Start Test</string>
              </property>

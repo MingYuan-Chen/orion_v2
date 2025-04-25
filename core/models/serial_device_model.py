@@ -143,6 +143,7 @@ class SerialDeviceModel(DeviceModel):
             self.update_command_time()
             logger.debug(f"Command '{command}'")
             logger.debug(f"Response: {filtered_response}")
+            filtered_response = '\n' + filtered_response
             return filtered_response
             
         except Exception as e:

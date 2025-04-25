@@ -32,6 +32,17 @@ class SystemInfoService(QObject):
         
         # Connect command result signal
         self.serial_worker.command_result.connect(self._on_command_completed)
+
+        # LED status map
+        self.LED_STATUS_MAP = {
+            1: ("Blue", "blue"), 9: ("Blue Blinking", "blue"),
+            2: ("Green", "green"), 10: ("Green Blinking", "green"),
+            3: ("Cyan", "cyan"), 11: ("Cyan Blinking", "cyan"),
+            4: ("Red", "red"), 12: ("Red Blinking", "red"),
+            5: ("Fuchsia", "fuchsia"), 13: ("Fuchsia Blinking", "fuchsia"),
+            6: ("Orange", "orange"), 14: ("Orange Blinking", "orange"),
+            7: ("White", "white"), 15: ("White Blinking", "white")
+        }
     
     def get_commands(self):
         """

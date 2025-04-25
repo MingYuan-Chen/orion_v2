@@ -29,6 +29,9 @@ class SerialDeviceWorker(QObject):
         self.device_manager = device_manager
         self.command_mutex = QMutex()
         
+        # 新增防重入標記
+        self._is_cleaning = False
+        
         # Create thread and move worker to thread
         self.thread = QThread()
         self.thread.setObjectName(f"SerialDeviceWorker_{uuid.uuid4().hex[:8]}")
@@ -56,18 +59,112 @@ class SerialDeviceWorker(QObject):
         
     def cleanup(self):
         """Clean up resources, stop thread"""
-        if self.thread.isRunning():
-            self.thread.quit()
-            if not self.thread.wait(3000):  # Wait up to 3 seconds
-                logger.warning(f"Force terminate SerialDeviceWorker thread: {self.thread.objectName()}")
-                self.thread.terminate()
-                self.thread.wait()
+        # Prevent duplicate cleanup
+        if hasattr(self, '_is_cleaning') and self._is_cleaning:
+            logger.warning("SerialDeviceWorker is already in the cleanup process, avoid duplicate calls")
+            return
+            
+        # Set cleanup flag
+        self._is_cleaning = True
+            
+        logger.info("SerialDeviceWorker starts cleaning up resources")
+        
+        try:
+            # First disconnect all signal connections
+            try:
+                # Block sending new signals
+                self.blockSignals(True)
+                
+                # Disconnect signal connections safely - PySide6's Signal does not have a receivers() method
+                # Try to disconnect specific connections directly, using try-except to handle possible errors
+                
+                # Try to disconnect internal signal connections
+                try:
+                    self._connect_device_signal.disconnect(self._execute_connect_device)
+                    logger.debug("Disconnected _connect_device_signal signal")
+                except (TypeError, RuntimeError):
+                    # Signal may not be connected or already disconnected
+                    pass
+                except Exception as e:
+                    logger.warning(f"Error disconnecting _connect_device_signal: {e}")
+                
+                try:
+                    self._disconnect_device_signal.disconnect(self._execute_disconnect_device)
+                    logger.debug("Disconnected _disconnect_device_signal signal")
+                except (TypeError, RuntimeError):
+                    # Signal may not be connected or already disconnected
+                    pass
+                except Exception as e:
+                    logger.warning(f"Error disconnecting _disconnect_device_signal: {e}")
+                
+                try:
+                    self._send_command_signal.disconnect(self._execute_send_command)
+                    logger.debug("Disconnected _send_command_signal signal")
+                except (TypeError, RuntimeError):
+                    # Signal may not be connected or already disconnected
+                    pass
+                except Exception as e:
+                    logger.warning(f"Error disconnecting _send_command_signal: {e}")
+                
+                # Do not try to disconnect external signals, because we do not know who connected them
+                # Just keep blockSignals(True)
+                
+                logger.debug("SerialDeviceWorker signal processing completed")
+            except Exception as e:
+                logger.warning(f"Error disconnecting signals: {e}")
+            
+            # Then stop the thread - Note: Keep a reference to the thread first
+            thread_ref = None
+            if hasattr(self, 'thread') and self.thread:
+                thread_ref = self.thread  # Save reference
+                
+                if thread_ref.isRunning():
+                    logger.debug(f"Stopping thread: {thread_ref.objectName()}")
+                    # Disconnect the thread's signals first
+                    try:
+                        thread_ref.started.disconnect()
+                    except Exception:
+                        pass  # Ignore errors
+                        
+                    try:
+                        thread_ref.finished.disconnect()
+                    except Exception:
+                        pass  # Ignore errors
+                        
+                    # Now try to stop the thread
+                    thread_ref.quit()
+                    if not thread_ref.wait(2000):  # Wait up to 2 seconds
+                        logger.warning(f"Thread unresponsive, force termination: {thread_ref.objectName()}")
+                        thread_ref.terminate()
+                        thread_ref.wait(1000)  # Wait another second to ensure termination
+                    logger.debug(f"Thread stopped: {thread_ref.objectName()}")
+                
+                # Clear object references, but keep local references for completion
+                self.thread = None
+                
+            # Finally ensure the thread is completely cleaned up
+            if thread_ref:
+                try:
+                    # Ensure thread memory is released
+                    thread_ref.deleteLater()
+                except Exception as e:
+                    logger.warning(f"Error deleting thread object: {e}")
+                    
+            # Clear all other references
+            self.device_manager = None
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up SerialDeviceWorker resources: {e}")
+        finally:
+            # Regardless of success or failure, reset the cleanup flag
+            self._is_cleaning = False
+            logger.info("SerialDeviceWorker resources cleaned up")
                 
     def __del__(self):
         """Destructor, ensure resources are released"""
         try:
             logger.debug("SerialDeviceWorker is being destroyed")
-            # Do not call self.cleanup() in the destructor to avoid accessing deleted objects
+            # Avoid calling cleanup in the destructor, which may cause problems
         except Exception:
             # Avoid throwing exceptions in the destructor
             pass
