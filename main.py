@@ -18,15 +18,15 @@ def main():
         # Create application
         app = QApplication(sys.argv)
         
-        # 設置更完整的應用程序標識
+        # Set application name
         app.setApplicationName("VT Hydra")
         app.setApplicationDisplayName("VT Hydra Device Manager")
         app.setOrganizationName("Orion")
         app.setOrganizationDomain("orion.com")
         app.setApplicationVersion("1.0.0.0")
         
-        # 確保 Qt 知道所有窗口屬於同一應用程序實例
-        app.setAttribute(Qt.AA_UseHighDpiPixmaps)  # 使用高 DPI 圖像
+        # Ensure Qt knows all windows belong to the same application instance
+        app.setAttribute(Qt.AA_UseHighDpiPixmaps)  # Use high DPI images
         
         app.setStyle("Fusion")  # Use Fusion style for a modern look
         
@@ -47,10 +47,10 @@ def main():
         else:
             logger.warning(f"Icon file not found: {icon_path}")
         
-        # 設置進程 ID，用於任務管理器顯示
+        # Set process ID, for task manager display
         if sys.platform == 'win32':
             import ctypes
-            app_id = 'Orion.VTHydra.DeviceManager.2504'  # 格式: 組織.產品.應用.版本
+            app_id = 'Orion.VTHydra.DeviceManager.1000'  # Format: Organization.Product.Application.Version
             try:
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
                 logger.debug(f"Set Windows Application User Model ID: {app_id}")

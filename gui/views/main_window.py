@@ -394,6 +394,9 @@ class MainWindowController(QObject):
         # Connect battery test button
         self.window.button_battery_test.clicked.connect(lambda: self._start_hardware_test("battery"))
         
+        # Connect backlight test button
+        self.window.button_backlight_test.clicked.connect(lambda: self._start_hardware_test("backlight"))
+        
         # Default hide progress bar
         self.window.progressBar_hardware_test.setVisible(False)
         
@@ -402,6 +405,7 @@ class MainWindowController(QObject):
         self._update_test_ui_state("emmc", "not_started")
         self._update_test_ui_state("eeprom", "not_started")
         self._update_test_ui_state("battery", "not_started")
+        self._update_test_ui_state("backlight", "not_started")
     
     def _start_hardware_test(self, test_id: str):
         """
@@ -441,6 +445,9 @@ class MainWindowController(QObject):
         elif test_id == "battery":
             status_label = self.window.label_battery_status
             button = self.window.button_battery_test
+        elif test_id == "backlight":
+            status_label = self.window.label_backlight_status
+            button = self.window.button_backlight_test
         else:
             # Unknown test ID, do not update UI
             return
@@ -744,6 +751,7 @@ class MainWindowController(QObject):
                     self.window.button_emmc_test.clicked.disconnect()
                     self.window.button_eeprom_test.clicked.disconnect()
                     self.window.button_battery_test.clicked.disconnect()
+                    self.window.button_backlight_test.clicked.disconnect()
                 except Exception:
                     pass  # Ignore already disconnected signal errors
             
@@ -808,6 +816,7 @@ class MainWindowController(QObject):
         self.window.button_emmc_test.setEnabled(enabled)
         self.window.button_eeprom_test.setEnabled(enabled)
         self.window.button_battery_test.setEnabled(enabled)
+        self.window.button_backlight_test.setEnabled(enabled)
         
         # Log related buttons
         self.window.pushButton_refresh_logs.setEnabled(enabled)
