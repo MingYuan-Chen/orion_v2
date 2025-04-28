@@ -393,7 +393,8 @@ class MainWindowController(QObject):
             self.window.groupBox_eeprom_test,
             self.window.groupBox_battery_test,
             self.window.groupBox_backlight_test,
-            self.window.groupBox_led_test  # Add LED test group
+            self.window.groupBox_led_test,  # Add LED test group
+            self.window.groupBox_audio_test  # Add Audio test group
         ]
         
         for group in test_groups:
@@ -421,6 +422,9 @@ class MainWindowController(QObject):
         # Connect LED test button
         self.window.button_led_test.clicked.connect(lambda: self._start_hardware_test("led"))
         
+        # Connect Audio test button
+        self.window.button_audio_test.clicked.connect(lambda: self._start_hardware_test("audio"))
+        
         # Default hide progress bar
         self.window.progressBar_hardware_test.setVisible(False)
         
@@ -430,7 +434,8 @@ class MainWindowController(QObject):
         self._update_test_ui_state("eeprom", "not_started")
         self._update_test_ui_state("battery", "not_started")
         self._update_test_ui_state("backlight", "not_started")
-        self._update_test_ui_state("led", "not_started")  # 設置LED測試初始狀態
+        self._update_test_ui_state("led", "not_started")
+        self._update_test_ui_state("audio", "not_started")  # 設置音頻測試初始狀態
     
     def _create_tests_scroll_area(self):
         """Create scroll area for test modules, keeping Progress section independent and always visible"""
@@ -586,6 +591,9 @@ class MainWindowController(QObject):
         elif test_id == "led":
             status_label = self.window.label_led_status
             button = self.window.button_led_test
+        elif test_id == "audio":
+            status_label = self.window.label_audio_status
+            button = self.window.button_audio_test
         else:
             # Unknown test ID, do not update UI
             return
@@ -890,7 +898,8 @@ class MainWindowController(QObject):
                     self.window.button_eeprom_test.clicked.disconnect()
                     self.window.button_battery_test.clicked.disconnect()
                     self.window.button_backlight_test.clicked.disconnect()
-                    self.window.button_led_test.clicked.disconnect()  # 斷開LED測試按鈕的信號連接
+                    self.window.button_led_test.clicked.disconnect()
+                    self.window.button_audio_test.clicked.disconnect()  # 斷開音頻測試按鈕的信號連接
                 except Exception:
                     pass  # Ignore already disconnected signal errors
             
@@ -956,7 +965,8 @@ class MainWindowController(QObject):
         self.window.button_eeprom_test.setEnabled(enabled)
         self.window.button_battery_test.setEnabled(enabled)
         self.window.button_backlight_test.setEnabled(enabled)
-        self.window.button_led_test.setEnabled(enabled)  # 啟用/禁用LED測試按鈕
+        self.window.button_led_test.setEnabled(enabled)
+        self.window.button_audio_test.setEnabled(enabled)  # 啟用/禁用音頻測試按鈕
         
         # Log related buttons
         self.window.pushButton_refresh_logs.setEnabled(enabled)
