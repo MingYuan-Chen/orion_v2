@@ -56,6 +56,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("backlight", BacklightTestWorker, continue_on_failure=True)
         from core.tests.led_test_worker import LedTestWorker
         self._register_worker("led", LedTestWorker, continue_on_failure=True)
+        from core.tests.audio_test_worker import AudioTestWorker
+        self._register_worker("audio", AudioTestWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)
