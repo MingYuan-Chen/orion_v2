@@ -939,15 +939,15 @@ class MainWindowController(QObject):
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
         # System basic info
-        self.window.value_model_name.setText("Initializing...")
-        self.window.value_serial_number.setText("Initializing...")
+        self.window.value_model_name.setText("...")
+        self.window.value_serial_number.setText("...")
         self.window.value_cpu.setText("Initializing...")
         self.window.value_memory.setText("Initializing...")
         self.window.value_storage.setText("Initializing...")
         
         # Battery info
-        self.window.value_battery_model.setText("Initializing...")
-        self.window.value_battery_serial.setText("Initializing...")
+        self.window.value_battery_model.setText("...")
+        self.window.value_battery_serial.setText("...")
         self.window.progressBar_charge.setValue(0)
         self.window.value_charge.setText("Initializing...")
         self.window.value_voltage.setText("Initializing...")

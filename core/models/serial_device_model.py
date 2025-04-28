@@ -86,7 +86,6 @@ class SerialDeviceModel(DeviceModel):
             command_bytes = f"{command}\n".encode()
             self.device.write(command_bytes)
             self.device.flush()
-            
             # Wait 10 seconds after command execution for device response
             # Tested with FHD Hydra, 10 seconds is stable. Can be adjusted for other devices in the future
             time.sleep(timeout)

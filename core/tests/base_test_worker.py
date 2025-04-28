@@ -312,6 +312,7 @@ class BaseTestWorker(QObject):
         if step.validation_func:
             try:
                 passed, message = step.validation_func(response)
+                message = f"Validation function result: {message}"
             except Exception as e:
                 passed = False
                 message = f"Validation function exception: {str(e)}"
