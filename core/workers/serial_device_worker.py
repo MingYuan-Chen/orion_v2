@@ -27,6 +27,7 @@ class SerialDeviceWorker(QObject):
     def __init__(self, device_manager: DeviceManagerModel):
         super().__init__()
         self.device_manager = device_manager
+        # Reserve a mutex for command execution (currently not used due to signal-based design can handle concurrency)
         self.command_mutex = QMutex()
         
         # Add a flag to prevent re-entry
