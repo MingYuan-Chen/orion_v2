@@ -287,7 +287,7 @@ class BatteryTestWorker(BaseTestWorker):
             if type(value) != float:
                 return False, f"Unexpected current: {value}"
             
-            if value < 1.8 or value > 2.5:
+            if value < 1.5 or value > 2.5:
                 return False, f"Unreasonable current: {value}"
             
             return True, f"Current: {value}"

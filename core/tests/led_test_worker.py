@@ -39,8 +39,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{1:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[1]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 
@@ -54,8 +52,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{2:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[2]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 
@@ -69,8 +65,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{4:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[4]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 
@@ -84,8 +78,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{9:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[9]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 
@@ -99,8 +91,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{10:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[10]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 
@@ -114,8 +104,6 @@ class LedTestWorker(BaseTestWorker):
                 command=self.set_led_status(f"{12:#04x}"),  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[12]}",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
                 command=self.get_led_status, 

@@ -32,7 +32,12 @@ class EmmcTestWorker(BaseTestWorker):
                 retry_delay=500          # 0.5 seconds later retry
             ),
             TestStep(
-                command="sync && echo 3 > /proc/sys/vm/drop_caches", 
+                command="sync", 
+                timeout=5, 
+                description="Sync",
+            ),
+            TestStep(
+                command="echo 3 > /proc/sys/vm/drop_caches", 
                 expected_response="drop_caches", 
                 timeout=10, 
                 description="Drop caches",
@@ -48,3 +53,4 @@ class EmmcTestWorker(BaseTestWorker):
                 retry_delay=1500         # 1.5 seconds later retry
             )
         ]
+

@@ -86,7 +86,6 @@ class SerialDeviceModel(DeviceModel):
             command_bytes = f"{command}\n".encode()
             self.device.write(command_bytes)
             self.device.flush()
-            
             # Wait 10 seconds after command execution for device response
             # Tested with FHD Hydra, 10 seconds is stable. Can be adjusted for other devices in the future
             time.sleep(timeout)
@@ -99,7 +98,7 @@ class SerialDeviceModel(DeviceModel):
                     line = self.device.readline().decode('utf-8')
                     response += line
                     # Stop waiting if response contains prompt symbol
-                    if '#' in line or '$' in line or '>' in line:
+                    if '#' in line or '$' in line:
                         break
                 time.sleep(0.1)
 

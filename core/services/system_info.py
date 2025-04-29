@@ -50,20 +50,20 @@ class SystemInfoService(QObject):
         """
         return {
             # System basic information
-            "cpu_info": "grep 'model name' /proc/cpuinfo | uniq",
+            "cpu_info": "grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'",
             "memory_info": "free -h | grep 'Mem:'",
             "disk_usage": "df -h | grep 'root'",
             
             # Battery information
-            "capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0f r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0f r2",
-            "full_capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x10 r2",
+            #"capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0f r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0f r2",
+            #"full_capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x10 r2",
             "relative_state": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
             "charging_voltage": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x15 r2",
             "charging_current": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2",
             "temperature": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2",
-            "cycle_count": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x17 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x17 r2",
-            "led_status": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2",
-            "dc_status": "cat /sys/class/gpio/gpio133/value"
+            #"cycle_count": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x17 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x17 r2",
+            #"led_status": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2",
+            #"dc_status": "cat /sys/class/gpio/gpio133/value",
         }
     
     def update_system_info(self, device_id: str):
@@ -108,7 +108,7 @@ class SystemInfoService(QObject):
         
         # Execute command and receive result in signal processing
         try:
-            self.serial_worker.send_command(self.current_device_id, command, 1)
+            self.serial_worker.send_command(self.current_device_id, command, 0)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
             self._handle_command_error(command_name, str(e))
@@ -199,13 +199,11 @@ class SystemInfoService(QObject):
         """
         cpu_info = {}
         
-        if "model name" in response:
-            # Try to extract CPU model
-            for line in response.split('\n'):
-                if "model name" in line and ":" in line:
-                    model = line.split(':', 1)[1].strip()
-                    cpu_info["model"] = model
-                    break
+        try:
+            cpu_info["model"] = response.strip().split('\n')[1]
+        except:
+            logger.warning(f"Failed to parse CPU information: {response}")
+            cpu_info["model"] = "Unknown"
         
         return cpu_info
     

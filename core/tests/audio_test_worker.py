@@ -40,7 +40,22 @@ class AudioTestWorker(BaseTestWorker):
                 retry_delay=1000         # 1 second later retry
             ),
             TestStep(
-                command="arecord -f cd -d 10 mic.wav", 
+                command="ls /unit_tests/audio8k16S.wav", 
+                expected_response="audio8k16S.wav",
+                timeout=10, 
+                description="Check audio8k16S.wav exists",
+                max_retries=2,           # Maximum retries 2 times
+                retry_delay=1500         # 1.5 seconds later retry
+            ),
+            TestStep(
+                command="amixer -c 0 set PCM 100%", 
+                timeout=10, 
+                description="Set speaker volume to 100%",
+                max_retries=2,           # Maximum retries 2 times
+                retry_delay=1500         # 1.5 seconds later retry
+            ),
+            TestStep(
+                command="(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10", 
                 validation_func=self._validate_microphone_record,
                 timeout=10, 
                 description="Record from microphone",
@@ -61,22 +76,6 @@ class AudioTestWorker(BaseTestWorker):
                 description="Remove microphone recording",
                 max_retries=2,           # Maximum retries 2 times
                 retry_delay=1500         # 1.5 seconds later retry
-            ),
-            TestStep(
-                command="ls /unit_tests/audio8k16S.wav", 
-                expected_response="audio8k16S.wav",
-                timeout=10, 
-                description="Check audio8k16S.wav exists",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
-            ),
-            TestStep(
-                command="aplay /unit_tests/audio8k16S.wav", 
-                validation_func=self._validate_speaker_playback_8k16s,
-                timeout=10, 
-                description="Playback from speaker",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
             )
         ]
     
@@ -85,10 +84,10 @@ class AudioTestWorker(BaseTestWorker):
         Validate microphone record
         """
         try:
-            if "Signed 16 bit" in response and "44100 Hz" in response:
+            if "Recording WAVE" in response and "Playing WAVE" in response:
                 return True, "Microphone recording cd format is successful"
             else:
-                return False, "Unexpected microphone recording format"
+                return False, "Unexpected microphone recording"
         except Exception as e:
             return False, f"Error validating microphone record: {e}"
     
@@ -103,15 +102,3 @@ class AudioTestWorker(BaseTestWorker):
                 return False, "Unexpected speaker playback"
         except Exception as e:
             return False, f"Error validating speaker playback: {e}"
-    
-    def _validate_speaker_playback_8k16s(self, response: str) -> Tuple[bool, str]:
-        """
-        Validate speaker playback 8k16s
-        """
-        try:
-            if "Playing WAVE" in response and "audio8k16S.wav" in response:
-                return True, "Speaker playback 8k16s is successful"
-            else:
-                return False, "Unexpected speaker playback 8k16s"
-        except Exception as e:
-            return False, f"Error validating speaker playback 8k16s: {e}"
