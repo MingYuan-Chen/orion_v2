@@ -12,10 +12,11 @@ import csv
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
-from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy
 
 # import TestManagerView
 from gui.views.test_manager import TestManagerView
+from gui.widgets.test_container import TestContainer
 
 
 class DarkEditDialog(QDialog):
@@ -169,6 +170,11 @@ class MainWindowController(QObject):
                 error_msg = f"Failed to load UI file: {loader.errorString()}"
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
+            
+            # 确保窗口可以调整大小
+            self.window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.window.setMinimumSize(600, 500)  # 设置合理的最小尺寸
+            self.window.setMaximumSize(16777215, 16777215)  # 最大尺寸设为很大的值
             
             logger.debug(f"Main window UI loaded successfully for device {device_id}")
         except Exception as e:
@@ -390,346 +396,37 @@ class MainWindowController(QObject):
         hw_test_table.verticalHeader().setDefaultSectionSize(30)  # Set row height to 30 pixels
         hw_test_table.setMinimumHeight(180)   # Set minimum height
         
-        # Set test modules to fixed height
-        test_groups = [
-            self.window.groupBox_usb_test,
-            self.window.groupBox_emmc_test,
-            self.window.groupBox_eeprom_test,
-            self.window.groupBox_battery_test,
-            self.window.groupBox_backlight_test,
-            self.window.groupBox_led_test,
-            self.window.groupBox_audio_test
-        ]
+        # Create the test container
+        test_container = TestContainer()
         
-        for group in test_groups:
-            if group:
-                group.setFixedHeight(50)  # Set fixed height for each test module
+        # Create test modules in the container
+        test_container.add_test_group("usb_ports", "USB Ports Test")
+        test_container.add_test_group("emmc", "eMMC Test")
+        test_container.add_test_group("eeprom", "EEPROM Test")
+        test_container.add_test_group("battery", "Battery Test")
+        test_container.add_test_group("backlight", "Backlight Test")
+        test_container.add_test_group("led", "LED Test")
+        test_container.add_test_group("audio", "Audio Test")
         
-        # Create scroll area for test modules
-        self._create_tests_scroll_area()
+        # Get functionality test page layout
+        tab_functionality = self.window.tab_functionality
+        layout = tab_functionality.layout()
         
-        # prepare the UI components dictionary to pass to the test manager
-        test_ui_components = {
-            "usb_ports": {
-                "status_label": self.window.label_usb_status,
-                "button": self.window.button_usb_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "emmc": {
-                "status_label": self.window.label_emmc_status,
-                "button": self.window.button_emmc_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "eeprom": {
-                "status_label": self.window.label_eeprom_status,
-                "button": self.window.button_eeprom_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "battery": {
-                "status_label": self.window.label_battery_status,
-                "button": self.window.button_battery_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "backlight": {
-                "status_label": self.window.label_backlight_status,
-                "button": self.window.button_backlight_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "led": {
-                "status_label": self.window.label_led_status,
-                "button": self.window.button_led_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "audio": {
-                "status_label": self.window.label_audio_status,
-                "button": self.window.button_audio_test,
-                "progress_bar": self.window.progressBar_hardware_test
-            },
-            "test_all": {
-                "button": self.window.button_test_all
-            }
-        }
+        # 在标题行和测试进度之间插入TestContainer
+        # UI文件中第0项是标题行，第1项是测试进度，现在我们插入测试容器在它们之间
+        layout.insertWidget(1, test_container)
         
-        # set the UI components of the test manager
+        # Set the UI components of the test manager
         self.test_manager.set_ui_components(
-            test_ui_components,
+            test_container,
+            self.window.button_test_all,
             self.window.tableWidget_hardware_test_steps,
             self.window.progressBar_hardware_test
         )
         
-        # connect the various test buttons to the test manager
-        self.window.button_usb_test.clicked.connect(lambda: self.test_manager.start_test("usb_ports"))
-        self.window.button_emmc_test.clicked.connect(lambda: self.test_manager.start_test("emmc"))
-        self.window.button_eeprom_test.clicked.connect(lambda: self.test_manager.start_test("eeprom"))
-        self.window.button_battery_test.clicked.connect(lambda: self.test_manager.start_test("battery"))
-        self.window.button_backlight_test.clicked.connect(lambda: self.test_manager.start_test("backlight"))
-        self.window.button_led_test.clicked.connect(lambda: self.test_manager.start_test("led"))
-        self.window.button_audio_test.clicked.connect(lambda: self.test_manager.start_test("audio"))
-        
-        # connect the test all button
-        self.window.button_test_all.clicked.connect(self.test_manager.start_test_all)
-        
-        # hide the progress bar by default
+        # Hide the progress bar by default
         self.window.progressBar_hardware_test.setVisible(False)
-        
-        # set the initial state
-        for test_id in test_ui_components:
-            if test_id != "test_all":
-                self.test_manager._update_test_ui_state(test_id, "not_started")
     
-    def _create_tests_scroll_area(self):
-        """Create scroll area for test modules, keeping Progress section independent and always visible"""
-        try:
-            from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QPushButton
-            
-            # Get functionality test page layout
-            tab_functionality = self.window.tab_functionality
-            original_layout = tab_functionality.layout()
-            
-            if not original_layout:
-                logger.error("Cannot find functionality test page layout")
-                return
-                
-            # Create new scroll area
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)  # Allow content to adjust size
-            scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)  # No frame
-            scroll_area.setStyleSheet("background-color: #252526;")  # Set same background color as TabWidget::pane
-            
-            # Create scroll area content container
-            scroll_content = QWidget()
-            scroll_content.setStyleSheet("background-color: #252526;")  # Set content container background color
-            scroll_layout = QVBoxLayout(scroll_content)
-            scroll_layout.setContentsMargins(0, 0, 0, 0)
-            scroll_layout.setSpacing(10)  # Set spacing between test modules
-            
-            # Save title and test progress group
-            title_widget = None
-            progress_group = None
-            
-            # Get title (usually the first widget)
-            if original_layout.count() > 0:
-                title_widget = original_layout.itemAt(0).widget()
-                if title_widget and title_widget.objectName() == "label_hardware_tests":
-                    original_layout.removeWidget(title_widget)
-                
-            # Find test progress group (usually the second last, before spacer)
-            progress_index = -1
-            for i in range(original_layout.count()):
-                item = original_layout.itemAt(i)
-                if item.widget() and item.widget().objectName() == "groupBox_hardware_test_results":
-                    progress_group = item.widget()
-                    progress_index = i
-                    break
-            
-            # Clear all widgets except spacer in original layout
-            items_to_move = []
-            for i in range(original_layout.count()):
-                item = original_layout.itemAt(i)
-                # Skip spacer and progress group
-                if ((not item.spacerItem()) and 
-                    (not item.widget() or 
-                     (item.widget() and item.widget() != progress_group))):
-                    items_to_move.append(item)
-            
-            # Remove and collect test modules
-            test_modules = []
-            for item in items_to_move:
-                if item.widget() and "groupBox" in item.widget().objectName() and "hardware_test_results" not in item.widget().objectName():
-                    widget = item.widget()
-                    original_layout.removeWidget(widget)
-                    test_modules.append(widget)
-            
-            # Add test modules to scroll area and fix button styles
-            for module in test_modules:
-                # Add module to scroll area
-                scroll_layout.addWidget(module)
-                
-                # Find all buttons in module and apply styles
-                buttons = module.findChildren(QPushButton)
-                for button in buttons:
-                    button.setStyleSheet("""
-                        QPushButton {
-                            background-color: #0078D7;
-                            color: white;
-                            border: none;
-                            padding: 5px 15px;
-                            border-radius: 2px;
-                        }
-                        QPushButton:hover {
-                            background-color: #1C97EA;
-                        }
-                        QPushButton:pressed {
-                            background-color: #00559F;
-                        }
-                    """)
-            
-            # Set scroll area content
-            scroll_area.setWidget(scroll_content)
-            
-            # Set scroll area maximum height
-            scroll_area.setMinimumHeight(180)
-            scroll_area.setMaximumHeight(320)  # Set appropriate maximum height
-            
-            # Rebuild layout
-            # 1. Add title first
-            if title_widget:
-                original_layout.insertWidget(0, title_widget)
-                
-            # 2. Then add scroll area
-            original_layout.insertWidget(1, scroll_area)
-            
-            # 3. Ensure test progress group is moved to appropriate position (if previously removed)
-            if progress_group and progress_group.parent() != tab_functionality:
-                original_layout.addWidget(progress_group)
-
-            logger.info("Successfully created test module scroll area")
-        except Exception as e:
-            logger.error(f"Error creating test module scroll area: {str(e)}")
-    
-    @Slot(str, str, str)
-    def _on_command_completed(self, device_id: str, command: str, response: str):
-        """
-        Handle command completed event
-        
-        Args:
-            device_id: Device ID
-            command: Command sent
-            response: Command response
-        """
-        # Only process commands for this device
-        if device_id != self.device_id:
-            return
-            
-        # Log command and response
-        self._add_log_entry("DEBUG", f"[Response] {response}")
-        
-        # Process response based on command
-        if command.startswith("get_logs"):
-            self._process_logs_response(response)
-    
-    def _update_dashboard(self):
-        """Update dashboard information"""
-        # Update last updated time
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time}")
-        
-        # In actual application, you need to get real data from device
-        # Here is just an example, display some static data
-        
-        # Update basic system information
-        self.window.value_model_name.setText(f"Device Model {self.device_id}")
-        self.window.value_serial_number.setText(f"SN-{self.device_id}-2023")
-        
-        # Update battery information
-        battery_level = 78  # This should be obtained from device
-        self.window.progressBar_charge.setValue(battery_level)
-        self.window.value_charge.setText(f"{battery_level}%")
-    
-    def _process_logs_response(self, response):
-        """Process logs response"""
-        # In actual application, response may be JSON or other format of log data
-        # Here we simply assume response is text format of log lines
-        try:
-            # Clear existing logs
-            self._clear_logs()
-            
-            # Parse response (assume each line is a log entry)
-            log_lines = response.strip().split("\n")
-            for line in log_lines:
-                # Parse log line (format may vary depending on device)
-                # Assume format is: [timestamp] [level] message
-                parts = line.split(" ", 2)
-                if len(parts) >= 3:
-                    timestamp = parts[0].strip("[]")
-                    level = parts[1].strip("[]")
-                    message = parts[2]
-                    self._add_log_entry(level, message, timestamp)
-                else:
-                    # Unparsable line, add as INFO level
-                    self._add_log_entry("INFO", line)
-                    
-        except Exception as e:
-            logger.error(f"Error processing logs response: {str(e)}")
-            self._add_log_entry("ERROR", f"Failed to process logs: {str(e)}")
-    
-    def show(self):
-        """Show window and trigger system info update"""
-        # Check window properties again before showing, ensure it's part of the main application
-        self._set_window_properties()
-        
-        # show the window
-        self.window.show()
-        
-        # ensure the window is raised and activated
-        self.window.raise_()
-        self.window.activateWindow()
-        
-        # Trigger system info update after window is shown
-        # QTimer.singleShot(100, self._on_refresh_system_info)
-    
-    def close(self):
-        """Close window and release resources"""
-        logger.info(f"Closing main window for device: {self.device_id}")
-        
-        # 1. stop all ongoing tests
-        if hasattr(self, 'test_manager'):
-            self.test_manager.stop_current_test()
-        
-        # 2. clean up the test manager resources
-        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'cleanup'):
-            logger.info("Cleaning up test manager")
-            self.test_manager.cleanup()
-        
-        # 3. clean up the hardware test manager resources
-        if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
-            logger.info("Cleaning up hardware test manager")
-            self.hw_test_manager.cleanup()
-        
-        # 4. clean up the view model resources
-        if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
-            logger.info("Cleaning up view model")
-            self.view_model.cleanup()
-        
-        # 5. disconnect all signals
-        try:
-            # disconnect the view model signals
-            if hasattr(self, 'view_model') and self.view_model:
-                try:
-                    self.view_model.command_result.disconnect(self._on_command_completed)
-                except Exception:
-                    pass  # if already disconnected, ignore the error
-                
-                # disconnect the system info service signals
-                if hasattr(self.view_model, 'system_info_service'):
-                    try:
-                        self.view_model.system_info_service.info_received.disconnect(self._on_system_info_received)
-                        self.view_model.system_info_service.info_error.disconnect(self._on_system_info_error)
-                    except Exception:
-                        pass  # the signal may already be disconnected
-            
-            # disconnect the test manager signals
-            if hasattr(self, 'test_manager'):
-                try:
-                    self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
-                except Exception:
-                    pass  # ignore the error of already disconnected signal
-                    
-        except Exception as e:
-            logger.error(f"Error disconnecting signals: {e}")
-        
-        # 6. remove the event filter
-        if hasattr(self, 'window'):
-            self.window.removeEventFilter(self)
-            
-        # 7. Close window
-        self.window.close()
-            
-        # 8. Emit window closed signal
-        self.window_closed.emit(self.device_id)
-        
-        logger.info(f"Main window resources cleaned up for device: {self.device_id}")
-
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
         # System basic info
@@ -750,43 +447,34 @@ class MainWindowController(QObject):
 
     def _set_ui_controls_enabled(self, enabled=True):
         """Enable or disable UI controls"""
-        # Enable/disable test buttons
-        if hasattr(self.window, 'button_usb_test'):
-            self.window.button_usb_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_emmc_test'):
-            self.window.button_emmc_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_eeprom_test'):
-            self.window.button_eeprom_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_battery_test'):
-            self.window.button_battery_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_backlight_test'):
-            self.window.button_backlight_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_led_test'):
-            self.window.button_led_test.setEnabled(enabled)
-        if hasattr(self.window, 'button_audio_test'):
-            self.window.button_audio_test.setEnabled(enabled)
+        # 启用/禁用通过TestContainer管理的测试按钮
+        # 使用测试管理器管理的UI组件
+        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
+            self.test_manager.set_test_buttons_enabled(enabled)
+        
+        # 启用/禁用"Test All"按钮
         if hasattr(self.window, 'button_test_all'):
             self.window.button_test_all.setEnabled(enabled)
         
-        # Enable/disable system info refresh button
+        # 启用/禁用系统信息刷新按钮
         if hasattr(self.window, 'pushButton_refresh'):
             self.window.pushButton_refresh.setEnabled(enabled)
         
-        # Enable/disable send command button
-        if hasattr(self.window, 'button_send'):
-            self.window.button_send.setEnabled(enabled)
+        # 启用/禁用发送命令按钮
+        if hasattr(self.window, 'pushButton_send_command'):
+            self.window.pushButton_send_command.setEnabled(enabled)
         
-        # Enable/disable export result button
+        # 启用/禁用导出结果按钮
         if hasattr(self.window, 'button_export_result'):
             self.window.button_export_result.setEnabled(enabled)
         
-        # Enable/disable log filter comboboxes
+        # 启用/禁用日志过滤下拉框
         if hasattr(self.window, 'comboBox_log_level'):
             self.window.comboBox_log_level.setEnabled(enabled)
-        if hasattr(self.window, 'comboBox_log_time'):
-            self.window.comboBox_log_time.setEnabled(enabled)
+        if hasattr(self.window, 'comboBox_time_range'):
+            self.window.comboBox_time_range.setEnabled(enabled)
         
-        # Enable/disable tabs
+        # 启用/禁用标签页
         if hasattr(self.window, 'tabWidget'):
             for i in range(self.window.tabWidget.count()):
                 self.window.tabWidget.setTabEnabled(i, enabled)
@@ -1010,6 +698,16 @@ class MainWindowController(QObject):
             # Set window flags to ensure it is recognized as the main application window
             self.window.setWindowFlags(self.window.windowFlags() | Qt.Window)
             
+            # 确保窗口可以调整大小
+            self.window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            
+            # 移除固定大小约束（如果有）
+            if self.window.minimumSize().width() == self.window.maximumSize().width() or \
+               self.window.minimumSize().height() == self.window.maximumSize().height():
+                # 重置最小和最大尺寸
+                self.window.setMinimumSize(600, 500)  # 设置合理的最小尺寸
+                self.window.setMaximumSize(16777215, 16777215)  # 最大尺寸设为很大的值
+            
             # Set taskbar related properties on Windows
             if sys.platform == 'win32':
                 try:
@@ -1110,3 +808,153 @@ class MainWindowController(QObject):
             error_msg = f"Error exporting test results: {str(e)}"
             logger.error(error_msg)
             self._add_log_entry("ERROR", error_msg)
+
+    @Slot(str, str, str)
+    def _on_command_completed(self, device_id: str, command: str, response: str):
+        """
+        Handle command completed event
+        
+        Args:
+            device_id: Device ID
+            command: Command sent
+            response: Command response
+        """
+        # Only process commands for this device
+        if device_id != self.device_id:
+            return
+            
+        # Log command and response
+        self._add_log_entry("DEBUG", f"[Response] {response}")
+        
+        # Process response based on command
+        if command.startswith("get_logs"):
+            self._process_logs_response(response)
+    
+    def _update_dashboard(self):
+        """Update dashboard information"""
+        # Update last updated time
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.window.label_last_updated.setText(f"Last updated: {current_time}")
+        
+        # In actual application, you need to get real data from device
+        # Here is just an example, display some static data
+        
+        # Update basic system information
+        self.window.value_model_name.setText(f"Device Model {self.device_id}")
+        self.window.value_serial_number.setText(f"SN-{self.device_id}-2023")
+        
+        # Update battery information
+        battery_level = 78  # This should be obtained from device
+        self.window.progressBar_charge.setValue(battery_level)
+        self.window.value_charge.setText(f"{battery_level}%")
+    
+    def _process_logs_response(self, response):
+        """Process logs response"""
+        # In actual application, response may be JSON or other format of log data
+        # Here we simply assume response is text format of log lines
+        try:
+            # Clear existing logs
+            self._clear_logs()
+            
+            # Parse response (assume each line is a log entry)
+            log_lines = response.strip().split("\n")
+            for line in log_lines:
+                # Parse log line (format may vary depending on device)
+                # Assume format is: [timestamp] [level] message
+                parts = line.split(" ", 2)
+                if len(parts) >= 3:
+                    timestamp = parts[0].strip("[]")
+                    level = parts[1].strip("[]")
+                    message = parts[2]
+                    self._add_log_entry(level, message, timestamp)
+                else:
+                    # Unparsable line, add as INFO level
+                    self._add_log_entry("INFO", line)
+                    
+        except Exception as e:
+            logger.error(f"Error processing logs response: {str(e)}")
+            self._add_log_entry("ERROR", f"Failed to process logs: {str(e)}")
+    
+    def show(self):
+        """Show window and trigger system info update"""
+        # Check window properties again before showing, ensure it's part of the main application
+        self._set_window_properties()
+        
+        # 确保窗口可以调整大小
+        from PySide6.QtCore import Qt
+        self.window.setWindowFlags(
+            self.window.windowFlags() | 
+            Qt.Window | 
+            Qt.WindowMinMaxButtonsHint | 
+            Qt.WindowCloseButtonHint
+        )
+        self.window.setAttribute(Qt.WA_DeleteOnClose, False)  # 防止窗口关闭时被删除
+        
+        # show the window
+        self.window.show()
+        
+        # ensure the window is raised and activated
+        self.window.raise_()
+        self.window.activateWindow()
+    
+    def close(self):
+        """Close window and release resources"""
+        logger.info(f"Closing main window for device: {self.device_id}")
+        
+        # 1. stop all ongoing tests
+        if hasattr(self, 'test_manager'):
+            self.test_manager.stop_current_test()
+        
+        # 2. clean up the test manager resources
+        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'cleanup'):
+            logger.info("Cleaning up test manager")
+            self.test_manager.cleanup()
+        
+        # 3. clean up the hardware test manager resources
+        if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
+            logger.info("Cleaning up hardware test manager")
+            self.hw_test_manager.cleanup()
+        
+        # 4. clean up the view model resources
+        if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
+            logger.info("Cleaning up view model")
+            self.view_model.cleanup()
+        
+        # 5. disconnect all signals
+        try:
+            # disconnect the view model signals
+            if hasattr(self, 'view_model') and self.view_model:
+                try:
+                    self.view_model.command_result.disconnect(self._on_command_completed)
+                except Exception:
+                    pass  # if already disconnected, ignore the error
+                
+                # disconnect the system info service signals
+                if hasattr(self.view_model, 'system_info_service'):
+                    try:
+                        self.view_model.system_info_service.info_received.disconnect(self._on_system_info_received)
+                        self.view_model.system_info_service.info_error.disconnect(self._on_system_info_error)
+                    except Exception:
+                        pass  # the signal may already be disconnected
+            
+            # disconnect the test manager signals
+            if hasattr(self, 'test_manager'):
+                try:
+                    self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
+                except Exception:
+                    pass  # ignore the error of already disconnected signal
+                    
+        except Exception as e:
+            logger.error(f"Error disconnecting signals: {e}")
+        
+        # 6. remove the event filter
+        if hasattr(self, 'window'):
+            self.window.removeEventFilter(self)
+            
+        # 7. Close window
+        self.window.close()
+            
+        # 8. Emit window closed signal
+        self.window_closed.emit(self.device_id)
+        
+        logger.info(f"Main window resources cleaned up for device: {self.device_id}")

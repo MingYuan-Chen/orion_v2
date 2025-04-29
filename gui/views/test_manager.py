@@ -12,6 +12,7 @@ from PySide6.QtGui import QColor
 
 from util.logger import logger
 from core.services.hardware_test_manager import HardwareTestManagerService
+from gui.widgets.test_container import TestContainer
 
 
 class TestManagerView(QObject):
@@ -38,7 +39,8 @@ class TestManagerView(QObject):
         self.hw_test_manager = hw_test_manager
         
         # test UI components reference
-        self.test_ui_components = {}  # store test UI components reference
+        self.test_container = None  # test container reference
+        self.test_all_button = None  # test all button reference 
         self.result_table = None  # test result table reference
         self.progress_bar = None  # test progress bar reference
         
@@ -65,28 +67,41 @@ class TestManagerView(QObject):
         self.hw_test_manager.test_step_retrying.connect(self._on_test_step_retrying)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
     
-    def set_ui_components(self, test_ui_components: Dict[str, Dict[str, Any]], 
+    def set_ui_components(self, test_container: TestContainer, test_all_button: QPushButton,
                            result_table: QTableWidget, progress_bar: QProgressBar):
         """
         Set UI components references
         
         Args:
-            test_ui_components: Dictionary mapping test IDs to their UI components
+            test_container: Test container widget
+            test_all_button: "Test All" button
             result_table: Table widget for displaying test steps
             progress_bar: Progress bar for displaying test progress
         """
-        self.test_ui_components = test_ui_components
+        self.test_container = test_container
+        self.test_all_button = test_all_button
         self.result_table = result_table
         self.progress_bar = progress_bar
         
+        # Connect test container signals
+        self.test_container.test_selected.connect(self.start_test)
+        
+        # Connect test all button
+        self.test_all_button.clicked.connect(self.start_test_all)
+        
         # initialize test results and progress records
-        for test_id in self.test_ui_components:
+        test_ids = self.test_container.get_all_test_ids()
+        for test_id in test_ids:
             self.test_results[test_id] = {
                 "steps": [],
                 "success": None,
                 "message": ""
             }
             self.test_progress_records[test_id] = []
+            
+        # Set initial state for all tests
+        for test_id in test_ids:
+            self.test_container.set_test_state(test_id, "not_started")
     
     def start_test(self, test_id: str):
         """
@@ -119,12 +134,10 @@ class TestManagerView(QObject):
         self.current_test_index = -1
         self.is_test_all_running = True
         
-        # disable the test all button (if exists)
-        if "test_all" in self.test_ui_components:
-            button = self.test_ui_components["test_all"].get("button")
-            if button:
-                button.setEnabled(False)
-                button.setText("Running...")
+        # disable the test all button
+        if self.test_all_button:
+            self.test_all_button.setEnabled(False)
+            self.test_all_button.setText("Running...")
         
         # start the first test
         self._execute_next_test()
@@ -137,57 +150,6 @@ class TestManagerView(QObject):
         if self.hw_test_manager:
             self.hw_test_manager.stop_current_test()
     
-    def _update_test_ui_state(self, test_id: str, state: str, message: str = ""):
-        """
-        Update test UI state
-        
-        Args:
-            test_id: Test ID
-            state: State ('not_started', 'running', 'pass', 'fail')
-            message: Optional message
-        """
-        if test_id not in self.test_ui_components:
-            logger.warning(f"Test UI components not found for test ID: {test_id}")
-            return
-            
-        ui_components = self.test_ui_components[test_id]
-        status_label = ui_components.get("status_label")
-        button = ui_components.get("button")
-        progress_bar = ui_components.get("progress_bar")
-        
-        if not status_label or not button:
-            logger.warning(f"Required UI components not found for test ID: {test_id}")
-            return
-        
-        # update the UI based on the state
-        if state == "not_started":
-            status_label.setStyleSheet("background-color: #333333; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-            button.setText("Start Test")
-            button.setEnabled(True)
-            if progress_bar:
-                progress_bar.setVisible(False)
-            
-        elif state == "running":
-            status_label.setStyleSheet("background-color: #FFA500; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-            button.setText("Running...")
-            button.setEnabled(False)
-            if progress_bar:
-                progress_bar.setVisible(True)
-            
-        elif state == "pass":
-            status_label.setStyleSheet("background-color: #00AA00; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-            button.setText("Start Test")
-            button.setEnabled(True)
-            if progress_bar:
-                progress_bar.setVisible(False)
-            
-        elif state == "fail":
-            status_label.setStyleSheet("background-color: #FF0000; border-radius: 8px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;")
-            button.setText("Start Test")
-            button.setEnabled(True)
-            if progress_bar:
-                progress_bar.setVisible(False)
-    
     @Slot(str)
     def _on_test_started(self, test_id: str):
         """
@@ -197,7 +159,7 @@ class TestManagerView(QObject):
             test_id: Test ID
         """
         # update the test UI state
-        self._update_test_ui_state(test_id, "running")
+        self.test_container.set_test_state(test_id, "running")
         
         # initialize the test result storage
         self.test_results[test_id] = {
@@ -227,7 +189,7 @@ class TestManagerView(QObject):
             self.test_results[test_id]["message"] = message
         
         # update the test UI state
-        self._update_test_ui_state(test_id, "pass" if success else "fail", message)
+        self.test_container.set_test_state(test_id, "pass" if success else "fail", message)
         
         # record the test completed
         if success:
@@ -318,8 +280,13 @@ class TestManagerView(QObject):
         """
         # update the progress bar
         progress_pct = int((current_step / total_steps) * 100)
+        
+        # Update global progress bar
         if self.progress_bar:
             self.progress_bar.setValue(progress_pct)
+        
+        # Update test-specific progress
+        self.test_container.set_test_progress(test_id, progress_pct)
         
         # record the progress of the actual steps
         if current_step > 0:
@@ -357,11 +324,9 @@ class TestManagerView(QObject):
         self.current_test_index = -1
         
         # enable the test all button
-        if "test_all" in self.test_ui_components:
-            button = self.test_ui_components["test_all"].get("button")
-            if button:
-                button.setEnabled(True)
-                button.setText("Test All")
+        if self.test_all_button:
+            self.test_all_button.setEnabled(True)
+            self.test_all_button.setText("Test All")
         
         # record the completion
         logger.info("Test All sequence completed")
@@ -399,14 +364,36 @@ class TestManagerView(QObject):
                 self.hw_test_manager.test_step_completed.disconnect(self._on_test_step_completed)
                 self.hw_test_manager.test_step_retrying.disconnect(self._on_test_step_retrying)
                 self.hw_test_manager.test_progress.disconnect(self._on_test_progress)
+                
+                if self.test_container:
+                    self.test_container.test_selected.disconnect(self.start_test)
+                
+                if self.test_all_button:
+                    self.test_all_button.clicked.disconnect(self.start_test_all)
             except Exception:
                 # signals may already be disconnected, ignore the error
                 pass
             
             # clear the references
-            self.test_ui_components = {}
+            self.test_container = None
+            self.test_all_button = None
             self.result_table = None
             self.progress_bar = None
             
         except Exception as e:
             logger.error(f"Error during TestManagerView cleanup: {e}") 
+
+    def set_test_buttons_enabled(self, enabled=True):
+        """
+        启用或禁用所有测试按钮
+        
+        Args:
+            enabled: 是否启用按钮
+        """
+        if self.test_container:
+            for test_id in self.test_container.get_all_test_ids():
+                self.test_container.get_test_widget(test_id).set_button_enabled(enabled)
+            
+        # 启用或禁用"Test All"按钮
+        if self.test_all_button:
+            self.test_all_button.setEnabled(enabled) 
