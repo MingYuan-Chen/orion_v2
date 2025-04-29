@@ -455,11 +455,13 @@ graph TD
     A[步驟1: 建立測試類別]
     B[步驟2: 註冊測試模組]
     C[步驟3: 更新UI介面]
-    D[步驟4: 測試和驗證]
+    D[步驟4: 連接UI與測試邏輯]
+    E[步驟5: 測試和驗證]
     
     A --> B
     B --> C
     C --> D
+    D --> E
 ```
 
 1. **建立測試工作執行緒類別**：
@@ -518,14 +520,69 @@ graph TD
        from core.tests.new_module_test_worker import NewModuleTestWorker
        self._register_worker("new_module", NewModuleTestWorker)
    ```
+
 3. **更新UI介面**：
 
-   在裝置管理介面中新增測試模組的選項和介面元素。
+   - 在`main_window.ui`文件中添加新測試模組的UI元素，包括：
+     - 測試組框（GroupBox）
+     - 測試標籤（Label）
+     - 狀態指示器（Status Label）
+     - 測試按鈕（Push Button）
 
-4. **測試和驗證**：
+4. **連接UI與測試邏輯**：
+
+   在`main_window.py`文件中，需要進行以下更新：
+
+   - 在`_init_functionality_test_ui`方法中的`test_ui_components`字典添加新模組：
+   
+   ```python
+   test_ui_components = {
+       # 現有的測試組件...
+       "new_module": {
+           "status_label": self.window.label_new_module_status,
+           "button": self.window.button_new_module_test,
+           "progress_bar": self.window.progressBar_hardware_test
+       },
+   }
+   ```
+   
+   - 將新測試按鈕連接到測試管理器：
+   
+   ```python
+   self.window.button_new_module_test.clicked.connect(
+       lambda: self.test_manager.start_test("new_module")
+   )
+   ```
+   
+   - 在測試組列表中添加新測試組框：
+   
+   ```python
+   test_groups = [
+       # 現有的測試組...
+       self.window.groupBox_new_module_test
+   ]
+   ```
+   
+   - 確保UI控制啟用/禁用功能包含新按鈕：
+   
+   ```python
+   if hasattr(self.window, 'button_new_module_test'):
+       self.window.button_new_module_test.setEnabled(enabled)
+   ```
+   
+   - 如需將新測試添加到"測試全部"序列中，需更新`TestManagerView`類的`test_sequence`列表：
+   
+   ```python
+   self.test_sequence = ["usb_ports", "emmc", "eeprom", "battery", 
+                          "backlight", "led", "audio", "new_module"]
+   ```
+
+5. **測試和驗證**：
 
    - 確保新模組按預期工作
    - 驗證測試步驟的執行和結果處理
    - 測試異常情況和邊界條件
+   - 確認"測試全部"功能能正確包含新模組
+   - 確保UI狀態指示器正確反映測試狀態
 
 透過遵循這些指南，你可以輕鬆地擴充Orion系統，新增測試功能，滿足更多的硬體測試需求。 
