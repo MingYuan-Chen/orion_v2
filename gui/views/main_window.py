@@ -124,6 +124,11 @@ class MainWindowController(QObject):
         # Add update status flag
         self.is_updating = False
         
+        # Add test sequence list and current test index
+        self.test_sequence = ["usb_ports", "emmc", "eeprom", "battery", "backlight", "led", "audio"]
+        self.current_test_index = -1
+        self.is_test_all_running = False
+        
         # Ensure view_model has system_info_service
         if not hasattr(self.view_model, 'system_info_service') and hasattr(self.view_model, '_serial_worker'):
             from core.services.system_info import SystemInfoService
@@ -425,6 +430,9 @@ class MainWindowController(QObject):
         # Connect Audio test button
         self.window.button_audio_test.clicked.connect(lambda: self._start_hardware_test("audio"))
         
+        # Connect Test All button
+        self.window.button_test_all.clicked.connect(self._start_test_all)
+        
         # Default hide progress bar
         self.window.progressBar_hardware_test.setVisible(False)
         
@@ -435,7 +443,7 @@ class MainWindowController(QObject):
         self._update_test_ui_state("battery", "not_started")
         self._update_test_ui_state("backlight", "not_started")
         self._update_test_ui_state("led", "not_started")
-        self._update_test_ui_state("audio", "not_started")  # 設置音頻測試初始狀態
+        self._update_test_ui_state("audio", "not_started")
     
     def _create_tests_scroll_area(self):
         """Create scroll area for test modules, keeping Progress section independent and always visible"""
@@ -667,6 +675,10 @@ class MainWindowController(QObject):
         # Log test completion
         log_level = "INFO" if success else "ERROR"
         self._add_log_entry(log_level, f"Test {test_id} completed: {message}")
+        
+        # If we're running Test All, execute next test
+        if self.is_test_all_running:
+            QTimer.singleShot(1000, self._execute_next_test)  # Wait 1 second before starting next test
     
     @Slot(str, int, bool, str)
     def _on_test_step_completed(self, test_id: str, step_index: int, success: bool, message: str):
@@ -1205,3 +1217,53 @@ class MainWindowController(QObject):
             logger.debug(f"Window properties set: {title}")
         except Exception as e:
             logger.warning(f"Error setting window properties: {e}")
+
+    def _start_test_all(self):
+        """Start executing all test modules in sequence"""
+        # If already running test all, ignore
+        if self.is_test_all_running:
+            return
+            
+        # Clear previous test results
+        self.window.tableWidget_hardware_test_steps.setRowCount(0)
+        
+        # Reset test sequence
+        self.current_test_index = -1
+        self.is_test_all_running = True
+        
+        # Disable Test All button
+        self.window.button_test_all.setEnabled(False)
+        self.window.button_test_all.setText("Running...")
+        
+        # Start first test
+        self._execute_next_test()
+        
+        # Record start of test all
+        self._add_log_entry("INFO", "Starting Test All sequence")
+
+    def _execute_next_test(self):
+        """Execute next test in the sequence"""
+        self.current_test_index += 1
+        
+        # Check if we've completed all tests
+        if self.current_test_index >= len(self.test_sequence):
+            self._complete_test_all()
+            return
+            
+        # Get next test ID
+        test_id = self.test_sequence[self.current_test_index]
+        
+        # Start the test
+        self._start_hardware_test(test_id)
+
+    def _complete_test_all(self):
+        """Complete Test All sequence"""
+        self.is_test_all_running = False
+        self.current_test_index = -1
+        
+        # Enable Test All button
+        self.window.button_test_all.setEnabled(True)
+        self.window.button_test_all.setText("Test All")
+        
+        # Record completion
+        self._add_log_entry("INFO", "Test All sequence completed")

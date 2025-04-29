@@ -96,10 +96,10 @@ class SerialDeviceModel(DeviceModel):
             while time.time() - start_time < self.timeout:
                 if self.device.in_waiting:
                     line = self.device.readline().decode('utf-8')
+                    response += line
                     # Stop waiting if response contains prompt symbol
                     if '#' in line or '$' in line:
                         break
-                    response += line
                 time.sleep(0.1)
 
             # Return error message if no response
