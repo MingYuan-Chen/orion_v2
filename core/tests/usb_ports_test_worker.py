@@ -41,7 +41,7 @@ class UsbPortsTestWorker(BaseTestWorker):
             ),
             TestStep(
                 command="sudo umount /run/media/sda1", 
-                expected_response="#", 
+                validation_func=self._validate_usb_unmount, 
                 timeout=10, 
                 description="Unmount sda1",
                 max_retries=2,           # Maximum retries 2 times
@@ -91,3 +91,18 @@ class UsbPortsTestWorker(BaseTestWorker):
         except Exception as e:
             logger.error(f"Mount validation error: {str(e)}", exc_info=True)
             return False, f"Mount validation error: {str(e)}" 
+        
+    def _validate_usb_unmount(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB unmount test result
+        """
+        try:
+            if response == "\n":
+                return True, "Device unmounted successfully"
+            elif "/run/media/sda1: not mounted" in response:
+                return True, "Device unmounted successfully"
+            else:
+                return False, "Device not unmounted"
+        except Exception as e:
+            logger.error(f"Unmount validation error: {str(e)}", exc_info=True)
+            return False, f"Unmount validation error: {str(e)}"

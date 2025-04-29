@@ -312,23 +312,23 @@ class BaseTestWorker(QObject):
         if step.validation_func:
             try:
                 passed, message = step.validation_func(response)
-                message = f"Validation function result: {message}"
+                message = f"Validation PASSED: {message}"
             except Exception as e:
                 passed = False
-                message = f"Validation function exception: {str(e)}"
-                logger.error(f"Validation function exception: {str(e)}", exc_info=True)
+                message = f"Validation exception: {str(e)}"
+                logger.error(f"Validation exception: {str(e)}", exc_info=True)
         # Otherwise use expected response for comparison
         elif step.expected_response:
             if step.expected_response in response:
                 passed = True
-                message = f"Step passed: {step.description}"
+                message = f"Step PASSED: {step.description}"
             else:
                 passed = False
-                message = f"Step failed: Expected '{step.expected_response}' but received '{response}'"
+                message = f"Step FAILED: Expected '{step.expected_response}' but received '{response}'"
         else:
             # No validation condition, default passed
             passed = True
-            message = "Step passed: skip validation"
+            message = "Step PASSED: skip validation"
             
         # Set step result
         step.passed = passed
