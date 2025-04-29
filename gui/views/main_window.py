@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem, QInputDialog, QLineEdit
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QObject, QEvent
 from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
@@ -8,6 +8,7 @@ from util.logger import logger
 from PySide6.QtGui import QColor, QIcon, QFont
 import os
 import sys
+import csv
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
@@ -208,6 +209,17 @@ class MainWindowController(QObject):
         self.window.button_edit_serial_number.clicked.connect(self._on_edit_serial_number)
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
+        
+        # 添加測試進度記錄
+        self.test_progress_records = {
+            "usb_ports": [],
+            "emmc": [],
+            "eeprom": [],
+            "battery": [],
+            "backlight": [],
+            "led": [],
+            "audio": []
+        }
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -377,6 +389,9 @@ class MainWindowController(QObject):
         if hasattr(self.view_model, 'system_info_service'):
             self.view_model.system_info_service.info_received.connect(self._on_system_info_received)
             self.view_model.system_info_service.info_error.connect(self._on_system_info_error)
+        
+        # 連接匯出結果按鈕
+        self.window.button_export_result.clicked.connect(self._export_test_results)
     
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -637,7 +652,7 @@ class MainWindowController(QObject):
     @Slot(str)
     def _on_test_started(self, test_id: str):
         """
-        Handle test started event
+        處理測試開始事件
         
         Args:
             test_id: Test ID
@@ -652,12 +667,15 @@ class MainWindowController(QObject):
             "message": ""
         }
         
+        # 清空該測試的進度記錄
+        self.test_progress_records[test_id] = []
+        
         logger.info(f"Test started: {test_id} for device {self.device_id}")
-    
+
     @Slot(str, bool, str)
     def _on_test_completed(self, test_id: str, success: bool, message: str):
         """
-        Handle test completed event
+        處理測試完成事件
         
         Args:
             test_id: Test ID
@@ -679,7 +697,7 @@ class MainWindowController(QObject):
         # If we're running Test All, execute next test
         if self.is_test_all_running:
             QTimer.singleShot(1000, self._execute_next_test)  # Wait 1 second before starting next test
-    
+
     @Slot(str, int, bool, str)
     def _on_test_step_completed(self, test_id: str, step_index: int, success: bool, message: str):
         """
@@ -747,7 +765,7 @@ class MainWindowController(QObject):
     @Slot(str, int, int)
     def _on_test_progress(self, test_id: str, current_step: int, total_steps: int):
         """
-        Handle test progress event
+        處理測試進度事件
         
         Args:
             test_id: Test ID
@@ -758,7 +776,18 @@ class MainWindowController(QObject):
         progress_pct = int((current_step / total_steps) * 100)
         self.window.progressBar_hardware_test.setValue(progress_pct)
         
-        # Record progress (every 25% of total steps)
+        # 只記錄實際步驟的進度
+        if current_step > 0:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            progress_record = {
+                "timestamp": timestamp,
+                "current_step": current_step,
+                "total_steps": total_steps,
+                "progress_percentage": progress_pct
+            }
+            self.test_progress_records[test_id].append(progress_record)
+        
+        # 記錄進度 (每完成 25% 記錄一次)
         if current_step % max(1, total_steps // 4) == 0 or current_step == total_steps:
             self._add_log_entry("INFO", f"Test {test_id} progress: {current_step}/{total_steps} ({progress_pct}%)")
     
@@ -1267,3 +1296,82 @@ class MainWindowController(QObject):
         
         # Record completion
         self._add_log_entry("INFO", "Test All sequence completed")
+
+    def _export_test_results(self):
+        """匯出測試結果為 CSV 文件"""
+        try:
+            # 獲取保存文件路徑
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_filename = f"test_results_{self.device_id}_{timestamp}.csv"
+            
+            file_path, _ = QFileDialog.getSaveFileName(
+                self.window,
+                "Export Test Results",
+                default_filename,
+                "CSV Files (*.csv)"
+            )
+            
+            if not file_path:
+                return
+                
+            # 寫入 CSV 文件
+            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # 寫入標題行
+                writer.writerow([
+                    'Test Module',
+                    'Timestamp',
+                    'Current Step',
+                    'Total Steps', 
+                    'Progress %',
+                    'Step Description',
+                    'Step Status',
+                    'Step Message'
+                ])
+                
+                # 寫入每個測試模組的進度記錄和步驟詳情
+                for test_id, records in self.test_progress_records.items():
+                    # 獲取該測試的步驟詳情
+                    test_steps = []
+                    if test_id in self.test_results:
+                        test_steps = self.test_results[test_id]["steps"]
+                    
+                    for record in records:
+                        # 基本進度信息
+                        row_data = [
+                            test_id,
+                            record['timestamp'],
+                            record['current_step'],
+                            record['total_steps'],
+                            record['progress_percentage']
+                        ]
+                        
+                        # 添加步驟詳情
+                        step_desc = ""
+                        step_status = ""
+                        step_message = ""
+                        
+                        # 查找對應的步驟信息
+                        current_step = record['current_step'] - 1  # 轉換為0基索引
+                        if test_id in self.hw_test_manager.test_workers:
+                            worker = self.hw_test_manager.test_workers[test_id]
+                            if len(worker.steps) > current_step:
+                                step_desc = worker.steps[current_step].description
+                        
+                        # 從測試結果中獲取步驟狀態和消息
+                        for step in test_steps:
+                            if step['index'] == current_step:
+                                step_status = "Pass" if step['success'] else "Fail"
+                                step_message = step['message']
+                                break
+                        
+                        row_data.extend([step_desc, step_status, step_message])
+                        writer.writerow(row_data)
+            
+            self._add_log_entry("INFO", f"Test results exported to: {file_path}")
+            
+        except Exception as e:
+            error_msg = f"Error exporting test results: {str(e)}"
+            logger.error(error_msg)
+            self._add_log_entry("ERROR", error_msg)

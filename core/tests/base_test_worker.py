@@ -266,7 +266,7 @@ class BaseTestWorker(QObject):
         step.retry_count += 1
         
         # Record retry information
-        retry_message = f"Retry step {self.current_step_index+1}: {step.description} (第 {step.retry_count}/{step.max_retries} 次)"
+        retry_message = f"Retry step {self.current_step_index+1}: {step.description} ({step.retry_count}/{step.max_retries})"
         logger.warning(retry_message)
         
         # Send retry signal
@@ -312,7 +312,8 @@ class BaseTestWorker(QObject):
         if step.validation_func:
             try:
                 passed, message = step.validation_func(response)
-                message = f"Validation PASSED: {message}"
+                if passed:
+                    message = f"Validation PASSED: {message}"
             except Exception as e:
                 passed = False
                 message = f"Validation exception: {str(e)}"

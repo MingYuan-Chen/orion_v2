@@ -606,6 +606,19 @@ QLabel.initializing {
            </spacer>
           </item>
           <item>
+           <widget class="QPushButton" name="button_export_result">
+            <property name="minimumSize">
+             <size>
+              <width>120</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Export Result</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="button_test_all">
             <property name="minimumSize">
              <size>
