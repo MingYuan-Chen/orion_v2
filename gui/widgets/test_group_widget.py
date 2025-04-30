@@ -37,28 +37,28 @@ class TestGroupWidget(QGroupBox):
     
     def _init_ui(self):
         """Initialize UI components"""
-        # 创建总体垂直布局作为主布局
+        # Create container layout
         container_layout = QVBoxLayout(self)
-        container_layout.setContentsMargins(9, 15, 9, 9)  # 减少上边距
-        container_layout.setSpacing(5)  # 减少整体间距
+        container_layout.setContentsMargins(9, 15, 9, 9)
+        container_layout.setSpacing(5)
         
-        # 创建上部分的水平布局（状态指示器和按钮）
+        # Create top horizontal layout (status indicator and button)
         top_layout = QHBoxLayout()
-        top_layout.setContentsMargins(0, 0, 0, 5)  # 只保留底部边距
+        top_layout.setContentsMargins(0, 0, 0, 5)
         top_layout.setSpacing(5)
         
-        # 创建状态指示器
+        # Create status indicator
         self.status_label = QLabel()
         self.status_label.setFixedSize(QSize(16, 16))
         self.status_label.setStyleSheet("background-color: #333333; border-radius: 8px;")
         top_layout.addWidget(self.status_label)
         
-        # 添加弹性空间，将按钮推到右边
+        # Add stretchable space to push button to the right
         top_layout.addStretch()
         
-        # 创建测试按钮
+        # Create test button
         self.test_button = QPushButton("Start Test")
-        # 设置按钮固定宽度和高度
+        # Set button fixed width and height
         self.test_button.setFixedSize(100, 25)
         self.test_button.setStyleSheet("""
             QPushButton {
@@ -78,19 +78,19 @@ class TestGroupWidget(QGroupBox):
         self.test_button.clicked.connect(self._on_button_clicked)
         top_layout.addWidget(self.test_button)
         
-        # 将顶部布局添加到容器布局
+        # Add top layout to container layout
         container_layout.addLayout(top_layout)
         
-        # 添加一点空间，将进度条与按钮分开
-        spacer_item = QSpacerItem(0, 3)  # 只有3像素的高度
+        # Add a small space to separate progress bar and button
+        spacer_item = QSpacerItem(0, 3)  # Only 3 pixels height
         container_layout.addItem(spacer_item)
         
-        # 创建进度条（默认隐藏）
+        # Create progress bar (default hidden)
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        self.progress_bar.setFixedHeight(12)  # 增加高度，确保数字完整显示
+        self.progress_bar.setFixedHeight(12)  # Increase height to ensure digits are fully visible
         self.progress_bar.setStyleSheet("""
             QProgressBar {
                 border: 1px solid #3F3F46;
@@ -104,11 +104,11 @@ class TestGroupWidget(QGroupBox):
             }
         """)
         
-        # 将进度条直接添加到容器布局
+        # Add progress bar directly to container layout
         container_layout.addWidget(self.progress_bar)
         
-        # 设置固定高度，确保有足够空间显示所有元素，即使进度条显示
-        self.setFixedHeight(70)  # 减小整体高度
+        # Set fixed height to ensure enough space for all elements, even when progress bar is visible
+        self.setFixedHeight(70)  # Decrease overall height
     
     def _on_button_clicked(self):
         """Handle button click event"""
