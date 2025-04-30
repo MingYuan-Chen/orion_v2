@@ -126,7 +126,6 @@ class SystemInfoManagerView(QObject):
             return
         
         self.is_updating = True
-        logger.info(f"Refreshing system info for {self.device_id}...")
         
         # Emit update started signal
         self.info_update_started.emit()
@@ -140,15 +139,22 @@ class SystemInfoManagerView(QObject):
         if self.system_info_service:
             # Ensure update_system_info method exists
             if hasattr(self.system_info_service, 'update_system_info'):
-                logger.info(f"Trigger system info service update, device ID: {self.device_id}")
-                self.system_info_service.update_system_info(self.device_id)
+                # 只记录调试信息
+                logger.debug(f"Trigger system info service update, device ID: {self.device_id}")
+                # 启动系统信息更新
+                update_success = self.system_info_service.update_system_info(self.device_id)
+                
+                # 如果更新没有成功启动，直接完成
+                if not update_success:
+                    logger.warning("System info update did not start successfully")
+                    self._handle_update_completed()
             else:
                 logger.error("system_info_service does not have update_system_info method")
                 self._handle_update_completed()
         else:
             logger.warning("system_info_service not found, using simulated data")
             # If no system info service, wait a while then restore button status
-            QTimer.singleShot(2000, self._handle_update_completed)
+            QTimer.singleShot(2000, self._handle_update_completed())
     
     def _handle_update_completed(self):
         """Handle system info update completed"""
@@ -162,6 +168,10 @@ class SystemInfoManagerView(QObject):
         if "last_updated_label" in self.ui_components:
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.ui_components["last_updated_label"].setText(f"Last updated: {current_time}")
+            
+        # MainWindowController已经通过log_manager记录了系统信息更新完成的消息
+        # 所以这里我们不再添加重复的日志，只记录调试信息
+        logger.debug(f"System info update completed for {self.device_id}")
     
     @Slot(str, dict)
     def _on_system_info_received(self, device_id, system_info):
@@ -179,10 +189,14 @@ class SystemInfoManagerView(QObject):
         # Update UI with received data
         self._update_system_info_display(system_info)
         
+        # 获取CPU型号信息
+        cpu_model = system_info.get('cpu', {}).get('model', 'N/A')
+        
+        # 只使用调试级别记录详细信息
+        logger.debug(f"System info received for {device_id} - CPU: {cpu_model}")
+        
         # Mark update as completed
         self._handle_update_completed()
-        
-        logger.info("System info update completed")
     
     @Slot(str, str)
     def _on_system_info_error(self, device_id, error_message):
@@ -208,7 +222,13 @@ class SystemInfoManagerView(QObject):
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.ui_components["last_updated_label"].setText(f"Last updated: {current_time} (failed)")
         
-        logger.error(f"System info update failed: {error_message}")
+        # 只添加到系统日志，不使用logger重复记录
+        error_msg = f"System info update failed: {error_message}"
+        if hasattr(self, 'add_system_log'):
+            self.add_system_log("ERROR", error_msg)
+        else:
+            # 只有在没有add_system_log方法时才使用logger
+            logger.error(error_msg)
     
     def _update_system_info_display(self, system_info: Dict[str, Any]):
         """

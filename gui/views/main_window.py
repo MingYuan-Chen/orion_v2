@@ -263,10 +263,21 @@ class MainWindowController(QObject):
         # 设置UI组件
         self.system_info_manager.set_ui_components(system_ui_components)
         
+        # 设置一个添加系统日志的功能，直接写入到日志管理器
+        self.system_info_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
+        
         # 连接系统信息管理器的信号
         self.system_info_manager.info_update_started.connect(lambda: self._set_ui_controls_enabled(False))
-        self.system_info_manager.info_update_completed.connect(lambda: self._set_ui_controls_enabled(True))
+        # 系统信息更新完成时，启用UI控件并添加完成日志
+        self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
         self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
+    
+    def _on_system_info_update_completed(self):
+        """处理系统信息更新完成事件"""
+        # 启用UI控件
+        self._set_ui_controls_enabled(True)
+        # 添加完成日志
+        self.log_manager.add_log_entry("INFO", "System info update completed")
     
     def _init_logs_view(self):
         """Initialize logs view settings"""
