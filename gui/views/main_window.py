@@ -160,7 +160,6 @@ class MainWindowController(QObject):
             if not ui_file.open(QFile.ReadOnly):
                 error_msg = f"Cannot open {ui_file_path}: {ui_file.errorString()}"
                 logger.error(error_msg)
-                self.log_manager.add_log_entry("ERROR", f"Failed to load main window UI: {error_msg}")
                 raise RuntimeError(error_msg)
             
             # Load UI using QUiLoader
@@ -171,7 +170,6 @@ class MainWindowController(QObject):
             if not self.window:
                 error_msg = f"Failed to load UI file: {loader.errorString()}"
                 logger.error(error_msg)
-                self.log_manager.add_log_entry("ERROR", f"Failed to load main window UI: {error_msg}")
                 raise RuntimeError(error_msg)
             
             # Ensure the window can be resized
@@ -182,7 +180,6 @@ class MainWindowController(QObject):
             logger.debug(f"Main window UI loaded successfully for device {device_id}")
         except Exception as e:
             logger.error(f"Failed to load main window UI: {str(e)}")
-            self.log_manager.add_log_entry("ERROR", f"Failed to load main window UI: {str(e)}")
             raise
         
         # Set window properties
@@ -533,7 +530,6 @@ class MainWindowController(QObject):
             app = QApplication.instance()
             if not app:
                 logger.warning("Unable to get QApplication instance")
-                self.log_manager.add_log_entry("WARNING", "Unable to get QApplication instance")
                 return
                 
             # Get global application display name
@@ -568,12 +564,10 @@ class MainWindowController(QObject):
                     pass
                 except Exception as e:
                     logger.warning(f"Unable to set Windows window properties: {e}")
-                    self.log_manager.add_log_entry("WARNING", f"Unable to set Windows window properties: {e}")
             
             logger.debug(f"Window properties set: {title}")
         except Exception as e:
             logger.warning(f"Error setting window properties: {e}")
-            self.log_manager.add_log_entry("WARNING", f"Error setting window properties: {e}")
 
     @Slot()
     def _on_all_tests_completed(self):
@@ -661,7 +655,6 @@ class MainWindowController(QObject):
         except Exception as e:
             error_msg = f"Error exporting test results: {str(e)}"
             logger.error(error_msg)
-            self.log_manager.add_log_entry("ERROR", error_msg)
 
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
