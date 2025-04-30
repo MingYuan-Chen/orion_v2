@@ -162,7 +162,7 @@ class LogManagerView(QObject):
         
         for entry in self.log_entries:
             # Apply level filter
-            if level_filter != "All" and entry["level"].lower() != level_filter.lower():
+            if level_filter != "ALL" and entry["level"] != level_filter:
                 continue
                 
             # Apply time filter
