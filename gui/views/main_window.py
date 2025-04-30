@@ -14,10 +14,8 @@ from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy
 
-# import TestManagerView
 from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
-# 导入新的模块化组件
 from gui.views.system_info_manager import SystemInfoManagerView
 from gui.views.log_manager import LogManagerView
 
@@ -174,10 +172,10 @@ class MainWindowController(QObject):
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
             
-            # 确保窗口可以调整大小
+            # Ensure the window can be resized
             self.window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.window.setMinimumSize(600, 500)  # 设置合理的最小尺寸
-            self.window.setMaximumSize(16777215, 16777215)  # 最大尺寸设为很大的值
+            self.window.setMinimumSize(600, 500)  # set a reasonable minimum size
+            self.window.setMaximumSize(16777215, 16777215)  # set the maximum size to a large value
             
             logger.debug(f"Main window UI loaded successfully for device {device_id}")
         except Exception as e:
@@ -187,10 +185,10 @@ class MainWindowController(QObject):
         # Set window properties
         self._set_window_properties()
         
-        # 创建系统信息管理器
+        # create the system info manager
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
         
-        # 创建日志管理器
+        # create the log manager
         self.log_manager = LogManagerView(self.device_id)
         
         # Initialize system info view
@@ -202,7 +200,7 @@ class MainWindowController(QObject):
         # Create hardware test manager
         self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
         
-        # 创建测试管理器视图
+        # create the test manager view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
         
         # Connect signals and slots
@@ -238,7 +236,7 @@ class MainWindowController(QObject):
     
     def _init_system_info_view(self):
         """Initialize system info view settings"""
-        # 设置系统信息管理器的UI组件
+        # set the ui components of the system info manager
         system_ui_components = {
             "refresh_button": self.window.pushButton_refresh,
             "last_updated_label": self.window.label_last_updated,
@@ -260,23 +258,23 @@ class MainWindowController(QObject):
             "temperature": self.window.value_temperature,
         }
         
-        # 设置UI组件
+        # set the ui components
         self.system_info_manager.set_ui_components(system_ui_components)
         
-        # 设置一个添加系统日志的功能，直接写入到日志管理器
+        # set a function to add system log, directly write to the log manager
         self.system_info_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
         
-        # 连接系统信息管理器的信号
+        # connect the signals of the system info manager
         self.system_info_manager.info_update_started.connect(lambda: self._set_ui_controls_enabled(False))
-        # 系统信息更新完成时，启用UI控件并添加完成日志
+        # when the system info update is completed, enable the ui controls and add the completed log
         self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
         self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
     
     def _on_system_info_update_completed(self):
-        """处理系统信息更新完成事件"""
-        # 启用UI控件
+        """Handle the event of system info update completed"""
+        # enable the ui controls
         self._set_ui_controls_enabled(True)
-        # 添加完成日志
+        # add the completed log
         self.log_manager.add_log_entry("INFO", "System info update completed")
     
     def _init_logs_view(self):
@@ -296,7 +294,7 @@ class MainWindowController(QObject):
         # Set table to automatically wrap text
         logs_table.setWordWrap(True)
         
-        # 将UI组件设置到日志管理器
+        # set the ui components to the log manager
         self.log_manager.set_ui_components(
             self.window.tableWidget_logs,
             self.window.comboBox_log_level,
@@ -313,7 +311,7 @@ class MainWindowController(QObject):
     
     def _filter_logs(self):
         """Filter logs based on selected level and time range"""
-        # 此方法已由LogManagerView内部处理，这里保留方法以便向后兼容
+        # this method is already handled internally by LogManagerView, keep it for backward compatibility
         pass
     
     def _refresh_logs(self):
@@ -328,7 +326,7 @@ class MainWindowController(QObject):
     
     def _clear_logs(self):
         """Clear log table"""
-        # 委托给日志管理器清除日志
+        # delegate to the log manager to clear logs
         self.log_manager.clear_logs()
     
     def _on_send_command(self):
@@ -384,13 +382,13 @@ class MainWindowController(QObject):
         test_container.add_test_group("backlight", "Backlight Test")
         test_container.add_test_group("led", "LED Test")
         test_container.add_test_group("audio", "Audio Test")
-        
+        test_container.add_test_group("lcd", "LCD Test")
         # Get functionality test page layout
         tab_functionality = self.window.tab_functionality
         layout = tab_functionality.layout()
         
-        # 在标题行和测试进度之间插入TestContainer
-        # UI文件中第0项是标题行，第1项是测试进度，现在我们插入测试容器在它们之间
+        # insert the test container between the title row and the test progress
+        # the 0th item is the title row, the 1st item is the test progress, now we insert the test container between them
         layout.insertWidget(1, test_container)
         
         # Set the UI components of the test manager
@@ -406,46 +404,46 @@ class MainWindowController(QObject):
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
-        # 委托给系统信息管理器设置初始化状态
+        # delegate to the system info manager to set the initializing state
         self.system_info_manager.set_initializing_state()
 
     def _set_ui_controls_enabled(self, enabled=True):
         """Enable or disable UI controls"""
-        # 启用/禁用通过TestContainer管理的测试按钮
-        # 使用测试管理器管理的UI组件
+        # enable/disable the test buttons managed by TestContainer
+        # use the ui components managed by the test manager
         if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
             self.test_manager.set_test_buttons_enabled(enabled)
         
-        # 启用/禁用"Test All"按钮
+        # enable/disable the "Test All" button
         if hasattr(self.window, 'button_test_all'):
             self.window.button_test_all.setEnabled(enabled)
         
-        # 启用/禁用系统信息刷新按钮
+        # enable/disable the system info refresh button
         if hasattr(self.window, 'pushButton_refresh'):
             self.window.pushButton_refresh.setEnabled(enabled)
         
-        # 启用/禁用发送命令按钮
+        # enable/disable the send command button
         if hasattr(self.window, 'pushButton_send_command'):
             self.window.pushButton_send_command.setEnabled(enabled)
         
-        # 启用/禁用导出结果按钮
+        # enable/disable the export result button
         if hasattr(self.window, 'button_export_result'):
             self.window.button_export_result.setEnabled(enabled)
         
-        # 启用/禁用日志过滤下拉框
+        # enable/disable the log filter combo box
         if hasattr(self.window, 'comboBox_log_level'):
             self.window.comboBox_log_level.setEnabled(enabled)
         if hasattr(self.window, 'comboBox_time_range'):
             self.window.comboBox_time_range.setEnabled(enabled)
         
-        # 启用/禁用标签页
+        # enable/disable the tab pages
         if hasattr(self.window, 'tabWidget'):
             for i in range(self.window.tabWidget.count()):
                 self.window.tabWidget.setTabEnabled(i, enabled)
 
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
-        # 委托给系统信息管理器处理刷新操作
+        # delegate to the system info manager to handle the refresh operation
         self.log_manager.add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
         self.system_info_manager.refresh_system_info()
 
@@ -464,7 +462,7 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                # 委托给系统信息管理器更新UI
+                # delegate to the system info manager to update the ui
                 self.system_info_manager.update_model_name(new_text)
                 # Maybe need to update backend data
     
@@ -483,7 +481,7 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                # 委托给系统信息管理器更新UI
+                # delegate to the system info manager to update the ui
                 self.system_info_manager.update_serial_number(new_text)
                 # Maybe need to update backend data
     
@@ -502,7 +500,7 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                # 委托给系统信息管理器更新UI
+                # delegate to the system info manager to update the ui
                 self.system_info_manager.update_battery_model(new_text)
                 # Maybe need to update backend data
     
@@ -521,7 +519,7 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                # 委托给系统信息管理器更新UI
+                # delegate to the system info manager to update the ui
                 self.system_info_manager.update_battery_serial(new_text)
                 # Maybe need to update backend data
 
@@ -548,21 +546,21 @@ class MainWindowController(QObject):
             # Set window flags to ensure it is recognized as the main application window
             self.window.setWindowFlags(self.window.windowFlags() | Qt.Window)
             
-            # 确保窗口可以调整大小
+            # ensure the window can be resized
             self.window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             
-            # 移除固定大小约束（如果有）
+            # remove the fixed size constraint (if any)
             if self.window.minimumSize().width() == self.window.maximumSize().width() or \
                self.window.minimumSize().height() == self.window.maximumSize().height():
-                # 重置最小和最大尺寸
-                self.window.setMinimumSize(600, 500)  # 设置合理的最小尺寸
-                self.window.setMaximumSize(16777215, 16777215)  # 最大尺寸设为很大的值
+                # reset the minimum and maximum size
+                self.window.setMinimumSize(600, 500)  # set a reasonable minimum size
+                self.window.setMaximumSize(16777215, 16777215)  # set the maximum size to a large value
             
             # Set taskbar related properties on Windows
             if sys.platform == 'win32':
                 try:
-                    # We don't directly call Win32 API here
-                    # Let the system naturally associate the window - rely on the application identifier set earlier
+                    # we don't directly call Win32 API here
+                    # let the system naturally associate the window - rely on the application identifier set earlier
                     pass
                 except Exception as e:
                     logger.warning(f"Unable to set Windows window properties: {e}")
@@ -682,12 +680,12 @@ class MainWindowController(QObject):
     
     def _update_dashboard(self):
         """Update dashboard information"""
-        # 委托给系统信息管理器刷新系统信息
+        # delegate to the system info manager to refresh the system info
         self.system_info_manager.refresh_system_info()
     
     def _process_logs_response(self, response):
         """Process logs response"""
-        # 委托给日志管理器处理日志响应
+        # delegate to the log manager to process the logs response
         self.log_manager.process_logs_response(response)
     
     def show(self):
@@ -695,7 +693,7 @@ class MainWindowController(QObject):
         # Check window properties again before showing, ensure it's part of the main application
         self._set_window_properties()
         
-        # 确保窗口可以调整大小
+        # ensure the window can be resized
         from PySide6.QtCore import Qt
         self.window.setWindowFlags(
             self.window.windowFlags() | 
@@ -703,7 +701,7 @@ class MainWindowController(QObject):
             Qt.WindowMinMaxButtonsHint | 
             Qt.WindowCloseButtonHint
         )
-        self.window.setAttribute(Qt.WA_DeleteOnClose, False)  # 防止窗口关闭时被删除
+        self.window.setAttribute(Qt.WA_DeleteOnClose, False)  # prevent the window from being deleted when closed
         
         # show the window
         self.window.show()
