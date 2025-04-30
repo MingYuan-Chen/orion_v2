@@ -385,15 +385,15 @@ class TestManagerView(QObject):
 
     def set_test_buttons_enabled(self, enabled=True):
         """
-        启用或禁用所有测试按钮
+        Enable or disable all test buttons
         
         Args:
-            enabled: 是否启用按钮
+            enabled: Whether to enable the buttons
         """
         if self.test_container:
             for test_id in self.test_container.get_all_test_ids():
                 self.test_container.get_test_widget(test_id).set_button_enabled(enabled)
             
-        # 启用或禁用"Test All"按钮
+        # Enable or disable "Test All" button
         if self.test_all_button:
             self.test_all_button.setEnabled(enabled) 

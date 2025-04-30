@@ -17,6 +17,9 @@ from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy
 # import TestManagerView
 from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
+# 导入新的模块化组件
+from gui.views.system_info_manager import SystemInfoManagerView
+from gui.views.log_manager import LogManagerView
 
 
 class DarkEditDialog(QDialog):
@@ -184,6 +187,15 @@ class MainWindowController(QObject):
         # Set window properties
         self._set_window_properties()
         
+        # 创建系统信息管理器
+        self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
+        
+        # 创建日志管理器
+        self.log_manager = LogManagerView(self.device_id)
+        
+        # Initialize system info view
+        self._init_system_info_view()
+        
         # Initialize logs view
         self._init_logs_view()
         
@@ -224,6 +236,38 @@ class MainWindowController(QObject):
             self.window_closed.emit(self.device_id)
         return super().eventFilter(obj, event)
     
+    def _init_system_info_view(self):
+        """Initialize system info view settings"""
+        # 设置系统信息管理器的UI组件
+        system_ui_components = {
+            "refresh_button": self.window.pushButton_refresh,
+            "last_updated_label": self.window.label_last_updated,
+            
+            # System basic info
+            "model_name": self.window.value_model_name,
+            "serial_number": self.window.value_serial_number,
+            "cpu": self.window.value_cpu,
+            "memory": self.window.value_memory,
+            "storage": self.window.value_storage,
+            
+            # Battery info
+            "battery_model": self.window.value_battery_model,
+            "battery_serial": self.window.value_battery_serial,
+            "charge_progress": self.window.progressBar_charge,
+            "charge": self.window.value_charge,
+            "voltage": self.window.value_voltage,
+            "current": self.window.value_current,
+            "temperature": self.window.value_temperature,
+        }
+        
+        # 设置UI组件
+        self.system_info_manager.set_ui_components(system_ui_components)
+        
+        # 连接系统信息管理器的信号
+        self.system_info_manager.info_update_started.connect(lambda: self._set_ui_controls_enabled(False))
+        self.system_info_manager.info_update_completed.connect(lambda: self._set_ui_controls_enabled(True))
+        self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
+    
     def _init_logs_view(self):
         """Initialize logs view settings"""
         # Configure logs table
@@ -241,63 +285,25 @@ class MainWindowController(QObject):
         # Set table to automatically wrap text
         logs_table.setWordWrap(True)
         
+        # 将UI组件设置到日志管理器
+        self.log_manager.set_ui_components(
+            self.window.tableWidget_logs,
+            self.window.comboBox_log_level,
+            self.window.comboBox_time_range,
+            self.window.pushButton_clear_logs
+        )
+        
         # Connect command send button
         self.window.pushButton_send_command.clicked.connect(self._on_send_command)
         self.window.lineEdit_command.returnPressed.connect(self._on_send_command)
         
-        # Connect logs filter
-        self.window.comboBox_log_level.currentIndexChanged.connect(self._filter_logs)
-        self.window.comboBox_time_range.currentIndexChanged.connect(self._filter_logs)
-        
-        # Connect refresh and clear buttons
+        # Connect logs refresh button
         self.window.pushButton_refresh_logs.clicked.connect(self._refresh_logs)
-        self.window.pushButton_clear_logs.clicked.connect(self._clear_logs)
-    
-    def _set_log_item_color(self, row, level):
-        """Set log item color"""
-        logs_table = self.window.tableWidget_logs
-        color = Qt.white  # Default color
-        
-        # Set color based on level
-        if level == "INFO":
-            color = QColor("#3794FF")  # Blue
-        elif level == "WARNING":
-            color = QColor("#FFD700")  # Yellow
-        elif level == "ERROR":
-            color = QColor("#FF3333")  # Red
-        elif level == "DEBUG":
-            color = QColor("#888888")  # Gray
-        
-        # Set color for all cells in the row
-        for col in range(logs_table.columnCount()):
-            item = logs_table.item(row, col)
-            if item:
-                item.setForeground(color)
     
     def _filter_logs(self):
         """Filter logs based on selected level and time range"""
-        logs_table = self.window.tableWidget_logs
-        level_filter = self.window.comboBox_log_level.currentText()
-        time_filter = self.window.comboBox_time_range.currentText()
-        
-        # Iterate through all rows
-        for row in range(logs_table.rowCount()):
-            item = logs_table.item(row, 1)  # Level column
-            if not item:
-                continue
-                
-            level = item.text()
-            show_row = True
-            
-            # Apply level filter
-            if level_filter != "All" and level != level_filter.upper():
-                show_row = False
-                
-            # Apply time filter (in actual application, need to parse timestamp)
-            # Here is just an example, actual operation needs to be based on real timestamp
-            
-            # Set row visibility
-            logs_table.setRowHidden(row, not show_row)
+        # 此方法已由LogManagerView内部处理，这里保留方法以便向后兼容
+        pass
     
     def _refresh_logs(self):
         """Refresh log data"""
@@ -311,8 +317,8 @@ class MainWindowController(QObject):
     
     def _clear_logs(self):
         """Clear log table"""
-        self.window.tableWidget_logs.setRowCount(0)
-        logger.info(f"Cleared logs for device: {self.device_id}")
+        # 委托给日志管理器清除日志
+        self.log_manager.clear_logs()
     
     def _on_send_command(self):
         """Process command sending"""
@@ -329,42 +335,7 @@ class MainWindowController(QObject):
         self.window.lineEdit_command.clear()
         
         # Add command record to logs
-        self._add_log_entry("INFO", f"[Command] {command}")
-    
-    def _add_log_entry(self, level, message, timestamp=None):
-        """Add new log entry"""
-        logs_table = self.window.tableWidget_logs
-        current_row_count = logs_table.rowCount()
-        logs_table.setRowCount(current_row_count + 1)
-        
-        # Create timestamp
-        if timestamp is None:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Ensure level is uppercase
-        level = level.upper()
-        
-        # Create and set items
-        timestamp_item = QTableWidgetItem(timestamp)
-        level_item = QTableWidgetItem(level)
-        message_item = QTableWidgetItem(message)
-        
-        # Set message item alignment
-        message_item.setTextAlignment(Qt.AlignTop | Qt.AlignLeft)
-        
-        # Set items to table
-        logs_table.setItem(current_row_count, 0, timestamp_item)
-        logs_table.setItem(current_row_count, 1, level_item)
-        logs_table.setItem(current_row_count, 2, message_item)
-        
-        # Adjust new row height
-        logs_table.resizeRowToContents(current_row_count)
-        
-        # Set color
-        self._set_log_item_color(current_row_count, level)
-        
-        # Scroll to latest item
-        logs_table.scrollToBottom()
+        self.log_manager.add_log_entry("INFO", f"[Command] {command}")
     
     def _connect_signals(self):
         """Connect signals and slots"""
@@ -373,11 +344,6 @@ class MainWindowController(QObject):
         
         # connect the all tests completed signal of the test manager
         self.test_manager.all_tests_completed.connect(self._on_all_tests_completed)
-        
-        # Add system info service signals
-        if hasattr(self.view_model, 'system_info_service'):
-            self.view_model.system_info_service.info_received.connect(self._on_system_info_received)
-            self.view_model.system_info_service.info_error.connect(self._on_system_info_error)
         
         # connect the export result button
         if hasattr(self.window, 'button_export_result'):
@@ -429,21 +395,8 @@ class MainWindowController(QObject):
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
-        # System basic info
-        self.window.value_model_name.setText("...")
-        self.window.value_serial_number.setText("...")
-        self.window.value_cpu.setText("Initializing...")
-        self.window.value_memory.setText("Initializing...")
-        self.window.value_storage.setText("Initializing...")
-        
-        # Battery info
-        self.window.value_battery_model.setText("...")
-        self.window.value_battery_serial.setText("...")
-        self.window.progressBar_charge.setValue(0)
-        self.window.value_charge.setText("Initializing...")
-        self.window.value_voltage.setText("Initializing...")
-        self.window.value_current.setText("Initializing...")
-        self.window.value_temperature.setText("Initializing...")
+        # 委托给系统信息管理器设置初始化状态
+        self.system_info_manager.set_initializing_state()
 
     def _set_ui_controls_enabled(self, enabled=True):
         """Enable or disable UI controls"""
@@ -481,127 +434,9 @@ class MainWindowController(QObject):
 
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
-        # If already updating, ignore this click
-        if self.is_updating:
-            return
-        
-        self.is_updating = True
-        self._add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
-        
-        # Disable all control buttons
-        self._set_ui_controls_enabled(False)
-        
-        # Do not reset to initializing state, keep current displayed data
-        # self._set_initializing_state()  # Remove this line
-        
-        # Update timestamp, add updating mark
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time} (updating...)")
-        
-        # Get system_info_service instance directly from view_model
-        system_info_service = getattr(self.view_model, 'system_info_service', None)
-        
-        if system_info_service:
-            # Ensure update_system_info method exists
-            if hasattr(system_info_service, 'update_system_info'):
-                logger.info(f"Trigger system info service update, device ID: {self.device_id}")
-                system_info_service.update_system_info(self.device_id)
-            else:
-                logger.error("system_info_service does not have update_system_info method")
-                self._on_system_info_update_completed()
-        else:
-            logger.warning("system_info_service not found, using simulated data")
-            # If no system info service, wait a while then restore button status
-            QTimer.singleShot(2000, self._on_system_info_update_completed)
-
-    def _on_system_info_received(self, device_id, system_info):
-        """System info received completed"""
-        # Only process current device info
-        if device_id != self.device_id:
-            return
-        
-        # Use received data to update display
-        self._update_system_info_display(system_info)
-        
-        # Restore button status
-        self.is_updating = False
-        self._set_ui_controls_enabled(True)
-        
-        # Update timestamp
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time}")
-        
-        self._add_log_entry("INFO", "System info update completed")
-
-    def _on_system_info_error(self, device_id, error_message):
-        """System info update error"""
-        # Only process current device info
-        if device_id != self.device_id:
-            return
-        
-        # Record error
-        self._add_log_entry("ERROR", f"System info update failed: {error_message}")
-        
-        # Restore button status
-        self.is_updating = False
-        self._set_ui_controls_enabled(True)
-        
-        # Update timestamp
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time} (failed)")
-
-    def _update_system_info_display(self, system_info):
-        """Update system info display"""
-        # CPU info
-        if "cpu" in system_info and "model" in system_info["cpu"]:
-            self.window.value_cpu.setText(system_info["cpu"]["model"])
-        
-        # Memory info
-        if "memory" in system_info:
-            mem_info = system_info["memory"]
-            if "total" in mem_info and "used" in mem_info:
-                mem_text = f"{mem_info['total']} ({mem_info['used']} Used)"
-                self.window.value_memory.setText(mem_text)
-        
-        # Storage info
-        if "storage" in system_info:
-            storage_info = system_info["storage"]
-            if "total" in storage_info and "available" in storage_info:
-                storage_text = f"{storage_info['total']} ({storage_info['available']} Available)"
-                self.window.value_storage.setText(storage_text)
-        
-        # Battery info
-        if "battery" in system_info:
-            battery_info = system_info["battery"]
-            
-            # Battery charge
-            if "relative_state" in battery_info:
-                self.window.progressBar_charge.setValue(battery_info["relative_state"])
-                self.window.value_charge.setText(f"{battery_info['relative_state']}%")
-            
-            # Voltage
-            if "charging_voltage" in battery_info:
-                self.window.value_voltage.setText(f"{battery_info['charging_voltage']} V")
-            
-            # Current
-            if "charging_current" in battery_info:
-                self.window.value_current.setText(f"{battery_info['charging_current']} A")
-            
-            # Temperature
-            if "temperature" in battery_info:
-                self.window.value_temperature.setText(f"{battery_info['temperature']}°C")
-
-    def _on_system_info_update_completed(self):
-        """System info update completed callback (for the case without system info service)"""
-        # Restore button status
-        self.is_updating = False
-        self._set_ui_controls_enabled(True)
-        
-        # Update timestamp
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time}")
-        
-        self._add_log_entry("INFO", "System info update completed (simulated data)")
+        # 委托给系统信息管理器处理刷新操作
+        self.log_manager.add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
+        self.system_info_manager.refresh_system_info()
 
     def _on_edit_model_name(self):
         """Handle model name edit button click"""
@@ -618,7 +453,8 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                self.window.value_model_name.setText(new_text)
+                # 委托给系统信息管理器更新UI
+                self.system_info_manager.update_model_name(new_text)
                 # Maybe need to update backend data
     
     def _on_edit_serial_number(self):
@@ -636,7 +472,8 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                self.window.value_serial_number.setText(new_text)
+                # 委托给系统信息管理器更新UI
+                self.system_info_manager.update_serial_number(new_text)
                 # Maybe need to update backend data
     
     def _on_edit_battery_model(self):
@@ -654,7 +491,8 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                self.window.value_battery_model.setText(new_text)
+                # 委托给系统信息管理器更新UI
+                self.system_info_manager.update_battery_model(new_text)
                 # Maybe need to update backend data
     
     def _on_edit_battery_serial(self):
@@ -672,7 +510,8 @@ class MainWindowController(QObject):
         if dialog.exec_():
             new_text = dialog.get_text()
             if new_text:
-                self.window.value_battery_serial.setText(new_text)
+                # 委托给系统信息管理器更新UI
+                self.system_info_manager.update_battery_serial(new_text)
                 # Maybe need to update backend data
 
     def _set_window_properties(self):
@@ -724,7 +563,7 @@ class MainWindowController(QObject):
     @Slot()
     def _on_all_tests_completed(self):
         """Handle the event of all tests completed"""
-        self._add_log_entry("INFO", "All hardware tests completed")
+        self.log_manager.add_log_entry("INFO", "All hardware tests completed")
     
     def _export_test_results(self):
         """Export test results to a CSV file"""
@@ -802,12 +641,12 @@ class MainWindowController(QObject):
                         row_data.extend([step_desc, step_status, step_message])
                         writer.writerow(row_data)
             
-            self._add_log_entry("INFO", f"Test results exported to: {file_path}")
+            self.log_manager.add_log_entry("INFO", f"Test results exported to: {file_path}")
             
         except Exception as e:
             error_msg = f"Error exporting test results: {str(e)}"
             logger.error(error_msg)
-            self._add_log_entry("ERROR", error_msg)
+            self.log_manager.add_log_entry("ERROR", error_msg)
 
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
@@ -824,7 +663,7 @@ class MainWindowController(QObject):
             return
             
         # Log command and response
-        self._add_log_entry("DEBUG", f"[Response] {response}")
+        self.log_manager.add_log_entry("DEBUG", f"[Response] {response}")
         
         # Process response based on command
         if command.startswith("get_logs"):
@@ -832,48 +671,13 @@ class MainWindowController(QObject):
     
     def _update_dashboard(self):
         """Update dashboard information"""
-        # Update last updated time
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.window.label_last_updated.setText(f"Last updated: {current_time}")
-        
-        # In actual application, you need to get real data from device
-        # Here is just an example, display some static data
-        
-        # Update basic system information
-        self.window.value_model_name.setText(f"Device Model {self.device_id}")
-        self.window.value_serial_number.setText(f"SN-{self.device_id}-2023")
-        
-        # Update battery information
-        battery_level = 78  # This should be obtained from device
-        self.window.progressBar_charge.setValue(battery_level)
-        self.window.value_charge.setText(f"{battery_level}%")
+        # 委托给系统信息管理器刷新系统信息
+        self.system_info_manager.refresh_system_info()
     
     def _process_logs_response(self, response):
         """Process logs response"""
-        # In actual application, response may be JSON or other format of log data
-        # Here we simply assume response is text format of log lines
-        try:
-            # Clear existing logs
-            self._clear_logs()
-            
-            # Parse response (assume each line is a log entry)
-            log_lines = response.strip().split("\n")
-            for line in log_lines:
-                # Parse log line (format may vary depending on device)
-                # Assume format is: [timestamp] [level] message
-                parts = line.split(" ", 2)
-                if len(parts) >= 3:
-                    timestamp = parts[0].strip("[]")
-                    level = parts[1].strip("[]")
-                    message = parts[2]
-                    self._add_log_entry(level, message, timestamp)
-                else:
-                    # Unparsable line, add as INFO level
-                    self._add_log_entry("INFO", line)
-                    
-        except Exception as e:
-            logger.error(f"Error processing logs response: {str(e)}")
-            self._add_log_entry("ERROR", f"Failed to process logs: {str(e)}")
+        # 委托给日志管理器处理日志响应
+        self.log_manager.process_logs_response(response)
     
     def show(self):
         """Show window and trigger system info update"""
@@ -910,17 +714,27 @@ class MainWindowController(QObject):
             logger.info("Cleaning up test manager")
             self.test_manager.cleanup()
         
-        # 3. clean up the hardware test manager resources
+        # 3. clean up the system info manager resources
+        if hasattr(self, 'system_info_manager') and hasattr(self.system_info_manager, 'cleanup'):
+            logger.info("Cleaning up system info manager")
+            self.system_info_manager.cleanup()
+        
+        # 4. clean up the log manager resources
+        if hasattr(self, 'log_manager') and hasattr(self.log_manager, 'cleanup'):
+            logger.info("Cleaning up log manager")
+            self.log_manager.cleanup()
+        
+        # 5. clean up the hardware test manager resources
         if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
             logger.info("Cleaning up hardware test manager")
             self.hw_test_manager.cleanup()
         
-        # 4. clean up the view model resources
+        # 6. clean up the view model resources
         if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
             logger.info("Cleaning up view model")
             self.view_model.cleanup()
         
-        # 5. disconnect all signals
+        # 7. disconnect all signals
         try:
             # disconnect the view model signals
             if hasattr(self, 'view_model') and self.view_model:
@@ -928,14 +742,6 @@ class MainWindowController(QObject):
                     self.view_model.command_result.disconnect(self._on_command_completed)
                 except Exception:
                     pass  # if already disconnected, ignore the error
-                
-                # disconnect the system info service signals
-                if hasattr(self.view_model, 'system_info_service'):
-                    try:
-                        self.view_model.system_info_service.info_received.disconnect(self._on_system_info_received)
-                        self.view_model.system_info_service.info_error.disconnect(self._on_system_info_error)
-                    except Exception:
-                        pass  # the signal may already be disconnected
             
             # disconnect the test manager signals
             if hasattr(self, 'test_manager'):
@@ -947,14 +753,14 @@ class MainWindowController(QObject):
         except Exception as e:
             logger.error(f"Error disconnecting signals: {e}")
         
-        # 6. remove the event filter
+        # 8. remove the event filter
         if hasattr(self, 'window'):
             self.window.removeEventFilter(self)
             
-        # 7. Close window
+        # 9. Close window
         self.window.close()
             
-        # 8. Emit window closed signal
+        # 10. Emit window closed signal
         self.window_closed.emit(self.device_id)
         
         logger.info(f"Main window resources cleaned up for device: {self.device_id}")
