@@ -454,12 +454,14 @@ graph TD
 graph TD
     A[步驟1: 建立測試類別]
     B[步驟2: 註冊測試模組]
-    C[步驟3: 更新UI介面]
-    D[步驟4: 測試和驗證]
+    C[步驟3: 添加到TestContainer]
+    D[步驟4: 更新測試序列]
+    E[步驟5: 測試和驗證]
     
     A --> B
     B --> C
     C --> D
+    D --> E
 ```
 
 1. **建立測試工作執行緒類別**：
@@ -512,20 +514,55 @@ graph TD
        """註冊所有模組測試工作執行緒"""
        # 現有測試模組
        from core.tests.usb_ports_test_worker import UsbPortsTestWorker
-       self._register_worker("usb_ports", UsbPortsTestWorker)
+       self._register_worker("usb_ports", UsbPortsTestWorker, continue_on_failure=True)
        
        # 新增新的測試模組
        from core.tests.new_module_test_worker import NewModuleTestWorker
-       self._register_worker("new_module", NewModuleTestWorker)
+       self._register_worker("new_module", NewModuleTestWorker, continue_on_failure=True)
    ```
-3. **更新UI介面**：
 
-   在裝置管理介面中新增測試模組的選項和介面元素。
+3. **將測試模組添加到TestContainer**：
 
-4. **測試和驗證**：
+   在`main_window.py`文件的`_init_functionality_test_ui`方法中，將新的測試模組添加到TestContainer：
+
+   ```python
+   def _init_functionality_test_ui(self):
+       """Initialize functionality test UI elements"""
+       # ... 原有程式碼 ...
+       
+       # 創建測試容器
+       test_container = TestContainer()
+       
+       # ... 原有測試模組 ...
+       
+       # 添加新測試模組
+       test_container.add_test_group("new_module", "New Module Test")
+       
+       # ... 原有程式碼 ...
+   ```
+
+4. **更新測試序列（如需要）**：
+
+   如果希望將新測試模組添加到"測試全部"功能中，需要在`TestManagerView`類中更新`test_sequence`列表：
+
+   ```python
+   def __init__(self, device_id: str, hw_test_manager: HardwareTestManagerService):
+       """初始化測試管理視圖"""
+       # ... 其他初始化程式碼 ...
+       
+       # 更新測試序列，包含新模組
+       self.test_sequence = [
+           "usb_ports", "emmc", "eeprom", "battery", 
+           "backlight", "led", "audio", "new_module"
+       ]
+   ```
+
+5. **測試和驗證**：
 
    - 確保新模組按預期工作
    - 驗證測試步驟的執行和結果處理
    - 測試異常情況和邊界條件
+   - 確認"測試全部"功能能正確包含新模組
+   - 確保測試狀態和進度顯示正常
 
-透過遵循這些指南，你可以輕鬆地擴充Orion系統，新增測試功能，滿足更多的硬體測試需求。 
+通過使用`TestContainer`的這種簡化方式，你可以更輕鬆地擴充Orion系統，無需修改UI設計文件，只需少量代碼即可添加新的測試功能。這種模塊化設計大大提高了系統的可維護性和擴展性。 
