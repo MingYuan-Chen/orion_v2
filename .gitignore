@@ -9,9 +9,9 @@ dist/
 *.exe
 *.egg-info/
 
-# Logs
+# Logs and reports
 logs/
-
+*.csv
 # Virtual environment
 venv/
 
@@ -35,3 +35,4 @@ pip-wheel-metadata/
 
 # Requirement cache
 .requirements.txt.cache/
+
