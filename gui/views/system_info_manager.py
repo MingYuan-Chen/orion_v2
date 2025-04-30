@@ -169,8 +169,8 @@ class SystemInfoManagerView(QObject):
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.ui_components["last_updated_label"].setText(f"Last updated: {current_time}")
             
-        # MainWindowController已经通过log_manager记录了系统信息更新完成的消息
-        # 所以这里我们不再添加重复的日志，只记录调试信息
+        # MainWindowController has already recorded the system info update completed message
+        # so here we don't add duplicate logs, only record debug information
         logger.debug(f"System info update completed for {self.device_id}")
     
     @Slot(str, dict)
@@ -189,10 +189,10 @@ class SystemInfoManagerView(QObject):
         # Update UI with received data
         self._update_system_info_display(system_info)
         
-        # 获取CPU型号信息
+        # get the cpu model information
         cpu_model = system_info.get('cpu', {}).get('model', 'N/A')
         
-        # 只使用调试级别记录详细信息
+        # only record detailed information at debug level
         logger.debug(f"System info received for {device_id} - CPU: {cpu_model}")
         
         # Mark update as completed
@@ -222,12 +222,12 @@ class SystemInfoManagerView(QObject):
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.ui_components["last_updated_label"].setText(f"Last updated: {current_time} (failed)")
         
-        # 只添加到系统日志，不使用logger重复记录
+        # only add to system log, not use logger to record duplicate information
         error_msg = f"System info update failed: {error_message}"
         if hasattr(self, 'add_system_log'):
             self.add_system_log("ERROR", error_msg)
         else:
-            # 只有在没有add_system_log方法时才使用logger
+            # only use logger when there is no add_system_log method
             logger.error(error_msg)
     
     def _update_system_info_display(self, system_info: Dict[str, Any]):
