@@ -1,0 +1,182 @@
+"""
+USB ports test worker module
+Implement USB port function test for device
+"""
+from typing import List, Tuple
+import logging
+from .base_test_worker import BaseTestWorker, TestStep
+
+# Get logger
+logger = logging.getLogger(__name__)
+
+class LcdTestWorker(BaseTestWorker):
+    """Lcd test worker, implement lcd function test for device"""
+    
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
+        self.set_color = lambda color: f"/unit_tests/drawfb.out {color}"
+    
+    def prepare_test_steps(self) -> List[TestStep]:
+        """
+        Prepare lcd test steps
+        
+        Returns:
+            lcd test steps list
+        """
+        return [
+            TestStep(
+                command=self.set_color("red"), 
+                validation_func=self._validate_red_color, 
+                timeout=5, 
+                description="Validate red color",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("green"), 
+                validation_func=self._validate_green_color, 
+                timeout=5, 
+                description="Validate green color",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("blue"), 
+                validation_func=self._validate_blue_color, 
+                timeout=5, 
+                description="Validate blue color",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("black"), 
+                validation_func=self._validate_black_color, 
+                timeout=5, 
+                description="Validate black color",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("white"), 
+                validation_func=self._validate_white_color, 
+                timeout=5, 
+                description="Validate white color",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("colorbar"), 
+                validation_func=self._validate_colorbar, 
+                timeout=5, 
+                description="Validate colorbar",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("gradient"), 
+                validation_func=self._validate_gradient, 
+                timeout=5, 
+                description="Validate gradient",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("frame"), 
+                validation_func=self._validate_frame, 
+                timeout=5, 
+                description="Validate frame",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("gray16"), 
+                validation_func=self._validate_gray16, 
+                timeout=5, 
+                description="Validate gray16",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("gray64"), 
+                validation_func=self._validate_gray64, 
+                timeout=5, 
+                description="Validate gray64",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            ),
+            TestStep(
+                command=self.set_color("gray256"), 
+                validation_func=self._validate_gray256, 
+                timeout=5, 
+                description="Validate gray256",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            )
+        ]
+    
+    def _validate_red_color(self, response: str) -> Tuple[bool, str]:
+        """Validate red color"""
+
+        if "successfully" not in response and "color : red" not in response:
+            return False, "Failed to validate red color"
+        return True, "Red color validated successfully"
+    
+    def _validate_green_color(self, response: str) -> Tuple[bool, str]:
+        """Validate green color"""
+        if "successfully" not in response and "color : green" not in response:
+            return False, "Failed to validate green color"
+        return True, "Green color validated successfully"
+    
+    def _validate_blue_color(self, response: str) -> Tuple[bool, str]:
+        """Validate blue color"""
+        if "successfully" not in response and "color : blue" not in response:
+            return False, "Failed to validate blue color"
+        return True, "Blue color validated successfully"
+    
+    def _validate_black_color(self, response: str) -> Tuple[bool, str]:
+        """Validate black color"""
+        if "successfully" not in response and "color : black" not in response:
+            return False, "Failed to validate black color"
+        return True, "Black color validated successfully"
+    
+    def _validate_white_color(self, response: str) -> Tuple[bool, str]:
+        """Validate white color"""
+        if "successfully" not in response and "color : white" not in response:
+            return False, "Failed to validate white color"
+        return True, "White color validated successfully"
+
+    def _validate_colorbar(self, response: str) -> Tuple[bool, str]:
+        """Validate colorbar"""
+        if "successfully" not in response and "colorbar" not in response:
+            return False, "Failed to validate colorbar"
+        return True, "Colorbar validated successfully"
+
+    def _validate_gradient(self, response: str) -> Tuple[bool, str]:
+        """Validate gradient"""
+        if "successfully" not in response and "gradient" not in response:
+            return False, "Failed to validate gradient"
+        return True, "Gradient validated successfully"
+    
+    def _validate_frame(self, response: str) -> Tuple[bool, str]:
+        """Validate frame"""
+        if "successfully" not in response and "frame" not in response:
+            return False, "Failed to validate frame"
+        return True, "Frame validated successfully"
+    
+    def _validate_gray16(self, response: str) -> Tuple[bool, str]:
+        """Validate gray16"""
+        if "successfully" not in response and "gray16" not in response:
+            return False, "Failed to validate gray16"
+        return True, "Gray16 validated successfully"
+    
+    def _validate_gray64(self, response: str) -> Tuple[bool, str]:
+        """Validate gray64"""
+        if "successfully" not in response and "gray64" not in response:
+            return False, "Failed to validate gray64"
+        return True, "Gray64 validated successfully"
+    
+    def _validate_gray256(self, response: str) -> Tuple[bool, str]:
+        """Validate gray256"""
+        if "successfully" not in response and "gray256" not in response:
+            return False, "Failed to validate gray256"
+        return True, "Gray256 validated successfully"

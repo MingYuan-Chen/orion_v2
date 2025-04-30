@@ -172,10 +172,10 @@ class MainWindowController(QObject):
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
             
-            # 确保窗口可以调整大小
+            # Ensure the window can be resized
             self.window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.window.setMinimumSize(600, 500)  # 设置合理的最小尺寸
-            self.window.setMaximumSize(16777215, 16777215)  # 最大尺寸设为很大的值
+            self.window.setMinimumSize(600, 500)  # set a reasonable minimum size
+            self.window.setMaximumSize(16777215, 16777215)  # set the maximum size to a large value
             
             logger.debug(f"Main window UI loaded successfully for device {device_id}")
         except Exception as e:
@@ -185,10 +185,10 @@ class MainWindowController(QObject):
         # Set window properties
         self._set_window_properties()
         
-        # 创建系统信息管理器
+        # create the system info manager
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
         
-        # 创建日志管理器
+        # create the log manager
         self.log_manager = LogManagerView(self.device_id)
         
         # Initialize system info view
@@ -200,7 +200,7 @@ class MainWindowController(QObject):
         # Create hardware test manager
         self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
         
-        # 创建测试管理器视图
+        # create the test manager view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
         
         # Connect signals and slots
@@ -382,7 +382,7 @@ class MainWindowController(QObject):
         test_container.add_test_group("backlight", "Backlight Test")
         test_container.add_test_group("led", "LED Test")
         test_container.add_test_group("audio", "Audio Test")
-        
+        test_container.add_test_group("lcd", "LCD Test")
         # Get functionality test page layout
         tab_functionality = self.window.tab_functionality
         layout = tab_functionality.layout()
