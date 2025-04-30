@@ -29,6 +29,8 @@ class SystemInfoService(QObject):
         self.pending_commands = []
         self.current_device_id = None
         self.collected_info = {}
+        # Add update flag
+        self.is_updating = False
         
         # Connect command result signal
         self.serial_worker.command_result.connect(self._on_command_completed)
@@ -82,6 +84,9 @@ class SystemInfoService(QObject):
         self.current_device_id = device_id
         self.collected_info = {}
         
+        # Set update flag to True
+        self.is_updating = True
+        
         # Copy command list to execute sequentially
         self.pending_commands = list(self.commands.items())
         
@@ -99,6 +104,9 @@ class SystemInfoService(QObject):
             if self.collected_info:
                 logger.info(f"System info collection completed for device: {self.current_device_id}")
                 self.info_received.emit(self.current_device_id, self.collected_info)
+            
+            # Reset update flag
+            self.is_updating = False
             return
         
         # Get the next command to execute
@@ -108,6 +116,9 @@ class SystemInfoService(QObject):
         
         # Execute command and receive result in signal processing
         try:
+            # Add system info type identifier when sending command, if serial_worker supports it
+            # self.serial_worker.send_command(self.current_device_id, command, 0, command_type="system_info")
+            # If serial_worker does not support command_type, use the original method
             self.serial_worker.send_command(self.current_device_id, command, 0)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
@@ -123,6 +134,10 @@ class SystemInfoService(QObject):
             command: Executed command
             response: Command response
         """
+        # If not active update status, skip processing to avoid triggering system info update
+        if not self.is_updating:
+            return
+            
         # Ensure it's the device and command we care about
         if device_id != self.current_device_id:
             return
@@ -136,8 +151,9 @@ class SystemInfoService(QObject):
         
         if not command_name:
             logger.warning(f"Received response for unknown command: {command}")
-            # Continue to execute the next command
-            self._execute_next_command()
+            # Only continue to execute when actively updating and there are pending commands
+            if self.is_updating and self.pending_commands:
+                self._execute_next_command()
             return
         
         # Record response
@@ -373,6 +389,7 @@ class SystemInfoService(QObject):
         self.pending_commands = []
         self.current_device_id = None
         self.collected_info = {}
+        self.is_updating = False
         
         logger.info("System info service cleaned up")
 
