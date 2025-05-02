@@ -18,7 +18,7 @@ from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
 from gui.views.system_info_manager import SystemInfoManagerView
 from gui.views.log_manager import LogManagerView
-from gui.widgets.auto_diagnostic import AutoDiagnosticWidget
+from gui.views.auto_diagnostic_view import AutoDiagnosticView
 
 
 class DarkEditDialog(QDialog):
@@ -201,17 +201,20 @@ class MainWindowController(QObject):
         # Create hardware test manager
         self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
         
-        # create the test manager view
+        # Create the test manager view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
         
-        # Create auto diagnostic component
-        self.auto_diagnostic = AutoDiagnosticWidget()
+        # Create auto diagnostic view
+        self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.hw_test_manager)
         
         # Connect signals and slots
         self._connect_signals()
         
         # Initialize functionality test UI
         self._init_functionality_test_ui()
+        
+        # Initialize auto diagnostic view
+        self._init_auto_diagnostic_view()
         
         # Connect refresh button
         self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
@@ -227,36 +230,6 @@ class MainWindowController(QObject):
         self.window.button_edit_serial_number.clicked.connect(self._on_edit_serial_number)
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
-        
-        # Add auto diagnostic to system info layout
-        if hasattr(self.window, 'dashboard_layout'):
-            self.window.dashboard_layout.addWidget(self.auto_diagnostic)
-        elif hasattr(self.window, 'tab_dashboard'):
-            layout = self.window.tab_dashboard.layout()
-            if not layout:
-                layout = QVBoxLayout(self.window.tab_dashboard)
-            layout.addWidget(self.auto_diagnostic)
-        else:
-            logger.warning("Could not find proper container for Auto Diagnostic widget, using fallback method")
-            central_widget = self.window.centralWidget()
-            if central_widget:
-                layout = central_widget.layout()
-                if not layout:
-                    layout = QVBoxLayout(central_widget)
-                layout.addWidget(self.auto_diagnostic)
-        
-        # Add test items to auto diagnostic
-        self.auto_diagnostic.addDiagnosticItem("cpu_performance", "CPU Performance Test")
-        self.auto_diagnostic.addDiagnosticItem("memory_integrity", "Memory Integrity Check")
-        self.auto_diagnostic.addDiagnosticItem("storage_speed", "Storage Read/Write Speed")
-        self.auto_diagnostic.addDiagnosticItem("network", "Network Connectivity")
-        self.auto_diagnostic.addDiagnosticItem("battery_health", "Battery Health Check")
-        self.auto_diagnostic.addDiagnosticItem("touch_panel", "Touch Panel Calibration")
-        self.auto_diagnostic.addDiagnosticItem("display_color", "Display Color Accuracy")
-        self.auto_diagnostic.addDiagnosticItem("audio_system", "Audio System Check")
-        
-        # Connect auto diagnostic signals
-        self.auto_diagnostic.run_all_tests.connect(self._on_run_all_diagnostics)
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -654,68 +627,97 @@ class MainWindowController(QObject):
         self.window.activateWindow()
     
     def close(self):
-        """Close window and release resources"""
-        logger.info(f"Closing main window for device: {self.device_id}")
-        
-        # 1. stop all ongoing tests
-        if hasattr(self, 'test_manager'):
-            self.test_manager.stop_current_test()
-        
-        # 2. clean up the test manager resources
-        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'cleanup'):
-            logger.info("Cleaning up test manager")
-            self.test_manager.cleanup()
-        
-        # 3. clean up the system info manager resources
-        if hasattr(self, 'system_info_manager') and hasattr(self.system_info_manager, 'cleanup'):
-            logger.info("Cleaning up system info manager")
-            self.system_info_manager.cleanup()
-        
-        # 4. clean up the log manager resources
-        if hasattr(self, 'log_manager') and hasattr(self.log_manager, 'cleanup'):
-            logger.info("Cleaning up log manager")
-            self.log_manager.cleanup()
-        
-        # 5. clean up the hardware test manager resources
-        if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
-            logger.info("Cleaning up hardware test manager")
-            self.hw_test_manager.cleanup()
-        
-        # 6. clean up the view model resources
-        if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
-            logger.info("Cleaning up view model")
-            self.view_model.cleanup()
-        
-        # 7. disconnect all signals
+        """Close the main window and cleanup resources"""
         try:
-            # disconnect the view model signals
-            if hasattr(self, 'view_model') and self.view_model:
-                try:
-                    self.view_model.command_result.disconnect(self._on_command_completed)
-                except Exception:
-                    pass  # if already disconnected, ignore the error
+            logger.info(f"Closing main window for device {self.device_id}")
             
-            # disconnect the test manager signals
-            if hasattr(self, 'test_manager'):
+            # Clean up hardware test manager
+            if self.hw_test_manager:
+                logger.debug("Cleaning up hardware test manager")
+                # Stop any running tests
+                self.hw_test_manager.stop_current_test()
+                if hasattr(self.hw_test_manager, 'cleanup'):
+                    self.hw_test_manager.cleanup()
+            
+            # Clean up test manager
+            if self.test_manager:
+                logger.debug("Cleaning up test manager")
+                self.test_manager.cleanup()
+                self.test_manager = None
+            
+            # Clean up system info manager
+            if self.system_info_manager:
+                logger.debug("Cleaning up system info manager")
+                # Disconnect signals
                 try:
-                    self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
+                    self.system_info_manager.info_update_started.disconnect()
+                    self.system_info_manager.info_update_completed.disconnect()
+                    self.system_info_manager.info_update_error.disconnect()
                 except Exception:
-                    pass  # ignore the error of already disconnected signal
-                    
+                    # Signals may already be disconnected
+                    pass
+                
+                if hasattr(self.system_info_manager, 'cleanup'):
+                    self.system_info_manager.cleanup()
+                self.system_info_manager = None
+            
+            # Clean up log manager
+            if self.log_manager:
+                logger.debug("Cleaning up log manager")
+                if hasattr(self.log_manager, 'cleanup'):
+                    self.log_manager.cleanup()
+                self.log_manager = None
+            
+            # Clean up auto diagnostic view
+            if self.auto_diagnostic_view:
+                logger.debug("Cleaning up auto diagnostic view")
+                self.auto_diagnostic_view.cleanup()
+                self.auto_diagnostic_view = None
+            
+            # Clean up the view model
+            if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
+                logger.debug("Cleaning up view model")
+                self.view_model.cleanup()
+            
+            # Disconnect signals
+            try:
+                # Disconnect view model signals
+                if hasattr(self, 'view_model') and self.view_model:
+                    try:
+                        self.view_model.command_result.disconnect(self._on_command_completed)
+                    except Exception:
+                        pass  # If already disconnected, ignore the error
+                
+                # Disconnect test manager signals
+                if hasattr(self, 'test_manager'):
+                    try:
+                        self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
+                    except Exception:
+                        pass  # Ignore error of already disconnected signal
+            except Exception as e:
+                logger.error(f"Error disconnecting signals: {e}")
+            
+            # Remove event filter
+            if hasattr(self, 'window') and self.window:
+                self.window.removeEventFilter(self)
+            
+            # Close the window
+            if self.window:
+                logger.debug("Closing the main window")
+                self.window.close()
+                self.window = None
+            
+            # Emit window closed signal
+            self.window_closed.emit(self.device_id)
+            
+            logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+            
         except Exception as e:
-            logger.error(f"Error disconnecting signals: {e}")
-        
-        # 8. remove the event filter
-        if hasattr(self, 'window'):
-            self.window.removeEventFilter(self)
-            
-        # 9. Close window
-        self.window.close()
-            
-        # 10. Emit window closed signal
-        self.window_closed.emit(self.device_id)
-        
-        logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+            logger.error(f"Error during main window cleanup: {str(e)}")
+            # Still try to close the window even if there was an error
+            if self.window:
+                self.window.close()
+                self.window = None
 
     def set_ui_controls_state(self, enabled=True, exclude_widgets=None):
         """
@@ -753,35 +755,83 @@ class MainWindowController(QObject):
         if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
             self.test_manager.set_test_buttons_enabled(enabled)
 
-    def _on_run_all_diagnostics(self):
-        """Handle the event of running all diagnostics"""
-        self.log_manager.add_log_entry("INFO", "Starting all diagnostic tests...")
+    def _init_auto_diagnostic_view(self):
+        """Initialize auto diagnostic view settings"""
+        # 创建自动诊断组件
+        self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
         
-        # Reset all diagnostic items
-        self.auto_diagnostic.resetAllItems()
+        # 将Auto Diagnostic添加为独立布局，直接添加到Dashboard标签页
+        # 获取Dashboard标签页布局
+        dashboard_layout = self.window.tab_dashboard.layout()
+        if dashboard_layout:
+            # 在现有布局下添加自动诊断组件（在System Overview分组框之后）
+            dashboard_layout.addWidget(self.auto_diagnostic_widget)
+        else:
+            # 如果Dashboard页面没有布局，创建一个
+            dashboard_layout = QVBoxLayout(self.window.tab_dashboard)
+            dashboard_layout.addWidget(self.window.groupBox_system_overview)  # 首先添加系统概览
+            dashboard_layout.addWidget(self.auto_diagnostic_widget)  # 然后添加自动诊断
         
-        # Here should be the actual implementation of running tests
-        # In a real application, this might involve calling system services or sending commands to the device
-        # For demonstration, we'll use a timer to simulate test results
+        # 设置自动诊断测试项目
+        diagnostic_tests = {
+            "cpu_performance": "CPU Performance Test",
+            "memory_integrity": "Memory Integrity Check",
+            "storage_read_write": "Storage Read/Write Speed",
+            "network_connectivity": "Network Connectivity",
+            "battery_health": "Battery Health Check",
+            "touch_panel": "Touch Panel Calibration",
+            "display_color": "Display Color Accuracy",
+            "audio_system": "Audio System Check"
+        }
+        self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
-        # Example data, should be replaced with actual test results
-        results = [
-            ("cpu_performance", "PASS", "15.45s"),
-            ("memory_integrity", "PASS", "03:02:32"),
-            ("storage_speed", "WARNING", "32.54s"),
-            ("network", "PASS", "03.21s"),
-            ("battery_health", "PASS", "4.38s"),
-            ("touch_panel", "FAIL", "12:33:52"),
-            ("display_color", "PENDING", ""),
-            ("audio_system", "PENDING", "")
-        ]
+        # 连接信号
+        self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
+        self.auto_diagnostic_view.export_report_requested.connect(self._export_diagnostic_report)
+
+    @Slot()
+    def _on_all_diagnostics_completed(self):
+        """处理所有诊断测试完成事件"""
+        self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
+
+    def _export_diagnostic_report(self):
+        """导出诊断报告"""
+        # 获取当前时间作为文件名一部分
+        current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"diagnostic_report_{self.device_id}_{current_time}.csv"
         
-        # Use a timer to simulate test completion
-        import random
-        for i, (test_id, status, time_value) in enumerate(results):
-            QTimer.singleShot(500 + i*300, lambda tid=test_id, st=status, tv=time_value: 
-                              self.auto_diagnostic.updateItemStatus(tid, st, tv))
+        # 显示文件保存对话框
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.window,
+            "Export Diagnostic Report",
+            default_filename,
+            "CSV Files (*.csv)"
+        )
         
-        # Add to logs
-        QTimer.singleShot(2500, lambda: 
-                         self.log_manager.add_log_entry("INFO", "Diagnostic tests completed"))
+        if not file_path:
+            return  # 用户取消
+        
+        try:
+            # 获取诊断结果
+            results = self.auto_diagnostic_view.get_diagnostic_results()
+            
+            # 写入CSV文件
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # 写入标题行
+                writer.writerow(["Test Name", "Status", "Time", "Details"])
+                
+                # 写入测试结果
+                for test_id, result in results.items():
+                    writer.writerow([
+                        test_id,
+                        result.get("status", "UNKNOWN"),
+                        result.get("time", "--:--:--"),
+                        result.get("message", "")
+                    ])
+            
+            self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
+        except Exception as e:
+            self.log_manager.add_log_entry("ERROR", f"Failed to export diagnostic report: {str(e)}")
+            logger.error(f"Failed to export diagnostic report: {str(e)}")
