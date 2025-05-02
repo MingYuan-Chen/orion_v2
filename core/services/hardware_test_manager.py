@@ -60,6 +60,20 @@ class HardwareTestManagerService(QObject):
         self._register_worker("audio", AudioTestWorker, continue_on_failure=True)
         from core.tests.lcd_test_worker import LcdTestWorker
         self._register_worker("lcd", LcdTestWorker, continue_on_failure=True)
+        from core.tests.diagnostic_cpu_name_worker import DiagnosticCpuNameWorker
+        self._register_worker("diagnostic_cpu_name", DiagnosticCpuNameWorker, continue_on_failure=True)
+        from core.tests.diagnostic_cpu_processor_worker import DiagnosticCpuProcessorWorker
+        self._register_worker("diagnostic_cpu_processor", DiagnosticCpuProcessorWorker, continue_on_failure=True)
+        from core.tests.diagnostic_emmc_size_worker import DiagnosticEmmcSizeWorker
+        self._register_worker("diagnostic_emmc_size", DiagnosticEmmcSizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_mac_address_worker import DiagnosticMacAddressWorker
+        self._register_worker("diagnostic_mac_address", DiagnosticMacAddressWorker, continue_on_failure=True)
+        from core.tests.diagnostic_memory_size_worker import DiagnosticMemorySizeWorker
+        self._register_worker("diagnostic_memory_size", DiagnosticMemorySizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_nor_flash_size_worker import DiagnosticNorFlashSizeWorker
+        self._register_worker("diagnostic_nor_flash_size", DiagnosticNorFlashSizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_nor_flash_erase_size_worker import DiagnosticNorFlashEraseSizeWorker
+        self._register_worker("diagnostic_nor_flash_erase_size", DiagnosticNorFlashEraseSizeWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)

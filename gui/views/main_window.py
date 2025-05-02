@@ -774,9 +774,13 @@ class MainWindowController(QObject):
         
         # set the auto diagnostic test items
         diagnostic_tests = {
-            "usb_ports": "USB Ports Test",
-            "emmc": "eMMC Test",
-            "eeprom": "EEPROM Test"
+            "diagnostic_cpu_name": "Check CPU Name",
+            "diagnostic_cpu_processor": "Check CPU Processor",
+            "diagnostic_emmc_size": "Check eMMC Size",
+            "diagnostic_mac_address": "Check MAC Address",
+            "diagnostic_memory_size": "Check Memory Size",
+            "diagnostic_nor_flash_size": "Check NOR Flash Size",
+            "diagnostic_nor_flash_erase_size": "Check NOR Flash Erase Size",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         

@@ -1,10 +1,10 @@
 """
-USB ports test worker module
-Implement USB port function test for device
+LCD test worker module
+Implement LCD function test for device
 """
 from typing import List, Tuple
 import logging
-from .base_test_worker import BaseTestWorker, TestStep
+from core.tests.base_test_worker import BaseTestWorker, TestStep
 
 # Get logger
 logger = logging.getLogger(__name__)
