@@ -1,0 +1,35 @@
+"""
+Diagnostic cpu processor test worker module
+Implement diagnostic cpu processor test for device
+"""
+from typing import List, Tuple
+import logging
+from core.tests.base_test_worker import BaseTestWorker, TestStep
+
+# Get logger
+logger = logging.getLogger(__name__)
+
+class DiagnosticCpuProcessorWorker(BaseTestWorker):
+    """Diagnostic cpu processor worker, implement diagnostic cpu processor test for device"""
+    
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
+    
+    def prepare_test_steps(self) -> List[TestStep]:
+        """
+        Prepare diagnostic cpu processor test steps
+        
+        Returns:
+            diagnostic cpu processor test steps list
+        """
+        return [
+            TestStep(
+                command="grep -c ^processor /proc/cpuinfo", 
+                expected_response="4", 
+                timeout=5, 
+                description="Check CPU Processor",
+                max_retries=1,           # Maximum retries 1 time
+                retry_delay=500          # 0.5 seconds later retry
+            )
+        ]
+
