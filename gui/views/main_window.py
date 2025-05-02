@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem, QInputDialog, QLineEdit
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog, QComboBox, QTabWidget
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QObject, QEvent
 from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
@@ -18,6 +18,7 @@ from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
 from gui.views.system_info_manager import SystemInfoManagerView
 from gui.views.log_manager import LogManagerView
+from gui.views.auto_diagnostic_view import AutoDiagnosticView
 
 
 class DarkEditDialog(QDialog):
@@ -200,14 +201,20 @@ class MainWindowController(QObject):
         # Create hardware test manager
         self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
         
-        # create the test manager view
+        # Create the test manager view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
+        
+        # Create auto diagnostic view
+        self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.hw_test_manager)
         
         # Connect signals and slots
         self._connect_signals()
         
         # Initialize functionality test UI
         self._init_functionality_test_ui()
+        
+        # Initialize auto diagnostic view
+        self._init_auto_diagnostic_view()
         
         # Connect refresh button
         self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
@@ -265,7 +272,7 @@ class MainWindowController(QObject):
         self.system_info_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
         
         # connect the signals of the system info manager
-        self.system_info_manager.info_update_started.connect(lambda: self._set_ui_controls_enabled(False))
+        self.system_info_manager.info_update_started.connect(lambda: self.set_ui_controls_state(False))
         # when the system info update is completed, enable the ui controls and add the completed log
         self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
         self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
@@ -273,7 +280,7 @@ class MainWindowController(QObject):
     def _on_system_info_update_completed(self):
         """Handle the event of system info update completed"""
         # enable the ui controls
-        self._set_ui_controls_enabled(True)
+        self.set_ui_controls_state(True)
         # add the completed log
         self.log_manager.add_log_entry("INFO", "System info update completed")
     
@@ -407,40 +414,6 @@ class MainWindowController(QObject):
         # delegate to the system info manager to set the initializing state
         self.system_info_manager.set_initializing_state()
 
-    def _set_ui_controls_enabled(self, enabled=True):
-        """Enable or disable UI controls"""
-        # enable/disable the test buttons managed by TestContainer
-        # use the ui components managed by the test manager
-        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
-            self.test_manager.set_test_buttons_enabled(enabled)
-        
-        # enable/disable the "Test All" button
-        if hasattr(self.window, 'button_test_all'):
-            self.window.button_test_all.setEnabled(enabled)
-        
-        # enable/disable the system info refresh button
-        if hasattr(self.window, 'pushButton_refresh'):
-            self.window.pushButton_refresh.setEnabled(enabled)
-        
-        # enable/disable the send command button
-        if hasattr(self.window, 'pushButton_send_command'):
-            self.window.pushButton_send_command.setEnabled(enabled)
-        
-        # enable/disable the export result button
-        if hasattr(self.window, 'button_export_result'):
-            self.window.button_export_result.setEnabled(enabled)
-        
-        # enable/disable the log filter combo box
-        if hasattr(self.window, 'comboBox_log_level'):
-            self.window.comboBox_log_level.setEnabled(enabled)
-        if hasattr(self.window, 'comboBox_time_range'):
-            self.window.comboBox_time_range.setEnabled(enabled)
-        
-        # enable/disable the tab pages
-        if hasattr(self.window, 'tabWidget'):
-            for i in range(self.window.tabWidget.count()):
-                self.window.tabWidget.setTabEnabled(i, enabled)
-
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
         # delegate to the system info manager to handle the refresh operation
@@ -448,80 +421,24 @@ class MainWindowController(QObject):
         self.system_info_manager.refresh_system_info()
 
     def _on_edit_model_name(self):
-        """Handle model name edit button click"""
-        current_text = self.window.value_model_name.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit model name",
-            "Please enter the new model name:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_model_name(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit model name button click"""
+        if self.system_info_manager.edit_model_name():
+            self.log_manager.add_log_entry("INFO", "Model name updated")
+
     def _on_edit_serial_number(self):
-        """Handle serial number edit button click"""
-        current_text = self.window.value_serial_number.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit serial number",
-            "Please enter the new serial number:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_serial_number(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit serial number button click"""
+        if self.system_info_manager.edit_serial_number():
+            self.log_manager.add_log_entry("INFO", "Serial number updated")
+
     def _on_edit_battery_model(self):
-        """Handle battery model edit button click"""
-        current_text = self.window.value_battery_model.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit battery model",
-            "Please enter the new battery model:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_battery_model(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit battery model button click"""
+        if self.system_info_manager.edit_battery_model():
+            self.log_manager.add_log_entry("INFO", "Battery model updated")
+
     def _on_edit_battery_serial(self):
-        """Handle battery serial edit button click"""
-        current_text = self.window.value_battery_serial.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit battery serial",
-            "Please enter the new battery serial number:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_battery_serial(new_text)
-                # Maybe need to update backend data
+        """handle the edit battery serial number button click"""
+        if self.system_info_manager.edit_battery_serial():
+            self.log_manager.add_log_entry("INFO", "Battery serial number updated")
 
     def _set_window_properties(self):
         """Set window properties, ensure it is recognized as part of the main application"""
@@ -710,65 +627,206 @@ class MainWindowController(QObject):
         self.window.activateWindow()
     
     def close(self):
-        """Close window and release resources"""
-        logger.info(f"Closing main window for device: {self.device_id}")
-        
-        # 1. stop all ongoing tests
-        if hasattr(self, 'test_manager'):
-            self.test_manager.stop_current_test()
-        
-        # 2. clean up the test manager resources
-        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'cleanup'):
-            logger.info("Cleaning up test manager")
-            self.test_manager.cleanup()
-        
-        # 3. clean up the system info manager resources
-        if hasattr(self, 'system_info_manager') and hasattr(self.system_info_manager, 'cleanup'):
-            logger.info("Cleaning up system info manager")
-            self.system_info_manager.cleanup()
-        
-        # 4. clean up the log manager resources
-        if hasattr(self, 'log_manager') and hasattr(self.log_manager, 'cleanup'):
-            logger.info("Cleaning up log manager")
-            self.log_manager.cleanup()
-        
-        # 5. clean up the hardware test manager resources
-        if hasattr(self, 'hw_test_manager') and hasattr(self.hw_test_manager, 'cleanup'):
-            logger.info("Cleaning up hardware test manager")
-            self.hw_test_manager.cleanup()
-        
-        # 6. clean up the view model resources
-        if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
-            logger.info("Cleaning up view model")
-            self.view_model.cleanup()
-        
-        # 7. disconnect all signals
+        """Close the main window and cleanup resources"""
         try:
-            # disconnect the view model signals
-            if hasattr(self, 'view_model') and self.view_model:
-                try:
-                    self.view_model.command_result.disconnect(self._on_command_completed)
-                except Exception:
-                    pass  # if already disconnected, ignore the error
+            logger.info(f"Closing main window for device {self.device_id}")
             
-            # disconnect the test manager signals
-            if hasattr(self, 'test_manager'):
+            # Clean up hardware test manager
+            if self.hw_test_manager:
+                logger.debug("Cleaning up hardware test manager")
+                # Stop any running tests
+                self.hw_test_manager.stop_current_test()
+                if hasattr(self.hw_test_manager, 'cleanup'):
+                    self.hw_test_manager.cleanup()
+            
+            # Clean up test manager
+            if self.test_manager:
+                logger.debug("Cleaning up test manager")
+                self.test_manager.cleanup()
+                self.test_manager = None
+            
+            # Clean up system info manager
+            if self.system_info_manager:
+                logger.debug("Cleaning up system info manager")
+                # Disconnect signals
                 try:
-                    self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
+                    self.system_info_manager.info_update_started.disconnect()
+                    self.system_info_manager.info_update_completed.disconnect()
+                    self.system_info_manager.info_update_error.disconnect()
                 except Exception:
-                    pass  # ignore the error of already disconnected signal
-                    
+                    # Signals may already be disconnected
+                    pass
+                
+                if hasattr(self.system_info_manager, 'cleanup'):
+                    self.system_info_manager.cleanup()
+                self.system_info_manager = None
+            
+            # Clean up log manager
+            if self.log_manager:
+                logger.debug("Cleaning up log manager")
+                if hasattr(self.log_manager, 'cleanup'):
+                    self.log_manager.cleanup()
+                self.log_manager = None
+            
+            # Clean up auto diagnostic view
+            if self.auto_diagnostic_view:
+                logger.debug("Cleaning up auto diagnostic view")
+                self.auto_diagnostic_view.cleanup()
+                self.auto_diagnostic_view = None
+            
+            # Clean up the view model
+            if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
+                logger.debug("Cleaning up view model")
+                self.view_model.cleanup()
+            
+            # Disconnect signals
+            try:
+                # Disconnect view model signals
+                if hasattr(self, 'view_model') and self.view_model:
+                    try:
+                        self.view_model.command_result.disconnect(self._on_command_completed)
+                    except Exception:
+                        pass  # If already disconnected, ignore the error
+                
+                # Disconnect test manager signals
+                if hasattr(self, 'test_manager'):
+                    try:
+                        self.test_manager.all_tests_completed.disconnect(self._on_all_tests_completed)
+                    except Exception:
+                        pass  # Ignore error of already disconnected signal
+            except Exception as e:
+                logger.error(f"Error disconnecting signals: {e}")
+            
+            # Remove event filter
+            if hasattr(self, 'window') and self.window:
+                self.window.removeEventFilter(self)
+            
+            # Close the window
+            if self.window:
+                logger.debug("Closing the main window")
+                self.window.close()
+                self.window = None
+            
+            # Emit window closed signal
+            self.window_closed.emit(self.device_id)
+            
+            logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+            
         except Exception as e:
-            logger.error(f"Error disconnecting signals: {e}")
+            logger.error(f"Error during main window cleanup: {str(e)}")
+            # Still try to close the window even if there was an error
+            if self.window:
+                self.window.close()
+                self.window = None
+
+    def set_ui_controls_state(self, enabled=True, exclude_widgets=None):
+        """
+        General UI control enable/disable method
         
-        # 8. remove the event filter
-        if hasattr(self, 'window'):
-            self.window.removeEventFilter(self)
-            
-        # 9. Close window
-        self.window.close()
-            
-        # 10. Emit window closed signal
-        self.window_closed.emit(self.device_id)
+        Args:
+            enabled (bool): Whether to enable the controls
+            exclude_widgets (list): List of widgets to exclude from the enable/disable operation
+        """
+        if exclude_widgets is None:
+            exclude_widgets = []
         
-        logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+        # handle the buttons
+        for button in self.window.findChildren(QPushButton):
+            if button not in exclude_widgets:
+                button.setEnabled(enabled)
+        
+        # handle the combo boxes
+        for combobox in self.window.findChildren(QComboBox):
+            if combobox not in exclude_widgets:
+                combobox.setEnabled(enabled)
+        
+        # handle the line edits
+        for lineedit in self.window.findChildren(QLineEdit):
+            if lineedit not in exclude_widgets:
+                lineedit.setEnabled(enabled)
+        
+        # handle the tab widgets
+        for tabwidget in self.window.findChildren(QTabWidget):
+            if tabwidget not in exclude_widgets:
+                for i in range(tabwidget.count()):
+                    tabwidget.setTabEnabled(i, enabled)
+                
+        # if there is a TestManager, handle the test container buttons
+        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
+            self.test_manager.set_test_buttons_enabled(enabled)
+
+    def _init_auto_diagnostic_view(self):
+        """Initialize auto diagnostic view settings"""
+        # create the auto diagnostic component
+        self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
+        
+        # add the auto diagnostic component as a standalone layout, directly add to the Dashboard tab
+        # get the Dashboard tab layout
+        dashboard_layout = self.window.tab_dashboard.layout()
+        if dashboard_layout:
+            # add the auto diagnostic component (after the System Overview group box)
+            dashboard_layout.addWidget(self.auto_diagnostic_widget)
+        else:
+            # if the Dashboard page has no layout, create a new one
+            dashboard_layout = QVBoxLayout(self.window.tab_dashboard)
+            dashboard_layout.addWidget(self.window.groupBox_system_overview)  # add the system overview first
+            dashboard_layout.addWidget(self.auto_diagnostic_widget)  # then add the auto diagnostic
+        
+        # set the auto diagnostic test items
+        diagnostic_tests = {
+            "usb_ports": "USB Ports Test",
+            "emmc": "eMMC Test",
+            "eeprom": "EEPROM Test"
+        }
+        self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
+        
+        # connect the signals
+        self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
+        self.auto_diagnostic_view.export_report_requested.connect(self._export_diagnostic_report)
+
+    @Slot()
+    def _on_all_diagnostics_completed(self):
+        """handle the event of all diagnostics completed"""
+        self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
+
+    def _export_diagnostic_report(self):
+        """export the diagnostic report"""
+        # get the current time as part of the file name
+        current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"diagnostic_report_{self.device_id}_{current_time}.csv"
+        
+        # show the file save dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.window,
+            "Export Diagnostic Report",
+            default_filename,
+            "CSV Files (*.csv)"
+        )
+        
+        if not file_path:
+            return  # the user cancelled
+        
+        try:
+            # get the diagnostic results
+            results = self.auto_diagnostic_view.get_diagnostic_results()
+            
+            # write to the CSV file
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # write the title row
+                writer.writerow(["Test Name", "Status", "Time", "Details"])
+                
+                # write the test results
+                for test_id, result in results.items():
+                    writer.writerow([
+                        test_id,
+                        result.get("status", "UNKNOWN"),
+                        result.get("time", "--:--:--"),
+                        result.get("message", "")
+                    ])
+            
+            self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
+        except Exception as e:
+            self.log_manager.add_log_entry("ERROR", f"Failed to export diagnostic report: {str(e)}")
+            logger.error(f"Failed to export diagnostic report: {str(e)}")
