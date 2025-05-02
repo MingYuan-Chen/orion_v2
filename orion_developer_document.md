@@ -47,6 +47,9 @@ graph TD
     A --- C[DeviceConnectionDialog]
     
     M[MainWindowController]
+    M --> M1[LogManager]
+    M --> M2[SystemInfoManager]
+    M --> M3[TestManager]
     
     D[DeviceManagerViewModel]
     
@@ -64,7 +67,7 @@ graph TD
     M <--> D
     D <--> G
     D <--> E
-    M <--> E
+    M3 <--> E
     E --> F
     F --> H
     F --> I
@@ -83,6 +86,9 @@ graph TD
 - **DeviceManagerWidget**：裝置管理介面，負責裝置連線並開啟裝置專屬的主視窗
   
 - **MainWindowController**：主窗口控制器，直接與使用者互動，管理單個裝置的顯示和操作界面
+  - **LogManager**：日誌管理器，負責處理應用程式日誌的顯示與儲存
+  - **SystemInfoManager**：系統信息管理器，負責收集和顯示裝置系統信息
+  - **TestManager**：測試管理器，協調UI與測試服務間的互動
 
 - **DeviceManagerViewModel**：視圖模型，連接UI和業務邏輯
   
@@ -110,8 +116,16 @@ graph TD
     A --> A1[device_connection_dialog.py]
     A --> A2[device_manager_widget.py]
     A --> A3[main_window.py]
+    A --> A4[log_manager.py]
+    A --> A5[system_info_manager.py]
+    A --> A6[test_manager.py]
+    
     B --> B1[device_manager_view_model.py]
+    
     C --> C1[自定義UI元件]
+    C --> C2[test_group_widget.py]
+    C --> C3[test_container.py]
+    
     D --> D1[介面資源檔案]
 ```
 
@@ -119,12 +133,17 @@ graph TD
   - `device_connection_dialog.py`: 裝置連線主介面
   - `device_manager_widget.py`: 裝置管理主介面
   - `main_window.py`: 裝置監控主窗口控制器，處理單一裝置的監控介面
+  - `log_manager.py`: 日誌管理器，處理應用程式日誌顯示與管理
+  - `system_info_manager.py`: 系統信息管理器，處理裝置系統信息的收集與顯示
+  - `test_manager.py`: 測試管理器，處理硬體測試功能的UI介面與邏輯
 
 - **view_models/**: 視圖模型，負責業務邏輯與UI的連接
   - `device_manager_view_model.py`: 裝置管理視圖模型，處理裝置連接和命令發送等操作
 
 - **widgets/**: 可重複使用UI元件
-  - 包含各種自定義控制項和UI元件
+  - `test_group_widget.py`: 測試組元件，用於顯示和管理一組相關的測試項目
+  - `test_container.py`: 測試容器元件，用於包含和管理多個測試組
+  - 包含其他各種自定義控制項和UI元件
 
 - **ui/**: 介面資源檔案
   - 包含UI設計檔案和資源
