@@ -3,7 +3,7 @@ Auto diagnostic view module
 Responsible for managing diagnostic test execution and UI updates
 """
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 from typing import Dict, List, Any, Optional
 import datetime
@@ -18,56 +18,56 @@ class AutoDiagnosticView(QObject):
     Manages diagnostic test execution and UI updates
     """
     
-    # 定义信号
-    all_diagnostics_completed = Signal()  # 所有诊断测试完成时发出
-    export_report_requested = Signal()    # 请求导出报告时发出
+    # define signals
+    all_diagnostics_completed = Signal()  # when all the diagnostic tests are completed
+    export_report_requested = Signal()    # when the export report is requested
     
     def __init__(self, device_id: str, hw_test_manager: HardwareTestManagerService):
         """
-        初始化自动诊断视图
+        initialize the auto diagnostic view
         
         Args:
-            device_id: 设备ID
-            hw_test_manager: 硬件测试管理器服务
+            device_id: the device id
+            hw_test_manager: the hardware test manager service
         """
         super().__init__()
         
-        # 保存设备ID和硬件测试管理器
+        # save the device id and hardware test manager
         self.device_id = device_id
         self.hw_test_manager = hw_test_manager
         
-        # UI组件引用
+        # UI components references
         self.main_widget = None
         self.diagnostic_container = None
         self.run_all_button = None
         self.export_button = None
         self.title_label = None
         
-        # 测试状态跟踪
+        # test status tracking
         self.diagnostic_results = {}
         self.current_diagnostics = []
         self.is_running = False
         
-        # 连接信号
+        # connect signals
         self._connect_signals()
         
         logger.info("Auto diagnostic view initialized")
     
     def _connect_signals(self):
-        """连接硬件测试管理器信号"""
-        # 连接硬件测试管理器信号
+        """connect the hardware test manager signals"""
+        # connect the hardware test manager signals
         self.hw_test_manager.test_started.connect(self._on_test_started)
         self.hw_test_manager.test_completed.connect(self._on_test_completed)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
     
     def create_widget(self) -> QWidget:
         """
-        创建并返回自动诊断主部件
+        create and return the auto diagnostic main widget
         
         Returns:
-            QWidget: 自动诊断主部件
+            QWidget: the auto diagnostic main widget
         """
-        # 创建主部件
+        # create the main widget
         self.main_widget = QWidget()
         self.main_widget.setObjectName("diagnosticWidget")
         self.main_widget.setStyleSheet("""
@@ -93,40 +93,40 @@ class AutoDiagnosticView(QObject):
             }
         """)
         
-        # 创建主布局
+        # create the main layout
         main_layout = QVBoxLayout(self.main_widget)
         main_layout.setContentsMargins(10, 5, 10, 5)
         main_layout.setSpacing(5)
         
-        # 创建顶部布局（标题和按钮）
+        # create the top layout (title and buttons)
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(10, 10, 10, 10)
         
-        # 标题
+        # title
         self.title_label = QLabel("Auto Diagnostic")
         self.title_label.setObjectName("titleLabel")
         top_layout.addWidget(self.title_label)
         
-        # 添加弹性空间
+        # add stretch
         top_layout.addStretch()
         
-        # 导出报告按钮
+        # export report button
         self.export_button = QPushButton("Export Report")
         self.export_button.clicked.connect(self._on_export_report)
         top_layout.addWidget(self.export_button)
         
-        # 间隔
+        # spacing
         top_layout.addSpacing(10)
         
-        # 运行所有测试按钮
+        # run all tests button
         self.run_all_button = QPushButton("Run All Tests")
         self.run_all_button.clicked.connect(self._on_run_all_tests)
         top_layout.addWidget(self.run_all_button)
         
-        # 添加顶部布局到主布局
+        # add the top layout to the main layout
         main_layout.addLayout(top_layout)
         
-        # 添加分隔线
+        # add the separator line
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
@@ -134,40 +134,40 @@ class AutoDiagnosticView(QObject):
         line.setMaximumHeight(1)
         main_layout.addWidget(line)
         
-        # 创建诊断容器
+        # create the diagnostic container
         self.diagnostic_container = DiagnosticContainer()
         
-        # 计算项目高度和可见项目数
-        item_height = 32  # 每个诊断项目高度
-        visible_items = 5  # 可见项目数
+        # calculate the item height and visible items number
+        item_height = 32  # the height of each diagnostic item
+        visible_items = 5  # the number of visible items
         
-        # 设置诊断容器高度
+        # set the diagnostic container height
         scroll_height = item_height * visible_items + 15
         self.diagnostic_container.set_fixed_height(scroll_height)
         
-        # 添加诊断容器到主布局
+        # add the diagnostic container to the main layout
         main_layout.addWidget(self.diagnostic_container)
         
-        # 设置主部件固定高度
-        total_height = scroll_height + 60  # 标题区域约占60像素
+        # set the main widget fixed height
+        total_height = scroll_height + 60  # the title area is about 60 pixels
         self.main_widget.setFixedHeight(total_height)
         
         return self.main_widget
     
     def setup_diagnostic_items(self, diagnostic_tests):
         """
-        设置诊断测试项目
+        setup the diagnostic test items
         
         Args:
-            diagnostic_tests: 字典，键为测试ID，值为测试名称
+            diagnostic_tests: a dictionary, the key is the test id, the value is the test name
         """
-        # 清空现有项目
+        # clear the existing items
         if self.diagnostic_container:
             for test_id in self.diagnostic_container.get_all_test_ids():
-                # 移除项目（暂不实现，因为DiagnosticContainer没有移除方法）
+                # remove the item (not implemented, because DiagnosticContainer has no remove method)
                 pass
         
-        # 添加诊断测试项目
+        # add the diagnostic test items
         for test_id, test_name in diagnostic_tests.items():
             self.diagnostic_container.add_diagnostic_item(test_id, test_name)
             self.diagnostic_results[test_id] = {
@@ -176,11 +176,11 @@ class AutoDiagnosticView(QObject):
                 "details": {}
             }
             
-        # 记录所有诊断项目
+        # record all the diagnostic items
         self.current_diagnostics = list(diagnostic_tests.keys())
     
     def _on_run_all_tests(self):
-        """处理运行所有测试按钮点击"""
+        """handle the run all tests button click"""
         if self.is_running:
             return
             
@@ -188,31 +188,58 @@ class AutoDiagnosticView(QObject):
         self.run_all_button.setText("Running...")
         self.run_all_button.setEnabled(False)
         
-        # 重置所有诊断项目状态
+        # reset all the diagnostic items status
         self.diagnostic_container.reset_all_items()
         
-        # 开始运行测试序列
+        # start running the test sequence
         self._run_diagnostic_sequence()
         
         logger.info("Starting auto diagnostic sequence")
     
     def _run_diagnostic_sequence(self):
-        """运行诊断测试序列"""
-        # 获取所有测试ID
+        """run the diagnostic test sequence"""
+        # only start the first test, the others will be started in the test completed event
         test_ids = self.diagnostic_container.get_all_test_ids()
+        self.pending_tests = test_ids.copy()
         
-        # 逐个执行测试
-        for test_id in test_ids:
-            # 开始测试
+        if self.pending_tests:
+            # start the first test
+            first_test = self.pending_tests.pop(0)
+            self._start_test(first_test)
+    
+    def _start_test(self, test_id):
+        """start the single test"""
+        logger.info(f"Starting diagnostic test: {test_id}")
+        
+        try:
+            # add a short delay to ensure the resources are ready
+            QTimer.singleShot(300, lambda: self._execute_test(test_id))
+        except Exception as e:
+            logger.error(f"Error preparing test {test_id}: {str(e)}")
+            # if the error occurs when preparing the test, try to continue with the next test
+            if hasattr(self, 'pending_tests') and self.pending_tests:
+                next_test = self.pending_tests.pop(0)
+                self._start_test(next_test)
+    
+    def _execute_test(self, test_id):
+        """execute the test"""
+        try:
+            # start the test
             self.hw_test_manager.start_test(self.device_id, test_id)
-            
-            # 记录开始时间
+            # record the start time
             start_time = datetime.datetime.now()
             self.diagnostic_results[test_id]["start_time"] = start_time
+            logger.info(f"Test {test_id} execution started")
+        except Exception as e:
+            logger.error(f"Error executing test {test_id}: {str(e)}")
+            # if the error occurs when executing the test, try to continue with the next test
+            if hasattr(self, 'pending_tests') and self.pending_tests:
+                next_test = self.pending_tests.pop(0)
+                self._start_test(next_test)
     
     def _on_export_report(self):
-        """处理导出报告按钮点击"""
-        # 发出导出报告请求信号
+        """handle the export report button click"""
+        # emit the export report requested signal
         self.export_report_requested.emit()
         
         logger.info("Export diagnostic report requested")
@@ -220,12 +247,12 @@ class AutoDiagnosticView(QObject):
     @Slot(str)
     def _on_test_started(self, test_id: str):
         """
-        处理测试开始事件
+        handle the test started event
         
         Args:
-            test_id: 测试ID
+            test_id: the test id
         """
-        # 更新UI状态
+        # update the UI status
         self.diagnostic_container.update_item_status(test_id, "PENDING")
         
         logger.info(f"Diagnostic test started: {test_id}")
@@ -233,14 +260,30 @@ class AutoDiagnosticView(QObject):
     @Slot(str, bool, str)
     def _on_test_completed(self, test_id: str, success: bool, message: str):
         """
-        处理测试完成事件
+        handle the test completed event
         
         Args:
-            test_id: 测试ID
-            success: 测试是否成功
-            message: 结果消息
+            test_id: the test id
+            success: whether the test is successful
+            message: the result message
         """
-        # 计算测试耗时
+        # check if the test id is the one we are tracking
+        if test_id not in self.current_diagnostics:
+            return
+        
+        # prevent duplicate processing of the same test completion event
+        if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] != "PENDING":
+            logger.warning(f"Received duplicate completion for test {test_id}, ignoring.")
+            return
+        
+        # check if the message is a cancellation message
+        if not success and "cancelled" in message.lower():
+            # if the message is a cancellation message, but we have already received a success message, ignore the cancellation message
+            if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] == "PASS":
+                logger.warning(f"Ignoring cancellation message for successful test {test_id}")
+                return
+        
+        # calculate the test duration
         if test_id in self.diagnostic_results and "start_time" in self.diagnostic_results[test_id]:
             start_time = self.diagnostic_results[test_id]["start_time"]
             end_time = datetime.datetime.now()
@@ -249,73 +292,79 @@ class AutoDiagnosticView(QObject):
         else:
             time_str = "--:--:--"
         
-        # 更新诊断结果
+        # update the diagnostic results
         status = "PASS" if success else "FAIL"
         self.diagnostic_results[test_id]["status"] = status
         self.diagnostic_results[test_id]["time"] = time_str
         self.diagnostic_results[test_id]["message"] = message
         
-        # 更新UI状态
+        # update the UI status
         self.diagnostic_container.update_item_status(test_id, status, time_str)
         
-        # 检查是否所有测试都已完成
-        all_completed = True
-        for test_id in self.current_diagnostics:
-            status = self.diagnostic_results[test_id]["status"]
-            if status == "PENDING":
-                all_completed = False
-                break
-        
-        if all_completed:
-            self._complete_all_diagnostics()
-        
-        # 记录测试完成
+        # record the test completion
         if success:
             logger.info(f"Diagnostic test {test_id} completed: PASS ({time_str})")
         else:
             logger.error(f"Diagnostic test {test_id} failed: {message} ({time_str})")
+        
+        # after the test is completed, start the next test or complete all the tests
+        if hasattr(self, 'pending_tests') and self.pending_tests:
+            # start the next test (with a short delay to ensure the system state is stable)
+            next_test = self.pending_tests.pop(0)
+            QTimer.singleShot(500, lambda: self._start_test(next_test))
+        else:
+            # check if all the tests are completed
+            all_completed = True
+            for tid in self.current_diagnostics:
+                if tid not in self.diagnostic_results or self.diagnostic_results[tid]["status"] == "PENDING":
+                    all_completed = False
+                    break
+                
+            if all_completed:
+                # add a short delay to avoid UI update conflicts
+                QTimer.singleShot(100, self._complete_all_diagnostics)
     
     @Slot(str, int, int)
     def _on_test_progress(self, test_id: str, current_step: int, total_steps: int):
         """
-        处理测试进度事件
+        handle the test progress event
         
         Args:
-            test_id: 测试ID
-            current_step: 当前步骤索引（从1开始）
-            total_steps: 总步骤数
+            test_id: the test id
+            current_step: the current step index (starting from 1)
+            total_steps: the total number of steps
         """
-        # 暂不更新UI进度，因为诊断项目没有进度条
+        # do not update the UI progress, because the diagnostic items have no progress bar
         pass
     
     def _complete_all_diagnostics(self):
-        """完成所有诊断测试"""
+        """complete all the diagnostic tests"""
         self.is_running = False
         
-        # 恢复按钮状态
+        # restore the button status
         self.run_all_button.setText("Run All Tests")
         self.run_all_button.setEnabled(True)
         
-        # 发出所有诊断测试完成信号
+        # emit the all diagnostics completed signal
         self.all_diagnostics_completed.emit()
         
         logger.info("All diagnostic tests completed")
     
     def get_diagnostic_results(self) -> Dict[str, Dict[str, Any]]:
         """
-        获取诊断结果
+        get the diagnostic results
         
         Returns:
-            包含诊断结果的字典
+            a dictionary, the key is the test id, the value is the test result
         """
         return self.diagnostic_results
     
     def cleanup(self):
-        """清理资源"""
+        """clean up the resources"""
         try:
             logger.debug("Cleaning up AutoDiagnosticView resources")
             
-            # 断开所有信号
+            # disconnect all the signals
             try:
                 self.hw_test_manager.test_started.disconnect(self._on_test_started)
                 self.hw_test_manager.test_completed.disconnect(self._on_test_completed)
@@ -327,10 +376,10 @@ class AutoDiagnosticView(QObject):
                 if self.export_button:
                     self.export_button.clicked.disconnect(self._on_export_report)
             except Exception:
-                # 信号可能已经断开，忽略错误
+                # the signals may already be disconnected, ignore the error
                 pass
             
-            # 清除引用
+            # clear the references
             self.diagnostic_container = None
             self.run_all_button = None
             self.export_button = None
@@ -342,10 +391,10 @@ class AutoDiagnosticView(QObject):
     
     def set_buttons_enabled(self, enabled=True):
         """
-        启用或禁用所有按钮
+        enable or disable all the buttons
         
         Args:
-            enabled: 是否启用按钮
+            enabled: whether to enable the buttons
         """
         if self.run_all_button:
             self.run_all_button.setEnabled(enabled)

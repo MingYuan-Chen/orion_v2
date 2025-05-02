@@ -757,50 +757,45 @@ class MainWindowController(QObject):
 
     def _init_auto_diagnostic_view(self):
         """Initialize auto diagnostic view settings"""
-        # 创建自动诊断组件
+        # create the auto diagnostic component
         self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
         
-        # 将Auto Diagnostic添加为独立布局，直接添加到Dashboard标签页
-        # 获取Dashboard标签页布局
+        # add the auto diagnostic component as a standalone layout, directly add to the Dashboard tab
+        # get the Dashboard tab layout
         dashboard_layout = self.window.tab_dashboard.layout()
         if dashboard_layout:
-            # 在现有布局下添加自动诊断组件（在System Overview分组框之后）
+            # add the auto diagnostic component (after the System Overview group box)
             dashboard_layout.addWidget(self.auto_diagnostic_widget)
         else:
-            # 如果Dashboard页面没有布局，创建一个
+            # if the Dashboard page has no layout, create a new one
             dashboard_layout = QVBoxLayout(self.window.tab_dashboard)
-            dashboard_layout.addWidget(self.window.groupBox_system_overview)  # 首先添加系统概览
-            dashboard_layout.addWidget(self.auto_diagnostic_widget)  # 然后添加自动诊断
+            dashboard_layout.addWidget(self.window.groupBox_system_overview)  # add the system overview first
+            dashboard_layout.addWidget(self.auto_diagnostic_widget)  # then add the auto diagnostic
         
-        # 设置自动诊断测试项目
+        # set the auto diagnostic test items
         diagnostic_tests = {
-            "cpu_performance": "CPU Performance Test",
-            "memory_integrity": "Memory Integrity Check",
-            "storage_read_write": "Storage Read/Write Speed",
-            "network_connectivity": "Network Connectivity",
-            "battery_health": "Battery Health Check",
-            "touch_panel": "Touch Panel Calibration",
-            "display_color": "Display Color Accuracy",
-            "audio_system": "Audio System Check"
+            "usb_ports": "USB Ports Test",
+            "emmc": "eMMC Test",
+            "eeprom": "EEPROM Test"
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
-        # 连接信号
+        # connect the signals
         self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
         self.auto_diagnostic_view.export_report_requested.connect(self._export_diagnostic_report)
 
     @Slot()
     def _on_all_diagnostics_completed(self):
-        """处理所有诊断测试完成事件"""
+        """handle the event of all diagnostics completed"""
         self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
 
     def _export_diagnostic_report(self):
-        """导出诊断报告"""
-        # 获取当前时间作为文件名一部分
+        """export the diagnostic report"""
+        # get the current time as part of the file name
         current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         default_filename = f"diagnostic_report_{self.device_id}_{current_time}.csv"
         
-        # 显示文件保存对话框
+        # show the file save dialog
         file_path, _ = QFileDialog.getSaveFileName(
             self.window,
             "Export Diagnostic Report",
@@ -809,20 +804,20 @@ class MainWindowController(QObject):
         )
         
         if not file_path:
-            return  # 用户取消
+            return  # the user cancelled
         
         try:
-            # 获取诊断结果
+            # get the diagnostic results
             results = self.auto_diagnostic_view.get_diagnostic_results()
             
-            # 写入CSV文件
+            # write to the CSV file
             with open(file_path, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                # 写入标题行
+                # write the title row
                 writer.writerow(["Test Name", "Status", "Time", "Details"])
                 
-                # 写入测试结果
+                # write the test results
                 for test_id, result in results.items():
                     writer.writerow([
                         test_id,

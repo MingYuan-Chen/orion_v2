@@ -14,8 +14,8 @@ class DiagnosticContainer(QScrollArea):
     Manages multiple diagnostic item widgets
     """
     
-    # 定义信号
-    item_clicked = Signal(str)  # 当诊断项目被点击时发出，传递test_id
+    # define signal
+    item_clicked = Signal(str)  # when the diagnostic item is clicked, emit the test_id
     
     def __init__(self, parent=None):
         """
@@ -26,13 +26,13 @@ class DiagnosticContainer(QScrollArea):
         """
         super().__init__(parent)
         
-        # 设置滚动区域属性
+        # set the scroll area properties
         self.setWidgetResizable(True)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setFrameShape(QFrame.NoFrame)
         
-        # 设置样式
+        # set the style
         self.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -53,91 +53,91 @@ class DiagnosticContainer(QScrollArea):
             }
         """)
         
-        # 创建内容控件
+        # create the content widget
         self.content_widget = QWidget()
         self.content_widget.setStyleSheet("background-color: transparent;")
         
-        # 创建内容布局
+        # create the content layout
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(5, 0, 5, 8)
         self.content_layout.setSpacing(2)
         
-        # 设置内容控件
+        # set the content widget
         self.setWidget(self.content_widget)
         
-        # 存储诊断项目
+        # store the diagnostic items
         self.diagnostic_items = {}
         
-        # 添加拉伸以确保内容靠上对齐
+        # add stretch to ensure the content is aligned at the top
         self.content_layout.addStretch()
     
     def add_diagnostic_item(self, test_id, test_name):
         """
-        添加诊断项目
+        add the diagnostic item
         
         Args:
-            test_id: 测试ID
-            test_name: 测试名称
+            test_id: the test id
+            test_name: the test name
             
         Returns:
-            添加的DiagnosticItemWidget
+            the added DiagnosticItemWidget
         """
-        # 创建诊断项目控件
+        # create the diagnostic item widget
         item = DiagnosticItemWidget(test_id, test_name)
         
-        # 在stretch之前添加到布局
+        # add the item to the layout before the stretch
         self.content_layout.insertWidget(self.content_layout.count()-1, item)
         
-        # 存储诊断项目
+        # store the diagnostic item
         self.diagnostic_items[test_id] = item
         
         return item
     
     def get_diagnostic_item(self, test_id):
         """
-        通过ID获取诊断项目控件
+        get the diagnostic item by the test id
         
         Args:
-            test_id: 测试ID
+            test_id: the test id
             
         Returns:
-            DiagnosticItemWidget或者None（如果未找到）
+            the DiagnosticItemWidget or None (if not found)
         """
         return self.diagnostic_items.get(test_id)
     
     def update_item_status(self, test_id, status, time_value=""):
         """
-        更新诊断项目状态
+        update the diagnostic item status
         
         Args:
-            test_id: 测试ID
-            status: 状态（'PASS', 'FAIL', 'WARNING', 'PENDING'）
-            time_value: 可选的时间/值
+            test_id: the test id
+            status: the status ('PASS', 'FAIL', 'WARNING', 'PENDING')
+            time_value: the optional time/value
         """
         if test_id in self.diagnostic_items:
             self.diagnostic_items[test_id].set_status(status, time_value)
     
     def reset_all_items(self):
         """
-        重置所有诊断项目为PENDING状态
+        reset all the diagnostic items to the PENDING status
         """
         for item in self.diagnostic_items.values():
             item.reset()
     
     def get_all_test_ids(self):
         """
-        获取所有测试ID
+        get all the test ids
         
         Returns:
-            测试ID列表
+            the list of test ids
         """
         return list(self.diagnostic_items.keys())
     
     def set_fixed_height(self, height):
         """
-        设置容器固定高度
+        set the fixed height
         
         Args:
-            height: 高度值
+            height: the height value
         """
         self.setFixedHeight(height) 
