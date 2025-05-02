@@ -341,4 +341,82 @@ class SystemInfoManagerView(QObject):
             self.ui_components = {}
             
         except Exception as e:
-            logger.error(f"Error during SystemInfoManagerView cleanup: {e}") 
+            logger.error(f"Error during SystemInfoManagerView cleanup: {e}")
+    
+    def edit_model_name(self):
+        """Provide the full functionality of editing the model name"""
+        current_text = self.ui_components["model_name"].text()
+        
+        # use the dialog to get the new value
+        from gui.views.main_window import DarkEditDialog
+        dialog = DarkEditDialog(
+            self.ui_components["model_name"].window(), 
+            "Edit model name",
+            "Please enter the new model name:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.update_model_name(new_text)
+                # if need to update the backend data, add the code here
+                return True
+        return False
+
+    def edit_serial_number(self):
+        """Provide the full functionality of editing the serial number"""
+        current_text = self.ui_components["serial_number"].text()
+        
+        from gui.views.main_window import DarkEditDialog
+        dialog = DarkEditDialog(
+            self.ui_components["serial_number"].window(), 
+            "Edit serial number",
+            "Please enter the new serial number:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.update_serial_number(new_text)
+                return True
+        return False
+
+    def edit_battery_model(self):
+        """Provide the full functionality of editing the battery model"""
+        current_text = self.ui_components["battery_model"].text()
+        
+        from gui.views.main_window import DarkEditDialog
+        dialog = DarkEditDialog(
+            self.ui_components["battery_model"].window(), 
+            "Edit battery model",
+            "Please enter the new battery model:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.update_battery_model(new_text)
+                return True
+        return False
+
+    def edit_battery_serial(self):
+        """Provide the full functionality of editing the battery serial number"""
+        current_text = self.ui_components["battery_serial"].text()
+        
+        from gui.views.main_window import DarkEditDialog
+        dialog = DarkEditDialog(
+            self.ui_components["battery_serial"].window(), 
+            "Edit battery serial number",
+            "Please enter the new battery serial number:",
+            current_text
+        )
+        
+        if dialog.exec_():
+            new_text = dialog.get_text()
+            if new_text:
+                self.update_battery_serial(new_text)
+                return True
+        return False 

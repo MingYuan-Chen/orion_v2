@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QMainWindow, QHeaderView, QTableWidgetItem, QInputDialog, QLineEdit
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog, QComboBox, QTabWidget
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QObject, QEvent
 from PySide6.QtUiTools import QUiLoader
 from typing import Dict, Optional, List
@@ -265,7 +265,7 @@ class MainWindowController(QObject):
         self.system_info_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
         
         # connect the signals of the system info manager
-        self.system_info_manager.info_update_started.connect(lambda: self._set_ui_controls_enabled(False))
+        self.system_info_manager.info_update_started.connect(lambda: self.set_ui_controls_state(False))
         # when the system info update is completed, enable the ui controls and add the completed log
         self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
         self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
@@ -273,7 +273,7 @@ class MainWindowController(QObject):
     def _on_system_info_update_completed(self):
         """Handle the event of system info update completed"""
         # enable the ui controls
-        self._set_ui_controls_enabled(True)
+        self.set_ui_controls_state(True)
         # add the completed log
         self.log_manager.add_log_entry("INFO", "System info update completed")
     
@@ -407,40 +407,6 @@ class MainWindowController(QObject):
         # delegate to the system info manager to set the initializing state
         self.system_info_manager.set_initializing_state()
 
-    def _set_ui_controls_enabled(self, enabled=True):
-        """Enable or disable UI controls"""
-        # enable/disable the test buttons managed by TestContainer
-        # use the ui components managed by the test manager
-        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
-            self.test_manager.set_test_buttons_enabled(enabled)
-        
-        # enable/disable the "Test All" button
-        if hasattr(self.window, 'button_test_all'):
-            self.window.button_test_all.setEnabled(enabled)
-        
-        # enable/disable the system info refresh button
-        if hasattr(self.window, 'pushButton_refresh'):
-            self.window.pushButton_refresh.setEnabled(enabled)
-        
-        # enable/disable the send command button
-        if hasattr(self.window, 'pushButton_send_command'):
-            self.window.pushButton_send_command.setEnabled(enabled)
-        
-        # enable/disable the export result button
-        if hasattr(self.window, 'button_export_result'):
-            self.window.button_export_result.setEnabled(enabled)
-        
-        # enable/disable the log filter combo box
-        if hasattr(self.window, 'comboBox_log_level'):
-            self.window.comboBox_log_level.setEnabled(enabled)
-        if hasattr(self.window, 'comboBox_time_range'):
-            self.window.comboBox_time_range.setEnabled(enabled)
-        
-        # enable/disable the tab pages
-        if hasattr(self.window, 'tabWidget'):
-            for i in range(self.window.tabWidget.count()):
-                self.window.tabWidget.setTabEnabled(i, enabled)
-
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
         # delegate to the system info manager to handle the refresh operation
@@ -448,80 +414,24 @@ class MainWindowController(QObject):
         self.system_info_manager.refresh_system_info()
 
     def _on_edit_model_name(self):
-        """Handle model name edit button click"""
-        current_text = self.window.value_model_name.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit model name",
-            "Please enter the new model name:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_model_name(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit model name button click"""
+        if self.system_info_manager.edit_model_name():
+            self.log_manager.add_log_entry("INFO", "Model name updated")
+
     def _on_edit_serial_number(self):
-        """Handle serial number edit button click"""
-        current_text = self.window.value_serial_number.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit serial number",
-            "Please enter the new serial number:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_serial_number(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit serial number button click"""
+        if self.system_info_manager.edit_serial_number():
+            self.log_manager.add_log_entry("INFO", "Serial number updated")
+
     def _on_edit_battery_model(self):
-        """Handle battery model edit button click"""
-        current_text = self.window.value_battery_model.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit battery model",
-            "Please enter the new battery model:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_battery_model(new_text)
-                # Maybe need to update backend data
-    
+        """handle the edit battery model button click"""
+        if self.system_info_manager.edit_battery_model():
+            self.log_manager.add_log_entry("INFO", "Battery model updated")
+
     def _on_edit_battery_serial(self):
-        """Handle battery serial edit button click"""
-        current_text = self.window.value_battery_serial.text()
-        
-        # Create and show custom dark dialog
-        dialog = DarkEditDialog(
-            self.window, 
-            "Edit battery serial",
-            "Please enter the new battery serial number:",
-            current_text
-        )
-        
-        if dialog.exec_():
-            new_text = dialog.get_text()
-            if new_text:
-                # delegate to the system info manager to update the ui
-                self.system_info_manager.update_battery_serial(new_text)
-                # Maybe need to update backend data
+        """handle the edit battery serial number button click"""
+        if self.system_info_manager.edit_battery_serial():
+            self.log_manager.add_log_entry("INFO", "Battery serial number updated")
 
     def _set_window_properties(self):
         """Set window properties, ensure it is recognized as part of the main application"""
@@ -772,3 +682,39 @@ class MainWindowController(QObject):
         self.window_closed.emit(self.device_id)
         
         logger.info(f"Main window resources cleaned up for device: {self.device_id}")
+
+    def set_ui_controls_state(self, enabled=True, exclude_widgets=None):
+        """
+        General UI control enable/disable method
+        
+        Args:
+            enabled (bool): Whether to enable the controls
+            exclude_widgets (list): List of widgets to exclude from the enable/disable operation
+        """
+        if exclude_widgets is None:
+            exclude_widgets = []
+        
+        # handle the buttons
+        for button in self.window.findChildren(QPushButton):
+            if button not in exclude_widgets:
+                button.setEnabled(enabled)
+        
+        # handle the combo boxes
+        for combobox in self.window.findChildren(QComboBox):
+            if combobox not in exclude_widgets:
+                combobox.setEnabled(enabled)
+        
+        # handle the line edits
+        for lineedit in self.window.findChildren(QLineEdit):
+            if lineedit not in exclude_widgets:
+                lineedit.setEnabled(enabled)
+        
+        # handle the tab widgets
+        for tabwidget in self.window.findChildren(QTabWidget):
+            if tabwidget not in exclude_widgets:
+                for i in range(tabwidget.count()):
+                    tabwidget.setTabEnabled(i, enabled)
+                
+        # if there is a TestManager, handle the test container buttons
+        if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
+            self.test_manager.set_test_buttons_enabled(enabled)
