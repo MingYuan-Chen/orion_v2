@@ -50,6 +50,7 @@ graph TD
     M --> M1[LogManager]
     M --> M2[SystemInfoManager]
     M --> M3[TestManager]
+    M --> M4[AutoDiagnosticView]
     
     D[DeviceManagerViewModel]
     
@@ -68,6 +69,7 @@ graph TD
     D <--> G
     D <--> E
     M3 <--> E
+    M4 <--> E
     E --> F
     F --> H
     F --> I
@@ -89,6 +91,7 @@ graph TD
   - **LogManager**：日誌管理器，負責處理應用程式日誌的顯示與儲存
   - **SystemInfoManager**：系統信息管理器，負責收集和顯示裝置系統信息
   - **TestManager**：測試管理器，協調UI與測試服務間的互動
+  - **AutoDiagnosticView**：自動診斷視圖，管理診斷測試的執行與結果顯示
 
 - **DeviceManagerViewModel**：視圖模型，連接UI和業務邏輯
   
@@ -119,12 +122,15 @@ graph TD
     A --> A4[log_manager.py]
     A --> A5[system_info_manager.py]
     A --> A6[test_manager.py]
+    A --> A7[auto_diagnostic_view.py]
     
     B --> B1[device_manager_view_model.py]
     
     C --> C1[自定義UI元件]
     C --> C2[test_group_widget.py]
     C --> C3[test_container.py]
+    C --> C4[diagnostic_container.py]
+    C --> C5[diagnostic_item_widget.py]
     
     D --> D1[介面資源檔案]
 ```
@@ -136,6 +142,7 @@ graph TD
   - `log_manager.py`: 日誌管理器，處理應用程式日誌顯示與管理
   - `system_info_manager.py`: 系統信息管理器，處理裝置系統信息的收集與顯示
   - `test_manager.py`: 測試管理器，處理硬體測試功能的UI介面與邏輯
+  - `auto_diagnostic_view.py`: 自動診斷視圖控制器，管理診斷測試的執行與UI更新
 
 - **view_models/**: 視圖模型，負責業務邏輯與UI的連接
   - `device_manager_view_model.py`: 裝置管理視圖模型，處理裝置連接和命令發送等操作
@@ -143,6 +150,8 @@ graph TD
 - **widgets/**: 可重複使用UI元件
   - `test_group_widget.py`: 測試組元件，用於顯示和管理一組相關的測試項目
   - `test_container.py`: 測試容器元件，用於包含和管理多個測試組
+  - `diagnostic_container.py`: 診斷容器元件，用於管理和顯示多個診斷項目
+  - `diagnostic_item_widget.py`: 診斷項目元件，顯示單個診斷測試項目及其狀態
   - 包含其他各種自定義控制項和UI元件
 
 - **ui/**: 介面資源檔案
@@ -340,7 +349,143 @@ stateDiagram-v2
 
 狀態轉換由使用者操作和系統事件觸發，例如登入成功、裝置連接/斷開、測試開始/完成、刷新系統資訊等。每個狀態都有對應的UI反饋，確保使用者清楚了解當前系統狀態。
 
-## 6. 非同步處理機制
+## 6. Auto Diagnostic 元件
+
+Auto Diagnostic元件遵循MVC架構模式，用於執行和展示系統自動診斷功能。該元件整合了系統測試框架，實現了簡潔、可擴充的診斷功能。
+
+### 6.1 架構設計
+
+Auto Diagnostic元件由三個主要部分組成：
+
+```mermaid
+graph TD
+    A[auto_diagnostic_view.py] --> B[diagnostic_container.py]
+    B --> C[diagnostic_item_widget.py]
+    
+    A[控制器層] --> B[容器層]
+    B[容器層] --> C[元件層]
+```
+
+1. **控制器層（auto_diagnostic_view.py）**：
+   - 管理整個診斷流程
+   - 協調測試執行和結果處理
+   - 處理使用者互動和事件
+   - 整合`HardwareTestManagerService`進行測試
+
+2. **容器層（diagnostic_container.py）**：
+   - 管理多個診斷項目
+   - 提供統一的捲動視圖
+   - 處理診斷項目的佈局和顯示
+
+3. **元件層（diagnostic_item_widget.py）**：
+   - 呈現單個診斷項目
+   - 顯示測試名稱、狀態指示和測試時間
+   - 提供直觀的狀態視覺反饋
+
+### 6.2 主要功能實作
+
+1. **序列化測試執行**：
+   - 實現一次執行一個測試的機制
+   - 測試項目按序執行，避免資源衝突
+   - 使用測試間延遲（300-500ms）確保資源釋放和系統穩定
+
+   ```python
+   def _start_test(self, test_id):
+       """啟動單一測試"""
+       logger.info(f"啟動診斷測試: {test_id}")
+       
+       try:
+           # 新增短暫延時確保資源準備就緒
+           QTimer.singleShot(300, lambda: self._execute_test(test_id))
+       except Exception as e:
+           logger.error(f"準備測試 {test_id} 時發生錯誤: {str(e)}")
+           # 如果測試準備出錯，嘗試繼續下一個測試
+           if hasattr(self, 'pending_tests') and self.pending_tests:
+               next_test = self.pending_tests.pop(0)
+               self._start_test(next_test)
+   ```
+
+2. **事件處理優化**：
+   - 改進測試完成事件處理邏輯，防止重複處理
+   - 忽略已完成測試的誤報取消訊息
+   - 實現更可靠的測試結果處理
+
+   ```python
+   def _on_test_completed(self, test_id, success, message):
+       """處理測試完成事件"""
+       # 檢查測試ID是否在追蹤範圍
+       if test_id not in self.current_diagnostics:
+           return
+       
+       # 防止重複處理相同測試的完成事件
+       if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] != "PENDING":
+           logger.warning(f"收到測試 {test_id} 的重複完成事件，忽略處理。")
+           return
+       
+       # 處理取消訊息
+       if not success and "cancelled" in message.lower():
+           # 如果測試已成功完成但收到取消訊息，則忽略此訊息
+           if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] == "PASS":
+               logger.warning(f"忽略已成功測試 {test_id} 的取消訊息")
+               return
+   ```
+
+3. **UI與佈局**：
+   - 診斷項目的直觀顯示
+   - 測試狀態（PENDING/PASS/FAIL）以顏色區分
+   - 支援測試執行時間顯示
+
+### 6.3 與MainWindow整合
+
+Auto Diagnostic組件作為獨立區域添加到Dashboard標籤中，而非作為System Overview的一部分：
+
+```python
+def _init_auto_diagnostic_view(self):
+    """初始化自動診斷視圖設定"""
+    # 建立自動診斷組件
+    self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
+    
+    # 將自動診斷組件作為獨立區域添加到Dashboard標籤
+    dashboard_layout = self.window.tab_dashboard.layout()
+    if dashboard_layout:
+        # 在系統概覽群組框之後添加自動診斷組件
+        dashboard_layout.addWidget(self.auto_diagnostic_widget)
+    else:
+        # 如果Dashboard頁面沒有布局，建立新布局
+        dashboard_layout = QVBoxLayout(self.window.tab_dashboard)
+        dashboard_layout.addWidget(self.window.groupBox_system_overview)  # 先添加系統概覽
+        dashboard_layout.addWidget(self.auto_diagnostic_widget)  # 再添加自動診斷
+    
+    # 設定自動診斷測試項目
+    diagnostic_tests = {
+        "usb_ports": "USB連接埠測試",
+        "emmc": "eMMC測試",
+        "eeprom": "EEPROM測試"
+    }
+    self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
+```
+
+### 6.4 擴充性與維護
+
+Auto Diagnostic元件設計具有高度的擴充性：
+
+1. **簡化測試項管理**：
+   - 透過修改測試項字典即可添加或移除診斷項
+   - 無需修改UI設計文件，減少維護成本
+
+2. **共享測試邏輯**：
+   - 與`HardwareTestManagerService`共享測試邏輯
+   - 利用現有測試框架，避免代碼重複
+
+3. **未來改進方向**：
+   - 為`DiagnosticContainer`添加移除測試項功能
+   - 進一步優化測試間延遲機制
+   - 增加測試中斷恢復功能
+   - 提供更詳細的測試結果展示
+
+這種MVC架構的設計使Auto Diagnostic元件能夠與系統其他部分保持一致的架構風格，提高了代碼的可維護性和擴充性，同時解決了之前測試執行中的問題。
+
+## 7. 非同步處理機制
 
 Orion系統採用Qt的信號槽機制和工作執行緒來實現非同步處理：
 
@@ -377,7 +522,12 @@ graph TD
    - 使用QTimer實現延時重試
    - 重試次數和間隔可配置
 
-## 7. 多裝置指令並行處理設計
+5. **測試間延遲處理**：
+   - 在Auto Diagnostic組件中使用`QTimer.singleShot`實現測試間的延遲
+   - 確保系統資源釋放和狀態穩定，避免測試互相干擾
+   - 延遲時間可自訂（300-500ms），優化測試可靠性
+
+## 8. 多裝置指令並行處理設計
 
 Orion系統支援多裝置同時連線並進行並行操作，這種設計使系統能夠高效地管理多台設備同時進行測試和監控：
 
@@ -431,7 +581,7 @@ graph TD
 
 這種設計使Orion系統能夠同時管理多台設備，確保各設備操作互不干擾，同時維持了良好的系統性能和資源利用率。
 
-## 8. 擴充性設計
+## 9. 擴充性設計
 
 系統設計具有高度的可擴充性：
 
@@ -465,7 +615,12 @@ graph TD
    - 基於MVVM模式，UI和業務邏輯分離
    - 可以輕鬆新增介面元件和功能
 
-## 9. 開發指南：建立新測試模組
+5. **Auto Diagnostic擴充**：
+   - 透過修改診斷測試字典即可輕鬆新增或移除診斷項
+   - 診斷項的UI表示與測試邏輯分離，便於獨立修改
+   - 與TestManager共享測試邏輯，減少代碼重複
+
+## 10. 開發指南：建立新測試模組
 
 要建立一個新的測試模組，請按照以下步驟操作：
 
@@ -584,4 +739,29 @@ graph TD
    - 確認"測試全部"功能能正確包含新模組
    - 確保測試狀態和進度顯示正常
 
-通過使用`TestContainer`的這種簡化方式，你可以更輕鬆地擴充Orion系統，無需修改UI設計文件，只需少量代碼即可添加新的測試功能。這種模塊化設計大大提高了系統的可維護性和擴展性。 
+通過使用`TestContainer`的這種簡化方式，你可以更輕鬆地擴充Orion系統，無需修改UI設計文件，只需少量代碼即可添加新的測試功能。這種模塊化設計大大提高了系統的可維護性和擴展性。
+
+## 11. 將新測試模組整合至Auto Diagnostic介面
+
+當您遵循第十章步驟建立了新的測試模組後，可透過以下步驟將其整合至Auto Diagnostic介面，實現診斷功能的擴充：
+
+```mermaid
+graph TD
+    A[步驟1: 確認測試模組註冊]
+    B[步驟2: 更新診斷測試字典]
+    C[步驟3: 將新測試模組添加至Auto Diagnostic介面]
+```
+
+1. **確認測試模組註冊**：
+   - 確保新測試模組已經在`HardwareTestManagerService`中註冊
+   - 確認新測試模組的測試步驟和邏輯已經正確實現
+
+2. **更新診斷測試字典**：
+   - 將新測試模組添加至Auto Diagnostic介面的診斷測試字典中
+   - 確保診斷測試字典包含所有已註冊的測試模組
+
+3. **將新測試模組添加至Auto Diagnostic介面**：
+   - 在Auto Diagnostic介面中實現新測試模組的顯示和執行
+   - 確保新測試模組的測試步驟和結果處理能夠正常運行
+
+這樣，您就可以將新測試模組整合至Auto Diagnostic介面，實現診斷功能的擴充。這種設計使Orion系統能夠高效地管理和執行多種測試，確保測試結果的準確性和可靠性。
