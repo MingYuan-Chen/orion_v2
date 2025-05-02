@@ -18,6 +18,7 @@ from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
 from gui.views.system_info_manager import SystemInfoManagerView
 from gui.views.log_manager import LogManagerView
+from gui.widgets.auto_diagnostic import AutoDiagnosticWidget
 
 
 class DarkEditDialog(QDialog):
@@ -203,6 +204,9 @@ class MainWindowController(QObject):
         # create the test manager view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
         
+        # Create auto diagnostic component
+        self.auto_diagnostic = AutoDiagnosticWidget()
+        
         # Connect signals and slots
         self._connect_signals()
         
@@ -223,6 +227,36 @@ class MainWindowController(QObject):
         self.window.button_edit_serial_number.clicked.connect(self._on_edit_serial_number)
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
+        
+        # Add auto diagnostic to system info layout
+        if hasattr(self.window, 'dashboard_layout'):
+            self.window.dashboard_layout.addWidget(self.auto_diagnostic)
+        elif hasattr(self.window, 'tab_dashboard'):
+            layout = self.window.tab_dashboard.layout()
+            if not layout:
+                layout = QVBoxLayout(self.window.tab_dashboard)
+            layout.addWidget(self.auto_diagnostic)
+        else:
+            logger.warning("Could not find proper container for Auto Diagnostic widget, using fallback method")
+            central_widget = self.window.centralWidget()
+            if central_widget:
+                layout = central_widget.layout()
+                if not layout:
+                    layout = QVBoxLayout(central_widget)
+                layout.addWidget(self.auto_diagnostic)
+        
+        # Add test items to auto diagnostic
+        self.auto_diagnostic.addDiagnosticItem("cpu_performance", "CPU Performance Test")
+        self.auto_diagnostic.addDiagnosticItem("memory_integrity", "Memory Integrity Check")
+        self.auto_diagnostic.addDiagnosticItem("storage_speed", "Storage Read/Write Speed")
+        self.auto_diagnostic.addDiagnosticItem("network", "Network Connectivity")
+        self.auto_diagnostic.addDiagnosticItem("battery_health", "Battery Health Check")
+        self.auto_diagnostic.addDiagnosticItem("touch_panel", "Touch Panel Calibration")
+        self.auto_diagnostic.addDiagnosticItem("display_color", "Display Color Accuracy")
+        self.auto_diagnostic.addDiagnosticItem("audio_system", "Audio System Check")
+        
+        # Connect auto diagnostic signals
+        self.auto_diagnostic.run_all_tests.connect(self._on_run_all_diagnostics)
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -718,3 +752,36 @@ class MainWindowController(QObject):
         # if there is a TestManager, handle the test container buttons
         if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
             self.test_manager.set_test_buttons_enabled(enabled)
+
+    def _on_run_all_diagnostics(self):
+        """Handle the event of running all diagnostics"""
+        self.log_manager.add_log_entry("INFO", "Starting all diagnostic tests...")
+        
+        # Reset all diagnostic items
+        self.auto_diagnostic.resetAllItems()
+        
+        # Here should be the actual implementation of running tests
+        # In a real application, this might involve calling system services or sending commands to the device
+        # For demonstration, we'll use a timer to simulate test results
+        
+        # Example data, should be replaced with actual test results
+        results = [
+            ("cpu_performance", "PASS", "15.45s"),
+            ("memory_integrity", "PASS", "03:02:32"),
+            ("storage_speed", "WARNING", "32.54s"),
+            ("network", "PASS", "03.21s"),
+            ("battery_health", "PASS", "4.38s"),
+            ("touch_panel", "FAIL", "12:33:52"),
+            ("display_color", "PENDING", ""),
+            ("audio_system", "PENDING", "")
+        ]
+        
+        # Use a timer to simulate test completion
+        import random
+        for i, (test_id, status, time_value) in enumerate(results):
+            QTimer.singleShot(500 + i*300, lambda tid=test_id, st=status, tv=time_value: 
+                              self.auto_diagnostic.updateItemStatus(tid, st, tv))
+        
+        # Add to logs
+        QTimer.singleShot(2500, lambda: 
+                         self.log_manager.add_log_entry("INFO", "Diagnostic tests completed"))
