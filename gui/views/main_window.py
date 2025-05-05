@@ -403,7 +403,8 @@ class MainWindowController(QObject):
             test_container,
             self.window.button_test_all,
             self.window.tableWidget_hardware_test_steps,
-            self.window.progressBar_hardware_test
+            self.window.progressBar_hardware_test,
+            self.window  # Add parent_widget as the parent of the dialog
         )
         
         # Hide the progress bar by default

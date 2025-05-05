@@ -6,7 +6,8 @@ from typing import Dict, List, Any, Optional
 import datetime
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 from PySide6.QtWidgets import (
-    QLabel, QPushButton, QProgressBar, QTableWidget, QTableWidgetItem
+    QLabel, QPushButton, QProgressBar, QTableWidget, QTableWidgetItem,
+    QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QDialogButtonBox
 )
 from PySide6.QtGui import QColor
 
@@ -53,6 +54,9 @@ class TestManagerView(QObject):
         self.current_test_index = -1
         self.is_test_all_running = False
         
+        # Parent widget reference for dialogs
+        self.parent_widget = None
+        
         # connect signals
         self._connect_signals()
         
@@ -66,9 +70,13 @@ class TestManagerView(QObject):
         self.hw_test_manager.test_step_completed.connect(self._on_test_step_completed)
         self.hw_test_manager.test_step_retrying.connect(self._on_test_step_retrying)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
+        
+        # Connect new interaction signals
+        self.hw_test_manager.test_pre_condition_required.connect(self._on_test_pre_condition_required)
+        self.hw_test_manager.test_post_check_required.connect(self._on_test_post_check_required)
     
     def set_ui_components(self, test_container: TestContainer, test_all_button: QPushButton,
-                           result_table: QTableWidget, progress_bar: QProgressBar):
+                          result_table: QTableWidget, progress_bar: QProgressBar, parent_widget=None):
         """
         Set UI components references
         
@@ -77,11 +85,13 @@ class TestManagerView(QObject):
             test_all_button: "Test All" button
             result_table: Table widget for displaying test steps
             progress_bar: Progress bar for displaying test progress
+            parent_widget: Parent widget for dialogs
         """
         self.test_container = test_container
         self.test_all_button = test_all_button
         self.result_table = result_table
         self.progress_bar = progress_bar
+        self.parent_widget = parent_widget
         
         # Connect test container signals
         self.test_container.test_selected.connect(self.start_test)
@@ -396,4 +406,144 @@ class TestManagerView(QObject):
             
         # Enable or disable "Test All" button
         if self.test_all_button:
-            self.test_all_button.setEnabled(enabled) 
+            self.test_all_button.setEnabled(enabled)
+    
+    @Slot(str, int, str)
+    def _on_test_pre_condition_required(self, test_id: str, step_index: int, pre_condition: str):
+        """
+        Handle test pre-condition required event
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            pre_condition: Pre-condition instructions
+        """
+        logger.debug(f"Pre-condition required for test {test_id}, step {step_index}: {pre_condition}")
+        
+        if not self.parent_widget:
+            # No parent widget to show dialog, continue automatically
+            self.hw_test_manager.handle_pre_condition_response(test_id, step_index, True)
+            return
+            
+        # Create and show pre-condition dialog
+        msg_box = QMessageBox(self.parent_widget)
+        msg_box.setWindowTitle("Pre-condition required")
+        msg_box.setText(f"Step {step_index + 1} preparation:")
+        msg_box.setInformativeText(pre_condition)
+        msg_box.setIcon(QMessageBox.Information)
+        
+        # Set the dark style sheet
+        msg_box.setStyleSheet(self._get_dark_style_sheet())
+        
+        # Add custom buttons
+        confirm_button = msg_box.addButton("Confirm and continue", QMessageBox.AcceptRole)
+        skip_button = msg_box.addButton("Skip", QMessageBox.RejectRole)
+        cancel_button = msg_box.addButton("Cancel", QMessageBox.DestructiveRole)
+        
+        # Make buttons larger for easier clicking
+        confirm_button.setMinimumSize(150, 30)
+        skip_button.setMinimumSize(100, 30)
+        cancel_button.setMinimumSize(100, 30)
+        
+        # 设置固定宽度
+        msg_box.setMinimumWidth(450)
+        
+        # 调整消息框中文本标签的宽度
+        for label in msg_box.findChildren(QLabel):
+            if label.text() == pre_condition:
+                # 设置文本标签的宽度，并开启自动换行
+                label.setMinimumWidth(350)
+                label.setWordWrap(True)
+        
+        # Show dialog
+        msg_box.exec()
+        
+        # Handle response
+        clicked_button = msg_box.clickedButton()
+        if clicked_button == confirm_button:
+            self.hw_test_manager.handle_pre_condition_response(test_id, step_index, True)
+        elif clicked_button == skip_button:
+            self.hw_test_manager.handle_pre_condition_response(test_id, step_index, False)
+        else:  # cancel_button or dialog closed
+            self.hw_test_manager.handle_pre_condition_cancel(test_id, step_index)
+    
+    @Slot(str, int, str)
+    def _on_test_post_check_required(self, test_id: str, step_index: int, post_check: str):
+        """
+        Handle test post-check required event
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            post_check: Post-check instructions
+        """
+        logger.debug(f"Post-check required for test {test_id}, step {step_index}: {post_check}")
+        
+        if not self.parent_widget:
+            # No parent widget to show dialog, continue automatically
+            self.hw_test_manager.handle_post_check_response(test_id, step_index, True)
+            return
+            
+        # Create and show post-check dialog
+        msg_box = QMessageBox(self.parent_widget)
+        msg_box.setWindowTitle("Result confirmation")
+        msg_box.setText(f"Step {step_index + 1} verification:")
+        msg_box.setInformativeText(post_check)
+        msg_box.setIcon(QMessageBox.Question)
+        
+        # Set the dark style sheet with wider dimensions
+        style_sheet = self._get_dark_style_sheet()
+        msg_box.setStyleSheet(style_sheet)
+        
+        # Add custom buttons
+        pass_button = msg_box.addButton("Pass", QMessageBox.AcceptRole)
+        fail_button = msg_box.addButton("Fail", QMessageBox.RejectRole)
+        
+        # Make buttons larger for easier clicking
+        pass_button.setMinimumSize(100, 30)
+        fail_button.setMinimumSize(100, 30)
+        
+        # Set fixed width
+        msg_box.setMinimumWidth(450)
+        
+        # Adjust the width of the text label in the message box
+        for label in msg_box.findChildren(QLabel):
+            if label.text() == post_check:
+                # Set the width of the text label and enable word wrap
+                label.setMinimumWidth(350)
+                label.setWordWrap(True)
+        
+        # Show dialog
+        msg_box.exec()
+        
+        # Handle response
+        clicked_button = msg_box.clickedButton()
+        self.hw_test_manager.handle_post_check_response(
+            test_id, step_index, clicked_button == pass_button)
+
+    def _get_dark_style_sheet(self):
+        """Return the dark style sheet"""
+        return """
+            QMessageBox {
+                background-color: #2E2E2E;
+                color: white;
+                min-width: 400px;
+            }
+            QLabel {
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+        """ 

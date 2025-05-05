@@ -28,54 +28,56 @@ class AudioTestWorker(BaseTestWorker):
                 expected_response="sgtl5000audio", 
                 timeout=5, 
                 description="Check speaker device",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             ),
             TestStep(
                 command="arecord -l", 
                 expected_response="sgtl5000audio", 
                 timeout=10, 
                 description="Check microphone device",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                max_retries=3,
+                retry_delay=1000
             ),
             TestStep(
                 command="ls /unit_tests/audio8k16S.wav", 
                 expected_response="audio8k16S.wav",
                 timeout=10, 
                 description="Check audio8k16S.wav exists",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="amixer -c 0 set PCM 100%", 
                 timeout=10, 
                 description="Set speaker volume to 100%",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10", 
                 validation_func=self._validate_microphone_record,
                 timeout=10, 
-                description="Record from microphone",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                description="Play audio from speaker and record from microphone",
+                post_check="Is the audio played from the speaker?",
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="aplay mic.wav", 
                 validation_func=self._validate_speaker_playback,
                 timeout=10, 
-                description="Playback from speaker",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                description="Play the recorded audio from the speaker",
+                post_check="Is the audio played from the speaker?",
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="rm -f mic.wav",
                 timeout=10, 
                 description="Remove microphone recording",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             )
         ]
     

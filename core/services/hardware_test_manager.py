@@ -21,6 +21,10 @@ class HardwareTestManagerService(QObject):
     test_step_retrying = Signal(str, int, int, int, str)  # test_id, step_index, retry_count, max_retries, error
     test_progress = Signal(str, int, int)  # test_id, current_step, total_steps
     
+    # New signals for user interaction
+    test_pre_condition_required = Signal(str, int, str)  # test_id, step_index, pre_condition
+    test_post_check_required = Signal(str, int, str)  # test_id, step_index, post_check
+    
     def __init__(self, device_worker):
         """
         Initialize hardware test manager
@@ -110,6 +114,16 @@ class HardwareTestManagerService(QObject):
         worker.test_completed.connect(
             lambda success, message: 
                 self._handle_test_completion(test_id, success, message)
+        )
+        
+        # Connect new user interaction signals
+        worker.pre_condition_required.connect(
+            lambda step_index, pre_condition:
+                self.test_pre_condition_required.emit(test_id, step_index, pre_condition)
+        )
+        worker.post_check_required.connect(
+            lambda step_index, post_check:
+                self.test_post_check_required.emit(test_id, step_index, post_check)
         )
         
         # Save worker class for later use
@@ -226,6 +240,8 @@ class HardwareTestManagerService(QObject):
                 self.test_step_completed.disconnect()
                 self.test_step_retrying.disconnect()
                 self.test_progress.disconnect()
+                self.test_pre_condition_required.disconnect()
+                self.test_post_check_required.disconnect()
             except Exception:
                 # Signals may already be disconnected, ignore errors
                 pass
@@ -251,3 +267,41 @@ class HardwareTestManagerService(QObject):
         except Exception:
             # Avoid throwing exceptions in the destructor
             pass 
+
+    @Slot(str, int, bool)
+    def handle_pre_condition_response(self, test_id: str, step_index: int, should_continue: bool):
+        """
+        Handle user response to pre-condition
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            should_continue: True if continue with step, False if skip
+        """
+        if self.active_test_id == test_id and self.active_test_worker:
+            self.active_test_worker.handle_pre_condition_response(should_continue)
+    
+    @Slot(str, int)
+    def handle_pre_condition_cancel(self, test_id: str, step_index: int):
+        """
+        Handle user cancellation of the test during pre-condition
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+        """
+        if self.active_test_id == test_id and self.active_test_worker:
+            self.active_test_worker.handle_pre_condition_cancel()
+    
+    @Slot(str, int, bool)
+    def handle_post_check_response(self, test_id: str, step_index: int, is_passed: bool):
+        """
+        Handle user response to post-check verification
+        
+        Args:
+            test_id: Test ID
+            step_index: Step index
+            is_passed: True if user judges the step passed, False if failed
+        """
+        if self.active_test_id == test_id and self.active_test_worker:
+            self.active_test_worker.handle_post_check_response(is_passed) 
