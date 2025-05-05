@@ -228,9 +228,14 @@ class AutoDiagnosticView(QObject):
         try:
             # start the test
             self.hw_test_manager.start_test(self.device_id, test_id)
+            
             # record the start time
             start_time = datetime.datetime.now()
             self.diagnostic_results[test_id]["start_time"] = start_time
+            
+            # ensure we scroll to the current test item
+            self.diagnostic_container.scroll_to_item(test_id)
+            
             logger.info(f"Test {test_id} execution started")
         except Exception as e:
             logger.error(f"Error executing test {test_id}: {str(e)}")
@@ -256,6 +261,9 @@ class AutoDiagnosticView(QObject):
         """
         # update the UI status
         self.diagnostic_container.update_item_status(test_id, "PENDING")
+        
+        # scroll to the test item being executed
+        self.diagnostic_container.scroll_to_item(test_id)
         
         logger.info(f"Diagnostic test started: {test_id}")
     
@@ -322,6 +330,9 @@ class AutoDiagnosticView(QObject):
         # update the UI status
         self.diagnostic_container.update_item_status(test_id, status, time_str)
         
+        # scroll to the completed test item to show its final status
+        self.diagnostic_container.scroll_to_item(test_id)
+        
         # record the test completion
         if success:
             logger.info(f"Diagnostic test {test_id} completed: PASS ({time_str})")
@@ -332,6 +343,11 @@ class AutoDiagnosticView(QObject):
         if hasattr(self, 'pending_tests') and self.pending_tests:
             # start the next test (with a short delay to ensure the system state is stable)
             next_test = self.pending_tests.pop(0)
+            
+            # scroll to the next test with a slight delay to let the user see the current result first
+            QTimer.singleShot(300, lambda: self.diagnostic_container.scroll_to_item(next_test))
+            
+            # start the next test with a short delay
             QTimer.singleShot(500, lambda: self._start_test(next_test))
         else:
             # check if all the tests are completed

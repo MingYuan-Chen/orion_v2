@@ -4,7 +4,7 @@ Provides a container for diagnostic item widgets with scrolling capability
 """
 
 from PySide6.QtWidgets import QWidget, QScrollArea, QVBoxLayout, QFrame
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 
 from gui.widgets.diagnostic_item_widget import DiagnosticItemWidget
 
@@ -140,4 +140,18 @@ class DiagnosticContainer(QScrollArea):
         Args:
             height: the height value
         """
-        self.setFixedHeight(height) 
+        self.setFixedHeight(height)
+    
+    def scroll_to_item(self, test_id):
+        """
+        Scroll to the specific diagnostic item
+        
+        Args:
+            test_id: the test id to scroll to
+        """
+        if test_id in self.diagnostic_items:
+            # Get the widget
+            item = self.diagnostic_items[test_id]
+            
+            # Scroll to the item's position
+            self.ensureWidgetVisible(item, 0, 5) 
