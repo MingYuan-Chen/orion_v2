@@ -173,7 +173,9 @@ class AutoDiagnosticView(QObject):
             self.diagnostic_results[test_id] = {
                 "status": "PENDING",
                 "time": "--:--:--",
-                "details": {}
+                "details": {
+                    "message": ""
+                }
             }
             
         # record all the diagnostic items
@@ -296,7 +298,26 @@ class AutoDiagnosticView(QObject):
         status = "PASS" if success else "FAIL"
         self.diagnostic_results[test_id]["status"] = status
         self.diagnostic_results[test_id]["time"] = time_str
-        self.diagnostic_results[test_id]["message"] = message
+        self.diagnostic_results[test_id]["details"]["message"] = message
+        
+        # try to collect the detailed test results
+        try:
+            if test_id in self.hw_test_manager.test_workers:
+                test_worker = self.hw_test_manager.test_workers[test_id]
+                # store the detailed test results
+                if hasattr(test_worker, 'steps') and test_worker.steps:
+                    steps_results = []
+                    for i, step in enumerate(test_worker.steps):
+                        step_result = {
+                            "description": step.description,
+                            "command": step.command,
+                            "passed": step.passed,
+                            "result": step.result
+                        }
+                        steps_results.append(step_result)
+                    self.diagnostic_results[test_id]["details"]["steps"] = steps_results
+        except Exception as e:
+            logger.warning(f"Failed to collect detailed test results for {test_id}: {e}")
         
         # update the UI status
         self.diagnostic_container.update_item_status(test_id, status, time_str)

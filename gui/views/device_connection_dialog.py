@@ -40,6 +40,9 @@ class DeviceConnectionDialog(QDialog):
         
         # Set initial state - show Serial page
         self._on_connection_type_changed(0)
+        
+        # Apply dark theme
+        self._apply_dark_theme()
     
     def _load_ui_direct(self):
         """Load UI with a more direct approach"""
@@ -381,6 +384,100 @@ class DeviceConnectionDialog(QDialog):
             
             # Show error dialog
             QMessageBox.critical(self, "Connection Error", message)
+
+    def _get_dark_style_sheet(self):
+        """Return the dark style sheet"""
+        return """
+            QDialog, QWidget {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit, QComboBox, QTextEdit, QPlainTextEdit, QSpinBox {
+                background-color: #3E3E3E;
+                color: #FFFFFF;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 5px;
+                selection-background-color: #0078D7;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #3E3E3E;
+                color: white;
+                selection-background-color: #0078D7;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+            QPushButton:disabled {
+                background-color: #555555;
+                color: #999999;
+            }
+            QGroupBox {
+                border: 1px solid #555555;
+                border-radius: 3px;
+                margin-top: 10px;
+                font-weight: bold;
+                color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #555555;
+                background-color: #2E2E2E;
+            }
+            QTabBar::tab {
+                background-color: #252525;
+                color: white;
+                padding: 6px 12px;
+                border: 1px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 3px;
+                border-top-right-radius: 3px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3E3E3E;
+            }
+            QTabBar::tab:hover {
+                background-color: #353535;
+            }
+            QComboBox::drop-down {
+                border: 0px;
+            }
+            QComboBox::down-arrow {
+                image: url(down_arrow.png);
+                width: 12px;
+                height: 12px;
+            }
+            QStackedWidget {
+                background-color: #2E2E2E;
+            }
+        """
+    
+    def _apply_dark_theme(self):
+        """Apply dark theme to the dialog"""
+        # Set stylesheet
+        self.setStyleSheet(self._get_dark_style_sheet())
+        
+        # Set window background
+        self.setAutoFillBackground(True)
+        self.ui_widget.setAutoFillBackground(True)
 
 
 # Allow direct testing of this dialog

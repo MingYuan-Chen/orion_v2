@@ -50,7 +50,7 @@ class TestManagerView(QObject):
         self.test_progress_records = {}  # store test progress records
         
         # test sequence related
-        self.test_sequence = ["usb_ports", "emmc", "eeprom", "battery", "backlight", "led", "audio", "lcd"]
+        self.test_sequence = ["audio", "backlight", "battery", "eeprom", "emmc", "lcd", "led", "usb_ports"]
         self.current_test_index = -1
         self.is_test_all_running = False
         
@@ -445,13 +445,13 @@ class TestManagerView(QObject):
         skip_button.setMinimumSize(100, 30)
         cancel_button.setMinimumSize(100, 30)
         
-        # 设置固定宽度
+        # Set minimum width
         msg_box.setMinimumWidth(450)
         
-        # 调整消息框中文本标签的宽度
+        # Adjust the width of the text label in the message box
         for label in msg_box.findChildren(QLabel):
             if label.text() == pre_condition:
-                # 设置文本标签的宽度，并开启自动换行
+                # Set the width of the text label and enable word wrap
                 label.setMinimumWidth(350)
                 label.setWordWrap(True)
         

@@ -76,8 +76,16 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_memory_size", DiagnosticMemorySizeWorker, continue_on_failure=True)
         from core.tests.diagnostic_nor_flash_size_worker import DiagnosticNorFlashSizeWorker
         self._register_worker("diagnostic_nor_flash_size", DiagnosticNorFlashSizeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_nor_flash_erase_size_worker import DiagnosticNorFlashEraseSizeWorker
-        self._register_worker("diagnostic_nor_flash_erase_size", DiagnosticNorFlashEraseSizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_pic_version_worker import DiagnosticPicVersionWorker
+        self._register_worker("diagnostic_pic_version", DiagnosticPicVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic_sync_time_worker import DiagnosticSyncTimeWorker
+        self._register_worker("diagnostic_sync_time", DiagnosticSyncTimeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_set_get_rtc_time_worker import DiagnosticSetGetRtcTimeWorker
+        self._register_worker("diagnostic_set_get_rtc_time", DiagnosticSetGetRtcTimeWorker, continue_on_failure=True)
+        from core.tests.diagnostic_design_capacity_worker import DiagnosticDesignCapacityWorker
+        self._register_worker("diagnostic_design_capacity", DiagnosticDesignCapacityWorker, continue_on_failure=True)
+        from core.tests.diagnostic_design_voltage_worker import DiagnosticDesignVoltageWorker
+        self._register_worker("diagnostic_design_voltage", DiagnosticDesignVoltageWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)

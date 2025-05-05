@@ -382,14 +382,15 @@ class MainWindowController(QObject):
         test_container = TestContainer()
         
         # Create test modules in the container
-        test_container.add_test_group("usb_ports", "USB Ports Test")
-        test_container.add_test_group("emmc", "eMMC Test")
-        test_container.add_test_group("eeprom", "EEPROM Test")
-        test_container.add_test_group("battery", "Battery Test")
-        test_container.add_test_group("backlight", "Backlight Test")
-        test_container.add_test_group("led", "LED Test")
         test_container.add_test_group("audio", "Audio Test")
+        test_container.add_test_group("backlight", "Backlight Test")
+        test_container.add_test_group("battery", "Battery Test")
+        test_container.add_test_group("eeprom", "EEPROM Test")
+        test_container.add_test_group("emmc", "eMMC Test")
         test_container.add_test_group("lcd", "LCD Test")
+        test_container.add_test_group("led", "LED Test")
+        test_container.add_test_group("usb_ports", "USB Ports Test")
+        
         # Get functionality test page layout
         tab_functionality = self.window.tab_functionality
         layout = tab_functionality.layout()
@@ -781,7 +782,11 @@ class MainWindowController(QObject):
             "diagnostic_mac_address": "Check MAC Address",
             "diagnostic_memory_size": "Check Memory Size",
             "diagnostic_nor_flash_size": "Check NOR Flash Size",
-            "diagnostic_nor_flash_erase_size": "Check NOR Flash Erase Size",
+            "diagnostic_pic_version": "Check PIC Version",
+            "diagnostic_sync_time": "Check Sync Time",
+            "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
+            "diagnostic_design_capacity": "Check Design Capacity",
+            "diagnostic_design_voltage": "Check Design Voltage",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
@@ -824,12 +829,30 @@ class MainWindowController(QObject):
                 
                 # write the test results
                 for test_id, result in results.items():
+                    # get the message from the details dictionary
+                    details = result.get("details", {})
+                    message = details.get("message", "") if isinstance(details, dict) else ""
+                    
                     writer.writerow([
                         test_id,
                         result.get("status", "UNKNOWN"),
                         result.get("time", "--:--:--"),
-                        result.get("message", "")
+                        message
                     ])
+                    
+                    # if there is detailed step information, add it to the report
+                    if isinstance(details, dict) and "steps" in details:
+                        writer.writerow(["", "Step", "Command", "Result", "Status"])
+                        for step in details["steps"]:
+                            writer.writerow([
+                                "",
+                                step.get("description", ""),
+                                step.get("command", ""),
+                                str(step.get("result", "")),
+                                "Pass" if step.get("passed", False) else "Fail"
+                            ])
+                        # add a blank line to separate different tests
+                        writer.writerow([])
             
             self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
         except Exception as e:
