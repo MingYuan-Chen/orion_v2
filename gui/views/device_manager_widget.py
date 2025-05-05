@@ -53,6 +53,9 @@ class DeviceManagerWidget(QWidget):
         # Ensure this window is recognized as part of the main application
         self._set_window_properties()
         
+        # Apply dark theme
+        self._apply_dark_theme()
+        
         # Connect application quit signal
         app = QApplication.instance()
         if app:
@@ -555,6 +558,135 @@ class DeviceManagerWidget(QWidget):
                 logger.debug("Main window properties set successfully")
         except Exception as e:
             logger.warning(f"Error setting main window properties: {e}")
+
+    def _get_dark_style_sheet(self):
+        """Return the dark style sheet"""
+        return """
+            QWidget {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit, QComboBox, QTextEdit, QPlainTextEdit, QSpinBox {
+                background-color: #3E3E3E;
+                color: #FFFFFF;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 5px;
+                selection-background-color: #0078D7;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #3E3E3E;
+                color: white;
+                selection-background-color: #0078D7;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+            QPushButton:disabled {
+                background-color: #555555;
+                color: #999999;
+            }
+            QTableWidget {
+                background-color: #232323;
+                alternate-background-color: #303030;
+                color: white;
+                gridline-color: #555555;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                selection-background-color: #0078D7;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+            QHeaderView::section {
+                background-color: #202020;
+                color: white;
+                padding: 5px;
+                border: 1px solid #555555;
+            }
+            QGroupBox {
+                border: 1px solid #555555;
+                border-radius: 3px;
+                margin-top: 10px;
+                font-weight: bold;
+                color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #555555;
+                background-color: #2E2E2E;
+            }
+            QTabBar::tab {
+                background-color: #252525;
+                color: white;
+                padding: 6px 12px;
+                border: 1px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 3px;
+                border-top-right-radius: 3px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3E3E3E;
+            }
+            QTabBar::tab:hover {
+                background-color: #353535;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background-color: #2E2E2E;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #555555;
+                min-height: 30px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #777777;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background-color: #2E2E2E;
+                height: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #555555;
+                min-width: 30px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #777777;
+            }
+        """
+    
+    def _apply_dark_theme(self):
+        """Apply dark theme to the widget"""
+        # Set stylesheet
+        self.setStyleSheet(self._get_dark_style_sheet())
+        
+        # Set window background
+        self.setAutoFillBackground(True)
+        self.ui_widget.setAutoFillBackground(True)
 
 
 # If this file is run directly, create an application and display the window

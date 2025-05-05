@@ -33,6 +33,9 @@ class LoginDialog(QDialog):
         # Setup connections
         self._setup_connections()
         
+        # Apply dark theme
+        self._apply_dark_theme()
+        
     def _load_ui_direct(self):
         """Load UI with a more direct approach"""
         try:
@@ -178,6 +181,65 @@ class LoginDialog(QDialog):
                 self._on_login_clicked()
         else:
             super().keyPressEvent(event)
+
+    def _get_dark_style_sheet(self):
+        """Return the dark style sheet"""
+        return """
+            QDialog, QWidget {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit {
+                background-color: #3E3E3E;
+                color: #FFFFFF;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 5px;
+                selection-background-color: #0078D7;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+            QPushButton:disabled {
+                background-color: #555555;
+                color: #999999;
+            }
+            QGroupBox {
+                border: 1px solid #555555;
+                border-radius: 3px;
+                margin-top: 10px;
+                font-weight: bold;
+                color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """
+    
+    def _apply_dark_theme(self):
+        """Apply dark theme to the dialog"""
+        # Set stylesheet
+        self.setStyleSheet(self._get_dark_style_sheet())
+        
+        # Set window background
+        self.setAutoFillBackground(True)
+        self.ui_widget.setAutoFillBackground(True)
 
 
 # Test code

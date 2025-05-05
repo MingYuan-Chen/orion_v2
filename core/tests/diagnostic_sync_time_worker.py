@@ -1,0 +1,45 @@
+"""
+Diagnostic sync time test worker module
+Implement diagnostic sync time test for device
+"""
+from typing import List, Tuple
+import logging
+from core.tests.base_test_worker import BaseTestWorker, TestStep
+
+# Get logger
+logger = logging.getLogger(__name__)
+
+class DiagnosticSyncTimeWorker(BaseTestWorker):
+    """Diagnostic sync time worker, implement diagnostic sync time test for device"""
+    
+    def __init__(self, device_worker, continue_on_failure=True):
+        super().__init__(device_worker, continue_on_failure)
+    
+    def prepare_test_steps(self) -> List[TestStep]:
+        """
+        Prepare diagnostic sync time test steps
+        
+        Returns:
+            diagnostic sync time test steps list
+        """
+        return [
+            TestStep(
+                command="sudo ntpdate -u time.stdtime.gov.tw", 
+                validation_func=self._validate_sync_time,
+                timeout=5, 
+                description="Check Sync Time",
+                max_retries=1,
+                retry_delay=500
+            )
+        ]
+    
+    def _validate_sync_time(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate sync time
+        """
+        if "error" in response.lower():
+            return False, "Failed to sync time"
+        
+        synced_time = response.split(" ntpdate")[0].split("\n")[1]
+        return True, f"Synced time: {synced_time}"
+

@@ -47,6 +47,7 @@ class BatteryTestWorker(BaseTestWorker):
                 validation_func=self._validate_dc_status,
                 timeout=5, 
                 description="Validate dc status",
+                pre_condition="Ensure the DUT is plugged in and the ambient temperature is at room level.",
                 max_retries=1,
                 retry_delay=500
                 
