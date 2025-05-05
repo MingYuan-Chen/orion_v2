@@ -787,6 +787,7 @@ class MainWindowController(QObject):
             "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
             "diagnostic_design_capacity": "Check Design Capacity",
             "diagnostic_design_voltage": "Check Design Voltage",
+            "diagnostic_uboot_version": "Check U-Boot Version",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
@@ -825,34 +826,41 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Test Name", "Status", "Time", "Details"])
+                writer.writerow(["Test Name", "Status", "Time", "Step", "Command", "Result"])
                 
                 # write the test results
                 for test_id, result in results.items():
-                    # get the message from the details dictionary
+                    # get the status and time information
+                    status = result.get("status", "UNKNOWN")
+                    time_str = result.get("time", "--:--:--")
+                    
+                    # get the details data
                     details = result.get("details", {})
-                    message = details.get("message", "") if isinstance(details, dict) else ""
                     
-                    writer.writerow([
-                        test_id,
-                        result.get("status", "UNKNOWN"),
-                        result.get("time", "--:--:--"),
-                        message
-                    ])
-                    
-                    # if there is detailed step information, add it to the report
-                    if isinstance(details, dict) and "steps" in details:
-                        writer.writerow(["", "Step", "Command", "Result", "Status"])
+                    # check if there is step information
+                    if isinstance(details, dict) and "steps" in details and details["steps"]:
+                        # if there is detailed step information, create a row for each step
                         for step in details["steps"]:
                             writer.writerow([
-                                "",
+                                test_id,
+                                status,
+                                time_str,
                                 step.get("description", ""),
                                 step.get("command", ""),
-                                str(step.get("result", "")),
-                                "Pass" if step.get("passed", False) else "Fail"
+                                str(step.get("result", ""))
                             ])
-                        # add a blank line to separate different tests
-                        writer.writerow([])
+                    else:
+                        # if there is no detailed step information, create a row for the basic information
+                        # get the basic message
+                        message = details.get("message", "") if isinstance(details, dict) else ""
+                        writer.writerow([
+                            test_id,
+                            status,
+                            time_str,
+                            "",  # empty Step
+                            "",  # empty Command
+                            message  # use message as Result
+                        ])
             
             self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
         except Exception as e:
