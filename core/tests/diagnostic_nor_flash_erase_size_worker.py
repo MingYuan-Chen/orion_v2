@@ -28,8 +28,8 @@ class DiagnosticNorFlashEraseSizeWorker(BaseTestWorker):
                 expected_response="00020000", # 128KB
                 timeout=5, 
                 description="Check NOR flash erase size",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             )
         ]
 

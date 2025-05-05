@@ -71,7 +71,7 @@ class AudioTestWorker(BaseTestWorker):
                 post_check="Is the audio played from the speaker?",
                 max_retries=2,
                 retry_delay=1500
-            ),
+            ), 
             TestStep(
                 command="rm -f mic.wav",
                 timeout=10, 

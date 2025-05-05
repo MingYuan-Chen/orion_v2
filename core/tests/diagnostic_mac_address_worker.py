@@ -28,8 +28,8 @@ class DiagnosticMacAddressWorker(BaseTestWorker):
                 expected_response="5a:31:e7:6b:68:2a",
                 timeout=5, 
                 description="Check mac address",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             )
         ]
 
