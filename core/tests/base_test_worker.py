@@ -13,7 +13,8 @@ class TestStep:
     """Test step class, define a command and its expected result and validation method"""
     def __init__(self, command: str, expected_response=None, timeout=5, 
                  validation_func: Callable[[str], Tuple[bool, str]] = None, 
-                 description: str = "", max_retries: int = 2, retry_delay: int = 1000):
+                 description: str = "", max_retries: int = 2, retry_delay: int = 1000,
+                 pre_condition: str = "", post_check: str = ""):
         """
         Initialize test step
         
@@ -25,6 +26,8 @@ class TestStep:
             description: Step description
             max_retries: Maximum retry times
             retry_delay: Retry delay (milliseconds)
+            pre_condition: Preparation instructions displayed before step execution
+            post_check: Human verification instructions displayed after step execution
         """
         self.command = command
         self.expected_response = expected_response
@@ -39,6 +42,9 @@ class TestStep:
         self.retry_messages = []        # Retry error messages
         self.is_wait_step = False       # Whether this is a special wait step
         self.wait_time = 0              # Wait time in milliseconds
+        self.pre_condition = pre_condition  # Preparation instructions
+        self.post_check = post_check    # Human verification instructions
+        self.human_judgement = None     # Human judgement result (True/False/None)
 
 class BaseTestWorker(QObject):
     """Base test worker class, provide test execution framework and retry mechanism"""
@@ -48,6 +54,10 @@ class BaseTestWorker(QObject):
     test_step_retrying = Signal(int, int, int, str)  # step_index, retry_count, max_retries, error_message
     test_progress = Signal(int, int)  # current_step, total_steps
     test_completed = Signal(bool, str)  # success, message
+    
+    # New signals for user interaction
+    pre_condition_required = Signal(int, str)  # step_index, pre_condition
+    post_check_required = Signal(int, str)  # step_index, post_check
     
     def __init__(self, device_worker, continue_on_failure=True):
         """
@@ -78,6 +88,9 @@ class BaseTestWorker(QObject):
         
         # Save signal connection for later disconnection
         self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
+        
+        # Add pause state for user interaction
+        self.is_paused_for_interaction = False
     
     def set_continue_on_failure(self, value: bool):
         """
@@ -218,6 +231,18 @@ class BaseTestWorker(QObject):
         # Update progress
         self.test_progress.emit(self.current_step_index + 1, len(self.steps))
         
+        # Check if pre-condition exists, emit signal and pause for user confirmation
+        if step.pre_condition:
+            logger.debug(f"Step {self.current_step_index+1} requires pre-condition confirmation: {step.pre_condition}")
+            self.is_paused_for_interaction = True
+            self.pre_condition_required.emit(self.current_step_index, step.pre_condition)
+            return  # Wait for user response
+            
+        # Continue with normal step execution
+        self._execute_step(step)
+    
+    def _execute_step(self, step):
+        """Execute the given step"""
         # Check if this is a wait step
         if step.is_wait_step:
             logger.debug(f"Execute wait step {self.current_step_index+1}/{len(self.steps)}: {step.description} ({step.wait_time} ms)")
@@ -231,6 +256,65 @@ class BaseTestWorker(QObject):
         
         # Send command
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
+    
+    @Slot(bool)
+    def handle_pre_condition_response(self, should_continue: bool):
+        """
+        Handle user response to pre-condition
+        
+        Args:
+            should_continue: True if continue with step, False if skip
+        """
+        if self.is_paused_for_interaction and self.current_step_index >= 0:
+            self.is_paused_for_interaction = False
+            
+            if should_continue:
+                # Continue with step execution
+                logger.debug(f"User confirmed pre-condition for step {self.current_step_index+1}")
+                self._execute_step(self.steps[self.current_step_index])
+            else:
+                # Skip this step, mark as passed and move to next
+                logger.warning(f"User skipped step {self.current_step_index+1}")
+                step = self.steps[self.current_step_index]
+                step.passed = True
+                self.test_step_completed.emit(self.current_step_index, True, "Step skipped by user")
+                self._execute_next_step()
+    
+    @Slot()
+    def handle_pre_condition_cancel(self):
+        """Handle user cancellation of the entire test from pre-condition dialog"""
+        if self.is_paused_for_interaction:
+            self.is_paused_for_interaction = False
+            logger.warning("User cancelled test during pre-condition confirmation")
+            self.test_completed.emit(False, "Test cancelled by user")
+            self._disconnect_signals()
+    
+    @Slot(bool)
+    def handle_post_check_response(self, is_passed: bool):
+        """
+        Handle user response to post-check verification
+        
+        Args:
+            is_passed: True if user judges the step passed, False if failed
+        """
+        if self.is_paused_for_interaction and self.current_step_index >= 0:
+            self.is_paused_for_interaction = False
+            
+            # Record human judgement
+            step = self.steps[self.current_step_index]
+            step.human_judgement = is_passed
+            
+            # Update step result based on human judgement
+            if not is_passed:
+                step.passed = False
+                if self.current_step_index not in self.failed_steps:
+                    self.failed_steps.append(self.current_step_index)
+                logger.warning(f"Step {self.current_step_index+1} failed based on human judgement")
+                self.test_step_completed.emit(
+                    self.current_step_index, False, "Step failed based on human judgement")
+            
+            # Continue to next step
+            self._execute_next_step()
     
     def _wait_completed(self):
         """Handle wait step completion"""
@@ -280,7 +364,6 @@ class BaseTestWorker(QObject):
         # Resend command
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
     
-    @Slot(str, str, str)
     def _on_command_result(self, device_id: str, command: str, response: str):
         """
         Process command execution result
@@ -359,6 +442,17 @@ class BaseTestWorker(QObject):
             
             # Final failure, add retry count
             message = f"{message} (Retried {step.retry_count} times still failed)"
+        
+        # Check if post-check is required
+        if step.post_check:
+            logger.debug(f"Step {self.current_step_index+1} requires post-check verification: {step.post_check}")
+            # Only update UI but don't continue to next step yet
+            self.test_step_completed.emit(self.current_step_index, passed, message)
+            
+            # Pause for user verification
+            self.is_paused_for_interaction = True
+            self.post_check_required.emit(self.current_step_index, step.post_check)
+            return
         
         # Send step completed signal
         self.test_step_completed.emit(self.current_step_index, passed, message)

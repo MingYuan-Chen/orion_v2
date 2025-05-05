@@ -47,40 +47,41 @@ class BatteryTestWorker(BaseTestWorker):
                 validation_func=self._validate_dc_status,
                 timeout=5, 
                 description="Validate dc status",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
+                
             ),
             TestStep(
                 command=self.get_battery_state, 
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="Validate battery state",
-                max_retries=3,           # Maximum retries 3 times
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=3,
+                retry_delay=500
             ),
             TestStep(
                 command=self.get_temperature, 
                 validation_func=self._validate_temperature,
                 timeout=10, 
                 description="Validate battery temperature",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command=self.get_current, 
                 validation_func=self._validate_current,
                 timeout=10, 
                 description="Validate batterycurrent",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status,
                 timeout=10, 
                 description="Validate led status",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             )
         ]
     
