@@ -39,8 +39,9 @@ class BacklightTestWorker(BaseTestWorker):
                 expected_response="0", 
                 timeout=3, 
                 description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                post_check="Is the backlight brightness become to dark?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(1), 
@@ -51,9 +52,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="1", 
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 20%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(2), 
@@ -64,9 +66,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="2", 
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 30%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(3), 
@@ -77,9 +80,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="3", 
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 40%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(4), 
@@ -90,9 +94,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="4", 
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 50%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(5), 
@@ -103,9 +108,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="5", 
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 60%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(6), 
@@ -116,9 +122,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="6",
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 80%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_backlight_brightness(7), 
@@ -129,9 +136,10 @@ class BacklightTestWorker(BaseTestWorker):
                 command=self.get_backlight_brightness, 
                 expected_response="7",
                 timeout=3, 
-                description="Check backlight brightness",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                description="Check backlight brightness 100%",
+                post_check="Is the backlight brighter than before?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_screen_power(1), 
@@ -143,8 +151,9 @@ class BacklightTestWorker(BaseTestWorker):
                 expected_response="1", 
                 timeout=3, 
                 description="Check screen power",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                post_check="Is the screen power off?",
+                max_retries=1,
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_screen_power(0), 
@@ -156,7 +165,8 @@ class BacklightTestWorker(BaseTestWorker):
                 expected_response="0",
                 timeout=3, 
                 description="Check screen power",
-                max_retries=1,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                post_check="Is the screen power on?",
+                max_retries=1,
+                retry_delay=1000
             )
         ]

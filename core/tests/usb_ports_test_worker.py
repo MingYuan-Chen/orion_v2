@@ -28,40 +28,40 @@ class UsbPortsTestWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Write to usb_throughput",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             ),
             TestStep(
                 command="dd if=/run/media/sda1/usb_throughput of=/dev/null bs=1M", 
                 expected_response="copied", 
                 timeout=10, 
                 description="Read from usb_throughput",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                max_retries=3,
+                retry_delay=1000
             ),
             TestStep(
                 command="sudo umount /run/media/sda1", 
                 validation_func=self._validate_usb_unmount, 
                 timeout=10, 
                 description="Unmount sda1",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="sudo mount /dev/sda1 /run/media/sda1", 
                 expected_response="sda1", 
                 timeout=10, 
                 description="Mount sda1",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             ),
             TestStep(
                 command="mount | grep sda1", 
                 validation_func=self._validate_usb_mount,
                 timeout=10, 
                 description="Validate sda1 mounted",
-                max_retries=2,           # Speed test may be affected by transient factors
-                retry_delay=2000         # 2 seconds later retry
+                max_retries=2,
+                retry_delay=2000
             )
         ]
     

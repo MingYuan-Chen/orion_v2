@@ -44,9 +44,10 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_blue,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status blue",
+                post_check="Is the led status blue?",
+                max_retries=3,
+                retry_delay=5000
             ),
             TestStep(
                 command=self.set_led_status(f"{2:#04x}"),  
@@ -57,9 +58,10 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_green,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status green",
+                post_check="Is the led status green?",
+                max_retries=3,
+                retry_delay=5000
             ),
             TestStep(
                 command=self.set_led_status(f"{4:#04x}"),  
@@ -70,9 +72,10 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_red,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status red",
+                post_check="Is the led status red?",
+                max_retries=3,
+                retry_delay=5000
             ),
             TestStep(
                 command=self.set_led_status(f"{9:#04x}"),  
@@ -83,9 +86,10 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_blinking_blue,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status blinking blue",
+                post_check="Is the led status blinking blue?",
+                max_retries=3,
+                retry_delay=5000
             ),
             TestStep(
                 command=self.set_led_status(f"{10:#04x}"),  
@@ -96,9 +100,10 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_blinking_green,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status blinking green",
+                post_check="Is the led status blinking green?",
+                max_retries=3,
+                retry_delay=5000
             ),
             TestStep(
                 command=self.set_led_status(f"{12:#04x}"),  
@@ -109,9 +114,15 @@ class LedTestWorker(BaseTestWorker):
                 command=self.get_led_status, 
                 validation_func=self._validate_led_status_blinking_red,
                 timeout=5, 
-                description="Check led status",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=5000         # 1 second later retry
+                description="Check led status blinking red",
+                post_check="Is the led status blinking red?",
+                max_retries=3,
+                retry_delay=5000
+            ),
+            TestStep(
+                command=self.set_led_status(f"{0:#04x}"),  
+                timeout=5, 
+                description=f"Set led status to {self.LED_STATUS_MAP[0]}",
             )
         ]
     

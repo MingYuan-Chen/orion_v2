@@ -28,8 +28,8 @@ class EmmcTestWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Write to emmc_throughput",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             ),
             TestStep(
                 command="sync", 
@@ -41,16 +41,16 @@ class EmmcTestWorker(BaseTestWorker):
                 expected_response="drop_caches", 
                 timeout=10, 
                 description="Drop caches",
-                max_retries=3,           # Read operation may need multiple attempts
-                retry_delay=1000         # 1 second later retry
+                max_retries=3,
+                retry_delay=1000
             ),
             TestStep(
                 command="dd if=/emmc_througtput of=/dev/null bs=1M", 
                 expected_response="copied", 
                 timeout=10, 
                 description="Read from emmc_throughput",
-                max_retries=2,           # Maximum retries 2 times
-                retry_delay=1500         # 1.5 seconds later retry
+                max_retries=2,
+                retry_delay=1500
             )
         ]
 

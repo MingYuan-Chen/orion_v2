@@ -28,8 +28,8 @@ class DiagnosticCpuNameWorker(BaseTestWorker):
                 expected_response="i.MX6", 
                 timeout=5, 
                 description="Check CPU Name",
-                max_retries=1,           # Maximum retries 1 time
-                retry_delay=500          # 0.5 seconds later retry
+                max_retries=1,
+                retry_delay=500
             )
         ]
 
