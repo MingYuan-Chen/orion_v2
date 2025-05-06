@@ -88,6 +88,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_design_voltage", DiagnosticDesignVoltageWorker, continue_on_failure=True)
         from core.tests.diagnostic_uboot_version_worker import DiagnosticUbootVersionWorker
         self._register_worker("diagnostic_uboot_version", DiagnosticUbootVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic_kernal_name_worker import DiagnosticKernalNameWorker
+        self._register_worker("diagnostic_kernal_name", DiagnosticKernalNameWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)

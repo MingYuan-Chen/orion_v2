@@ -788,6 +788,7 @@ class MainWindowController(QObject):
             "diagnostic_design_capacity": "Check Design Capacity",
             "diagnostic_design_voltage": "Check Design Voltage",
             "diagnostic_uboot_version": "Check U-Boot Version",
+            "diagnostic_kernal_name": "Check Kernal Name",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
