@@ -3,11 +3,9 @@ Diagnostic nor flash size test worker module
 Implement diagnostic nor flash size test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class NorFlashSizeWorker(BaseTestWorker):
     """Diagnostic nor flash size worker, implement diagnostic nor flash size test for device"""

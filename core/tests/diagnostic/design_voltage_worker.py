@@ -3,11 +3,9 @@ Diagnostic design voltage test worker module
 Implement diagnostic design voltage test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class DesignVoltageWorker(BaseTestWorker):
     """Diagnostic design voltage worker, implement diagnostic design voltage test for device"""

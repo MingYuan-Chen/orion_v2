@@ -3,11 +3,9 @@ Diagnostic kernal name test worker module
 Implement diagnostic kernal name test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class KernalNameWorker(BaseTestWorker):
     """Diagnostic kernal name worker, implement diagnostic kernal name test for device"""

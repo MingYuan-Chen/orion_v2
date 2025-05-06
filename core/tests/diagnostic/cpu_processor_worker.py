@@ -3,11 +3,9 @@ Diagnostic cpu processor test worker module
 Implement diagnostic cpu processor test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class CpuProcessorWorker(BaseTestWorker):
     """Diagnostic cpu processor worker, implement diagnostic cpu processor test for device"""
