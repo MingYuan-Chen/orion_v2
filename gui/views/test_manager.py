@@ -14,6 +14,7 @@ from PySide6.QtGui import QColor
 from util.logger import logger
 from core.services.hardware_test_manager import HardwareTestManagerService
 from gui.widgets.test_container import TestContainer
+from gui.widgets.test_selection_widget import TestSelectionDialog
 
 
 class TestManagerView(QObject):
@@ -50,9 +51,10 @@ class TestManagerView(QObject):
         self.test_progress_records = {}  # store test progress records
         
         # test sequence related
-        self.test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery",
+        self.original_test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery",
                                "functionality_eeprom", "functionality_emmc", "functionality_lcd", "functionality_led",
                                "functionality_usb"]
+        self.test_sequence = self.original_test_sequence.copy()
         self.current_test_index = -1
         self.is_test_all_running = False
         
@@ -133,10 +135,29 @@ class TestManagerView(QObject):
         logger.info(f"Starting {test_id} test for device {self.device_id}")
     
     def start_test_all(self):
-        """Start executing all test modules in sequence"""
+        """Start executing selected test modules in sequence"""
         # if the test sequence is already running, ignore this call
         if self.is_test_all_running:
             return
+            
+        # create the test selection dialog - always use the original test sequence
+        test_mapping = {test_id: test_id.replace("functionality_", "").capitalize() for test_id in self.original_test_sequence}
+        dialog = TestSelectionDialog(test_mapping, self.parent_widget)
+        
+        # show the dialog and wait for user selection
+        if dialog.exec() != QDialog.Accepted:
+            logger.info("Test sequence selection cancelled")
+            return
+            
+        # get the user selected test sequence
+        selected_tests = dialog.get_selected_tests()
+        if not selected_tests:
+            logger.warning("No tests selected")
+            return
+            
+        # update the test sequence with the selected tests
+        self.test_sequence = selected_tests
+        logger.info(f"Selected tests: {', '.join(selected_tests)}")
             
         # clear the result of the previous test
         if self.result_table:
