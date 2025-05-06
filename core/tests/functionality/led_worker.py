@@ -1,16 +1,14 @@
 """
-LED test worker module
+LED worker module
 Implement led function test for device
 """
 from typing import List, Tuple, Any
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
-class LedTestWorker(BaseTestWorker):
-    """Led test worker, implement led function test for device"""
+class LedWorker(BaseTestWorker):
+    """Led worker, implement led function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

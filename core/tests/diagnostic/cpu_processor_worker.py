@@ -1,6 +1,6 @@
 """
-Diagnostic emmc size test worker module
-Implement diagnostic emmc size test for device
+Diagnostic cpu processor test worker module
+Implement diagnostic cpu processor test for device
 """
 from typing import List, Tuple
 import logging
@@ -9,25 +9,25 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class DiagnosticEmmcSizeWorker(BaseTestWorker):
-    """Diagnostic emmc size worker, implement diagnostic emmc size test for device"""
+class CpuProcessorWorker(BaseTestWorker):
+    """Diagnostic cpu processor worker, implement diagnostic cpu processor test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
-        Prepare diagnostic emmc size test steps
+        Prepare diagnostic cpu processor test steps
         
         Returns:
-            diagnostic emmc size test steps list
+            diagnostic cpu processor test steps list
         """
         return [
             TestStep(
-                command="cat /sys/block/mmcblk2/size", 
-                expected_response="244629504", # get sector size * 512 = expected bytes: 125250306048
+                command="grep -c ^processor /proc/cpuinfo", 
+                expected_response="4", 
                 timeout=5, 
-                description="Check emmc size",
+                description="Check CPU Processor",
                 max_retries=1,
                 retry_delay=500
             )

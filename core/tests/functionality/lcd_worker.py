@@ -1,16 +1,14 @@
 """
-LCD test worker module
+LCD worker module
 Implement LCD function test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
-class LcdTestWorker(BaseTestWorker):
-    """Lcd test worker, implement lcd function test for device"""
+class LcdWorker(BaseTestWorker):
+    """Lcd worker, implement lcd function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

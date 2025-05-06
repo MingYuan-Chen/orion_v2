@@ -1,16 +1,14 @@
 """
-Backlight test worker module
+Backlight worker module
 Implement backlight function test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
-class BacklightTestWorker(BaseTestWorker):
-    """Backlight test worker, implement backlight function test for device"""
+class BacklightWorker(BaseTestWorker):
+    """Backlight worker, implement backlight function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

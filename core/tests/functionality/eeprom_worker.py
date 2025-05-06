@@ -1,16 +1,14 @@
 """
-EEPROM test worker module
+EEPROM worker module
 Implement EEPROM function test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
-class EepromTestWorker(BaseTestWorker):
-    """EEPROM test worker, implement EEPROM function test for device"""
+class EepromWorker(BaseTestWorker):
+    """EEPROM worker, implement EEPROM function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

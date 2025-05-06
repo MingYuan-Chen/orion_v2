@@ -9,7 +9,7 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class DiagnosticDesignCapacityWorker(BaseTestWorker):
+class DesignCapacityWorker(BaseTestWorker):
     """Diagnostic design capacity worker, implement diagnostic design capacity test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
@@ -28,7 +28,7 @@ class DiagnosticDesignCapacityWorker(BaseTestWorker):
                 expected_response="0x0d 0x16",           # concatenate the two bytes as 0x0d16 then convert to decimal: 3350
                 timeout=5, 
                 description="Check Design Capacity",
-                max_retries=1,
+                max_retries=3,
                 retry_delay=500
             )
         ]

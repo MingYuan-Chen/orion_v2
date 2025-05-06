@@ -1,16 +1,13 @@
 """
-Battery test worker module
+Battery worker module
 Implement battery test for device
 """
 from typing import List, Tuple, Any
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
-
-class BatteryTestWorker(BaseTestWorker):
-    """Battery test worker, implement battery discharging test for device"""
+class BatteryWorker(BaseTestWorker):
+    """Battery worker, implement battery test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
@@ -36,10 +33,10 @@ class BatteryTestWorker(BaseTestWorker):
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
-        Prepare battery discharging test steps
+        Prepare battery test steps
         
         Returns:
-            discharging test steps list
+            battery test steps list
         """
         return [
             TestStep(

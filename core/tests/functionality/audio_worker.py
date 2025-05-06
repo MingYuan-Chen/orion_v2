@@ -1,16 +1,13 @@
 """
-Audio test worker module
+Audio worker module
 Implement audio function test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
-
-class AudioTestWorker(BaseTestWorker):
-    """Audio test worker, implement audio function test for device"""
+class AudioWorker(BaseTestWorker):
+    """Audio worker, implement audio function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

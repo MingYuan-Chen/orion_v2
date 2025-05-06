@@ -9,7 +9,7 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class DiagnosticPicVersionWorker(BaseTestWorker):
+class PicVersionWorker(BaseTestWorker):
     """Diagnostic pic version worker, implement diagnostic pic version test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
