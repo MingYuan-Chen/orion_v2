@@ -3,11 +3,9 @@ Diagnostic set and get rtc time test worker module
 Implement diagnostic set and get rtc time test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class SetGetRtcTimeWorker(BaseTestWorker):
     """Diagnostic set and get rtc time worker, implement diagnostic set and get rtc time test for device"""

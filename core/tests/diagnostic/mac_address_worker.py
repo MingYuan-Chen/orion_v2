@@ -3,11 +3,9 @@ Diagnostic mac address test worker module
 Implement diagnostic mac address test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class MacAddressWorker(BaseTestWorker):
     """Diagnostic mac address worker, implement diagnostic mac address test for device"""

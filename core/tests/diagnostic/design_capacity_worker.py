@@ -3,11 +3,9 @@ Diagnostic design capacity test worker module
 Implement diagnostic design capacity test for device
 """
 from typing import List, Tuple
-import logging
 from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class DesignCapacityWorker(BaseTestWorker):
     """Diagnostic design capacity worker, implement diagnostic design capacity test for device"""
