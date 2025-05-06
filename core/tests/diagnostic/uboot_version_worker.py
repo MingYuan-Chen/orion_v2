@@ -1,6 +1,6 @@
 """
-Diagnostic nor flash size test worker module
-Implement diagnostic nor flash size test for device
+Diagnostic u-boot version test worker module
+Implement diagnostic u-boot version test for device
 """
 from typing import List, Tuple
 import logging
@@ -9,25 +9,25 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class DiagnosticNorFlashSizeWorker(BaseTestWorker):
-    """Diagnostic nor flash size worker, implement diagnostic nor flash size test for device"""
+class UbootVersionWorker(BaseTestWorker):
+    """Diagnostic u-boot version worker, implement diagnostic u-boot version test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
-        Prepare diagnostic nor flash size test steps
+        Prepare diagnostic u-boot version test steps
         
         Returns:
-            diagnostic nor flash size test steps list
+            diagnostic u-boot version test steps list
         """
         return [
             TestStep(
-                command="cat /proc/mtd | grep 'mtd0'", 
-                expected_response="04000000", # 64MB
+                command="strings /dev/mtd0 | grep -E 'U-Boot'", 
+                expected_response="2016.03",            # Get the version
                 timeout=5, 
-                description="Check NOR flash size",
+                description="Check U-Boot Version",
                 max_retries=1,
                 retry_delay=500
             )

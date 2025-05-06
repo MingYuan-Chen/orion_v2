@@ -382,14 +382,14 @@ class MainWindowController(QObject):
         test_container = TestContainer()
         
         # Create test modules in the container
-        test_container.add_test_group("audio", "Audio Test")
-        test_container.add_test_group("backlight", "Backlight Test")
-        test_container.add_test_group("battery", "Battery Test")
-        test_container.add_test_group("eeprom", "EEPROM Test")
-        test_container.add_test_group("emmc", "eMMC Test")
-        test_container.add_test_group("lcd", "LCD Test")
-        test_container.add_test_group("led", "LED Test")
-        test_container.add_test_group("usb_ports", "USB Ports Test")
+        test_container.add_test_group("functionality_audio", "Audio Test")
+        test_container.add_test_group("functionality_backlight", "Backlight Test")
+        test_container.add_test_group("functionality_battery", "Battery Test")
+        test_container.add_test_group("functionality_eeprom", "EEPROM Test")
+        test_container.add_test_group("functionality_emmc", "eMMC Test")
+        test_container.add_test_group("functionality_lcd", "LCD Test")
+        test_container.add_test_group("functionality_led", "LED Test")
+        test_container.add_test_group("functionality_usb", "USB Test")
         
         # Get functionality test page layout
         tab_functionality = self.window.tab_functionality

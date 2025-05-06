@@ -47,49 +47,52 @@ class HardwareTestManagerService(QObject):
         
     def _register_test_workers(self):
         """Register all module test workers"""
-        # Currently only implement USB test
-        from core.tests.usb_ports_test_worker import UsbPortsTestWorker
-        self._register_worker("usb_ports", UsbPortsTestWorker, continue_on_failure=True)
-        from core.tests.emmc_test_worker import EmmcTestWorker
-        self._register_worker("emmc", EmmcTestWorker, continue_on_failure=True)
-        from core.tests.eeprom_test_worker import EepromTestWorker
-        self._register_worker("eeprom", EepromTestWorker, continue_on_failure=True)
-        from core.tests.battery_test_worker import BatteryTestWorker
-        self._register_worker("battery", BatteryTestWorker, continue_on_failure=True)
-        from core.tests.backlight_test_worker import BacklightTestWorker
-        self._register_worker("backlight", BacklightTestWorker, continue_on_failure=True)
-        from core.tests.led_test_worker import LedTestWorker
-        self._register_worker("led", LedTestWorker, continue_on_failure=True)
-        from core.tests.audio_test_worker import AudioTestWorker
-        self._register_worker("audio", AudioTestWorker, continue_on_failure=True)
-        from core.tests.lcd_test_worker import LcdTestWorker
-        self._register_worker("lcd", LcdTestWorker, continue_on_failure=True)
-        from core.tests.diagnostic_cpu_name_worker import DiagnosticCpuNameWorker
-        self._register_worker("diagnostic_cpu_name", DiagnosticCpuNameWorker, continue_on_failure=True)
-        from core.tests.diagnostic_cpu_processor_worker import DiagnosticCpuProcessorWorker
-        self._register_worker("diagnostic_cpu_processor", DiagnosticCpuProcessorWorker, continue_on_failure=True)
-        from core.tests.diagnostic_emmc_size_worker import DiagnosticEmmcSizeWorker
-        self._register_worker("diagnostic_emmc_size", DiagnosticEmmcSizeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_mac_address_worker import DiagnosticMacAddressWorker
-        self._register_worker("diagnostic_mac_address", DiagnosticMacAddressWorker, continue_on_failure=True)
-        from core.tests.diagnostic_memory_size_worker import DiagnosticMemorySizeWorker
-        self._register_worker("diagnostic_memory_size", DiagnosticMemorySizeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_nor_flash_size_worker import DiagnosticNorFlashSizeWorker
-        self._register_worker("diagnostic_nor_flash_size", DiagnosticNorFlashSizeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_pic_version_worker import DiagnosticPicVersionWorker
-        self._register_worker("diagnostic_pic_version", DiagnosticPicVersionWorker, continue_on_failure=True)
-        from core.tests.diagnostic_sync_time_worker import DiagnosticSyncTimeWorker
-        self._register_worker("diagnostic_sync_time", DiagnosticSyncTimeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_set_get_rtc_time_worker import DiagnosticSetGetRtcTimeWorker
-        self._register_worker("diagnostic_set_get_rtc_time", DiagnosticSetGetRtcTimeWorker, continue_on_failure=True)
-        from core.tests.diagnostic_design_capacity_worker import DiagnosticDesignCapacityWorker
-        self._register_worker("diagnostic_design_capacity", DiagnosticDesignCapacityWorker, continue_on_failure=True)
-        from core.tests.diagnostic_design_voltage_worker import DiagnosticDesignVoltageWorker
-        self._register_worker("diagnostic_design_voltage", DiagnosticDesignVoltageWorker, continue_on_failure=True)
-        from core.tests.diagnostic_uboot_version_worker import DiagnosticUbootVersionWorker
-        self._register_worker("diagnostic_uboot_version", DiagnosticUbootVersionWorker, continue_on_failure=True)
-        from core.tests.diagnostic_kernal_name_worker import DiagnosticKernalNameWorker
-        self._register_worker("diagnostic_kernal_name", DiagnosticKernalNameWorker, continue_on_failure=True)
+        
+        # Functionality test workers
+        from core.tests.functionality.usb_worker import UsbWorker
+        self._register_worker("functionality_usb", UsbWorker, continue_on_failure=True)
+        from core.tests.functionality.emmc_worker import EmmcWorker
+        self._register_worker("functionality_emmc", EmmcWorker, continue_on_failure=True)
+        from core.tests.functionality.eeprom_worker import EepromWorker
+        self._register_worker("functionality_eeprom", EepromWorker, continue_on_failure=True)
+        from core.tests.functionality.battery_worker import BatteryWorker
+        self._register_worker("functionality_battery", BatteryWorker, continue_on_failure=True)
+        from core.tests.functionality.backlight_worker import BacklightWorker
+        self._register_worker("functionality_backlight", BacklightWorker, continue_on_failure=True)
+        from core.tests.functionality.led_worker import LedWorker
+        self._register_worker("functionality_led", LedWorker, continue_on_failure=True)
+        from core.tests.functionality.audio_worker import AudioWorker
+        self._register_worker("functionality_audio", AudioWorker, continue_on_failure=True)
+        from core.tests.functionality.lcd_worker import LcdWorker
+        self._register_worker("functionality_lcd", LcdWorker, continue_on_failure=True)
+        
+        # Diagnostic test workers
+        from core.tests.diagnostic.cpu_name_worker import CpuNameWorker
+        self._register_worker("diagnostic_cpu_name", CpuNameWorker, continue_on_failure=True)
+        from core.tests.diagnostic.cpu_processor_worker import CpuProcessorWorker
+        self._register_worker("diagnostic_cpu_processor", CpuProcessorWorker, continue_on_failure=True)
+        from core.tests.diagnostic.emmc_size_worker import EmmcSizeWorker
+        self._register_worker("diagnostic_emmc_size", EmmcSizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic.mac_address_worker import MacAddressWorker
+        self._register_worker("diagnostic_mac_address", MacAddressWorker, continue_on_failure=True)
+        from core.tests.diagnostic.memory_size_worker import MemorySizeWorker
+        self._register_worker("diagnostic_memory_size", MemorySizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic.nor_flash_size_worker import NorFlashSizeWorker
+        self._register_worker("diagnostic_nor_flash_size", NorFlashSizeWorker, continue_on_failure=True)
+        from core.tests.diagnostic.pic_version_worker import PicVersionWorker
+        self._register_worker("diagnostic_pic_version", PicVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic.sync_time_worker import SyncTimeWorker
+        self._register_worker("diagnostic_sync_time", SyncTimeWorker, continue_on_failure=True)
+        from core.tests.diagnostic.set_get_rtc_time_worker import SetGetRtcTimeWorker
+        self._register_worker("diagnostic_set_get_rtc_time", SetGetRtcTimeWorker, continue_on_failure=True)
+        from core.tests.diagnostic.design_capacity_worker import DesignCapacityWorker
+        self._register_worker("diagnostic_design_capacity", DesignCapacityWorker, continue_on_failure=True)
+        from core.tests.diagnostic.design_voltage_worker import DesignVoltageWorker
+        self._register_worker("diagnostic_design_voltage", DesignVoltageWorker, continue_on_failure=True)
+        from core.tests.diagnostic.uboot_version_worker import UbootVersionWorker
+        self._register_worker("diagnostic_uboot_version", UbootVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic.kernal_name_worker import KernalNameWorker
+        self._register_worker("diagnostic_kernal_name", KernalNameWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)

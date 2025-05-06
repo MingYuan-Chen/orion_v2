@@ -1,5 +1,5 @@
 """
-Emmc test worker module
+Emmc worker module
 Implement emmc function test for device
 """
 from typing import List, Tuple
@@ -9,8 +9,8 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class EmmcTestWorker(BaseTestWorker):
-    """Emmc test worker, implement emmc function test for device"""
+class EmmcWorker(BaseTestWorker):
+    """Emmc worker, implement emmc function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)

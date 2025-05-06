@@ -1,6 +1,6 @@
 """
-Diagnostic kernal name test worker module
-Implement diagnostic kernal name test for device
+Diagnostic cpu processor test worker module
+Implement diagnostic cpu processor test for device
 """
 from typing import List, Tuple
 import logging
@@ -9,24 +9,25 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 # Get logger
 logger = logging.getLogger(__name__)
 
-class DiagnosticKernalNameWorker(BaseTestWorker):
-    """Diagnostic kernal name worker, implement diagnostic kernal name test for device"""
+class CpuProcessorWorker(BaseTestWorker):
+    """Diagnostic cpu processor worker, implement diagnostic cpu processor test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
-        Prepare diagnostic kernal name test steps
+        Prepare diagnostic cpu processor test steps
         
         Returns:
-            diagnostic kernal name test steps list
+            diagnostic cpu processor test steps list
         """
         return [
             TestStep(
-                command="uname -a", 
-                expected_response="gemini", # get the kernal name
-                description="Check kernal name",
+                command="grep -c ^processor /proc/cpuinfo", 
+                expected_response="4", 
+                timeout=5, 
+                description="Check CPU Processor",
                 max_retries=1,
                 retry_delay=500
             )

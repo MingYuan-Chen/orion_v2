@@ -50,7 +50,9 @@ class TestManagerView(QObject):
         self.test_progress_records = {}  # store test progress records
         
         # test sequence related
-        self.test_sequence = ["audio", "backlight", "battery", "eeprom", "emmc", "lcd", "led", "usb_ports"]
+        self.test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery",
+                               "functionality_eeprom", "functionality_emmc", "functionality_lcd", "functionality_led",
+                               "functionality_usb"]
         self.current_test_index = -1
         self.is_test_all_running = False
         
