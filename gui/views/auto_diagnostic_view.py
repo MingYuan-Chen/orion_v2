@@ -298,7 +298,7 @@ class AutoDiagnosticView(QObject):
             start_time = self.diagnostic_results[test_id]["start_time"]
             end_time = datetime.datetime.now()
             duration = end_time - start_time
-            time_str = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
+            time_str = f"{duration.seconds}.{duration.microseconds//1000:02d}s"
         else:
             time_str = "--:--:--"
         

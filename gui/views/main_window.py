@@ -521,16 +521,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow([
-                    'Test Module',
-                    'Timestamp',
-                    'Current Step',
-                    'Total Steps', 
-                    'Progress %',
-                    'Step Description',
-                    'Step Status',
-                    'Step Message'
-                ])
+                writer.writerow(["Module", "Step", "Timestamp", "Time", "Result", "Command", "Response"])
                 
                 # write the progress records and step details for each test module
                 for test_id, records in test_progress_records.items():
@@ -540,35 +531,46 @@ class MainWindowController(QObject):
                         test_steps = test_results[test_id]["steps"]
                     
                     for record in records:
-                        # basic progress information
-                        row_data = [
-                            test_id,
-                            record['timestamp'],
-                            record['current_step'],
-                            record['total_steps'],
-                            record['progress_percentage']
-                        ]
-                        
-                        # add the step details
-                        step_desc = ""
-                        step_status = ""
-                        step_message = ""
-                        
                         # find the corresponding step information
                         current_step = record['current_step'] - 1  # convert to 0-based index
+                        
+                        # prepare the basic data
+                        step_desc = ""
+                        step_message = ""
+                        step_command = ""
+                        step_response = ""
+                        step_time = "--:--:--"  # default time
+                        
+                        # get step description and command
                         if test_id in self.hw_test_manager.test_workers:
                             worker = self.hw_test_manager.test_workers[test_id]
                             if len(worker.steps) > current_step:
-                                step_desc = worker.steps[current_step].description
+                                test_step = worker.steps[current_step]
+                                step_desc = test_step.description
+                                step_command = test_step.command if hasattr(test_step, 'command') else ""
+                                # get the response from the TestStep object
+                                step_response = test_step.result if hasattr(test_step, 'result') else ""
                         
-                        # get the step status and message from the test results
+                        # get the step status, message and time from the test results
                         for step in test_steps:
                             if step['index'] == current_step:
-                                step_status = "Pass" if step['success'] else "Fail"
                                 step_message = step['message']
+                                # get the execution time of the step
+                                if 'time' in step:
+                                    step_time = step['time']
                                 break
                         
-                        row_data.extend([step_desc, step_status, step_message])
+                        # create the row data
+                        row_data = [
+                            test_id,              # Module
+                            step_desc,            # Step
+                            record['timestamp'],  # Timestamp
+                            step_time,            # Time - use the execution time of the step
+                            step_message,         # Result
+                            step_command,         # Command
+                            step_response         # Response
+                        ]
+                        
                         writer.writerow(row_data)
             
             self.log_manager.add_log_entry("INFO", f"Test results exported to: {file_path}")
@@ -829,13 +831,16 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Test Name", "Status", "Time", "Step", "Command", "Result"])
+                writer.writerow(["Module", "Step", "Timestamp", "Time", "Result", "Command", "Response"])
                 
                 # write the test results
                 for test_id, result in results.items():
                     # get the status and time information
                     status = result.get("status", "UNKNOWN")
                     time_str = result.get("time", "--:--:--")
+                    
+                    # get the current time as the timestamp (because the diagnostic test did not record)
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     # get the details data
                     details = result.get("details", {})
@@ -845,24 +850,26 @@ class MainWindowController(QObject):
                         # if there is detailed step information, create a row for each step
                         for step in details["steps"]:
                             writer.writerow([
-                                test_id,
-                                status,
-                                time_str,
-                                step.get("description", ""),
-                                step.get("command", ""),
-                                str(step.get("result", ""))
+                                "",                              # Module (diagnostic test does not have this information)
+                                step.get("description", ""),     # Step
+                                timestamp,                       # Timestamp
+                                time_str,                        # Time
+                                status,                          # Result
+                                step.get("command", ""),         # Command
+                                str(step.get("result", ""))      # Response
                             ])
                     else:
                         # if there is no detailed step information, create a row for the basic information
                         # get the basic message
                         message = details.get("message", "") if isinstance(details, dict) else ""
                         writer.writerow([
-                            test_id,
-                            status,
-                            time_str,
-                            "",  # empty Step
-                            "",  # empty Command
-                            message  # use message as Result
+                            "",                # Module (diagnostic test does not have this information)
+                            "",                # Step
+                            timestamp,         # Timestamp
+                            time_str,          # Time
+                            status,            # Result
+                            "",                # Command
+                            message            # Response
                         ])
             
             self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
