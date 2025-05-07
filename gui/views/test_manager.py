@@ -109,7 +109,8 @@ class TestManagerView(QObject):
             self.test_results[test_id] = {
                 "steps": [],
                 "success": None,
-                "message": ""
+                "message": "",
+                "start_time": None
             }
             self.test_progress_records[test_id] = []
             
@@ -127,6 +128,13 @@ class TestManagerView(QObject):
         # clear the result of the previous test
         if self.result_table:
             self.result_table.setRowCount(0)
+        
+        # 记录测试开始时间
+        start_time = datetime.datetime.now()
+        if test_id in self.test_results:
+            self.test_results[test_id]["start_time"] = start_time
+        else:
+            self.test_results[test_id] = {"steps": [], "success": None, "message": "", "start_time": start_time}
         
         # start the test
         self.hw_test_manager.start_test(self.device_id, test_id)
@@ -194,12 +202,19 @@ class TestManagerView(QObject):
         # update the test UI state
         self.test_container.set_test_state(test_id, "running")
         
+        # 直接记录开始时间
+        start_time = datetime.datetime.now()
+        
         # initialize the test result storage
         self.test_results[test_id] = {
             "steps": [],
             "success": None,
-            "message": ""
+            "message": "",
+            "start_time": start_time  # 确保开始时间被正确设置
         }
+        
+        # 记录开始时间的日志
+        logger.debug(f"Test {test_id} started at {start_time}")
         
         # clear the test progress records
         self.test_progress_records[test_id] = []
@@ -220,6 +235,19 @@ class TestManagerView(QObject):
         if test_id in self.test_results:
             self.test_results[test_id]["success"] = success
             self.test_results[test_id]["message"] = message
+            
+            # 计算测试耗时
+            start_time = self.test_results[test_id].get("start_time")
+            if start_time:
+                end_time = datetime.datetime.now()
+                duration = end_time - start_time
+                time_str = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
+                self.test_results[test_id]["time"] = time_str
+                # 添加调试日志
+                logger.debug(f"Test {test_id} duration calculated: start={start_time}, end={end_time}, duration={time_str}")
+            else:
+                self.test_results[test_id]["time"] = "--:--:--"
+                logger.warning(f"Test {test_id} has no start_time record!")
         
         # update the test UI state
         self.test_container.set_test_state(test_id, "pass" if success else "fail", message)
@@ -245,12 +273,44 @@ class TestManagerView(QObject):
             success: Whether step passed
             message: Step result message
         """
+        # 计算步骤执行时间
+        step_time = "--:--:--"
+        step_end_time = datetime.datetime.now()
+        
+        # 获取步骤开始时间
+        step_start_time = None
+        current_records = self.test_progress_records.get(test_id, [])
+        for record in current_records:
+            if record.get('current_step') == step_index + 1:  # current_step从1开始计数
+                if 'start_time' in record:
+                    step_start_time = record['start_time']
+                    break
+        
+        # 如果没有找到步骤开始时间记录，使用最近的进度记录时间
+        if step_start_time is None and current_records:
+            for record in reversed(current_records):
+                if 'timestamp' in record:
+                    try:
+                        step_start_time = datetime.datetime.strptime(record['timestamp'], "%Y-%m-%d %H:%M:%S")
+                        break
+                    except:
+                        pass
+                        
+        # 计算步骤耗时
+        if step_start_time:
+            duration = step_end_time - step_start_time
+            step_time = f"{duration.seconds}.{duration.microseconds//1000:02d}s"
+            logger.debug(f"Step {step_index+1} time: {step_time}, start: {step_start_time}, end: {step_end_time}")
+        
         # store the step results
         if test_id in self.test_results:
             self.test_results[test_id]["steps"].append({
                 "index": step_index,
                 "success": success,
-                "message": message
+                "message": message,
+                "time": step_time,
+                "start_time": step_start_time,
+                "end_time": step_end_time
             })
         
         # update the test step UI
@@ -323,9 +383,11 @@ class TestManagerView(QObject):
         
         # record the progress of the actual steps
         if current_step > 0:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.datetime.now()
+            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
             progress_record = {
                 "timestamp": timestamp,
+                "start_time": now,  # 记录步骤开始的精确时间
                 "current_step": current_step,
                 "total_steps": total_steps,
                 "progress_percentage": progress_pct
