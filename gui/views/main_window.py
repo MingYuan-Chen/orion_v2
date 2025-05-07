@@ -385,11 +385,13 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_audio", "Audio Test")
         test_container.add_test_group("functionality_backlight", "Backlight Test")
         test_container.add_test_group("functionality_battery", "Battery Test")
+        test_container.add_test_group("functionality_camera", "Camera Test")
         test_container.add_test_group("functionality_eeprom", "EEPROM Test")
         test_container.add_test_group("functionality_emmc", "eMMC Test")
         test_container.add_test_group("functionality_lcd", "LCD Test")
         test_container.add_test_group("functionality_led", "LED Test")
         test_container.add_test_group("functionality_usb", "USB Test")
+
         
         # Get functionality test page layout
         tab_functionality = self.window.tab_functionality
