@@ -15,7 +15,8 @@ class CameraWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
         self.preview_vieo_port = lambda port: f"/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video{port} -bg -r 1 &"
-        self.get_gpio_value = f"for i in 0 1 2 3; do cat vfe1_blade_det$i/value; done"
+        self.get_gpio_value = lambda port:f"for i in 0 1 2 3; do cat vfe{port+1}_blade_det$i/value"
+        self.reset_camera = lambda port: f"fuser -k /dev/video{port}"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -25,15 +26,421 @@ class CameraWorker(BaseTestWorker):
             camera test steps list
         """
         return [
+            # LVDS Camera ======================================================
+            # port A(J1)
+            TestStep(
+                command="reboot",
+                pre_condition="Please ensure LVDS camera is connected to port A(J1)",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
+            ),
+            TestStep(
+                command=self.preview_vieo_port(0), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port A(J1)",
+                post_check="Is the camera preview video displayed on the screen?",
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_lvds,
+                timeout=5,
+                description="Validate GPIO value of LVDS camera",
+            ),
+            TestStep(
+                command=self.reset_camera(0),
+                timeout=5,
+                description="Reset camera port A(J1)",
+            ),
+            # port B(J4)
             TestStep(
                 command=self.preview_vieo_port(1), 
                 validation_func=self._validate_camera_connection,
                 timeout=5, 
-                description="Preview video on port 1",
-                pre_condition="Please ensure LVDS camera is connected to port 1",
+                description="Preview video on port B(J4)",
+                pre_condition="Please ensure LVDS camera is connected to port B(J4)",
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_lvds,
+                timeout=5,
+                description="Validate GPIO value of LVDS camera",
+            ),
+            TestStep(
+                command=self.reset_camera(1),
+                timeout=5,
+                description="Reset camera port B(J4)",
+            ),
+            # Scorpius camera ======================================================
+            # port A(J1)
+            TestStep(
+                command="reboot",
+                pre_condition="Please ensure Scorpius camera is connected to port A(J1",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
+            ),
+            TestStep(
+                command=self.preview_vieo_port(0), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port A(J1)",
+                post_check="Is the camera preview video displayed on the screen?",
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_Scorpius,
+                timeout=5,
+                description="Validate GPIO value of Scorpius camera",
+            ),
+            TestStep(
+                command=self.reset_camera(0),
+                timeout=5,
+                description="Reset camera port A(J1)",
+            ),
+            # port B(J4)
+            TestStep(
+                command=self.preview_vieo_port(1), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port B(J4)",
+                pre_condition="Please ensure Scorpius camera is connected to port B(J4)",
+                post_check="Is the camera preview video displayed on the screen?",
+                max_retries=1,
+                retry_delay=500
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_Scorpius,
+                timeout=5,
+                description="Validate GPIO value of Scorpius camera",
+            ),
+            TestStep(
+                command=self.reset_camera(1),
+                timeout=5,
+                description="Reset camera port B(J4)",
+            ),
+
+            # MIPI VGA camera ======================================================
+            # port A(J1)
+            TestStep(
+                command="reboot",
+                pre_condition="Please ensure MIPI VGA camera is connected to port A(J1)",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
+            ),
+            TestStep(
+                command=self.preview_vieo_port(0), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port A(J1)",
+                post_check="Is the camera preview video displayed on the screen?",
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_MIPI_VGA,
+                timeout=5,
+                description="Validate GPIO value of MIPI VGA camera",
+            ),
+            TestStep(
+                command=self.reset_camera(0),
+                timeout=5,
+                description="Reset camera port A(J1)",
+            ),
+            # port B(J4)
+            TestStep(
+                command=self.preview_vieo_port(1), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port B(J4)",
+                pre_condition="Please ensure MIPI VGA camera is connected to port B(J4)",
+                post_check="Is the camera preview video displayed on the screen?",
+                max_retries=1,
+                retry_delay=500
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_MIPI_VGA,
+                timeout=5,
+                description="Validate GPIO value of MIPI VGA camera",
+            ),
+            TestStep(
+                command=self.reset_camera(1),
+                timeout=5,
+                description="Reset camera port B(J4)",
+            ),
+
+            # MIPI 720p camera ======================================================
+            # port A(J1)
+            TestStep(
+                command="reboot",
+                pre_condition="Please ensure MIPI 720p camera is connected to port A(J1)",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
+            ),
+            TestStep(
+                command=self.preview_vieo_port(0), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port A(J1)",
+                post_check="Is the camera preview video displayed on the screen?",
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_MIPI_720,
+                timeout=5,
+                description="Validate GPIO value of MIPI 720p camera",
+            ),
+            TestStep(
+                command=self.reset_camera(0),
+                timeout=5,
+                description="Reset camera port A(J1)",
+            ),
+            # port B(J4)
+            TestStep(
+                command=self.preview_vieo_port(1), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port B(J4)",
+                pre_condition="Please ensure MIPI 720p camera is connected to port B(J4)",
+                post_check="Is the camera preview video displayed on the screen?",
+                max_retries=1,
+                retry_delay=500
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_MIPI_720,
+                timeout=5,
+                description="Validate GPIO value of MIPI 720p camera",
+            ),
+            TestStep(
+                command=self.reset_camera(1),
+                timeout=5,
+                description="Reset camera port B(J4)",
+            ),
+
+            # smart cable ======================================================
+            # port A(J1)
+            TestStep(
+                command="reboot",
+                pre_condition="Please ensure smart cable is connected to port A(J1)",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
+            ),
+            TestStep(
+                command=self.preview_vieo_port(0), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port A(J1)",
+                post_check="Is the camera preview video displayed on the screen?",
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_smart_cable,
+                timeout=5,
+                description="Validate GPIO value of smart cable",
+            ),
+            TestStep(
+                command=self.reset_camera(0),
+                timeout=5,
+                description="Reset camera port A(J1)",
+            ),
+            # port B(J4)
+            TestStep(
+                command=self.preview_vieo_port(1), 
+                validation_func=self._validate_camera_connection,
+                timeout=5, 
+                description="Preview video on port B(J4)",
+                pre_condition="Please ensure smart cable is connected to port B(J4)",
+                post_check="Is the camera preview video displayed on the screen?",
+                max_retries=1,
+                retry_delay=500
+            ),
+            TestStep(
+                command="cd /sys/class/gpio",
+                timeout=5,
+                description="change to /sys/class/gpio",
+            ),
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_smart_cable,
+                timeout=5,
+                description="Validate GPIO value of smart cable",
+            ),
+            TestStep(
+                command=self.reset_camera(1),
+                timeout=5,
+                description="Reset camera port B(J4)",
+            ),
+
+            # reset the device after testing completed ======================================================
+            TestStep(
+                command="reboot",
+                post_check="Is the device rebooted to the login screen?",
+                timeout=5,
+                description="reboot the device",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter user name",
+            ),
+            TestStep(
+                command="root",
+                timeout=5,
+                description="enter password",
             )
         ]
     
@@ -45,12 +452,114 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
+            if "Error" in response:
+                return False, "Error in camera connection"
             # Check if the camera is connected
-            if "width = 1280" in response and "height = 800" in response:
+            if "lcmx02p1_camera" in response or "lcmx02p2_camera" in response:
                 return True, "Camera is connected"
             else:
-                return False, "Camera is not connected"
+                return False, "Can't find camera"
         
         except Exception as e:
             logger.error(f"exception in validating camera connection: {e}")
             return False, f"exception in validating camera connection: {e}"
+    
+    def _validate_gpio_value_lvds(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "1001" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+    
+    def _validate_gpio_value_Scorpius(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "0111" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+
+    def _validate_gpio_value_MIPI_VGA(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "1011" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+    
+    def _validate_gpio_value_MIPI_720(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "1101" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+
+    def _validate_gpio_value_smart_cable(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "1111" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
