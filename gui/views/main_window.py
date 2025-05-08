@@ -397,6 +397,40 @@ class MainWindowController(QObject):
         tab_functionality = self.window.tab_functionality
         layout = tab_functionality.layout()
         
+        # Create abort button
+        self.window.button_abort_test = QPushButton("Abort Test")
+        self.window.button_abort_test.setMinimumSize(100, 0)
+        
+        # Style abort button (red background for emphasis)
+        self.window.button_abort_test.setStyleSheet("""
+            QPushButton {
+                background-color: #D32F2F;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #F44336;
+            }
+            QPushButton:pressed {
+                background-color: #B71C1C;
+            }
+        """)
+        
+        # Add the abort button to the layout
+        if hasattr(self.window, 'button_export_result'):
+            # Find the export result button's parent layout
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if isinstance(item, QHBoxLayout):
+                    for j in range(item.count()):
+                        widget = item.itemAt(j).widget()
+                        if widget == self.window.button_export_result:
+                            # Insert abort button before export result button
+                            item.insertWidget(j, self.window.button_abort_test)
+                            break
+        
         # insert the test container between the title row and the test progress
         # the 0th item is the title row, the 1st item is the test progress, now we insert the test container between them
         layout.insertWidget(1, test_container)
@@ -407,7 +441,8 @@ class MainWindowController(QObject):
             self.window.button_test_all,
             self.window.tableWidget_hardware_test_steps,
             self.window.progressBar_hardware_test,
-            self.window  # Add parent_widget as the parent of the dialog
+            self.window,  # Parent widget as the parent of the dialog
+            self.window.button_abort_test  # Pass the abort button to test manager
         )
         
         # Hide the progress bar by default

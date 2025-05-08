@@ -45,6 +45,7 @@ class TestManagerView(QObject):
         self.test_all_button = None  # test all button reference 
         self.result_table = None  # test result table reference
         self.progress_bar = None  # test progress bar reference
+        self.abort_button = None  # abort button reference
         
         # test status tracking
         self.test_results = {}  # store test results
@@ -80,7 +81,8 @@ class TestManagerView(QObject):
         self.hw_test_manager.test_post_check_required.connect(self._on_test_post_check_required)
     
     def set_ui_components(self, test_container: TestContainer, test_all_button: QPushButton,
-                          result_table: QTableWidget, progress_bar: QProgressBar, parent_widget=None):
+                          result_table: QTableWidget, progress_bar: QProgressBar, 
+                          parent_widget=None, abort_button=None):
         """
         Set UI components references
         
@@ -90,18 +92,26 @@ class TestManagerView(QObject):
             result_table: Table widget for displaying test steps
             progress_bar: Progress bar for displaying test progress
             parent_widget: Parent widget for dialogs
+            abort_button: Abort test button
         """
         self.test_container = test_container
         self.test_all_button = test_all_button
         self.result_table = result_table
         self.progress_bar = progress_bar
         self.parent_widget = parent_widget
+        self.abort_button = abort_button
         
         # Connect test container signals
         self.test_container.test_selected.connect(self.start_test)
         
         # Connect test all button
         self.test_all_button.clicked.connect(self.start_test_all)
+        
+        # Connect abort button if available
+        if self.abort_button:
+            self.abort_button.clicked.connect(self.abort_test)
+            # Hide abort button by default
+            self.abort_button.setVisible(False)
         
         # initialize test results and progress records
         test_ids = self.test_container.get_all_test_ids()
@@ -129,17 +139,21 @@ class TestManagerView(QObject):
         if self.result_table:
             self.result_table.setRowCount(0)
         
-        # 记录测试开始时间
+        # Record test start time
         start_time = datetime.datetime.now()
         if test_id in self.test_results:
             self.test_results[test_id]["start_time"] = start_time
         else:
             self.test_results[test_id] = {"steps": [], "success": None, "message": "", "start_time": start_time}
         
-        # start the test
+        # Start the test
         self.hw_test_manager.start_test(self.device_id, test_id)
         
-        # record the test start
+        # Show abort button
+        if self.abort_button:
+            self.abort_button.setVisible(True)
+        
+        # Record the test start
         logger.info(f"Starting {test_id} test for device {self.device_id}")
     
     def start_test_all(self):
@@ -186,6 +200,26 @@ class TestManagerView(QObject):
         # record the test sequence start
         logger.info("Starting Test All sequence")
     
+    def abort_test(self):
+        """Abort the current running test"""
+        logger.info(f"Aborting test for device {self.device_id}")
+        
+        # Stop the current test
+        self.stop_current_test()
+        
+        # Reset test sequence state
+        self.is_test_all_running = False
+        self.current_test_index = -1
+        
+        # Enable the test all button
+        if self.test_all_button:
+            self.test_all_button.setEnabled(True)
+            self.test_all_button.setText("Test All")
+        
+        # Hide abort button
+        if self.abort_button:
+            self.abort_button.setVisible(False)
+    
     def stop_current_test(self):
         """Stop the currently running test"""
         if self.hw_test_manager:
@@ -202,7 +236,7 @@ class TestManagerView(QObject):
         # update the test UI state
         self.test_container.set_test_state(test_id, "running")
         
-        # 直接记录开始时间
+        # Record start time
         start_time = datetime.datetime.now()
         
         # initialize the test result storage
@@ -210,10 +244,10 @@ class TestManagerView(QObject):
             "steps": [],
             "success": None,
             "message": "",
-            "start_time": start_time  # 确保开始时间被正确设置
+            "start_time": start_time  # Make sure start time is properly set
         }
         
-        # 记录开始时间的日志
+        # Debug log for start time
         logger.debug(f"Test {test_id} started at {start_time}")
         
         # clear the test progress records
@@ -236,14 +270,14 @@ class TestManagerView(QObject):
             self.test_results[test_id]["success"] = success
             self.test_results[test_id]["message"] = message
             
-            # 计算测试耗时
+            # Calculate test duration
             start_time = self.test_results[test_id].get("start_time")
             if start_time:
                 end_time = datetime.datetime.now()
                 duration = end_time - start_time
                 time_str = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
                 self.test_results[test_id]["time"] = time_str
-                # 添加调试日志
+                # Add debug log
                 logger.debug(f"Test {test_id} duration calculated: start={start_time}, end={end_time}, duration={time_str}")
             else:
                 self.test_results[test_id]["time"] = "--:--:--"
@@ -251,6 +285,10 @@ class TestManagerView(QObject):
         
         # update the test UI state
         self.test_container.set_test_state(test_id, "pass" if success else "fail", message)
+        
+        # Hide abort button if not running a test sequence
+        if self.abort_button and not self.is_test_all_running:
+            self.abort_button.setVisible(False)
         
         # record the test completed
         if success:
@@ -422,6 +460,10 @@ class TestManagerView(QObject):
         if self.test_all_button:
             self.test_all_button.setEnabled(True)
             self.test_all_button.setText("Test All")
+        
+        # Hide abort button when all tests are completed
+        if self.abort_button:
+            self.abort_button.setVisible(False)
         
         # record the completion
         logger.info("Test All sequence completed")
