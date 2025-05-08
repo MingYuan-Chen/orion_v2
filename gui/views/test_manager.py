@@ -273,20 +273,20 @@ class TestManagerView(QObject):
             success: Whether step passed
             message: Step result message
         """
-        # 计算步骤执行时间
+        # Calculate the execution time of the step
         step_time = "--:--:--"
         step_end_time = datetime.datetime.now()
         
-        # 获取步骤开始时间
+        # get the start time of the step
         step_start_time = None
         current_records = self.test_progress_records.get(test_id, [])
         for record in current_records:
-            if record.get('current_step') == step_index + 1:  # current_step从1开始计数
+            if record.get('current_step') == step_index + 1:  # current_step starts from 1
                 if 'start_time' in record:
                     step_start_time = record['start_time']
                     break
         
-        # 如果没有找到步骤开始时间记录，使用最近的进度记录时间
+        # if the start time of the step is not found, use the latest progress record time
         if step_start_time is None and current_records:
             for record in reversed(current_records):
                 if 'timestamp' in record:
@@ -296,7 +296,7 @@ class TestManagerView(QObject):
                     except:
                         pass
                         
-        # 计算步骤耗时
+        # calculate the duration of the step
         if step_start_time:
             duration = step_end_time - step_start_time
             step_time = f"{duration.seconds}.{duration.microseconds//1000:02d}s"
@@ -387,7 +387,7 @@ class TestManagerView(QObject):
             timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
             progress_record = {
                 "timestamp": timestamp,
-                "start_time": now,  # 记录步骤开始的精确时间
+                "start_time": now,  # record the exact start time of the step
                 "current_step": current_step,
                 "total_steps": total_steps,
                 "progress_percentage": progress_pct
