@@ -153,14 +153,6 @@ class TestManagerView(QObject):
         if self.add_system_log is not None and test_id in self.hw_test_manager.test_workers:
             worker = self.hw_test_manager.test_workers[test_id]
             worker.log_function = self.add_system_log
-            
-            # If there are test steps, record all commands in advance
-            if hasattr(worker, 'prepare_test_steps'):
-                steps = worker.prepare_test_steps()
-                if steps:
-                    for i, step in enumerate(steps):
-                        if step.command:
-                            self.add_system_log("INFO", f"[Command][{test_id}][Step {i+1}] {step.command}")
         
         # Start the test
         self.hw_test_manager.start_test(self.device_id, test_id)
