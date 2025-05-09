@@ -446,6 +446,9 @@ class MainWindowController(QObject):
             self.window.button_abort_test  # Pass the abort button to test manager
         )
         
+        # Set the log recording function, record the command to the system log
+        self.test_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
+        
         # Hide the progress bar by default
         self.window.progressBar_hardware_test.setVisible(False)
     
@@ -831,6 +834,9 @@ class MainWindowController(QObject):
             "diagnostic_kernal_name": "Check Kernal Name",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
+        
+        # Set the add_system_log method of the auto diagnostic view
+        self.auto_diagnostic_view.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
         
         # connect the signals
         self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)

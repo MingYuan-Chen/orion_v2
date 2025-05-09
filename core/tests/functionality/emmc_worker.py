@@ -3,11 +3,9 @@ Emmc worker module
 Implement emmc function test for device
 """
 from typing import List, Tuple
-import logging
+from util.logger import logger
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class EmmcWorker(BaseTestWorker):
     """Emmc worker, implement emmc function test for device"""

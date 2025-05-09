@@ -3,11 +3,9 @@ Touch worker module
 Implement touch function test for device
 """
 from typing import List, Tuple
-import logging
+from util.logger import logger
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class TouchWorker(BaseTestWorker):
     """Touch worker, implement touch function test for device"""

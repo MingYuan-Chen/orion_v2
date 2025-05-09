@@ -3,11 +3,8 @@ Hardware test manager service module
 Provide a unified hardware test management interface, coordinate the execution of different test workers
 """
 from typing import Dict, List, Type, Any
-import logging
 from PySide6.QtCore import QObject, Signal, Slot
-
-# Get logger
-logger = logging.getLogger(__name__)
+from util.logger import logger
 
 class HardwareTestManagerService(QObject):
     """
@@ -199,6 +196,10 @@ class HardwareTestManagerService(QObject):
         
         # Create worker and connect signals
         worker = self._create_and_connect_worker(test_id, worker_class)
+        
+        # set the log function
+        if hasattr(self.test_workers[test_id], 'log_function') and self.test_workers[test_id].log_function:
+            worker.log_function = self.test_workers[test_id].log_function
         
         # Update dictionary and active test
         self.test_workers[test_id] = worker

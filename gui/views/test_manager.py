@@ -62,6 +62,9 @@ class TestManagerView(QObject):
         # Parent widget reference for dialogs
         self.parent_widget = None
         
+        # Add system log function
+        self.add_system_log = None
+        
         # connect signals
         self._connect_signals()
         
@@ -145,6 +148,19 @@ class TestManagerView(QObject):
             self.test_results[test_id]["start_time"] = start_time
         else:
             self.test_results[test_id] = {"steps": [], "success": None, "message": "", "start_time": start_time}
+        
+        # Set the log function and record all test steps commands in advance
+        if self.add_system_log is not None and test_id in self.hw_test_manager.test_workers:
+            worker = self.hw_test_manager.test_workers[test_id]
+            worker.log_function = self.add_system_log
+            
+            # If there are test steps, record all commands in advance
+            if hasattr(worker, 'prepare_test_steps'):
+                steps = worker.prepare_test_steps()
+                if steps:
+                    for i, step in enumerate(steps):
+                        if step.command:
+                            self.add_system_log("INFO", f"[Command][{test_id}][Step {i+1}] {step.command}")
         
         # Start the test
         self.hw_test_manager.start_test(self.device_id, test_id)
