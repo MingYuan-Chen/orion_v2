@@ -67,6 +67,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("functionality_lcd", LcdWorker, continue_on_failure=True)
         from core.tests.functionality.camera_worker import CameraWorker
         self._register_worker("functionality_camera", CameraWorker, continue_on_failure=True)
+        from core.tests.functionality.touch_worker import TouchWorker
+        self._register_worker("functionality_touch", TouchWorker, continue_on_failure=True)
         
         # Diagnostic test workers
         from core.tests.diagnostic.cpu_name_worker import CpuNameWorker
