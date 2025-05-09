@@ -52,6 +52,7 @@ class SystemInfoManagerView(QObject):
         if self.system_info_service:
             self.system_info_service.info_received.connect(self._on_system_info_received)
             self.system_info_service.info_error.connect(self._on_system_info_error)
+            self.system_info_service.command_executed.connect(self._on_command_executed)
     
     def set_ui_components(self, components: Dict[str, Any]):
         """
@@ -139,12 +140,12 @@ class SystemInfoManagerView(QObject):
         if self.system_info_service:
             # Ensure update_system_info method exists
             if hasattr(self.system_info_service, 'update_system_info'):
-                # 只记录调试信息
+                # Only record debug information
                 logger.debug(f"Trigger system info service update, device ID: {self.device_id}")
-                # 启动系统信息更新
+                # Start system info update
                 update_success = self.system_info_service.update_system_info(self.device_id)
                 
-                # 如果更新没有成功启动，直接完成
+                # If update did not start successfully, complete directly
                 if not update_success:
                     logger.warning("System info update did not start successfully")
                     self._handle_update_completed()
@@ -419,4 +420,22 @@ class SystemInfoManagerView(QObject):
             if new_text:
                 self.update_battery_serial(new_text)
                 return True
-        return False 
+        return False
+
+    @Slot(str, str, str)
+    def _on_command_executed(self, device_id, command_name, command):
+        """
+        Handle command execution event
+        
+        Args:
+            device_id: Device ID
+            command_name: Command name
+            command: Command string
+        """
+        # Only process current device info
+        if device_id != self.device_id:
+            return
+            
+        # Record executed command to system log
+        if hasattr(self, 'add_system_log'):
+            self.add_system_log("INFO", f"[Command][{command_name}]: {command}") 

@@ -199,33 +199,43 @@ class AutoDiagnosticView(QObject):
         logger.info("Starting auto diagnostic sequence")
     
     def _run_diagnostic_sequence(self):
-        """run the diagnostic test sequence"""
-        # only start the first test, the others will be started in the test completed event
-        test_ids = self.diagnostic_container.get_all_test_ids()
-        self.pending_tests = test_ids.copy()
+        """start running the diagnostic sequence"""
+        # reset the diagnostic results, don't modify status, we need to show diagnostics that have already been run
+        self.pending_tests = self.current_diagnostics.copy()
         
-        if self.pending_tests:
-            # start the first test
-            first_test = self.pending_tests.pop(0)
-            self._start_test(first_test)
+        # if no tests, complete immediately
+        if not self.pending_tests:
+            self._complete_all_diagnostics()
+            return
+            
+        # start the first test
+        self._start_test(self.pending_tests.pop(0))
     
     def _start_test(self, test_id):
-        """start the single test"""
-        logger.info(f"Starting diagnostic test: {test_id}")
+        """start a test in the diagnostic sequence"""
+        # reset the diagnostic status
+        self.diagnostic_container.update_item_status(test_id, "PENDING")
         
-        try:
-            # add a short delay to ensure the resources are ready
-            QTimer.singleShot(300, lambda: self._execute_test(test_id))
-        except Exception as e:
-            logger.error(f"Error preparing test {test_id}: {str(e)}")
-            # if the error occurs when preparing the test, try to continue with the next test
-            if hasattr(self, 'pending_tests') and self.pending_tests:
-                next_test = self.pending_tests.pop(0)
-                self._start_test(next_test)
+        # execute the test
+        self._execute_test(test_id)
     
     def _execute_test(self, test_id):
         """execute the test"""
         try:
+            # Pass the log recording function to the test worker
+            if test_id in self.hw_test_manager.test_workers:
+                worker = self.hw_test_manager.test_workers[test_id]
+                # Set the log recording function
+                if hasattr(self, 'add_system_log'):
+                    # Ensure the log function is set
+                    worker.log_function = self.add_system_log
+                    
+                    # Record all the test steps commands
+                    if hasattr(worker, 'steps') and worker.steps:
+                        for step in worker.steps:
+                            if step.command:
+                                self.add_system_log("INFO", f"[Command][{test_id}] {step.command}")
+            
             # start the test
             self.hw_test_manager.start_test(self.device_id, test_id)
             

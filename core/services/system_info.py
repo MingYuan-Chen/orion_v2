@@ -15,6 +15,7 @@ class SystemInfoService(QObject):
     # Define signals
     info_received = Signal(str, dict)  # device_id, system_info
     info_error = Signal(str, str)      # device_id, error_message
+    command_executed = Signal(str, str, str)  # device_id, command_name, command
     
     def __init__(self, serial_worker):
         """
@@ -113,6 +114,9 @@ class SystemInfoService(QObject):
         command_name, command = self.pending_commands.pop(0)
         
         logger.debug(f"Executing system info command: {command_name} - {command}")
+        
+        # Emit command executed signal before executing command
+        self.command_executed.emit(self.current_device_id, command_name, command)
         
         # Execute command and receive result in signal processing
         try:

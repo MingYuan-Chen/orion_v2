@@ -3,11 +3,9 @@ Camera worker module
 Implement camera function test for device
 """
 from typing import List, Tuple
-import logging
+from util.logger import logger
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 
-# Get logger
-logger = logging.getLogger(__name__)
 
 class CameraWorker(BaseTestWorker):
     """Camera worker, implement camera function test for device"""
