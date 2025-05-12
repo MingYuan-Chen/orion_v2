@@ -359,11 +359,11 @@ class BaseTestWorker(QObject):
             self.is_paused_for_interaction = False
             self.waiting_for_pre_condition = False
             
-            # 记录人工判断结果
+            # Record human judgement result
             step = self.steps[self.current_step_index]
             step.human_judgement = is_passed
             
-            # 基于人工判断更新步骤结果
+            # Update step result based on human judgement
             if not is_passed:
                 step.passed = False
                 if self.current_step_index not in self.failed_steps:
@@ -372,7 +372,7 @@ class BaseTestWorker(QObject):
                 self.test_step_completed.emit(
                     self.current_step_index, False, "Step failed based on human judgement")
             
-            # 继续执行下一步
+            # Continue to next step
             self._execute_next_step()
     
     def _wait_completed(self):
