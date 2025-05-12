@@ -99,7 +99,7 @@ class BaseTestWorker(QObject):
         self.wait_timer.timeout.connect(self._wait_completed)
         
         # Save signal connection for later disconnection
-        self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
+        self.command_connection = None
         
         # Add pause state for user interaction
         self.is_paused_for_interaction = False
@@ -118,7 +118,7 @@ class BaseTestWorker(QObject):
         
         # Connect device worker signals
         if hasattr(self.device_worker, 'command_result'):
-            self.device_worker.command_result.connect(self._on_command_result)
+            self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
         else:
             logger.error("Device worker does not have command_result signal")
     
@@ -274,6 +274,7 @@ class BaseTestWorker(QObject):
         if step.pre_condition and not self.waiting_for_pre_condition:
             # Don't execute step yet, wait for user to confirm pre-condition is met
             self.waiting_for_pre_condition = True
+            self.is_paused_for_interaction = True
             # Emit signal to notify UI
             self.pre_condition_required.emit(self.current_step_index, step.pre_condition)
             return
@@ -353,18 +354,16 @@ class BaseTestWorker(QObject):
     def handle_post_check_response(self, is_passed: bool):
         """
         Handle user response to post-check verification
-        
-        Args:
-            is_passed: True if user judges the step passed, False if failed
         """
         if self.is_paused_for_interaction and self.current_step_index >= 0:
             self.is_paused_for_interaction = False
+            self.waiting_for_pre_condition = False
             
-            # Record human judgement
+            # 记录人工判断结果
             step = self.steps[self.current_step_index]
             step.human_judgement = is_passed
             
-            # Update step result based on human judgement
+            # 基于人工判断更新步骤结果
             if not is_passed:
                 step.passed = False
                 if self.current_step_index not in self.failed_steps:
@@ -373,7 +372,7 @@ class BaseTestWorker(QObject):
                 self.test_step_completed.emit(
                     self.current_step_index, False, "Step failed based on human judgement")
             
-            # Continue to next step
+            # 继续执行下一步
             self._execute_next_step()
     
     def _wait_completed(self):

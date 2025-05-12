@@ -23,7 +23,7 @@ class EmmcSizeWorker(BaseTestWorker):
         return [
             TestStep(
                 command="cat /sys/block/mmcblk2/size", 
-                expected_response="244629504", # get sector size * 512 = expected bytes: 125250306048
+                expected_response="244629504", # get sector size * 512 = expected bytes: 125250306048 = 125GB
                 timeout=5, 
                 description="Check emmc size",
                 max_retries=1,

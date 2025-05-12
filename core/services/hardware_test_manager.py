@@ -66,6 +66,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("functionality_camera", CameraWorker, continue_on_failure=True)
         from core.tests.functionality.touch_worker import TouchWorker
         self._register_worker("functionality_touch", TouchWorker, continue_on_failure=True)
+        from core.tests.functionality.power_button_worker import PowerButtonWorker
+        self._register_worker("functionality_power_button", PowerButtonWorker, continue_on_failure=True)
         
         # Diagnostic test workers
         from core.tests.diagnostic.cpu_name_worker import CpuNameWorker
@@ -94,6 +96,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_uboot_version", UbootVersionWorker, continue_on_failure=True)
         from core.tests.diagnostic.kernal_name_worker import KernalNameWorker
         self._register_worker("diagnostic_kernal_name", KernalNameWorker, continue_on_failure=True)
+        from core.tests.diagnostic.panel_id_resolution_worker import PanelIdResolutionWorker
+        self._register_worker("diagnostic_panel_id_resolution", PanelIdResolutionWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)

@@ -390,6 +390,7 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_emmc", "eMMC Test")
         test_container.add_test_group("functionality_lcd", "LCD Test")
         test_container.add_test_group("functionality_led", "LED Test")
+        test_container.add_test_group("functionality_power_button", "Power Button Test")
         test_container.add_test_group("functionality_touch", "Touch Test")
         test_container.add_test_group("functionality_usb", "USB Test")
 
@@ -832,6 +833,7 @@ class MainWindowController(QObject):
             "diagnostic_design_voltage": "Check Design Voltage",
             "diagnostic_uboot_version": "Check U-Boot Version",
             "diagnostic_kernal_name": "Check Kernal Name",
+            "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
         }
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
