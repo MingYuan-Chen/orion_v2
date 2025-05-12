@@ -373,9 +373,11 @@ class CameraWorker(BaseTestWorker):
                 description="Reset camera port B(J4)",
             ),
 
-            # reset the device after testing completed ======================================================
+            # Jig A and B ======================================================
+            # port A(J1)
             TestStep(
                 command="reboot",
+                pre_condition="Please ensure Jig A is connected to port A(J1), Jig B is connected to port B(J4)",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
@@ -389,6 +391,29 @@ class CameraWorker(BaseTestWorker):
                 command="root",
                 timeout=5,
                 description="enter password",
+            ),
+            TestStep(
+                command=self.get_gpio_value(0),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_jig_A,
+                timeout=5,
+                description="Validate GPIO value of Jig A",
+            ),
+            # port B(J4)
+            TestStep(
+                command=self.get_gpio_value(1),
+                timeout=5,
+                description="Get GPIO value",
+            ),
+            TestStep(
+                command="done",
+                validation_func=self._validate_gpio_value_jig_B,
+                timeout=5,
+                description="Validate GPIO value of Jig B",
             )
         ]
     
@@ -504,6 +529,46 @@ class CameraWorker(BaseTestWorker):
             values = values[:-1]
             value_str = "".join(values)
             if "1111" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+    
+    def _validate_gpio_value_jig_A(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "1000" in value_str:
+                return True, f"GPIO value is {value_str}"
+            else:
+                return False, f"GPIO value unexpected: {value_str}"
+            
+        except Exception as e:
+            logger.error(f"exception in validating GPIO value: {e}")
+            return False, f"exception in validating GPIO value: {e}"
+        
+    def _validate_gpio_value_jig_B(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            values = response.split("\n")
+            values = values[:-1]
+            value_str = "".join(values)
+            if "0100" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
                 return False, f"GPIO value unexpected: {value_str}"
