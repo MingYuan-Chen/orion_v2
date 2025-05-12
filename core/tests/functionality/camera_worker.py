@@ -13,7 +13,7 @@ class CameraWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True):
         super().__init__(device_worker, continue_on_failure)
         self.preview_vieo_port = lambda port: f"/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video{port} -bg -r 1 &"
-        self.get_gpio_value = lambda port:f"for i in 0 1 2 3; do cat vfe{port+1}_blade_det$i/value"
+        self.get_gpio_value = lambda port:f"for i in 0 1 2 3; do cat /sys/class/gpio/vfe{port+1}_blade_det$i/value"
         self.reset_camera = lambda port: f"fuser -k /dev/video{port}"
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -51,11 +51,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
-            ),
-            TestStep(
                 command=self.get_gpio_value(0),
                 timeout=5,
                 description="Get GPIO value",
@@ -81,11 +76,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
-            ),
-            TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
             ),
             TestStep(
                 command=self.get_gpio_value(1),
@@ -130,11 +120,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
-            ),
-            TestStep(
                 command=self.get_gpio_value(0),
                 timeout=5,
                 description="Get GPIO value",
@@ -160,11 +145,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
-            ),
-            TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
             ),
             TestStep(
                 command=self.get_gpio_value(1),
@@ -210,11 +190,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
-            ),
-            TestStep(
                 command=self.get_gpio_value(0),
                 timeout=5,
                 description="Get GPIO value",
@@ -240,11 +215,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
-            ),
-            TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
             ),
             TestStep(
                 command=self.get_gpio_value(1),
@@ -290,11 +260,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
-            ),
-            TestStep(
                 command=self.get_gpio_value(0),
                 timeout=5,
                 description="Get GPIO value",
@@ -320,11 +285,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
-            ),
-            TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
             ),
             TestStep(
                 command=self.get_gpio_value(1),
@@ -370,11 +330,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
-            ),
-            TestStep(
                 command=self.get_gpio_value(0),
                 timeout=5,
                 description="Get GPIO value",
@@ -400,11 +355,6 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
                 max_retries=1,
                 retry_delay=500
-            ),
-            TestStep(
-                command="cd /sys/class/gpio",
-                timeout=5,
-                description="change to /sys/class/gpio",
             ),
             TestStep(
                 command=self.get_gpio_value(1),
