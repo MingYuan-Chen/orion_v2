@@ -28,6 +28,14 @@ class PicVersionWorker(BaseTestWorker):
                 description="Check PIC Version",
                 max_retries=1,
                 retry_delay=500
+            ),
+            TestStep(
+                command="cat /proc/hw_rev", 
+                expected_response="100",           # convert to decimal: 100
+                timeout=5, 
+                description="Check PIC Version",
+                max_retries=1,
+                retry_delay=500
             )
         ]
 
