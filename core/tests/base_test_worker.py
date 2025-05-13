@@ -301,6 +301,10 @@ class BaseTestWorker(QObject):
         else:
             # No command to execute, pass the step
             self._handle_step_result(True, "No command specified")
+        
+        # Reset waiting flags
+        self.waiting_for_pre_condition = False
+        self.is_paused_for_interaction = False
     
     def _execute_step(self, step):
         """Execute the given step"""
@@ -328,6 +332,7 @@ class BaseTestWorker(QObject):
         """
         if self.is_paused_for_interaction and self.current_step_index >= 0:
             self.is_paused_for_interaction = False
+            self.waiting_for_pre_condition = False
             
             if should_continue:
                 # Continue with step execution
@@ -339,7 +344,6 @@ class BaseTestWorker(QObject):
                 step = self.steps[self.current_step_index]
                 step.passed = True
                 self.test_step_completed.emit(self.current_step_index, True, "Step skipped by user")
-                self._execute_next_step()
     
     @Slot()
     def handle_pre_condition_cancel(self):
@@ -530,6 +534,10 @@ class BaseTestWorker(QObject):
                 self.test_completed.emit(False, f"Test stopped at step {self.current_step_index+1}. Failed steps: {failed_steps_str}")
                 self._disconnect_signals()
                 return
+            
+            # Reset waiting flags
+            self.waiting_for_pre_condition = False
+            self.is_paused_for_interaction = False
             
             # Continue to execute next step
             self._execute_next_step()

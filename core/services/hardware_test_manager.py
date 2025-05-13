@@ -68,6 +68,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("functionality_touch", TouchWorker, continue_on_failure=True)
         from core.tests.functionality.power_button_worker import PowerButtonWorker
         self._register_worker("functionality_power_button", PowerButtonWorker, continue_on_failure=True)
+        from core.tests.functionality.charge_worker import ChargeWorker
+        self._register_worker("functionality_charge", ChargeWorker, continue_on_failure=True)
         
         # Diagnostic test workers
         from core.tests.diagnostic.cpu_name_worker import CpuNameWorker

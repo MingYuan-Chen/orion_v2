@@ -53,7 +53,7 @@ class TestManagerView(QObject):
         
         # test sequence related
         self.original_test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery",
-                                       "functionality_camera", "functionality_eeprom", "functionality_emmc", "functionality_lcd",
+                                       "functionality_camera", "functionality_charge", "functionality_eeprom", "functionality_emmc", "functionality_lcd",
                                        "functionality_led", "functionality_power_button", "functionality_touch", "functionality_usb"]
         self.test_sequence = self.original_test_sequence.copy()
         self.current_test_index = -1
