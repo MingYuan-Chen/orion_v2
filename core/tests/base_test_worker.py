@@ -5,7 +5,14 @@ Provide test step definition and execution framework, including retry mechanism
 from typing import List, Callable, Dict, Any, Tuple
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import datetime
+from enum import Enum
 from util.logger import logger
+
+class InteractionState(Enum):
+    """枚举类定义测试交互状态"""
+    NONE = 0                # 无交互
+    PRE_CONDITION = 1       # 等待预条件确认
+    POST_CHECK = 2          # 等待验证确认
 
 class TestStep:
     """Test step class, define a command and its expected result and validation method"""
@@ -101,17 +108,13 @@ class BaseTestWorker(QObject):
         # Save signal connection for later disconnection
         self.command_connection = None
         
-        # Add pause state for user interaction
-        self.is_paused_for_interaction = False
-        
         # Test status
         self.is_running = False
         self.test_start_time = None
         self.test_end_time = None
         
-        # Wait for pre-condition flag
-        self.waiting_for_pre_condition = False
-        self.waiting_for_post_check = False
+        # 交互状态统一管理
+        self.interaction_state = InteractionState.NONE
         
         # Create custom logger
         self.log_function = None
@@ -198,6 +201,7 @@ class BaseTestWorker(QObject):
         self.test_end_time = None
         self.steps = self.prepare_test_steps()
         self.failed_steps = []
+        self.interaction_state = InteractionState.NONE
         
         # Set log_function for all steps if available
         if self.log_function is not None:
@@ -233,6 +237,9 @@ class BaseTestWorker(QObject):
             
         if self.wait_timer.isActive():
             self.wait_timer.stop()
+        
+        # 重置交互状态
+        self.interaction_state = InteractionState.NONE
         
         # Emit test completed signal, marked as cancelled
         if self.current_step_index >= 0:
@@ -271,10 +278,9 @@ class BaseTestWorker(QObject):
         step = self.steps[self.current_step_index]
         
         # Check pre-condition
-        if step.pre_condition and not self.waiting_for_pre_condition:
+        if step.pre_condition:
             # Don't execute step yet, wait for user to confirm pre-condition is met
-            self.waiting_for_pre_condition = True
-            self.is_paused_for_interaction = True
+            self.interaction_state = InteractionState.PRE_CONDITION
             # Emit signal to notify UI
             self.pre_condition_required.emit(self.current_step_index, step.pre_condition)
             return
@@ -301,10 +307,6 @@ class BaseTestWorker(QObject):
         else:
             # No command to execute, pass the step
             self._handle_step_result(True, "No command specified")
-        
-        # Reset waiting flags
-        self.waiting_for_pre_condition = False
-        self.is_paused_for_interaction = False
     
     def _execute_step(self, step):
         """Execute the given step"""
@@ -330,9 +332,8 @@ class BaseTestWorker(QObject):
         Args:
             should_continue: True if continue with step, False if skip
         """
-        if self.is_paused_for_interaction and self.current_step_index >= 0:
-            self.is_paused_for_interaction = False
-            self.waiting_for_pre_condition = False
+        if self.interaction_state == InteractionState.PRE_CONDITION and self.current_step_index >= 0:
+            self.interaction_state = InteractionState.NONE
             
             if should_continue:
                 # Continue with step execution
@@ -348,9 +349,9 @@ class BaseTestWorker(QObject):
     @Slot()
     def handle_pre_condition_cancel(self):
         """Handle user cancellation of the entire test from pre-condition dialog"""
-        if self.is_paused_for_interaction:
-            self.is_paused_for_interaction = False
-            logger.warning("User cancelled test during pre-condition confirmation")
+        if self.interaction_state != InteractionState.NONE:
+            self.interaction_state = InteractionState.NONE
+            logger.warning("User cancelled test during interaction")
             self.test_completed.emit(False, "Test cancelled by user")
             self._disconnect_signals()
     
@@ -359,9 +360,8 @@ class BaseTestWorker(QObject):
         """
         Handle user response to post-check verification
         """
-        if self.is_paused_for_interaction and self.current_step_index >= 0:
-            self.is_paused_for_interaction = False
-            self.waiting_for_pre_condition = False
+        if self.interaction_state == InteractionState.POST_CHECK and self.current_step_index >= 0:
+            self.interaction_state = InteractionState.NONE
             
             # Record human judgement result
             step = self.steps[self.current_step_index]
@@ -427,6 +427,36 @@ class BaseTestWorker(QObject):
         # Resend command
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
     
+    def _handle_step_result(self, passed, message):
+        """
+        Handle step result processing
+        
+        Args:
+            passed: Whether the step passed
+            message: Result message
+        """
+        # Get current step
+        step = self.steps[self.current_step_index]
+        step.passed = passed
+        
+        if not passed:
+            self.failed_steps.append(self.current_step_index)
+        
+        # Emit step completed signal
+        self.test_step_completed.emit(self.current_step_index, passed, message)
+        
+        # Based on continue_on_failure, decide whether to continue
+        if not passed and not self.continue_on_failure:
+            # If step failed and set to not continue after failure, end test
+            failed_steps_str = ", ".join([f"Step {i+1}" for i in self.failed_steps])
+            logger.error(f"Test stopped due to step failure. Failed steps: {failed_steps_str}")
+            self.test_completed.emit(False, f"Test stopped at step {self.current_step_index+1}. Failed steps: {failed_steps_str}")
+            self._disconnect_signals()
+            return
+        
+        # Continue to execute next step
+        self._execute_next_step()
+
     def _on_command_result(self, device_id: str, command: str, response: str):
         """
         Process command execution result
@@ -519,38 +549,31 @@ class BaseTestWorker(QObject):
                 self.test_step_completed.emit(self.current_step_index, passed, message)
                 
                 # Pause for user verification
-                self.is_paused_for_interaction = True
+                self.interaction_state = InteractionState.POST_CHECK
                 self.post_check_required.emit(self.current_step_index, step.post_check)
                 return
             
-            # Send step completed signal
-            self.test_step_completed.emit(self.current_step_index, passed, message)
+            # 处理步骤结果
+            self._handle_step_result(passed, message)
             
-            # Based on continue_on_failure, decide whether to continue
-            if not passed and not self.continue_on_failure:
-                # If step failed and set to not continue after failure, end test
-                failed_steps_str = ", ".join([f"Step {i+1}" for i in self.failed_steps])
-                logger.error(f"Test stopped due to step failure. Failed steps: {failed_steps_str}")
-                self.test_completed.emit(False, f"Test stopped at step {self.current_step_index+1}. Failed steps: {failed_steps_str}")
-                self._disconnect_signals()
-                return
-            
-            # Reset waiting flags
-            self.waiting_for_pre_condition = False
-            self.is_paused_for_interaction = False
-            
-            # Continue to execute next step
-            self._execute_next_step()
         except Exception as e:
             logger.error(f"Error in _on_command_result: {str(e)}", exc_info=True)
             self.test_completed.emit(False, f"Test error: {str(e)}")
             self._disconnect_signals()
+    
+    def _execute_wait_step(self, step):
+        """Execute wait step"""
+        logger.debug(f"Execute wait step {self.current_step_index+1}/{len(self.steps)}: {step.description} ({step.wait_time} ms)")
+        # Start wait timer
+        self.wait_timer.setInterval(step.wait_time)
+        self.wait_timer.start()
     
     def _complete_test(self):
         """Complete test, check test results and send test completed signal"""
         # Record test end time
         self.test_end_time = datetime.datetime.now()
         self.is_running = False
+        self.interaction_state = InteractionState.NONE
         
         # All steps completed, check if test passed based on failed steps
         is_test_passed = len(self.failed_steps) == 0
