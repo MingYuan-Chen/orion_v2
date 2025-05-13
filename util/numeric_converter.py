@@ -57,28 +57,5 @@ if __name__ == "__main__":
     converter = NumericConverter()
     # Test examples:
     # 16 bit (2 bytes)
-    print(f"0xF45E (16-bit) -> {converter.hex_to_signed_decimal('0xf45e')}")
-    print(f"0x0ABC (16-bit) -> {converter.hex_to_signed_decimal('0x0abc')}")
-    print(f"0xFFFF (16-bit) -> {converter.hex_to_signed_decimal('0xFFFF')}")
-    print(f"0x7FFF (16-bit) -> {converter.hex_to_signed_decimal('0x7FFF')}")
-    print(f"0x8000 (16-bit) -> {converter.hex_to_signed_decimal('0x8000')}")
-
-    # Test values within your expected range
-    print(f"0xFC18 (16-bit) -> {converter.hex_to_signed_decimal('0xFC18')}")
-    print(f"0x03E8 (16-bit) -> {converter.hex_to_signed_decimal('0x03E8')}")
-
-    # Test values with odd length
-    print(f"0x0F10 (16-bit) -> {converter.hex_to_signed_decimal('0xf10')}") # 3856
-    print(f"0xF45E (16-bit) -> {converter.hex_to_signed_decimal('0xf4 0x5e')}") # 3856
-
-    # Test without "0x" prefix
-    print(f"F45E (16-bit) -> {converter.hex_to_signed_decimal('F45E')}")
-
-    # Can also handle other byte sizes, e.g. 8-bit (1 byte)
-    print(f"0xFF (8-bit) -> {converter.hex_to_signed_decimal('0xFF')}") # -1
-    print(f"0x7F (8-bit) -> {converter.hex_to_signed_decimal('0x7F')}") # 127
-
-    # Handle 32-bit (4 bytes)
-    print(f"0xFFFFFFFF (32-bit) -> {converter.hex_to_signed_decimal('0xFFFFFFFF')}") # -1
-    print(f"0x80000000 (32-bit) -> {converter.hex_to_signed_decimal('0x80000000')}") # -2147483648
+    print(f"{converter.hex_to_signed_decimal('0x02 0x9b')}")
 
