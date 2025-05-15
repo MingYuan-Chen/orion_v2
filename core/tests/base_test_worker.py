@@ -9,10 +9,10 @@ from enum import Enum
 from util.logger import logger
 
 class InteractionState(Enum):
-    """枚举类定义测试交互状态"""
-    NONE = 0                # 无交互
-    PRE_CONDITION = 1       # 等待预条件确认
-    POST_CHECK = 2          # 等待验证确认
+    """Enum class defining test interaction states"""
+    NONE = 0                # no interaction
+    PRE_CONDITION = 1       # waiting for pre-condition confirmation
+    POST_CHECK = 2          # waiting for verification confirmation
 
 class TestStep:
     """Test step class, define a command and its expected result and validation method"""
@@ -493,6 +493,15 @@ class BaseTestWorker(QObject):
             self._disconnect_signals()
             return
         
+        # Check if the step has post_check requirements
+        if hasattr(step, 'post_check') and step.post_check:
+            # Set interaction state to post_check and emit signal
+            self.interaction_state = InteractionState.POST_CHECK
+            # Emit signal to notify UI
+            logger.info(f"Post-check required for step {self.current_step_index+1}: {step.post_check}")
+            self.post_check_required.emit(self.current_step_index, step.post_check)
+            return
+        
         # Continue to execute next step
         self._execute_next_step()
 
@@ -517,8 +526,6 @@ class BaseTestWorker(QObject):
         # Get current step
         step = self.steps[self.current_step_index]
         
-        # Print received command and step command for debugging
-        logger.info(f"Received command result, received command: '{command}'")
         logger.info(f"Current step command: '{step.command}'")
         
         # Check if command matches, allow partial match (processed variable command)
