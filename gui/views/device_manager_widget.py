@@ -47,9 +47,6 @@ class DeviceManagerWidget(QWidget):
         # Initial refresh
         self._refresh_device_list()
         
-        # Setup periodic refresh
-        self._setup_refresh_timer()
-        
         # Ensure this window is recognized as part of the main application
         self._set_window_properties()
         
@@ -60,12 +57,6 @@ class DeviceManagerWidget(QWidget):
         app = QApplication.instance()
         if app:
             app.aboutToQuit.connect(self._on_app_quit)
-        
-    def _setup_refresh_timer(self, interval_ms=5000):
-        """Setup periodic refresh timer"""
-        self.refresh_timer = QTimer(self)
-        self.refresh_timer.timeout.connect(self._refresh_device_list)
-        self.refresh_timer.start(interval_ms)
         
     def _load_ui_direct(self):
         """Load UI with a more direct approach"""
@@ -115,9 +106,17 @@ class DeviceManagerWidget(QWidget):
             # Add widget to layout
             main_layout.addWidget(self.ui_widget)
             
+            # 初始化表格列宽
+            self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # 名称列
+            self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # 类型列
+            self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # 地址列
+            self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # 状态列
+            self.ui_widget.table_widget_devices.horizontalHeader().setStretchLastSection(True)
+            
             # Set UI properties
             self.setWindowTitle("Device Manager")
-            self.resize(self.ui_widget.size())
+            self.resize(640, 400)  # 设置更合适的窗口大小
+            self.setMinimumSize(640, 350)  # 设置最小窗口大小，防止用户调整得太小
             
             # Set application icon
             if os.path.exists(icon_path):
@@ -141,7 +140,6 @@ class DeviceManagerWidget(QWidget):
             self.ui_widget.push_button_new_device.clicked.connect(self._on_new_device_clicked)
             self.ui_widget.push_button_disconnect.clicked.connect(self._on_disconnect_clicked)
             self.ui_widget.push_button_open_main_window.clicked.connect(self._on_open_main_window_clicked)
-            self.ui_widget.push_button_refresh.clicked.connect(self._refresh_device_list)
             
             # Connect other events
             self.ui_widget.table_widget_devices.itemSelectionChanged.connect(self._on_device_selection_changed)
@@ -326,10 +324,16 @@ class DeviceManagerWidget(QWidget):
             
             self.ui_widget.table_widget_devices.setItem(row, 3, status_item)
         
-        # Resize columns to content
-        self.ui_widget.table_widget_devices.resizeColumnsToContents()
+        # 设置最小列宽，确保信息不会被切掉
+        self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # 名称列
+        self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # 类型列
+        self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # 地址列
+        self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # 状态列
         
-        # Update button states
+        # 确保表格自动拉伸以填充可用空间
+        self.ui_widget.table_widget_devices.horizontalHeader().setStretchLastSection(True)
+        
+        # 更新按钮状态
         self._on_device_selection_changed()
     
     @Slot(str, bool, str)
@@ -386,12 +390,7 @@ class DeviceManagerWidget(QWidget):
         
         logger.info("DeviceManagerWidget closeEvent triggered")
         
-        # 1. Stop the auto-scan timer
-        if hasattr(self, 'refresh_timer') and self.refresh_timer.isActive():
-            self.refresh_timer.stop()
-            logger.debug("Auto-scan timer stopped")
-        
-        # 2. Close all device windows
+        # Close all device windows
         if hasattr(self, 'device_windows') and self.device_windows:
             for device_id, controller in list(self.device_windows.items()):
                 logger.info(f"Closing window for device: {device_id}")
@@ -451,8 +450,6 @@ class DeviceManagerWidget(QWidget):
                 self.ui_widget.table_widget_devices.setRowCount(0)
                 
             # Disable all buttons
-            if hasattr(self.ui_widget, 'push_button_refresh'):
-                self.ui_widget.push_button_refresh.setEnabled(False)
             if hasattr(self.ui_widget, 'push_button_new_device'):
                 self.ui_widget.push_button_new_device.setEnabled(False)
             if hasattr(self.ui_widget, 'push_button_disconnect'):

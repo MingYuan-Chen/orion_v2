@@ -10,8 +10,8 @@ from util.logger import logger
 class SetGetRtcTimeWorker(BaseTestWorker):
     """Diagnostic set and get rtc time worker, implement diagnostic set and get rtc time test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
     
     def prepare_test_steps(self) -> List[TestStep]:
         """

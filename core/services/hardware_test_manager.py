@@ -22,15 +22,17 @@ class HardwareTestManagerService(QObject):
     test_pre_condition_required = Signal(str, int, str)  # test_id, step_index, pre_condition
     test_post_check_required = Signal(str, int, str)  # test_id, step_index, post_check
     
-    def __init__(self, device_worker):
+    def __init__(self, device_worker, platform_name="hydra"):
         """
         Initialize hardware test manager
         
         Args:
             device_worker: Device worker object, will be passed to all test workers
+            platform_name: Platform name for command set, default is "hydra"
         """
         super().__init__()
         self.device_worker = device_worker
+        self.platform_name = platform_name
         
         # Register all module test workers
         self.test_workers = {}
@@ -40,7 +42,24 @@ class HardwareTestManagerService(QObject):
         self.active_test_id = None
         self.active_test_worker = None
         
-        logger.info("Hardware test manager initialized")
+        logger.info(f"Hardware test manager initialized with platform: {platform_name}")
+        
+    def set_platform(self, platform_name: str):
+        """
+        Set platform name for all test workers
+        
+        Args:
+            platform_name: Platform name
+        """
+        logger.info(f"Setting platform name to: {platform_name}")
+        self.platform_name = platform_name
+        
+        # Update platform name for all existing test workers
+        for test_id, worker in self.test_workers.items():
+            if hasattr(worker, 'set_platform'):
+                worker.set_platform(platform_name)
+        
+        logger.info(f"Platform name updated for {len(self.test_workers)} test workers")
         
     def _register_test_workers(self):
         """Register all module test workers"""
@@ -119,8 +138,8 @@ class HardwareTestManagerService(QObject):
         Returns:
             Created worker instance
         """
-        # Create worker instance
-        worker = worker_class(self.device_worker, continue_on_failure=continue_on_failure)
+        # Create worker instance with platform name
+        worker = worker_class(self.device_worker, continue_on_failure=continue_on_failure, platform_name=self.platform_name)
         
         # Connect worker signals to manager signals
         worker.test_step_completed.connect(
@@ -198,29 +217,61 @@ class HardwareTestManagerService(QObject):
         worker_class = self.test_workers[test_id].worker_class
         
         # If there is a test running, stop it first
-        if self.active_test_worker is not None:
-            logger.warning(f"Stop current running test: {self.active_test_id}")
-            self.active_test_worker.stop_test()
+        if self.active_test_worker:
+            self.stop_current_test()
         
-        # Create worker and connect signals
-        worker = self._create_and_connect_worker(test_id, worker_class)
+        # Create a new worker instance with the current platform name
+        worker = worker_class(self.device_worker, continue_on_failure=True, platform_name=self.platform_name)
         
-        # set the log function
+        # 如果原始worker定义了log_function，则复制到新worker
         if hasattr(self.test_workers[test_id], 'log_function') and self.test_workers[test_id].log_function:
             worker.log_function = self.test_workers[test_id].log_function
+            logger.debug(f"Copied log_function to new {test_id} worker")
         
-        # Update dictionary and active test
-        self.test_workers[test_id] = worker
+        # Connect worker signals to manager signals
+        worker.test_step_completed.connect(
+            lambda step_index, success, message: 
+                self.test_step_completed.emit(test_id, step_index, success, message)
+        )
+        worker.test_step_retrying.connect(
+            lambda step_index, retry_count, max_retries, error_message:
+                self.test_step_retrying.emit(test_id, step_index, retry_count, max_retries, error_message)
+        )
+        worker.test_progress.connect(
+            lambda current, total: 
+                self.test_progress.emit(test_id, current, total)
+        )
+        worker.test_completed.connect(
+            lambda success, message: 
+                self._handle_test_completion(test_id, success, message)
+        )
+        
+        # Connect new user interaction signals
+        worker.pre_condition_required.connect(
+            lambda step_index, pre_condition:
+                self.test_pre_condition_required.emit(test_id, step_index, pre_condition)
+        )
+        worker.post_check_required.connect(
+            lambda step_index, post_check:
+                self.test_post_check_required.emit(test_id, step_index, post_check)
+        )
+        
+        # Save active test
         self.active_test_id = test_id
         self.active_test_worker = worker
         
-        logger.info(f"Start test: {test_id}, device ID: {device_id}")
+        # 准备测试步骤并保存，确保步骤信息可用于UI显示
+        worker.steps = worker.prepare_test_steps()
         
-        # Notify test started
+        # 为测试步骤设置log_function，确保命令被记录到系统日志中
+        for step in worker.steps:
+            if hasattr(worker, 'log_function') and worker.log_function:
+                step.log_function = worker.log_function
+        
+        # Start the test
+        logger.info(f"Starting test: {test_id} for device: {device_id}")
         self.test_started.emit(test_id)
-        
-        # Start test worker
-        self.active_test_worker.start_test(device_id)
+        worker.start_test(device_id)
     
     def stop_current_test(self):
         """Stop current running test"""

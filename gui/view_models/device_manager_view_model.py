@@ -21,11 +21,12 @@ class DeviceManagerViewModel(QObject):
     # Command execution signals
     command_result = Signal(str, str, str)  # device_id, command, response
     
-    def __init__(self, device_manager: DeviceManagerModel = None):
+    def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra"):
         super().__init__()
         # Initialize device manager
         self.device_manager = device_manager or DeviceManagerModel()
         self.connected_devices = {}  # device_id: device_info
+        self.platform_name = platform_name
         
         # Create device worker thread
         self._serial_worker = SerialDeviceWorker(self.device_manager)
@@ -35,9 +36,15 @@ class DeviceManagerViewModel(QObject):
         self._serial_worker.disconnection_result.connect(self._on_disconnection_completed)
         self._serial_worker.command_result.connect(self._on_command_completed)
         
-        # Initialize SystemInfoService
+        # Initialize SystemInfoService with platform name
         from core.services.system_info import SystemInfoService
-        self.system_info_service = SystemInfoService(self._serial_worker)
+        self.system_info_service = SystemInfoService(self._serial_worker, platform_name=self.platform_name)
+        
+        # Initialize HardwareTestManagerService
+        from core.services.hardware_test_manager import HardwareTestManagerService
+        self.hardware_test_manager = HardwareTestManagerService(self._serial_worker, platform_name=self.platform_name)
+        
+        logger.info(f"DeviceManagerViewModel initialized with platform: {platform_name}")
         
     def cleanup(self):
         """Release resources and clean up"""
@@ -277,3 +284,19 @@ class DeviceManagerViewModel(QObject):
             self.connected_devices[device_id]['details'].update(details)
             # Notify device list has changed
             self.device_list_changed.emit(list(self.connected_devices.values()))
+
+    def set_platform(self, platform_name: str):
+        """
+        Set the platform name and update dependent services
+        
+        Args:
+            platform_name: Platform name to use
+        """
+        logger.info(f"Changing platform to: {platform_name}")
+        self.platform_name = platform_name
+        
+        # Update platform for services
+        if hasattr(self, 'system_info_service') and self.system_info_service:
+            self.system_info_service.set_platform(platform_name)
+        
+        # For test workers, they'll get the platform name when they're created

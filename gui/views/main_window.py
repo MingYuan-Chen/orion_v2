@@ -575,31 +575,60 @@ class MainWindowController(QObject):
                         # find the corresponding step information
                         current_step = record['current_step'] - 1  # convert to 0-based index
                         
-                        # prepare the basic data
+                        # get the step status, message and time from the test results
                         step_desc = ""
                         step_message = ""
                         step_command = ""
                         step_response = ""
                         step_time = "--:--:--"  # default time
                         
-                        # get step description and command
-                        if test_id in self.hw_test_manager.test_workers:
-                            worker = self.hw_test_manager.test_workers[test_id]
-                            if len(worker.steps) > current_step:
-                                test_step = worker.steps[current_step]
-                                step_desc = test_step.description
-                                step_command = test_step.command if hasattr(test_step, 'command') else ""
-                                # get the response from the TestStep object
-                                step_response = test_step.result if hasattr(test_step, 'result') else ""
-                        
-                        # get the step status, message and time from the test results
+                        # 首先从测试结果(test_steps)中获取详细信息
                         for step in test_steps:
                             if step['index'] == current_step:
                                 step_message = step['message']
+                                # 从测试结果中获取步骤描述
+                                if 'description' in step:
+                                    step_desc = step['description']
+                                    logger.debug(f"Found description in test result: {step_desc}")
+                                # 从测试结果中获取命令和响应
+                                if 'command' in step:
+                                    step_command = step['command']
+                                    logger.debug(f"Found command in test result: {step_command}")
+                                if 'response' in step:
+                                    step_response = step['response']
+                                    logger.debug(f"Found response in test result: {step_response}")
                                 # get the execution time of the step
                                 if 'time' in step:
                                     step_time = step['time']
                                 break
+                        
+                        # 尝试从测试工作器中获取步骤描述
+                        if not step_desc and test_id in self.hw_test_manager.test_workers:
+                            worker = self.hw_test_manager.test_workers[test_id]
+                            if len(worker.steps) > current_step:
+                                test_step = worker.steps[current_step]
+                                # 获取步骤描述
+                                if hasattr(test_step, 'description'):
+                                    step_desc = test_step.description
+                                    logger.debug(f"Found description in worker: {step_desc}")
+                                
+                                # 只有在测试结果中没有命令时才获取
+                                if not step_command and hasattr(test_step, 'command'):
+                                    step_command = test_step.command
+                                    logger.debug(f"Found command in worker: {step_command}")
+                                
+                                # 只有在测试结果中没有响应时才获取
+                                if not step_response:
+                                    # 优先使用response属性，如果没有则使用result属性
+                                    if hasattr(test_step, 'response') and test_step.response:
+                                        step_response = test_step.response
+                                        logger.debug(f"Found response in worker (response attr): {step_response}")
+                                    elif hasattr(test_step, 'result') and test_step.result:
+                                        step_response = test_step.result
+                                        logger.debug(f"Found response in worker (result attr): {step_response}")
+                        
+                        # 记录最终收集到的信息
+                        logger.debug(f"Final step info - Test: {test_id}, Step: {current_step+1}, Desc: '{step_desc}', Cmd: '{step_command}', Time: {step_time}")
                         
                         # create the row data
                         row_data = [
@@ -873,7 +902,7 @@ class MainWindowController(QObject):
             results = self.auto_diagnostic_view.get_diagnostic_results()
             
             # write to the CSV file
-            with open(file_path, 'w', newline='') as csvfile:
+            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
                 # write the title row
@@ -885,7 +914,7 @@ class MainWindowController(QObject):
                     status = result.get("status", "UNKNOWN")
                     time_str = result.get("time", "--:--:--")
                     
-                    # get the current time as the timestamp (because the diagnostic test did not record)
+                    # get the current time as the timestamp (because the diagnostic test might not have recorded it)
                     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     # get the details data
@@ -895,21 +924,33 @@ class MainWindowController(QObject):
                     if isinstance(details, dict) and "steps" in details and details["steps"]:
                         # if there is detailed step information, create a row for each step
                         for step in details["steps"]:
+                            # 确保从步骤信息中获取正确的字段
+                            step_desc = step.get("description", "")
+                            step_command = step.get("command", "")
+                            
+                            # 优先使用response属性，如果没有则使用result属性
+                            step_response = step.get("response", "")
+                            if not step_response and step.get("result") is not None:
+                                step_response = step.get("result", "")
+                            # 如果响应为None，使用一个空字符串代替
+                            if step_response is None:
+                                step_response = ""
+                            
                             writer.writerow([
-                                "",                              # Module (diagnostic test does not have this information)
-                                step.get("description", ""),     # Step
+                                test_id,                         # Module
+                                step_desc,                       # Step
                                 timestamp,                       # Timestamp
                                 time_str,                        # Time
-                                status,                          # Result
-                                step.get("command", ""),         # Command
-                                str(step.get("result", ""))      # Response
+                                "PASS" if step.get("passed", False) else "FAIL",  # Result
+                                step_command,                     # Command
+                                str(step_response)                # Response
                             ])
                     else:
                         # if there is no detailed step information, create a row for the basic information
                         # get the basic message
                         message = details.get("message", "") if isinstance(details, dict) else ""
                         writer.writerow([
-                            "",                # Module (diagnostic test does not have this information)
+                            test_id,           # Module
                             "",                # Step
                             timestamp,         # Timestamp
                             time_str,          # Time

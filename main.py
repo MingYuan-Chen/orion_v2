@@ -57,23 +57,12 @@ def main():
             except Exception as e:
                 logger.warning(f"Failed to set Application User Model ID: {e}")
         
-        # Start with login screen
-        login_dialog = LoginDialog()
-        login_result = login_dialog.exec()
-        
-        # If login successful, show device manager
-        if login_result == LoginDialog.Accepted and login_dialog.login_successful:
-            logger.info("Login successful. Starting device manager...")
+        # Create and show device manager
+        device_manager = DeviceManagerWidget()
+        device_manager.show()
             
-            # Create and show device manager
-            device_manager = DeviceManagerWidget()
-            device_manager.show()
-            
-            # Run main event loop
-            return app.exec()
-        else:
-            logger.info("Login cancelled or failed. Exiting application.")
-            return 0
+        # Run main event loop
+        return app.exec()
             
     except Exception as e:
         logger.error(f"Application failed: {e}")
