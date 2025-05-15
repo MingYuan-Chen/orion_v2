@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Signal, Slot, QTimer, QThread
 import json
 from typing import Dict, Any, Optional, List
 from util.logger import logger
+from core.models.platform_command_set import PlatformCommandSet, CommandType
 
 class SystemInfoService(QObject):
     """
@@ -17,16 +18,22 @@ class SystemInfoService(QObject):
     info_error = Signal(str, str)      # device_id, error_message
     command_executed = Signal(str, str, str)  # device_id, command_name, command
     
-    def __init__(self, serial_worker):
+    def __init__(self, serial_worker, platform_name="hydra"):
         """
         Initialize system info service
         
         Args:
             serial_worker: Serial device worker for command execution
+            platform_name: Platform name for command set, default is "hydra"
         """
         super().__init__()
         self.serial_worker = serial_worker
-        self.commands = self.get_commands()
+        
+        # Initialize platform command set
+        self.platform_command_set = PlatformCommandSet(platform_name=platform_name)
+        # Get system info commands
+        self.commands = self._get_commands_from_platform()
+        
         self.pending_commands = []
         self.current_device_id = None
         self.collected_info = {}
@@ -47,27 +54,44 @@ class SystemInfoService(QObject):
             7: ("White", "white"), 15: ("White Blinking", "white")
         }
     
+    def _get_commands_from_platform(self):
+        """
+        Get commands from platform command set
+        
+        Returns:
+            Dictionary of command names to command strings
+        """
+        # Get all system info commands from platform command set
+        system_info_commands = self.platform_command_set.get_all_commands(CommandType.SYSTEM_INFO)
+        
+        # Convert command format: some commands may be lists of strings in JSON
+        command_dict = {}
+        for cmd_name, cmd_value in system_info_commands.items():
+            if isinstance(cmd_value, list) and len(cmd_value) > 0:
+                # Use the first command in the list
+                command_dict[cmd_name] = cmd_value[0]
+            else:
+                command_dict[cmd_name] = cmd_value
+                
+        logger.info(f"Loaded {len(command_dict)} system info commands from platform command set")
+        return command_dict
+    
+    def set_platform(self, platform_name: str):
+        """
+        Set platform name and reload commands
+        
+        Args:
+            platform_name: Platform name
+        """
+        logger.info(f"Setting platform to: {platform_name}")
+        self.platform_command_set.set_platform(platform_name)
+        self.commands = self._get_commands_from_platform()
+    
     def get_commands(self):
         """
-        Get commands for fetching system information
+        Get commands for fetching system information (For compatibility)
         """
-        return {
-            # System basic information
-            "cpu_info": "grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'",
-            "memory_info": "free -h | grep 'Mem:'",
-            "disk_usage": "df -h | grep 'root'",
-            
-            # Battery information
-            #"capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0f r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0f r2",
-            #"full_capacity": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x10 r2",
-            "relative_state": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-            "charging_voltage": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x15 r2",
-            "charging_current": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2",
-            "temperature": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2",
-            #"cycle_count": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x17 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x17 r2",
-            #"led_status": "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2",
-            #"dc_status": "cat /sys/class/gpio/gpio133/value",
-        }
+        return self.commands
     
     def update_system_info(self, device_id: str):
         """
@@ -113,6 +137,8 @@ class SystemInfoService(QObject):
         # Get the next command to execute
         command_name, command = self.pending_commands.pop(0)
         
+        # 使用明显的格式记录命令，确保在系统日志中清晰可见
+        logger.info(f"COMMAND: [{self.current_device_id}][{command_name}] >>> {command}")
         logger.debug(f"Executing system info command: {command_name} - {command}")
         
         # Emit command executed signal before executing command
@@ -162,6 +188,8 @@ class SystemInfoService(QObject):
         
         # Record response
         logger.info(f"Received response for {command_name}:")
+        # 使用明显的格式记录响应，确保在系统日志中清晰可见
+        logger.info(f"RESPONSE: [{device_id}][{command_name}] <<< {response}")
         logger.debug(f"Response: {response}")
         
         # Process response

@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import datetime
 from enum import Enum
 from util.logger import logger
+from core.models.platform_command_set import PlatformCommandSet, CommandType
 
 class InteractionState(Enum):
     """Enum class defining test interaction states"""
@@ -40,6 +41,7 @@ class TestStep:
         self.validation_func = validation_func
         self.description = description
         self.result = None
+        self.response = None  # 明确初始化response属性
         self.passed = None
         self.max_retries = max_retries  # Maximum retry times
         self.retry_delay = retry_delay  # Retry delay (milliseconds)
@@ -76,7 +78,7 @@ class BaseTestWorker(QObject):
     pre_condition_required = Signal(int, str)  # step_index, pre_condition
     post_check_required = Signal(int, str)  # step_index, post_check
     
-    def __init__(self, device_worker, device_id=None, continue_on_failure=False):
+    def __init__(self, device_worker, device_id=None, continue_on_failure=False, platform_name="hydra"):
         """
         Initialize test worker
         
@@ -84,11 +86,16 @@ class BaseTestWorker(QObject):
             device_worker: Device worker object, must provide send_command method and command_result signal
             device_id: Target device ID, can be set later when starting test
             continue_on_failure: Whether to continue testing after a step fails
+            platform_name: Platform name for command set, default is "hydra"
         """
         super().__init__()
         self.device_worker = device_worker
         self.device_id = device_id
         self.continue_on_failure = continue_on_failure
+        self.platform_name = platform_name
+        
+        # Initialize platform command set
+        self.platform_command_set = PlatformCommandSet(platform_name=platform_name)
         
         self.current_device_id = None
         self.steps = []
@@ -113,7 +120,7 @@ class BaseTestWorker(QObject):
         self.test_start_time = None
         self.test_end_time = None
         
-        # 交互状态统一管理
+        # Interaction state management
         self.interaction_state = InteractionState.NONE
         
         # Create custom logger
@@ -124,6 +131,57 @@ class BaseTestWorker(QObject):
             self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
         else:
             logger.error("Device worker does not have command_result signal")
+    
+    def set_platform(self, platform_name: str):
+        """
+        Set platform name and reload command set
+        
+        Args:
+            platform_name: Platform name
+        """
+        logger.info(f"Setting platform to: {platform_name}")
+        self.platform_name = platform_name
+        self.platform_command_set.set_platform(platform_name)
+    
+    def get_command(self, command_name: str, command_type: CommandType = CommandType.AUTO_DIAGNOSTIC):
+        """
+        Get command from platform command set
+        
+        Args:
+            command_name: Command name
+            command_type: Command type, default is AUTO_DIAGNOSTIC
+        
+        Returns:
+            Command string, or None if not found
+        """
+        cmd_value = self.platform_command_set.get_command(command_type, command_name)
+        
+        # Handle command list format
+        if isinstance(cmd_value, list) and len(cmd_value) > 0:
+            # For diagnostic tests that have multiple commands, return the first one by default
+            return cmd_value[0]
+        
+        return cmd_value
+    
+    def get_commands(self, command_name: str, command_type: CommandType = CommandType.AUTO_DIAGNOSTIC):
+        """
+        Get all commands for a command name (handles multi-step commands)
+        
+        Args:
+            command_name: Command name
+            command_type: Command type, default is AUTO_DIAGNOSTIC
+        
+        Returns:
+            List of command strings, or empty list if not found
+        """
+        cmd_value = self.platform_command_set.get_command(command_type, command_name)
+        
+        if isinstance(cmd_value, list):
+            return cmd_value
+        elif cmd_value:
+            return [cmd_value]
+        
+        return []
     
     def set_continue_on_failure(self, value: bool):
         """
@@ -550,8 +608,20 @@ class BaseTestWorker(QObject):
             logger.warning(f"Command does not match, ignoring this result, received command: '{command}', expected command: '{expected_command}'")
             return
         
-        # Record command output to step
+        # Always record command output to step - 确保在所有情况下都设置response
         step.response = response
+        # Also set the result attribute to be the same as response for consistency
+        step.result = response
+        
+        # 调用响应收集器函数(如果已设置)
+        if hasattr(self, 'response_collector') and callable(self.response_collector):
+            test_id = getattr(self, 'test_id', self.__class__.__name__)
+            self.response_collector(test_id, self.current_step_index, command, response)
+        
+        # Log response to system log if configured (保留这个日志记录功能)
+        if hasattr(step, 'log_function') and callable(step.log_function):
+            # 使用一种明显的格式来记录响应，确保在日志中能清晰区分
+            step.log_function("INFO", f"[Response] {response}")
         
         # Validate the response if validation function is provided
         if step.validation_func is not None:
@@ -703,3 +773,13 @@ class BaseTestWorker(QObject):
             logger.error(f"Error processing command '{command}': {str(e)}", exc_info=True)
             # Return original command when error occurs
             return command 
+
+    def set_response_collector(self, collector_func):
+        """
+        设置响应收集器函数，在命令执行后调用该函数
+        
+        Args:
+            collector_func: 收集器函数，参数为 (test_id, step_index, command, response)
+        """
+        self.response_collector = collector_func
+        logger.debug(f"Response collector function set for {self.__class__.__name__}") 

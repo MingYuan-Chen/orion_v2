@@ -350,13 +350,41 @@ class TestManagerView(QObject):
         
         # store the step results
         if test_id in self.test_results:
+            # 获取步骤的命令和响应
+            command = ""
+            response = ""
+            
+            # 尝试从活动测试工作器获取命令和响应
+            if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+                active_worker = self.hw_test_manager.active_test_worker
+                if hasattr(active_worker, 'steps') and len(active_worker.steps) > step_index:
+                    step = active_worker.steps[step_index]
+                    command = step.command if hasattr(step, 'command') else ""
+                    response = step.response if hasattr(step, 'response') and step.response else ""
+                    if not response and hasattr(step, 'result') and step.result:
+                        response = step.result
+            
+            # 如果从活动工作器获取失败，尝试从注册的测试工作器中获取
+            if (not command or not response) and test_id in self.hw_test_manager.test_workers:
+                registered_worker = self.hw_test_manager.test_workers[test_id]
+                if hasattr(registered_worker, 'steps') and len(registered_worker.steps) > step_index:
+                    step = registered_worker.steps[step_index]
+                    if not command and hasattr(step, 'command'):
+                        command = step.command
+                    if not response:
+                        response = step.response if hasattr(step, 'response') and step.response else ""
+                        if not response and hasattr(step, 'result') and step.result:
+                            response = step.result
+            
             self.test_results[test_id]["steps"].append({
                 "index": step_index,
                 "success": success,
                 "message": message,
                 "time": step_time,
                 "start_time": step_start_time,
-                "end_time": step_end_time
+                "end_time": step_end_time,
+                "command": command,      # 添加命令
+                "response": response     # 添加响应
             })
         
         # update the test step UI
@@ -366,10 +394,23 @@ class TestManagerView(QObject):
             table.insertRow(row)
             
             # get the step description
-            step_description = ""
-            if test_id in self.hw_test_manager.test_workers and len(self.hw_test_manager.test_workers[test_id].steps) > step_index:
-                step = self.hw_test_manager.test_workers[test_id].steps[step_index]
-                step_description = step.description
+            step_description = f"Step {step_index+1}"  # 默认显示步骤编号
+            
+            # 尝试从活动测试工作器获取步骤描述
+            if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+                active_worker = self.hw_test_manager.active_test_worker
+                if hasattr(active_worker, 'steps') and len(active_worker.steps) > step_index:
+                    step = active_worker.steps[step_index]
+                    if hasattr(step, 'description') and step.description:
+                        step_description = step.description
+            
+            # 如果从活动工作器获取失败，尝试从注册的测试工作器中获取
+            if step_description == f"Step {step_index+1}" and test_id in self.hw_test_manager.test_workers:
+                registered_worker = self.hw_test_manager.test_workers[test_id]
+                if hasattr(registered_worker, 'steps') and len(registered_worker.steps) > step_index:
+                    step = registered_worker.steps[step_index]
+                    if hasattr(step, 'description') and step.description:
+                        step_description = step.description
             
             # add the step details
             table.setItem(row, 0, QTableWidgetItem(step_description))

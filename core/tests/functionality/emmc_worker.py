@@ -10,8 +10,8 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 class EmmcWorker(BaseTestWorker):
     """Emmc worker, implement emmc function test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
     
     def prepare_test_steps(self) -> List[TestStep]:
         """

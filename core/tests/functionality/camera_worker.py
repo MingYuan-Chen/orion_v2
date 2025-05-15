@@ -10,8 +10,8 @@ from core.tests.base_test_worker import BaseTestWorker, TestStep
 class CameraWorker(BaseTestWorker):
     """Camera worker, implement camera function test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.preview_vieo_port = lambda port: f"/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video{port} -bg -r 1 &"
         self.get_gpio_value = lambda port:f"for i in 0 1 2 3; do cat /sys/class/gpio/vfe{port+1}_blade_det$i/value"
         self.reset_camera = lambda port: f"fuser -k /dev/video{port}"

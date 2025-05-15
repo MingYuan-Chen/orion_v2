@@ -10,8 +10,8 @@ from util.logger import logger
 class BacklightWorker(BaseTestWorker):
     """Backlight worker, implement backlight function test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         # brightness level: 0-7
         self.set_backlight_brightness = lambda level: f"echo {level} > /sys/class/backlight/backlight/brightness"
         self.get_backlight_brightness = "cat /sys/class/backlight/backlight/brightness"

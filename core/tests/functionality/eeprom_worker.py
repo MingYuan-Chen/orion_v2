@@ -10,8 +10,8 @@ from util.logger import logger
 class EepromWorker(BaseTestWorker):
     """EEPROM worker, implement EEPROM function test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.i2c_bus = "/dev/i2c-0"
         self.eeprom0 = "0x55"  # external 128Kbit EEPROM chip
         self.eeprom1 = "0x57"  # 1Kbit EEPROM inside RTC

@@ -246,11 +246,17 @@ class SerialDeviceWorker(QObject):
     def _execute_send_command(self, device_id: str, command: str, timeout: int):
         """Actual execute send command operation (in worker thread)"""
         try:
+            # 使用明显的格式记录命令，确保在系统日志中清晰可见
+            logger.info(f"COMMAND: [{device_id}] >>> {command}")
             logger.info(f"Sending command to device {device_id}: {command}")
             
             # Execute command
             response = self.device_manager.send_command(device_id, command, timeout)
+            
+            # 使用明显的格式记录响应，确保在系统日志中清晰可见
+            logger.info(f"RESPONSE: [{device_id}] <<< {response}")
             logger.info(f"Command completed: {device_id}, {command}")
+            
             self.command_result.emit(device_id, command, response)
         except Exception as e:
             logger.error(f"Error sending command {command} to device {device_id}: {str(e)}")

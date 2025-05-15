@@ -5,14 +5,16 @@ Implement panel ID resolution test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
+from core.models.platform_command_set import CommandType
 
 
 class PanelIdResolutionWorker(BaseTestWorker):
     """Panel ID resolution worker, implement panel ID resolution test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.process_id = None
+        self.test_id = "diagnostic_panel_id_resolution"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -23,12 +25,15 @@ class PanelIdResolutionWorker(BaseTestWorker):
         """
         logger.info("Preparing panel ID resolution test steps")
         
+        # Get commands from the platform command set
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         # When creating steps, the process_id is not available yet.
         # It will be set during the execution of the first step.
         # The variable reference in the command string will be replaced at runtime.
         steps = [
             TestStep(
-                command="evtest /dev/input/event1 > evtlog &", 
+                command=commands[0], 
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
@@ -38,18 +43,18 @@ class PanelIdResolutionWorker(BaseTestWorker):
             TestStep(
                 # This command contains a placeholder that will be replaced at runtime
                 # after the process_id is determined from step 1.
-                command="kill {process_id}",
+                command=commands[1],
                 timeout=5,
                 description="Kill evtest process",
             ),
             TestStep(
-                command="cat evtlog",
+                command=commands[2],
                 validation_func=self._validate_evtlog,
                 timeout=5,
                 description="Check evtlog",
             ),
             TestStep(
-                command="rm evtlog",
+                command=commands[3],
                 timeout=5,
                 description="Remove evtlog",
             )

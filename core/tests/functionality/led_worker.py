@@ -10,8 +10,8 @@ from util.logger import logger
 class LedWorker(BaseTestWorker):
     """Led worker, implement led function test for device"""
     
-    def __init__(self, device_worker, continue_on_failure=True):
-        super().__init__(device_worker, continue_on_failure)
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.set_led_status = lambda status: f"i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 {status} r2"
         self.get_led_status = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
         self.LED_STATUS_MAP = {

@@ -235,6 +235,15 @@ class AutoDiagnosticView(QObject):
                         for step in worker.steps:
                             if step.command:
                                 self.add_system_log("INFO", f"[Command][{test_id}] {step.command}")
+                    
+                    # Set response collector function
+                    if hasattr(worker, 'set_response_collector'):
+                        # 创建一个响应收集器函数
+                        def response_collector(test_id, step_index, command, response):
+                            self.add_system_log("INFO", f"[Response][{test_id}] {response}")
+                        
+                        # 设置响应收集器
+                        worker.set_response_collector(response_collector)
             
             # start the test
             self.hw_test_manager.start_test(self.device_id, test_id)
@@ -320,7 +329,24 @@ class AutoDiagnosticView(QObject):
         
         # try to collect the detailed test results
         try:
-            if test_id in self.hw_test_manager.test_workers:
+            # 首先尝试从活动的测试工作器获取步骤信息
+            if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+                test_worker = self.hw_test_manager.active_test_worker
+                # store the detailed test results
+                if hasattr(test_worker, 'steps') and test_worker.steps:
+                    steps_results = []
+                    for i, step in enumerate(test_worker.steps):
+                        step_result = {
+                            "description": step.description,
+                            "command": step.command,
+                            "passed": getattr(step, 'passed', None),
+                            "result": getattr(step, 'result', None),
+                            "response": getattr(step, 'response', None)
+                        }
+                        steps_results.append(step_result)
+                    self.diagnostic_results[test_id]["details"]["steps"] = steps_results
+            # 如果活动工作器没有步骤信息，尝试从注册的工作器获取
+            elif test_id in self.hw_test_manager.test_workers:
                 test_worker = self.hw_test_manager.test_workers[test_id]
                 # store the detailed test results
                 if hasattr(test_worker, 'steps') and test_worker.steps:
@@ -329,8 +355,9 @@ class AutoDiagnosticView(QObject):
                         step_result = {
                             "description": step.description,
                             "command": step.command,
-                            "passed": step.passed,
-                            "result": step.result
+                            "passed": getattr(step, 'passed', None),
+                            "result": getattr(step, 'result', None),
+                            "response": getattr(step, 'response', None)
                         }
                         steps_results.append(step_result)
                     self.diagnostic_results[test_id]["details"]["steps"] = steps_results
