@@ -350,41 +350,61 @@ class TestManagerView(QObject):
         
         # store the step results
         if test_id in self.test_results:
-            # 获取步骤的命令和响应
+            # get the step command and response
             command = ""
             response = ""
+            step_desc = ""
             
-            # 尝试从活动测试工作器获取命令和响应
+            # try to get the step command and response from the active test worker
             if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
                 active_worker = self.hw_test_manager.active_test_worker
                 if hasattr(active_worker, 'steps') and len(active_worker.steps) > step_index:
                     step = active_worker.steps[step_index]
-                    command = step.command if hasattr(step, 'command') else ""
-                    response = step.response if hasattr(step, 'response') and step.response else ""
-                    if not response and hasattr(step, 'result') and step.result:
+                    if hasattr(step, 'description'):
+                        step_desc = step.description
+                        logger.debug(f"Found description from active worker: '{step_desc}'")
+                    if hasattr(step, 'command'):
+                        command = step.command
+                        logger.debug(f"Found command from active worker: '{command}'")
+                    if hasattr(step, 'response') and step.response:
+                        response = step.response
+                        logger.debug(f"Found response from active worker: '{response}'")
+                    elif hasattr(step, 'result') and step.result:
                         response = step.result
+                        logger.debug(f"Found result from active worker: '{response}'")
             
-            # 如果从活动工作器获取失败，尝试从注册的测试工作器中获取
-            if (not command or not response) and test_id in self.hw_test_manager.test_workers:
+            # if failed to get the step command and response from the active test worker, try to get them from the registered test worker
+            if (not step_desc or not command or not response) and test_id in self.hw_test_manager.test_workers:
                 registered_worker = self.hw_test_manager.test_workers[test_id]
                 if hasattr(registered_worker, 'steps') and len(registered_worker.steps) > step_index:
                     step = registered_worker.steps[step_index]
+                    if not step_desc and hasattr(step, 'description'):
+                        step_desc = step.description
+                        logger.debug(f"Found description from registered worker: '{step_desc}'")
                     if not command and hasattr(step, 'command'):
                         command = step.command
+                        logger.debug(f"Found command from registered worker: '{command}'")
                     if not response:
-                        response = step.response if hasattr(step, 'response') and step.response else ""
-                        if not response and hasattr(step, 'result') and step.result:
+                        if hasattr(step, 'response') and step.response:
+                            response = step.response
+                            logger.debug(f"Found response from registered worker: '{response}'")
+                        elif hasattr(step, 'result') and step.result:
                             response = step.result
+                            logger.debug(f"Found result from registered worker: '{response}'")
+            
+            # record the final collected information
+            logger.debug(f"Step data collected - Test: {test_id}, Step: {step_index+1}, Desc: '{step_desc}', Cmd: '{command}', Response length: {len(response)}")
             
             self.test_results[test_id]["steps"].append({
                 "index": step_index,
                 "success": success,
                 "message": message,
+                "description": step_desc,  # add step description
                 "time": step_time,
                 "start_time": step_start_time,
                 "end_time": step_end_time,
-                "command": command,      # 添加命令
-                "response": response     # 添加响应
+                "command": command,      # add command
+                "response": response     # add response
             })
         
         # update the test step UI
@@ -394,9 +414,9 @@ class TestManagerView(QObject):
             table.insertRow(row)
             
             # get the step description
-            step_description = f"Step {step_index+1}"  # 默认显示步骤编号
+            step_description = f"Step {step_index+1}"  # default display step number
             
-            # 尝试从活动测试工作器获取步骤描述
+            # try to get the step description from the active test worker
             if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
                 active_worker = self.hw_test_manager.active_test_worker
                 if hasattr(active_worker, 'steps') and len(active_worker.steps) > step_index:
@@ -404,7 +424,7 @@ class TestManagerView(QObject):
                     if hasattr(step, 'description') and step.description:
                         step_description = step.description
             
-            # 如果从活动工作器获取失败，尝试从注册的测试工作器中获取
+            # if failed to get the step description from the active test worker, try to get it from the registered test worker
             if step_description == f"Step {step_index+1}" and test_id in self.hw_test_manager.test_workers:
                 registered_worker = self.hw_test_manager.test_workers[test_id]
                 if hasattr(registered_worker, 'steps') and len(registered_worker.steps) > step_index:
