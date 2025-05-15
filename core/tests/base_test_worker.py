@@ -300,6 +300,20 @@ class BaseTestWorker(QObject):
         # Send command
         if step.command:
             try:
+                # Prepare to execute command
+                logger.debug(f"Execute step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+                logger.debug(f"Original command: '{step.command}'")
+                
+                # Process variables directly using parse_command
+                original_command = step.command
+                processed_command = self.parse_command(original_command)
+                
+                # Only update if the command actually changes
+                if processed_command != original_command:
+                    step.command = processed_command
+                
+                # Send processed command
+                logger.info(f"Send command to device: '{step.command}'")
                 self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
             except Exception as e:
                 logger.error(f"Failed to send command: {e}")
@@ -318,10 +332,26 @@ class BaseTestWorker(QObject):
             self.wait_timer.start()
             return
         
-        # Normal command step
-        logger.debug(f"Execute test step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+        logger.debug(f"Executing step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
         
-        # Send command
+        # Check if command is empty before executing
+        if not step.command:
+            logger.debug("Step has no command, skipping command execution")
+            self._handle_step_result(True, "No command specified")
+            return
+            
+        logger.debug(f"Original command: '{step.command}'")
+        
+        # Process variables directly using parse_command
+        original_command = step.command
+        processed_command = self.parse_command(original_command)
+        
+        # Only update if the command actually changes
+        if processed_command != original_command:
+            step.command = processed_command
+        
+        # Send processed command
+        logger.info(f"Send command to device: '{step.command}'")
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
     
     @Slot(bool)
@@ -424,7 +454,16 @@ class BaseTestWorker(QObject):
             step.retry_messages[-1] if step.retry_messages else "Unknown error"
         )
         
-        # Resend command
+        # retry before processing variables
+        original_command = step.command
+        processed_command = self.parse_command(original_command)
+        
+        # only update if the command actually changes
+        if processed_command != original_command:
+            step.command = processed_command
+        
+        # send processed command
+        logger.info(f"Retry, sending command to device: '{step.command}'")
         self.device_worker.send_command(self.current_device_id, step.command, step.timeout)
     
     def _handle_step_result(self, passed, message):
@@ -478,88 +517,76 @@ class BaseTestWorker(QObject):
         # Get current step
         step = self.steps[self.current_step_index]
         
-        # If not current command, ignore
-        if step.command != command:
+        # Print received command and step command for debugging
+        logger.info(f"Received command result, received command: '{command}'")
+        logger.info(f"Current step command: '{step.command}'")
+        
+        # Check if command matches, allow partial match (processed variable command)
+        command_match = False
+        expected_command = step.command
+        
+        # Simple exact match
+        if command.strip() == expected_command.strip():
+            command_match = True
+            logger.info(f"Command matches exactly: '{command}' matches '{expected_command}'")
+        # Or if command is a part of original command (possibly because of variable replacement)
+        elif command.strip() in expected_command.strip() or expected_command.strip() in command.strip():
+            command_match = True
+            logger.info(f"Command partially matches: '{command}' matches '{expected_command}'")
+        # Or check if there is a trace of variable replacement
+        elif ('{' in expected_command and '}' in expected_command):
+            command_match = True
+            logger.info(f"Command contains variables, assumed match: '{command}' matches '{expected_command}'")
+        
+        # If command does not match, it might be an asynchronous result, ignore
+        if not command_match:
+            logger.warning(f"Command does not match, ignoring this result, received command: '{command}', expected command: '{expected_command}'")
             return
-            
-        # Store result
-        step.result = response
         
-        # Validate result
-        passed = False
-        message = ""
+        # Record command output to step
+        step.response = response
         
-        try:
-            # Use custom validation function first
-            if step.validation_func:
-                try:
-                    passed, message = step.validation_func(response)
-                    if passed:
-                        message = f"Validation PASSED: {message}"
-                except Exception as e:
-                    passed = False
-                    message = f"Validation exception: {str(e)}"
-                    logger.error(f"Validation exception: {str(e)}", exc_info=True)
-            # Otherwise use expected response for comparison
-            elif step.expected_response:
-                if step.expected_response in response:
-                    passed = True
-                    message = f"Step PASSED: {step.description}"
-                else:
-                    passed = False
-                    message = f"Step FAILED: Expected '{step.expected_response}' but received '{response}'"
-            else:
-                # No validation condition, default passed
-                passed = True
-                message = "Step PASSED: skip validation"
-                
-            # Set step result
-            step.passed = passed
-            
-            # If test step failed, check if it can be retried
-            if not passed:
-                step.retry_messages.append(message)
-                logger.warning(f"Test step {self.current_step_index+1} failed: {message}")
-                
-                if step.retry_count < step.max_retries:
-                    logger.info(f"Retrying in {step.retry_delay}ms")
-                    # Set delay retry
-                    self.retry_timer.setInterval(step.retry_delay)
-                    self.retry_timer.start()
+        # Validate the response if validation function is provided
+        if step.validation_func is not None:
+            try:
+                result, message = step.validation_func(response)
+                if result:
+                    # Validation passed
+                    step.passed = True
+                    logger.info(f"Test step {self.current_step_index+1} passed: Validation PASSED: {message}")
+                    self._handle_step_result(True, f"Validation PASSED: {message}")
                     return
-            else:
-                logger.info(f"Test step {self.current_step_index+1} passed: {message}")
+                else:
+                    # Validation failed
+                    step.passed = False
+                    step.retry_messages.append(message)
+                    logger.warning(f"Test step {self.current_step_index+1} failed: {message}")
                     
-            # If step passed or reached maximum retries
-            if passed:
-                # If retry succeeded, add retry information to message
-                if step.retry_count > 0:
-                    message = f"{message} (Retried {step.retry_count} times successfully)"
-            else:
-                # Final failure, add current step index to failed list
-                self.failed_steps.append(self.current_step_index)
-                
-                # Final failure, add retry count
-                message = f"{message} (Retried {step.retry_count} times still failed)"
-            
-            # Check if post-check is required
-            if step.post_check:
-                logger.debug(f"Step {self.current_step_index+1} requires post-check verification: {step.post_check}")
-                # Only update UI but don't continue to next step yet
-                self.test_step_completed.emit(self.current_step_index, passed, message)
-                
-                # Pause for user verification
-                self.interaction_state = InteractionState.POST_CHECK
-                self.post_check_required.emit(self.current_step_index, step.post_check)
+                    # Check if should retry
+                    if step.retry_count < step.max_retries:
+                        # Schedule retry
+                        self.retry_timer.setInterval(step.retry_delay)
+                        logger.info(f"Retrying in {step.retry_delay}ms")
+                        self.retry_timer.start()
+                    else:
+                        # Max retries reached, fail the step
+                        logger.warning(f"Test step {self.current_step_index+1} failed: {message} (Retried {step.retry_count} times still failed)")
+                        self._handle_step_result(False, f"{message} (Retried {step.retry_count} times still failed)")
+                    return
+            except Exception as e:
+                # Validation function error
+                step.passed = False
+                error_message = f"Validation function error: {str(e)}"
+                step.retry_messages.append(error_message)
+                logger.error(error_message, exc_info=True)
+                self._handle_step_result(False, error_message)
                 return
-            
-            # 处理步骤结果
-            self._handle_step_result(passed, message)
-            
-        except Exception as e:
-            logger.error(f"Error in _on_command_result: {str(e)}", exc_info=True)
-            self.test_completed.emit(False, f"Test error: {str(e)}")
-            self._disconnect_signals()
+        else:
+            # No validation function, pass the step
+            step.passed = True
+            logger.info(f"Test step {self.current_step_index+1} passed: Step PASSED: skip validation")
+            self._handle_step_result(True, "Step PASSED: skip validation")
+            return
     
     def _execute_wait_step(self, step):
         """Execute wait step"""
@@ -589,3 +616,83 @@ class BaseTestWorker(QObject):
         
         # Disconnect signals
         self._disconnect_signals() 
+
+    def parse_command(self, command: str) -> str:
+        """
+        Process command string, replace {variable_name} format placeholders with corresponding class attribute values
+        
+        Args:
+            command: Original command string, possibly containing {variable_name} format placeholders
+            
+        Returns:
+            Processed command string
+        """
+        # If command is empty, return directly
+        if not command:
+            return command
+            
+        # Quick check if command contains variable placeholders
+        if '{' not in command or '}' not in command:
+            return command
+            
+        try:
+            
+            # Find all {variable_name} format placeholders in command
+            import re
+            # Regex pattern to match {variable_name} format
+            pattern = r'\{([a-zA-Z0-9_]+)\}'
+            
+            # Find all matches
+            matches = list(re.finditer(pattern, command))
+            
+            # If no matches, return original command
+            if not matches:
+                return command
+            
+            # Record all found placeholders
+            logger.debug(f"Found {len(matches)} variable placeholders in command")
+            for i, match in enumerate(matches):
+                var_name = match.group(1)
+                logger.debug(f"Placeholder {i+1}: '{var_name}'")
+            
+            # Create processed command string
+            processed_command = command
+            
+            # Replace each match
+            for match in matches:
+                var_name = match.group(1)  # Get variable name (without brackets)
+                
+                # Check if instance has corresponding attribute
+                if hasattr(self, var_name):
+                    # Get class attribute value
+                    var_value = getattr(self, var_name)
+                    logger.info(f"Found variable '{var_name}' value: {var_value}")
+                    
+                    # If value is None, record warning
+                    if var_value is None:
+                        logger.warning(f"Variable '{var_name}' value is None, not replaced")
+                        continue
+                    
+                    # Convert value to string (ensure non-string values can be processed correctly)
+                    value_str = str(var_value)
+                    
+                    # Replace placeholder
+                    placeholder = f"{{{var_name}}}"
+                    processed_command = processed_command.replace(placeholder, value_str)
+                    logger.info(f"After replacing '{placeholder}': '{processed_command}'")
+                else:
+                    # List available attributes for debugging
+                    all_attrs = [a for a in dir(self) if not a.startswith('__') and not callable(getattr(self, a))]
+                    logger.warning(f"Variable '{var_name}' not found in worker, available attributes: {', '.join(all_attrs[:10])}...")
+            
+            # Record final command
+            if processed_command != command:
+                logger.info(f"Command processing completed: '{command}' -> '{processed_command}'")
+            else:
+                logger.warning(f"Command processing unchanged: '{command}'")
+                
+            return processed_command
+        except Exception as e:
+            logger.error(f"Error processing command '{command}': {str(e)}", exc_info=True)
+            # Return original command when error occurs
+            return command 
