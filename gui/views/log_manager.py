@@ -135,7 +135,7 @@ class LogManagerView(QObject):
     
     def _filter_logs(self):
         """Filter logs based on selected level and time range"""
-        self._refresh_logs(True)  # 在过滤日志时，滚动到底部
+        self._refresh_logs(True)  # scroll to bottom
     
     def _refresh_logs(self, scroll_to_bottom: bool = True):
         """

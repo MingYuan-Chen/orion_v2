@@ -131,7 +131,7 @@ class MainWindowController(QObject):
         # Add update status flag
         self.is_updating = False
         
-        # 添加当前标签页记录变量
+        # add current tab index
         self.current_tab_index = -1
         
         # Ensure view_model has system_info_service
@@ -186,7 +186,7 @@ class MainWindowController(QObject):
             logger.error(f"Failed to load main window UI: {str(e)}")
             raise
         
-        # 创建等待图标小部件
+        # create the waiting spinner widget
         from gui.widgets.waiting_spinner import WaitingSpinner
         self.waiting_spinner = WaitingSpinner(
             parent=self.window,
@@ -195,7 +195,7 @@ class MainWindowController(QObject):
             line_length=5,
             line_width=2,
             speed=1.5,
-            color=QColor(0, 120, 215)  # 使用蓝色，与系统风格匹配
+            color=QColor(0, 120, 215)  # use blue, match the system style
         )
         
         # Set window properties
@@ -288,59 +288,59 @@ class MainWindowController(QObject):
         self.system_info_manager.set_ui_components(system_ui_components)
         
         # set a function to add system log, directly write to the log manager
-        # 这里使用匿名函数包装，确保日志不会导致切换到系统日志标签
+        # use anonymous function to wrap, ensure the log will not cause the switch to the system log tab
         self.system_info_manager.add_system_log = lambda level, message: self._add_system_log_without_tab_switch(level, message)
         
         # connect the signals of the system info manager
-        # 开始更新时，直接调用方法处理而非使用信号，这样可以控制标签页切换
-        # 更新完成时重新启用UI控件
+        # when updating, directly call the method to handle instead of using the signal, so that the tab switch can be controlled
+        # when the update is completed, re-enable the UI controls
         self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
         
-        # 更新出错时添加错误日志，同时关闭等待图标
+        # when the update is error, add the error log, and close the waiting icon
         self.system_info_manager.info_update_error.connect(self._on_system_info_update_error)
     
     def _add_system_log_without_tab_switch(self, level, message):
-        """添加系统日志但不切换标签页"""
-        # 记录当前标签页
+        """Add system log without switching tabs"""
+        # record the current tab
         current_tab = -1
         if hasattr(self.window, 'tabWidget'):
             current_tab = self.window.tabWidget.currentIndex()
             
-        # 添加日志，但不滚动到底部以避免激活日志标签页
+        # add the log, but do not scroll to bottom to avoid activating the log tab
         self.log_manager.add_log_entry(level, message, scroll_to_bottom=False)
         
-        # 如果在刷新状态中且当前标签页有效，恢复到之前的标签页
+        # if updating and current tab is valid, restore to the previous tab
         if self.is_updating and current_tab >= 0 and hasattr(self.window, 'tabWidget'):
             self.window.tabWidget.setCurrentIndex(current_tab)
     
     def _on_system_info_update_completed(self):
         """Handle the event of system info update completed"""
-        # 恢复更新状态标志
+        # restore the updating status flag
         self.is_updating = False
         
-        # 停止等待图标
+        # stop the waiting icon
         if hasattr(self, 'waiting_spinner'):
             self.waiting_spinner.stop()
         
-        # 启用所有UI控件
+        # enable all UI controls
         self.set_ui_controls_state(True)
         
-        # 添加完成日志
+        # add the completed log
         self.log_manager.add_log_entry("INFO", "System info update completed")
     
     def _on_system_info_update_error(self, error_message):
         """Handle the event of system info update error"""
-        # 恢复更新状态标志
+        # restore the updating status flag
         self.is_updating = False
         
-        # 停止等待图标
+        # stop the waiting icon
         if hasattr(self, 'waiting_spinner'):
             self.waiting_spinner.stop()
         
-        # 启用所有UI控件
+        # enable all UI controls
         self.set_ui_controls_state(True)
         
-        # 添加错误日志
+        # add the error log
         self.log_manager.add_log_entry("ERROR", f"System info update error: {error_message}")
     
     def _init_logs_view(self):
@@ -659,15 +659,15 @@ class MainWindowController(QObject):
                         step_response = ""
                         step_time = "--:--:--"  # default time
                         
-                        # 首先从测试结果(test_steps)中获取详细信息
+                        # get the step information from the test results
                         for step in test_steps:
                             if step['index'] == current_step:
                                 step_message = step['message']
-                                # 从测试结果中获取步骤描述
+                                # get the step description from the test results
                                 if 'description' in step:
                                     step_desc = step['description']
                                     logger.debug(f"Found description in test result: {step_desc}")
-                                # 从测试结果中获取命令和响应
+                                # get the command and response from the test results
                                 if 'command' in step:
                                     step_command = step['command']
                                     logger.debug(f"Found command in test result: {step_command}")
@@ -679,24 +679,24 @@ class MainWindowController(QObject):
                                     step_time = step['time']
                                 break
                         
-                        # 尝试从测试工作器中获取步骤描述
+                        # try to get the step description from the test worker
                         if not step_desc and test_id in self.hw_test_manager.test_workers:
                             worker = self.hw_test_manager.test_workers[test_id]
                             if len(worker.steps) > current_step:
                                 test_step = worker.steps[current_step]
-                                # 获取步骤描述
+                                # get the step description
                                 if hasattr(test_step, 'description'):
                                     step_desc = test_step.description
                                     logger.debug(f"Found description in worker: {step_desc}")
                                 
-                                # 只有在测试结果中没有命令时才获取
+                                # only get the command when it is not in the test results
                                 if not step_command and hasattr(test_step, 'command'):
                                     step_command = test_step.command
                                     logger.debug(f"Found command in worker: {step_command}")
                                 
-                                # 只有在测试结果中没有响应时才获取
+                                # only get the response when it is not in the test results
                                 if not step_response:
-                                    # 优先使用response属性，如果没有则使用result属性
+                                    # use the response property first, if not, use the result property
                                     if hasattr(test_step, 'response') and test_step.response:
                                         step_response = test_step.response
                                         logger.debug(f"Found response in worker (response attr): {step_response}")
@@ -704,7 +704,7 @@ class MainWindowController(QObject):
                                         step_response = test_step.result
                                         logger.debug(f"Found response in worker (result attr): {step_response}")
                         
-                        # 记录最终收集到的信息
+                        # record the final collected information
                         logger.debug(f"Final step info - Test: {test_id}, Step: {current_step+1}, Desc: '{step_desc}', Cmd: '{step_command}', Time: {step_time}")
                         
                         # create the row data
@@ -784,7 +784,7 @@ class MainWindowController(QObject):
         try:
             logger.info(f"Closing main window for device {self.device_id}")
             
-            # 停止等待图标
+            # stop the waiting icon
             if hasattr(self, 'waiting_spinner') and self.waiting_spinner:
                 self.waiting_spinner.stop()
                 self.waiting_spinner = None
@@ -1015,15 +1015,15 @@ class MainWindowController(QObject):
                     if isinstance(details, dict) and "steps" in details and details["steps"]:
                         # if there is detailed step information, create a row for each step
                         for step in details["steps"]:
-                            # 确保从步骤信息中获取正确的字段
+                            # ensure to get the correct fields from the step information
                             step_desc = step.get("description", "")
                             step_command = step.get("command", "")
                             
-                            # 优先使用response属性，如果没有则使用result属性
+                            # use the response property first, if not, use the result property
                             step_response = step.get("response", "")
                             if not step_response and step.get("result") is not None:
                                 step_response = step.get("result", "")
-                            # 如果响应为None，使用一个空字符串代替
+                            # if the response is None, use an empty string instead
                             if step_response is None:
                                 step_response = ""
                             
@@ -1057,22 +1057,22 @@ class MainWindowController(QObject):
 
     def _on_tab_changed(self, index):
         """Handle tab change event"""
-        # 只有在非更新状态下才保存当前标签页索引
+        # only save the current tab index when not updating
         if not self.is_updating:
             self.current_tab_index = index
             logger.debug(f"Tab changed to index {index}")
 
     def set_ui_controls_state_except_tabs(self, enabled=True):
         """
-        设置UI控件状态，但保持标签页可用
+        Set UI controls state, but keep the tabs available
         
         Args:
-            enabled (bool): 是否启用控件
+            enabled (bool): Whether to enable the controls
         """
-        # 单独排除标签页控件
+        # exclude the tab widgets
         exclude_widgets = []
         if hasattr(self.window, 'tabWidget'):
             exclude_widgets.append(self.window.tabWidget)
         
-        # 调用原方法，但排除标签页
+        # call the original method, but exclude the tab widgets
         self.set_ui_controls_state(enabled, exclude_widgets)
