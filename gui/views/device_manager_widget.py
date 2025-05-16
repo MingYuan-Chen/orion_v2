@@ -106,17 +106,17 @@ class DeviceManagerWidget(QWidget):
             # Add widget to layout
             main_layout.addWidget(self.ui_widget)
             
-            # 初始化表格列宽
-            self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # 名称列
-            self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # 类型列
-            self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # 地址列
-            self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # 状态列
+            # initialize the table column width
+            self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # name column
+            self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # type column
+            self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # address column
+            self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # status column
             self.ui_widget.table_widget_devices.horizontalHeader().setStretchLastSection(True)
             
             # Set UI properties
             self.setWindowTitle("Device Manager")
-            self.resize(640, 400)  # 设置更合适的窗口大小
-            self.setMinimumSize(640, 350)  # 设置最小窗口大小，防止用户调整得太小
+            self.resize(640, 400)  # set a more appropriate window size
+            self.setMinimumSize(640, 350)  # set the minimum window size, prevent the user from adjusting it too small
             
             # Set application icon
             if os.path.exists(icon_path):
@@ -324,16 +324,16 @@ class DeviceManagerWidget(QWidget):
             
             self.ui_widget.table_widget_devices.setItem(row, 3, status_item)
         
-        # 设置最小列宽，确保信息不会被切掉
-        self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # 名称列
-        self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # 类型列
-        self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # 地址列
-        self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # 状态列
+        # set the minimum column width, ensure the information will not be cut off
+        self.ui_widget.table_widget_devices.setColumnWidth(0, 150)  # name column
+        self.ui_widget.table_widget_devices.setColumnWidth(1, 100)  # type column
+        self.ui_widget.table_widget_devices.setColumnWidth(2, 200)  # address column
+        self.ui_widget.table_widget_devices.setColumnWidth(3, 120)  # status column
         
-        # 确保表格自动拉伸以填充可用空间
+        # ensure the table can stretch to fill the available space
         self.ui_widget.table_widget_devices.horizontalHeader().setStretchLastSection(True)
         
-        # 更新按钮状态
+        # update the button status
         self._on_device_selection_changed()
     
     @Slot(str, bool, str)
