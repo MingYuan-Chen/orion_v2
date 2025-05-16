@@ -274,41 +274,35 @@ class SystemInfoService(QObject):
         logger.debug(f"Parsed memory info: {memory_info}")
         return memory_info
     
-    def _parse_disk_info(self, response: str) -> Dict[str, Any]:
-        """
-        Parse disk information from df command with grep 'root'
+    def _parse_disk_info(self, response: str) -> Dict[str, str]:
+        """Parse disk information from response.
         
         Args:
-            response: Command response
+            response: Response from df command
             
         Returns:
-            Parsed disk information
+            Dict containing disk information
         """
         disk_info = {}
         
-        lines = response.strip().split('\n')
-        for line in lines:
-            # Find root file system line, usually contains "/dev/root" and "/"
-            if '/dev/root' in line and '/' in line:
-                # For response: "/dev/root       3.8G  1.4G  2.2G  38% /"
-                parts = line.split()
-                if len(parts) >= 6:
-                    try:
-                        disk_info["filesystem"] = parts[0]         # File system
-                        disk_info["total"] = parts[1]              # Total size
-                        disk_info["used"] = parts[2]               # Used
-                        disk_info["available"] = parts[3]          # Available
-                        disk_info["use_percent"] = parts[4].replace('%', '')  # Use rate (remove %)
-                        disk_info["mount_point"] = parts[5]        # Mount point
-                        
-                        # Add type information
-                        disk_info["type"] = "eMMC"  # Default assume eMMC
-                    except Exception as e:
-                        logger.warning(f"Failed to parse disk information: {e}")
-                break  # Stop after finding root file system
-        
-        logger.debug(f"Parsed disk info: {disk_info}")
-        return disk_info
+        try:
+            # 只取第一行数字
+            total_sectors = int(response.strip().split('\n')[0])
+            # 转换为字节 (512 bytes per sector)
+            total_bytes = total_sectors * 512
+            # 转换为 GB
+            total_gb = total_bytes / (1024 ** 3)
+            
+            disk_info["total"] = f"128G"
+            disk_info["available"] = f"{total_gb:.2f}G"
+            disk_info["type"] = "eMMC"  # 默认假设为 eMMC
+            
+            logger.debug(f"Parsed disk info: {disk_info}")
+            return disk_info
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse disk information: {e}")
+            return disk_info
     
     def _parse_battery_info(self, command_name: str, response: str) -> Any:
         """
