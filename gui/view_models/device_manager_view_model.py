@@ -208,6 +208,7 @@ class DeviceManagerViewModel(QObject):
             
             # Store device info
             self.connected_devices[device_id] = device_info
+            self._serial_worker.send_command(device_id, "root", 0)
                 
             # Emit signal
             self.connection_result.emit(device_id, success, message)
