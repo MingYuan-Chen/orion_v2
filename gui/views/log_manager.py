@@ -82,7 +82,7 @@ class LogManagerView(QObject):
         self.log_table.setColumnWidth(1, 70)   # Level
         # Message column will stretch
 
-    def add_log_entry(self, level: str, message: str, timestamp: Optional[str] = None):
+    def add_log_entry(self, level: str, message: str, timestamp: Optional[str] = None, scroll_to_bottom: bool = True):
         """
         Add a log entry to the log table
         
@@ -90,6 +90,7 @@ class LogManagerView(QObject):
             level: Log level (INFO, WARNING, ERROR, etc.)
             message: Log message
             timestamp: Optional timestamp, current time will be used if not provided
+            scroll_to_bottom: Whether to scroll to the bottom of the log table after adding the entry
         """
         if timestamp is None:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -102,7 +103,7 @@ class LogManagerView(QObject):
         })
         
         # Update log table
-        self._refresh_logs()
+        self._refresh_logs(scroll_to_bottom)
     
     def _set_log_item_color(self, row: int, level: str):
         """
@@ -134,10 +135,15 @@ class LogManagerView(QObject):
     
     def _filter_logs(self):
         """Filter logs based on selected level and time range"""
-        self._refresh_logs()
+        self._refresh_logs(True)  # 在过滤日志时，滚动到底部
     
-    def _refresh_logs(self):
-        """Refresh log table display based on current filters"""
+    def _refresh_logs(self, scroll_to_bottom: bool = True):
+        """
+        Refresh log table display based on current filters
+        
+        Args:
+            scroll_to_bottom: Whether to scroll to the bottom of the log table
+        """
         if not self.log_table or not self.log_level_combo or not self.time_range_combo:
             return
             
@@ -197,8 +203,10 @@ class LogManagerView(QObject):
             # Set row color based on level
             self._set_log_item_color(row, entry["level"])
         
-        # Scroll to bottom to show latest logs
-        self.log_table.scrollToBottom()
+        # Only scroll to bottom if requested
+        if scroll_to_bottom:
+            # Scroll to bottom to show latest logs
+            self.log_table.scrollToBottom()
     
     def clear_logs(self):
         """Clear all log entries"""

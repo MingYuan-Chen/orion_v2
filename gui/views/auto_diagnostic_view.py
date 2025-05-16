@@ -238,11 +238,11 @@ class AutoDiagnosticView(QObject):
                     
                     # Set response collector function
                     if hasattr(worker, 'set_response_collector'):
-                        # 创建一个响应收集器函数
+                        # create the response collector function
                         def response_collector(test_id, step_index, command, response):
                             self.add_system_log("INFO", f"[Response][{test_id}] {response}")
                         
-                        # 设置响应收集器
+                        # set the response collector
                         worker.set_response_collector(response_collector)
             
             # start the test
@@ -329,7 +329,7 @@ class AutoDiagnosticView(QObject):
         
         # try to collect the detailed test results
         try:
-            # 首先尝试从活动的测试工作器获取步骤信息
+            # try to get the step information from the active test worker
             if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
                 test_worker = self.hw_test_manager.active_test_worker
                 # store the detailed test results
@@ -345,7 +345,7 @@ class AutoDiagnosticView(QObject):
                         }
                         steps_results.append(step_result)
                     self.diagnostic_results[test_id]["details"]["steps"] = steps_results
-            # 如果活动工作器没有步骤信息，尝试从注册的工作器获取
+            # if the active worker has no step information, try to get it from the registered worker
             elif test_id in self.hw_test_manager.test_workers:
                 test_worker = self.hw_test_manager.test_workers[test_id]
                 # store the detailed test results

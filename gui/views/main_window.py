@@ -12,7 +12,7 @@ import csv
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
-from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy, QMessageBox
 
 from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
@@ -131,6 +131,9 @@ class MainWindowController(QObject):
         # Add update status flag
         self.is_updating = False
         
+        # 添加当前标签页记录变量
+        self.current_tab_index = -1
+        
         # Ensure view_model has system_info_service
         if not hasattr(self.view_model, 'system_info_service') and hasattr(self.view_model, '_serial_worker'):
             from core.services.system_info import SystemInfoService
@@ -183,6 +186,18 @@ class MainWindowController(QObject):
             logger.error(f"Failed to load main window UI: {str(e)}")
             raise
         
+        # 创建等待图标小部件
+        from gui.widgets.waiting_spinner import WaitingSpinner
+        self.waiting_spinner = WaitingSpinner(
+            parent=self.window,
+            disable_parent_when_spinning=False,
+            radius=10,
+            line_length=5,
+            line_width=2,
+            speed=1.5,
+            color=QColor(0, 120, 215)  # 使用蓝色，与系统风格匹配
+        )
+        
         # Set window properties
         self._set_window_properties()
         
@@ -230,6 +245,10 @@ class MainWindowController(QObject):
         self.window.button_edit_serial_number.clicked.connect(self._on_edit_serial_number)
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
+        
+        # 连接标签页切换信号
+        if hasattr(self.window, 'tabWidget'):
+            self.window.tabWidget.currentChanged.connect(self._on_tab_changed)
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -269,20 +288,60 @@ class MainWindowController(QObject):
         self.system_info_manager.set_ui_components(system_ui_components)
         
         # set a function to add system log, directly write to the log manager
-        self.system_info_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
+        # 这里使用匿名函数包装，确保日志不会导致切换到系统日志标签
+        self.system_info_manager.add_system_log = lambda level, message: self._add_system_log_without_tab_switch(level, message)
         
         # connect the signals of the system info manager
-        self.system_info_manager.info_update_started.connect(lambda: self.set_ui_controls_state(False))
-        # when the system info update is completed, enable the ui controls and add the completed log
+        # 开始更新时，直接调用方法处理而非使用信号，这样可以控制标签页切换
+        # 更新完成时重新启用UI控件
         self.system_info_manager.info_update_completed.connect(self._on_system_info_update_completed)
-        self.system_info_manager.info_update_error.connect(lambda msg: self.log_manager.add_log_entry("ERROR", f"System info update error: {msg}"))
+        
+        # 更新出错时添加错误日志，同时关闭等待图标
+        self.system_info_manager.info_update_error.connect(self._on_system_info_update_error)
+    
+    def _add_system_log_without_tab_switch(self, level, message):
+        """添加系统日志但不切换标签页"""
+        # 记录当前标签页
+        current_tab = -1
+        if hasattr(self.window, 'tabWidget'):
+            current_tab = self.window.tabWidget.currentIndex()
+            
+        # 添加日志，但不滚动到底部以避免激活日志标签页
+        self.log_manager.add_log_entry(level, message, scroll_to_bottom=False)
+        
+        # 如果在刷新状态中且当前标签页有效，恢复到之前的标签页
+        if self.is_updating and current_tab >= 0 and hasattr(self.window, 'tabWidget'):
+            self.window.tabWidget.setCurrentIndex(current_tab)
     
     def _on_system_info_update_completed(self):
         """Handle the event of system info update completed"""
-        # enable the ui controls
+        # 恢复更新状态标志
+        self.is_updating = False
+        
+        # 停止等待图标
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.stop()
+        
+        # 启用所有UI控件
         self.set_ui_controls_state(True)
-        # add the completed log
+        
+        # 添加完成日志
         self.log_manager.add_log_entry("INFO", "System info update completed")
+    
+    def _on_system_info_update_error(self, error_message):
+        """Handle the event of system info update error"""
+        # 恢复更新状态标志
+        self.is_updating = False
+        
+        # 停止等待图标
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.stop()
+        
+        # 启用所有UI控件
+        self.set_ui_controls_state(True)
+        
+        # 添加错误日志
+        self.log_manager.add_log_entry("ERROR", f"System info update error: {error_message}")
     
     def _init_logs_view(self):
         """Initialize logs view settings"""
@@ -461,8 +520,26 @@ class MainWindowController(QObject):
 
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
-        # delegate to the system info manager to handle the refresh operation
+        # 记录当前标签页，但不强制切换回去，让用户可以自由切换
+        if hasattr(self.window, 'tabWidget'):
+            self.current_tab_index = self.window.tabWidget.currentIndex()
+            logger.debug(f"当前标签页索引: {self.current_tab_index} (Dashboard)")
+        
+        # 设置更新状态标志
+        self.is_updating = True
+        
+        # 添加日志，但不切换到日志标签
         self.log_manager.add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
+        
+        # 定位并显示等待图标在刷新按钮旁边
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.position_next_to(self.window.pushButton_refresh)
+            self.waiting_spinner.start()
+        
+        # 禁用所有控件，但保持标签页切换功能可用
+        self.set_ui_controls_state_except_tabs(False)
+        
+        # 执行系统信息刷新
         self.system_info_manager.refresh_system_info()
 
     def _on_edit_model_name(self):
@@ -707,6 +784,11 @@ class MainWindowController(QObject):
         try:
             logger.info(f"Closing main window for device {self.device_id}")
             
+            # 停止等待图标
+            if hasattr(self, 'waiting_spinner') and self.waiting_spinner:
+                self.waiting_spinner.stop()
+                self.waiting_spinner = None
+            
             # Clean up hardware test manager
             if self.hw_test_manager:
                 logger.debug("Cleaning up hardware test manager")
@@ -726,7 +808,6 @@ class MainWindowController(QObject):
                 logger.debug("Cleaning up system info manager")
                 # Disconnect signals
                 try:
-                    self.system_info_manager.info_update_started.disconnect()
                     self.system_info_manager.info_update_completed.disconnect()
                     self.system_info_manager.info_update_error.disconnect()
                 except Exception:
@@ -826,10 +907,20 @@ class MainWindowController(QObject):
             if tabwidget not in exclude_widgets:
                 for i in range(tabwidget.count()):
                     tabwidget.setTabEnabled(i, enabled)
+        
+        # 确保系统日志页中的发送命令按钮和输入框状态正确
+        if hasattr(self.window, 'pushButton_send_command'):
+            self.window.pushButton_send_command.setEnabled(enabled)
+        if hasattr(self.window, 'lineEdit_command'):
+            self.window.lineEdit_command.setEnabled(enabled)
                 
         # if there is a TestManager, handle the test container buttons
         if hasattr(self, 'test_manager') and hasattr(self.test_manager, 'test_container'):
             self.test_manager.set_test_buttons_enabled(enabled)
+            
+        # if there is an AutoDiagnosticView, handle its buttons
+        if hasattr(self, 'auto_diagnostic_view'):
+            self.auto_diagnostic_view.set_buttons_enabled(enabled)
 
     def _init_auto_diagnostic_view(self):
         """Initialize auto diagnostic view settings"""
@@ -963,3 +1054,25 @@ class MainWindowController(QObject):
         except Exception as e:
             self.log_manager.add_log_entry("ERROR", f"Failed to export diagnostic report: {str(e)}")
             logger.error(f"Failed to export diagnostic report: {str(e)}")
+
+    def _on_tab_changed(self, index):
+        """Handle tab change event"""
+        # 只有在非更新状态下才保存当前标签页索引
+        if not self.is_updating:
+            self.current_tab_index = index
+            logger.debug(f"Tab changed to index {index}")
+
+    def set_ui_controls_state_except_tabs(self, enabled=True):
+        """
+        设置UI控件状态，但保持标签页可用
+        
+        Args:
+            enabled (bool): 是否启用控件
+        """
+        # 单独排除标签页控件
+        exclude_widgets = []
+        if hasattr(self.window, 'tabWidget'):
+            exclude_widgets.append(self.window.tabWidget)
+        
+        # 调用原方法，但排除标签页
+        self.set_ui_controls_state(enabled, exclude_widgets)

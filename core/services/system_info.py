@@ -137,22 +137,16 @@ class SystemInfoService(QObject):
         # Get the next command to execute
         command_name, command = self.pending_commands.pop(0)
         
-        # 使用明显的格式记录命令，确保在系统日志中清晰可见
-        logger.info(f"COMMAND: [{self.current_device_id}][{command_name}] >>> {command}")
-        logger.debug(f"Executing system info command: {command_name} - {command}")
-        
         # Emit command executed signal before executing command
         self.command_executed.emit(self.current_device_id, command_name, command)
+        logger.debug(f"Executing system info command: [{self.current_device_id}] {command_name} - {command}")
         
         # Execute command and receive result in signal processing
         try:
-            # Add system info type identifier when sending command, if serial_worker supports it
-            # self.serial_worker.send_command(self.current_device_id, command, 0, command_type="system_info")
-            # If serial_worker does not support command_type, use the original method
             self.serial_worker.send_command(self.current_device_id, command, 0)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
-            self._handle_command_error(command_name, str(e))
+            self._execute_next_command()
     
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
@@ -186,10 +180,8 @@ class SystemInfoService(QObject):
                 self._execute_next_command()
             return
         
-        # Record response
-        logger.info(f"Received response for {command_name}:")
-        # 使用明显的格式记录响应，确保在系统日志中清晰可见
-        logger.info(f"RESPONSE: [{device_id}][{command_name}] <<< {response}")
+        # Record response (仅在调试级别记录，避免产生大量日志)
+        logger.debug(f"Received response for {command_name}")
         logger.debug(f"Response: {response}")
         
         # Process response
@@ -216,23 +208,8 @@ class SystemInfoService(QObject):
                 self.collected_info[command_name] = response
         except Exception as e:
             logger.error(f"Error parsing response for {command_name}: {str(e)}")
-            self._handle_command_error(command_name, str(e))
         
         # Execute next command
-        self._execute_next_command()
-    
-    def _handle_command_error(self, command_name: str, error_message: str):
-        """
-        Handle command error
-        
-        Args:
-            command_name: Name of failed command
-            error_message: Error message
-        """
-        logger.error(f"Command {command_name} failed: {error_message}")
-        
-        # For specific command errors, send specific signals
-        # Here we continue to execute the next command
         self._execute_next_command()
     
     def _parse_cpu_info(self, response: str) -> Dict[str, Any]:

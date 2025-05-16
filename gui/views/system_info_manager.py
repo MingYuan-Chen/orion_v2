@@ -126,6 +126,7 @@ class SystemInfoManagerView(QObject):
         if self.is_updating:
             return
         
+        # 设置更新状态
         self.is_updating = True
         
         # Emit update started signal
@@ -155,7 +156,7 @@ class SystemInfoManagerView(QObject):
         else:
             logger.warning("system_info_service not found, using simulated data")
             # If no system info service, wait a while then restore button status
-            QTimer.singleShot(2000, self._handle_update_completed())
+            QTimer.singleShot(2000, self._handle_update_completed)
     
     def _handle_update_completed(self):
         """Handle system info update completed"""

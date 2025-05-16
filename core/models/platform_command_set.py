@@ -9,6 +9,7 @@ import os
 import sys
 import platform
 from enum import Enum
+from util.logger import logger
 
 
 class CommandType(Enum):
@@ -64,6 +65,7 @@ class PlatformCommandSet:
             platform_name: The name of the platform
         """
         self.platform_name = platform_name
+        logger.info(f"Set platform: {self.platform_name}")
         self._load_command_sets()
         
     def _load_command_sets(self):
@@ -87,12 +89,7 @@ class PlatformCommandSet:
         if os.path.exists(platform_dir):
             self._load_commands_from_dir(platform_dir)
         else:
-            # The platform directory does not exist, try to create the directory
-            try:
-                os.makedirs(platform_dir, exist_ok=True)
-                print(f"Create platform directory: {platform_dir}")
-            except Exception as e:
-                print(f"Failed to create platform directory: {e}")
+            logger.warning(f"Platform directory not found: {platform_dir}")
     
     def _load_commands_from_dir(self, dir_path: str):
         """
@@ -130,6 +127,7 @@ class PlatformCommandSet:
         """
         if command_type in self.command_sets and command_name in self.command_sets[command_type]:
             return self.command_sets[command_type][command_name]
+        logger.warning(f"Command not found: {command_type} {command_name}")
         return None
     
     def get_all_commands(self, command_type: CommandType) -> Dict[str, str]:
@@ -144,6 +142,7 @@ class PlatformCommandSet:
         """
         if command_type in self.command_sets:
             return self.command_sets[command_type]
+        logger.warning(f"Command type not found: {command_type}")
         return {}
     
     def save_command_set(self, command_type: CommandType, commands: Dict[str, str], is_common: bool = False):
