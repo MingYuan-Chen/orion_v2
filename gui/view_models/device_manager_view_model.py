@@ -208,6 +208,10 @@ class DeviceManagerViewModel(QObject):
             
             # Store device info
             self.connected_devices[device_id] = device_info
+
+            # workaround to ensure the device is connected
+            # TODO: when other connection methods are applied, this workaround should be removed
+            # TODO: Should consider more robust way to ensure the device is connected
             self._serial_worker.send_command(device_id, "root", 0)
                 
             # Emit signal

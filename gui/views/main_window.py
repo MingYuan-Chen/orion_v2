@@ -246,7 +246,7 @@ class MainWindowController(QObject):
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
         
-        # 连接标签页切换信号
+        # connect the tab changed signal
         if hasattr(self.window, 'tabWidget'):
             self.window.tabWidget.currentChanged.connect(self._on_tab_changed)
     
@@ -422,7 +422,7 @@ class MainWindowController(QObject):
         
         # connect the export result button
         if hasattr(self.window, 'button_export_result'):
-            self.window.button_export_result.clicked.connect(self._export_test_results)
+            self.window.button_export_result.clicked.connect(self._export_results)
     
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -520,26 +520,26 @@ class MainWindowController(QObject):
 
     def _on_refresh_system_info(self):
         """Handle refresh button click"""
-        # 记录当前标签页，但不强制切换回去，让用户可以自由切换
+        # record the current tab, but do not force switch back, allow the user to freely switch
         if hasattr(self.window, 'tabWidget'):
             self.current_tab_index = self.window.tabWidget.currentIndex()
-            logger.debug(f"当前标签页索引: {self.current_tab_index} (Dashboard)")
+            logger.debug(f"Current tab index: {self.current_tab_index} (Dashboard)")
         
-        # 设置更新状态标志
+        # set the updating status flag
         self.is_updating = True
         
-        # 添加日志，但不切换到日志标签
+        # add the log, but do not switch to the log tab
         self.log_manager.add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
         
-        # 定位并显示等待图标在刷新按钮旁边
+        # position and show the waiting icon next to the refresh button
         if hasattr(self, 'waiting_spinner'):
             self.waiting_spinner.position_next_to(self.window.pushButton_refresh)
             self.waiting_spinner.start()
         
-        # 禁用所有控件，但保持标签页切换功能可用
+        # disable all controls, but keep the tab switch functionality available
         self.set_ui_controls_state_except_tabs(False)
         
-        # 执行系统信息刷新
+        # execute the system info refresh
         self.system_info_manager.refresh_system_info()
 
     def _on_edit_model_name(self):
@@ -613,10 +613,10 @@ class MainWindowController(QObject):
         """Handle the event of all tests completed"""
         self.log_manager.add_log_entry("INFO", "All hardware tests completed")
     
-    def _export_test_results(self):
+    def _export_results(self):
         """Export test results to a CSV file"""
         try:
-            # get the save file path
+            # set the file name
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             default_filename = f"test_results_{self.device_id}_{timestamp}.csv"
             
@@ -629,11 +629,11 @@ class MainWindowController(QObject):
             
             if not file_path:
                 return
-                
+            
             # get the test results and progress records from the test manager
             test_results = self.test_manager.get_test_results()
             test_progress_records = self.test_manager.get_test_progress_records()
-                
+            
             # write to the CSV file
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
@@ -666,15 +666,12 @@ class MainWindowController(QObject):
                                 # get the step description from the test results
                                 if 'description' in step:
                                     step_desc = step['description']
-                                    logger.debug(f"Found description in test result: {step_desc}")
                                 # get the command and response from the test results
                                 if 'command' in step:
                                     step_command = step['command']
-                                    logger.debug(f"Found command in test result: {step_command}")
                                 if 'response' in step:
                                     step_response = step['response']
-                                    logger.debug(f"Found response in test result: {step_response}")
-                                # get the execution time of the step
+                                # get the step execution time
                                 if 'time' in step:
                                     step_time = step['time']
                                 break
@@ -687,35 +684,28 @@ class MainWindowController(QObject):
                                 # get the step description
                                 if hasattr(test_step, 'description'):
                                     step_desc = test_step.description
-                                    logger.debug(f"Found description in worker: {step_desc}")
                                 
-                                # only get the command when it is not in the test results
+                                # only get the command when the test results do not have command
                                 if not step_command and hasattr(test_step, 'command'):
                                     step_command = test_step.command
-                                    logger.debug(f"Found command in worker: {step_command}")
                                 
-                                # only get the response when it is not in the test results
+                                # only get the response when the test results do not have response
                                 if not step_response:
                                     # use the response property first, if not, use the result property
                                     if hasattr(test_step, 'response') and test_step.response:
                                         step_response = test_step.response
-                                        logger.debug(f"Found response in worker (response attr): {step_response}")
                                     elif hasattr(test_step, 'result') and test_step.result:
                                         step_response = test_step.result
-                                        logger.debug(f"Found response in worker (result attr): {step_response}")
                         
-                        # record the final collected information
-                        logger.debug(f"Final step info - Test: {test_id}, Step: {current_step+1}, Desc: '{step_desc}', Cmd: '{step_command}', Time: {step_time}")
-                        
-                        # create the row data
+                        # create the data row
                         row_data = [
-                            test_id,              # Module
-                            step_desc,            # Step
-                            record['timestamp'],  # Timestamp
-                            step_time,            # Time - use the execution time of the step
-                            step_message,         # Result
-                            step_command,         # Command
-                            step_response         # Response
+                            test_id,              # module
+                            step_desc,            # step
+                            record['timestamp'],  # timestamp
+                            step_time,            # time - use the step execution time
+                            step_message,         # result
+                            step_command,         # command
+                            step_response         # response
                         ]
                         
                         writer.writerow(row_data)
@@ -725,6 +715,7 @@ class MainWindowController(QObject):
         except Exception as e:
             error_msg = f"Error exporting test results: {str(e)}"
             logger.error(error_msg)
+            self.log_manager.add_log_entry("ERROR", error_msg)
 
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
@@ -964,96 +955,12 @@ class MainWindowController(QObject):
         
         # connect the signals
         self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
-        self.auto_diagnostic_view.export_report_requested.connect(self._export_diagnostic_report)
+        self.auto_diagnostic_view.export_report_requested.connect(self._export_results)
 
     @Slot()
     def _on_all_diagnostics_completed(self):
         """handle the event of all diagnostics completed"""
         self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
-
-    def _export_diagnostic_report(self):
-        """export the diagnostic report"""
-        # get the current time as part of the file name
-        current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_filename = f"diagnostic_report_{self.device_id}_{current_time}.csv"
-        
-        # show the file save dialog
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.window,
-            "Export Diagnostic Report",
-            default_filename,
-            "CSV Files (*.csv)"
-        )
-        
-        if not file_path:
-            return  # the user cancelled
-        
-        try:
-            # get the diagnostic results
-            results = self.auto_diagnostic_view.get_diagnostic_results()
-            
-            # write to the CSV file
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                
-                # write the title row
-                writer.writerow(["Module", "Step", "Timestamp", "Time", "Result", "Command", "Response"])
-                
-                # write the test results
-                for test_id, result in results.items():
-                    # get the status and time information
-                    status = result.get("status", "UNKNOWN")
-                    time_str = result.get("time", "--:--:--")
-                    
-                    # get the current time as the timestamp (because the diagnostic test might not have recorded it)
-                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    # get the details data
-                    details = result.get("details", {})
-                    
-                    # check if there is step information
-                    if isinstance(details, dict) and "steps" in details and details["steps"]:
-                        # if there is detailed step information, create a row for each step
-                        for step in details["steps"]:
-                            # ensure to get the correct fields from the step information
-                            step_desc = step.get("description", "")
-                            step_command = step.get("command", "")
-                            
-                            # use the response property first, if not, use the result property
-                            step_response = step.get("response", "")
-                            if not step_response and step.get("result") is not None:
-                                step_response = step.get("result", "")
-                            # if the response is None, use an empty string instead
-                            if step_response is None:
-                                step_response = ""
-                            
-                            writer.writerow([
-                                test_id,                         # Module
-                                step_desc,                       # Step
-                                timestamp,                       # Timestamp
-                                time_str,                        # Time
-                                "PASS" if step.get("passed", False) else "FAIL",  # Result
-                                step_command,                     # Command
-                                str(step_response)                # Response
-                            ])
-                    else:
-                        # if there is no detailed step information, create a row for the basic information
-                        # get the basic message
-                        message = details.get("message", "") if isinstance(details, dict) else ""
-                        writer.writerow([
-                            test_id,           # Module
-                            "",                # Step
-                            timestamp,         # Timestamp
-                            time_str,          # Time
-                            status,            # Result
-                            "",                # Command
-                            message            # Response
-                        ])
-            
-            self.log_manager.add_log_entry("INFO", f"Diagnostic report exported to {file_path}")
-        except Exception as e:
-            self.log_manager.add_log_entry("ERROR", f"Failed to export diagnostic report: {str(e)}")
-            logger.error(f"Failed to export diagnostic report: {str(e)}")
 
     def _on_tab_changed(self, index):
         """Handle tab change event"""
