@@ -47,10 +47,6 @@ class TestManagerView(QObject):
         self.progress_bar = None  # test progress bar reference
         self.abort_button = None  # abort button reference
         
-        # test status tracking
-        self.test_results = {}  # store test results
-        self.test_progress_records = {}  # store test progress records
-        
         # test sequence related
         self.original_test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery",
                                        "functionality_camera", "functionality_charge", "functionality_eeprom", "functionality_emmc", "functionality_lcd",
@@ -64,6 +60,14 @@ class TestManagerView(QObject):
         
         # Add system log function
         self.add_system_log = None
+        
+        # 結果記錄回調函數，由MainWindowController設置
+        self.result_recorder = None
+        self.progress_recorder = None
+        
+        # 本地臨時緩存用於UI顯示
+        self.local_temp_results = {}
+        self.local_temp_progress = {}
         
         # connect signals
         self._connect_signals()
@@ -119,13 +123,13 @@ class TestManagerView(QObject):
         # initialize test results and progress records
         test_ids = self.test_container.get_all_test_ids()
         for test_id in test_ids:
-            self.test_results[test_id] = {
+            self.local_temp_results[test_id] = {
                 "steps": [],
                 "success": None,
                 "message": "",
                 "start_time": None
             }
-            self.test_progress_records[test_id] = []
+            self.local_temp_progress[test_id] = []
             
         # Set initial state for all tests
         for test_id in test_ids:
@@ -144,10 +148,10 @@ class TestManagerView(QObject):
         
         # Record test start time
         start_time = datetime.datetime.now()
-        if test_id in self.test_results:
-            self.test_results[test_id]["start_time"] = start_time
+        if test_id in self.local_temp_results:
+            self.local_temp_results[test_id]["start_time"] = start_time
         else:
-            self.test_results[test_id] = {"steps": [], "success": None, "message": "", "start_time": start_time}
+            self.local_temp_results[test_id] = {"steps": [], "success": None, "message": "", "start_time": start_time}
         
         # Set the log function and record all test steps commands in advance
         if self.add_system_log is not None and test_id in self.hw_test_manager.test_workers:
@@ -241,25 +245,29 @@ class TestManagerView(QObject):
         Args:
             test_id: Test ID
         """
+        # only handle the functionality tests
+        if not test_id.startswith("functionality_"):
+            return
+            
         # update the test UI state
         self.test_container.set_test_state(test_id, "running")
         
         # Record start time
         start_time = datetime.datetime.now()
         
-        # initialize the test result storage
-        self.test_results[test_id] = {
+        # initialize the local temporary cache
+        self.local_temp_results[test_id] = {
             "steps": [],
             "success": None,
             "message": "",
-            "start_time": start_time  # Make sure start time is properly set
+            "start_time": start_time
         }
+        
+        # clear the local progress record
+        self.local_temp_progress[test_id] = []
         
         # Debug log for start time
         logger.debug(f"Test {test_id} started at {start_time}")
-        
-        # clear the test progress records
-        self.test_progress_records[test_id] = []
         
         logger.info(f"Test started: {test_id} for device {self.device_id}")
 
@@ -273,23 +281,31 @@ class TestManagerView(QObject):
             success: Whether test passed
             message: Result message
         """
-        # store the test results
-        if test_id in self.test_results:
-            self.test_results[test_id]["success"] = success
-            self.test_results[test_id]["message"] = message
+        # only handle the functionality tests
+        if not test_id.startswith("functionality_"):
+            return
+            
+        # get the data from the local cache
+        if test_id in self.local_temp_results:
+            result_data = self.local_temp_results[test_id]
+            result_data["success"] = success
+            result_data["message"] = message
             
             # Calculate test duration
-            start_time = self.test_results[test_id].get("start_time")
+            start_time = result_data.get("start_time")
             if start_time:
                 end_time = datetime.datetime.now()
                 duration = end_time - start_time
                 time_str = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
-                self.test_results[test_id]["time"] = time_str
-                # Add debug log
+                result_data["time"] = time_str
                 logger.debug(f"Test {test_id} duration calculated: start={start_time}, end={end_time}, duration={time_str}")
             else:
-                self.test_results[test_id]["time"] = "--:--:--"
+                result_data["time"] = "--:--:--"
                 logger.warning(f"Test {test_id} has no start_time record!")
+            
+            # record the result through the callback function
+            if self.result_recorder:
+                self.result_recorder("functionality", test_id, result_data)
         
         # update the test UI state
         self.test_container.set_test_state(test_id, "pass" if success else "fail", message)
@@ -319,13 +335,17 @@ class TestManagerView(QObject):
             success: Whether step passed
             message: Step result message
         """
+        # only handle the functionality tests
+        if not test_id.startswith("functionality_"):
+            return
+            
         # Calculate the execution time of the step
         step_time = "--:--:--"
         step_end_time = datetime.datetime.now()
         
         # get the start time of the step
         step_start_time = None
-        current_records = self.test_progress_records.get(test_id, [])
+        current_records = self.local_temp_progress.get(test_id, [])
         for record in current_records:
             if record.get('current_step') == step_index + 1:  # current_step starts from 1
                 if 'start_time' in record:
@@ -349,7 +369,7 @@ class TestManagerView(QObject):
             logger.debug(f"Step {step_index+1} time: {step_time}, start: {step_start_time}, end: {step_end_time}")
         
         # store the step results
-        if test_id in self.test_results:
+        if test_id in self.local_temp_results:
             # get the step command and response
             command = ""
             response = ""
@@ -395,7 +415,7 @@ class TestManagerView(QObject):
             # record the final collected information
             logger.debug(f"Step data collected - Test: {test_id}, Step: {step_index+1}, Desc: '{step_desc}', Cmd: '{command}', Response length: {len(response)}")
             
-            self.test_results[test_id]["steps"].append({
+            step_data = {
                 "index": step_index,
                 "success": success,
                 "message": message,
@@ -405,7 +425,10 @@ class TestManagerView(QObject):
                 "end_time": step_end_time,
                 "command": command,      # add command
                 "response": response     # add response
-            })
+            }
+            
+            # save to the local cache
+            self.local_temp_results[test_id]["steps"].append(step_data)
         
         # update the test step UI
         if self.result_table:
@@ -478,6 +501,10 @@ class TestManagerView(QObject):
             current_step: Current step index (starts from 1)
             total_steps: Total number of steps
         """
+        # only handle the functionality tests
+        if not test_id.startswith("functionality_"):
+            return
+            
         # update the progress bar
         progress_pct = int((current_step / total_steps) * 100)
         
@@ -499,7 +526,15 @@ class TestManagerView(QObject):
                 "total_steps": total_steps,
                 "progress_percentage": progress_pct
             }
-            self.test_progress_records[test_id].append(progress_record)
+            
+            # save to the local cache
+            if test_id not in self.local_temp_progress:
+                self.local_temp_progress[test_id] = []
+            self.local_temp_progress[test_id].append(progress_record)
+            
+            # record the progress through the callback function
+            if self.progress_recorder:
+                self.progress_recorder("functionality", test_id, progress_record)
         
         # record the progress (every 25% completion)
         if current_step % max(1, total_steps // 4) == 0 or current_step == total_steps:
@@ -540,23 +575,24 @@ class TestManagerView(QObject):
         # emit the all tests completed signal
         self.all_tests_completed.emit()
     
-    def get_test_results(self) -> Dict[str, Dict[str, Any]]:
+    def clear_test_results(self):
         """
-        Get current test results
+        Clear all test results and progress records
+        Used after exporting results to avoid accumulating old data
+        """
+        # clear the local cache
+        self.local_temp_results.clear()
+        self.local_temp_progress.clear()
         
-        Returns:
-            Dictionary containing test results
-        """
-        return self.test_results
-    
-    def get_test_progress_records(self) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Get test progress records
+        # Get all test IDs from the test container
+        if self.test_container:
+            test_ids = self.test_container.get_all_test_ids()
+            
+            # Reset UI state to not started
+            for test_id in test_ids:
+                self.test_container.set_test_state(test_id, "not_started")
         
-        Returns:
-            Dictionary containing test progress records
-        """
-        return self.test_progress_records
+        logger.info("Test results and progress records cleared")
     
     def cleanup(self):
         """Clean up test manager resources"""
@@ -743,3 +779,27 @@ class TestManagerView(QObject):
                 background-color: #00559F;
             }
         """ 
+
+    def set_result_recorders(self, result_recorder, progress_recorder):
+        """set the result recorder and progress recorder callback functions
+        
+        Args:
+            result_recorder: result recorder callback function
+            progress_recorder: progress recorder callback function
+        """
+        self.result_recorder = result_recorder
+        self.progress_recorder = progress_recorder
+        
+        logger.debug("Test manager result recorders set")
+    
+    def reset_ui(self):
+        """reset the UI status - called by MainWindowController"""
+        # clear the local cache
+        self.local_temp_results.clear()
+        self.local_temp_progress.clear()
+        
+        # reset the UI status of all the test items
+        if self.test_container:
+            test_ids = self.test_container.get_all_test_ids()
+            for test_id in test_ids:
+                self.test_container.set_test_state(test_id, "not_started") 

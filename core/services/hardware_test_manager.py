@@ -220,50 +220,17 @@ class HardwareTestManagerService(QObject):
         if self.active_test_worker:
             self.stop_current_test()
         
-        # Create a new worker instance with the current platform name
-        worker = worker_class(self.device_worker, continue_on_failure=True, platform_name=self.platform_name)
-        
-        # 如果原始worker定义了log_function，则复制到新worker
-        if hasattr(self.test_workers[test_id], 'log_function') and self.test_workers[test_id].log_function:
-            worker.log_function = self.test_workers[test_id].log_function
-            logger.debug(f"Copied log_function to new {test_id} worker")
-        
-        # Connect worker signals to manager signals
-        worker.test_step_completed.connect(
-            lambda step_index, success, message: 
-                self.test_step_completed.emit(test_id, step_index, success, message)
-        )
-        worker.test_step_retrying.connect(
-            lambda step_index, retry_count, max_retries, error_message:
-                self.test_step_retrying.emit(test_id, step_index, retry_count, max_retries, error_message)
-        )
-        worker.test_progress.connect(
-            lambda current, total: 
-                self.test_progress.emit(test_id, current, total)
-        )
-        worker.test_completed.connect(
-            lambda success, message: 
-                self._handle_test_completion(test_id, success, message)
-        )
-        
-        # Connect new user interaction signals
-        worker.pre_condition_required.connect(
-            lambda step_index, pre_condition:
-                self.test_pre_condition_required.emit(test_id, step_index, pre_condition)
-        )
-        worker.post_check_required.connect(
-            lambda step_index, post_check:
-                self.test_post_check_required.emit(test_id, step_index, post_check)
-        )
+        # Use existing method to create and connect worker
+        worker = self._create_and_connect_worker(test_id, worker_class, continue_on_failure=True)
         
         # Save active test
         self.active_test_id = test_id
         self.active_test_worker = worker
         
-        # 准备测试步骤并保存，确保步骤信息可用于UI显示
+        # prepare the test steps and save them, ensure the step information can be used for UI display
         worker.steps = worker.prepare_test_steps()
         
-        # 为测试步骤设置log_function，确保命令被记录到系统日志中
+        # set the log_function for the test steps, ensure the commands are recorded in the system log
         for step in worker.steps:
             if hasattr(worker, 'log_function') and worker.log_function:
                 step.log_function = worker.log_function
