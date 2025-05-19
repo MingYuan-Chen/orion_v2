@@ -27,6 +27,7 @@ class PowerButtonWorker(BaseTestWorker):
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
+                criteria=f"process id: {self.process_id} exists",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -36,6 +37,7 @@ class PowerButtonWorker(BaseTestWorker):
                 pre_condition="Please press the power button then release it",
                 timeout=5,
                 description="Check evtlog",
+                criteria="Power button event triggered",
                 max_retries=1,
                 retry_delay=500
             ),

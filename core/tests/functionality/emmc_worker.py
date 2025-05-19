@@ -26,6 +26,7 @@ class EmmcWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Write to emmc_throughput",
+                criteria="'copied' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -39,6 +40,7 @@ class EmmcWorker(BaseTestWorker):
                 expected_response="drop_caches", 
                 timeout=10, 
                 description="Drop caches",
+                criteria="'drop_caches' in the response",
                 max_retries=3,
                 retry_delay=1000
             ),
@@ -47,6 +49,7 @@ class EmmcWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=10, 
                 description="Read from emmc_throughput",
+                criteria="'copied' in the response",
                 max_retries=2,
                 retry_delay=1500
             )

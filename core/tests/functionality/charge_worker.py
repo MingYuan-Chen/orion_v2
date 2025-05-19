@@ -28,6 +28,7 @@ class ChargeWorker(BaseTestWorker):
                 expected_response="0",
                 timeout=5, 
                 description="Validate DUT is unplugged from the power source",
+                criteria="'0' in the response",
                 pre_condition="Ensure the DUT is unplugged from the power source.",
                 max_retries=1,
                 retry_delay=500
@@ -38,6 +39,7 @@ class ChargeWorker(BaseTestWorker):
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="Validate battery state is lower than 25%",
+                criteria="'Battery state is in 0 ~ 25%' in the response",
                 pre_condition="Ensure the battery state is lower than 25%",
                 max_retries=3,
                 retry_delay=500
@@ -47,6 +49,8 @@ class ChargeWorker(BaseTestWorker):
                 validation_func=self._validate_current,
                 timeout=5,
                 description="Validate current is negative",
+                criteria="'Current is in 0 ~ -3900mA' in the response",
+                pre_condition="Ensure the current is negative",
                 max_retries=3,
                 retry_delay=500
             )

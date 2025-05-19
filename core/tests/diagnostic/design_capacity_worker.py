@@ -25,7 +25,8 @@ class DesignCapacityWorker(BaseTestWorker):
                 command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2", 
                 expected_response="0x0d 0x16",           # concatenate the two bytes as 0x0d16 then convert to decimal: 3350
                 timeout=5, 
-                description="Check Design Capacity",
+                description="Check Design Capacity by i2c",
+                criteria="The design capacity is 3350 (0x0d16)",
                 max_retries=3,
                 retry_delay=500
             )

@@ -37,6 +37,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
+                criteria="The evtest process is running",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -52,6 +53,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 validation_func=self._validate_evtlog,
                 timeout=5,
                 description="Check evtlog",
+                criteria="The expected input device ID is 0x3eb:0x214e:0x111:0x3 and resolution is 1920x1080",
             ),
             TestStep(
                 command=commands[3],

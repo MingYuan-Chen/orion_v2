@@ -26,6 +26,7 @@ class UbootVersionWorker(BaseTestWorker):
                 expected_response="2016.03",            # Get the version
                 timeout=5, 
                 description="Check U-Boot Version",
+                criteria="The U-Boot version is 2016.03",
                 max_retries=1,
                 retry_delay=500
             )

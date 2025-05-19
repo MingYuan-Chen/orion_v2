@@ -26,6 +26,7 @@ class MacAddressWorker(BaseTestWorker):
                 expected_response="5a:31:e7:6b:68:2a",
                 timeout=5, 
                 description="Check mac address",
+                criteria="The mac address is 5a:31:e7:6b:68:2a",
                 max_retries=1,
                 retry_delay=500
             )

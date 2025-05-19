@@ -26,6 +26,7 @@ class SyncTimeWorker(BaseTestWorker):
                 validation_func=self._validate_sync_time,
                 timeout=5, 
                 description="Check Sync Time",
+                criteria="No error in the response",
                 max_retries=1,
                 retry_delay=500
             )

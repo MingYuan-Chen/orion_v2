@@ -25,7 +25,8 @@ class MemorySizeWorker(BaseTestWorker):
                 command="grep MemTotal /proc/meminfo", 
                 expected_response="3886520", 
                 timeout=5, 
-                description="Check Memory Size",
+                description="Check Memory Size by proc/meminfo",
+                criteria="The memory size is 3886520 (3.7GB)",
                 max_retries=1,
                 retry_delay=500
             )

@@ -44,6 +44,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blue",
                 post_check="Is the led status blue?",
+                criteria="Led status is blue(1)",
                 max_retries=3,
                 retry_delay=5000
             ),
@@ -58,6 +59,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status green",
                 post_check="Is the led status green?",
+                criteria="Led status is green(2)",
                 max_retries=3,
                 retry_delay=5000
             ),
@@ -72,6 +74,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status red",
                 post_check="Is the led status red?",
+                criteria="Led status is red(4)",
                 max_retries=3,
                 retry_delay=5000
             ),
@@ -86,6 +89,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking blue",
                 post_check="Is the led status blinking blue?",
+                criteria="Led status is blinking blue(9)",
                 max_retries=3,
                 retry_delay=5000
             ),
@@ -100,6 +104,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking green",
                 post_check="Is the led status blinking green?",
+                criteria="Led status is blinking green(10)",
                 max_retries=3,
                 retry_delay=5000
             ),
@@ -114,6 +119,7 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking red",
                 post_check="Is the led status blinking red?",
+                criteria="Led status is blinking red(12)",
                 max_retries=3,
                 retry_delay=5000
             ),
