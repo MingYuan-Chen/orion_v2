@@ -124,6 +124,16 @@ class DiagnosticContainer(QScrollArea):
         for item in self.diagnostic_items.values():
             item.reset()
     
+    def reset_item_status(self, test_id):
+        """
+        reset a specific diagnostic item to the PENDING status
+        
+        Args:
+            test_id: the test id to reset
+        """
+        if test_id in self.diagnostic_items:
+            self.diagnostic_items[test_id].reset()
+    
     def get_all_test_ids(self):
         """
         get all the test ids

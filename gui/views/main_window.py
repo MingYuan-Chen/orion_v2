@@ -249,6 +249,27 @@ class MainWindowController(QObject):
         # connect the tab changed signal
         if hasattr(self.window, 'tabWidget'):
             self.window.tabWidget.currentChanged.connect(self._on_tab_changed)
+        
+        # unified test result storage
+        self.unified_test_results = {
+            "functionality": {},  # functionality test results
+            "diagnostic": {}      # diagnostic test results
+        }
+        self.unified_test_progress = {
+            "functionality": {},  # functionality test progress
+            "diagnostic": {}      # diagnostic test progress
+        }
+        
+        # set the result recorders after TestManagerView and AutoDiagnosticView are created
+        self.test_manager.set_result_recorders(
+            lambda test_type, test_id, data: self.record_test_result(test_type, test_id, data),
+            lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
+        )
+
+        self.auto_diagnostic_view.set_result_recorders(
+            lambda test_type, test_id, data: self.record_test_result(test_type, test_id, data),
+            lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
+        )
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -630,9 +651,11 @@ class MainWindowController(QObject):
             if not file_path:
                 return
             
-            # get the test results and progress records from the test manager
-            test_results = self.test_manager.get_test_results()
-            test_progress_records = self.test_manager.get_test_progress_records()
+            # get the test results and progress records from the unified storage
+            # use the data from the two views only for backward compatibility and UI updates
+            test_results = self.unified_test_results["functionality"]
+            test_progress_records = self.unified_test_progress["functionality"]
+            diagnostic_results = self.unified_test_results["diagnostic"]
             
             # write to the CSV file
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
@@ -641,12 +664,12 @@ class MainWindowController(QObject):
                 # write the title row
                 writer.writerow(["Module", "Step", "Timestamp", "Time", "Result", "Command", "Response"])
                 
-                # write the progress records and step details for each test module
+                # write the functionality test results
                 for test_id, records in test_progress_records.items():
                     # get the step details of the test
                     test_steps = []
                     if test_id in test_results:
-                        test_steps = test_results[test_id]["steps"]
+                        test_steps = test_results[test_id]["steps"] if "steps" in test_results[test_id] else []
                     
                     for record in records:
                         # find the corresponding step information
@@ -709,8 +732,70 @@ class MainWindowController(QObject):
                         ]
                         
                         writer.writerow(row_data)
+                
+                # write the diagnostic test results
+                for test_id, result_data in diagnostic_results.items():
+                    # get the step data of the diagnostic test
+                    test_steps = result_data.get("steps", [])
+                    
+                    # if there is step data, use it
+                    if test_steps:
+                        for step in test_steps:
+                            step_desc = step.get("description", "Diagnostic Test")
+                            step_message = step.get("message", "")
+                            step_command = step.get("command", "")
+                            step_response = step.get("response", "")
+                            step_time = step.get("time", "--:--:--")
+                            
+                            # create the data row of the diagnostic step
+                            row_data = [
+                                test_id,                # module
+                                step_desc,              # step
+                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                                step_time,              # time
+                                step_message,           # result
+                                step_command,           # command
+                                step_response           # response
+                            ]
+                            
+                            writer.writerow(row_data)
+                    else:
+                        # if there is no step data, use the basic information
+                        status = result_data.get("status", "")
+                        time_str = result_data.get("time", "--:--:--")
+                        details = result_data.get("details", {})
+                        message = details.get("message", "")
+                        
+                        # create the data row of the diagnostic result
+                        row_data = [
+                            test_id,                # module
+                            "Diagnostic Test",      # step
+                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                            time_str,               # time
+                            f"{status}: {message}", # result
+                            "",                    # command
+                            ""                     # response
+                        ]
+                        
+                        writer.writerow(row_data)
             
             self.log_manager.add_log_entry("INFO", f"Test results exported to: {file_path}")
+            
+            # clear all the test results
+            self.clear_all_test_results()
+            
+            # also reset the related UI
+            # reset the test steps table
+            if hasattr(self.window, 'tableWidget_hardware_test_steps'):
+                self.window.tableWidget_hardware_test_steps.setRowCount(0)
+            
+            # reset the progress bar
+            if hasattr(self.window, 'progressBar_hardware_test'):
+                self.window.progressBar_hardware_test.setValue(0)
+                self.window.progressBar_hardware_test.setVisible(False)
+            
+            # add the log of clearing the test records
+            self.log_manager.add_log_entry("INFO", "Test and diagnostic records cleared after export")
             
         except Exception as e:
             error_msg = f"Error exporting test results: {str(e)}"
@@ -899,7 +984,7 @@ class MainWindowController(QObject):
                 for i in range(tabwidget.count()):
                     tabwidget.setTabEnabled(i, enabled)
         
-        # 确保系统日志页中的发送命令按钮和输入框状态正确
+        # Ensure the system log page's send command button and input box state is correct
         if hasattr(self.window, 'pushButton_send_command'):
             self.window.pushButton_send_command.setEnabled(enabled)
         if hasattr(self.window, 'lineEdit_command'):
@@ -983,3 +1068,27 @@ class MainWindowController(QObject):
         
         # call the original method, but exclude the tab widgets
         self.set_ui_controls_state(enabled, exclude_widgets)
+
+    def record_test_result(self, test_type, test_id, result_data):
+        """record the test results to the unified storage"""
+        if test_type in self.unified_test_results:
+            self.unified_test_results[test_type][test_id] = result_data
+
+    def record_test_progress(self, test_type, test_id, progress_data):
+        """record the test progress to the unified storage"""
+        if test_type in self.unified_test_progress:
+            if test_id not in self.unified_test_progress[test_type]:
+                self.unified_test_progress[test_type][test_id] = []
+            self.unified_test_progress[test_type][test_id].append(progress_data)
+
+    def clear_all_test_results(self):
+        """clear all the test results"""
+        for test_type in self.unified_test_results:
+            self.unified_test_results[test_type].clear()
+            self.unified_test_progress[test_type].clear()
+        
+        # notify the views to reset the UI
+        if hasattr(self, 'test_manager'):
+            self.test_manager.reset_ui()
+        if hasattr(self, 'auto_diagnostic_view'):
+            self.auto_diagnostic_view.reset_ui()

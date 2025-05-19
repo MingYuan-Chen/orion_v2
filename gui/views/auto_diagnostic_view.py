@@ -43,8 +43,12 @@ class AutoDiagnosticView(QObject):
         self.export_button = None
         self.title_label = None
         
-        # test status tracking
-        self.diagnostic_results = {}
+        # result recorder callback function, set by MainWindowController
+        self.result_recorder = None
+        self.progress_recorder = None
+        
+        # local temporary cache for UI display
+        self.local_diagnostic_results = {}
         self.current_diagnostics = []
         self.is_running = False
         
@@ -53,12 +57,19 @@ class AutoDiagnosticView(QObject):
         
         logger.info("Auto diagnostic view initialized")
     
+    def set_result_recorders(self, result_recorder, progress_recorder):
+        """set the result recorder callback function"""
+        self.result_recorder = result_recorder
+        self.progress_recorder = progress_recorder
+    
     def _connect_signals(self):
         """connect the hardware test manager signals"""
         # connect the hardware test manager signals
         self.hw_test_manager.test_started.connect(self._on_test_started)
         self.hw_test_manager.test_completed.connect(self._on_test_completed)
         self.hw_test_manager.test_progress.connect(self._on_test_progress)
+        # connect the step completed signal
+        self.hw_test_manager.test_step_completed.connect(self._on_test_step_completed)
     
     def create_widget(self) -> QWidget:
         """
@@ -170,12 +181,13 @@ class AutoDiagnosticView(QObject):
         # add the diagnostic test items
         for test_id, test_name in diagnostic_tests.items():
             self.diagnostic_container.add_diagnostic_item(test_id, test_name)
-            self.diagnostic_results[test_id] = {
+            self.local_diagnostic_results[test_id] = {
                 "status": "PENDING",
                 "time": "--:--:--",
                 "details": {
                     "message": ""
-                }
+                },
+                "start_time": datetime.datetime.now()
             }
             
         # record all the diagnostic items
@@ -233,7 +245,7 @@ class AutoDiagnosticView(QObject):
                     # Record all the test steps commands
                     if hasattr(worker, 'steps') and worker.steps:
                         for step in worker.steps:
-                            if step.command:
+                            if hasattr(step, 'command') and step.command:
                                 self.add_system_log("INFO", f"[Command][{test_id}] {step.command}")
                     
                     # Set response collector function
@@ -250,7 +262,7 @@ class AutoDiagnosticView(QObject):
             
             # record the start time
             start_time = datetime.datetime.now()
-            self.diagnostic_results[test_id]["start_time"] = start_time
+            self.local_diagnostic_results[test_id]["start_time"] = start_time
             
             # ensure we scroll to the current test item
             self.diagnostic_container.scroll_to_item(test_id)
@@ -278,11 +290,26 @@ class AutoDiagnosticView(QObject):
         Args:
             test_id: the test id
         """
+        # only handle the diagnostic tests
+        if not test_id.startswith("diagnostic_") or test_id not in self.current_diagnostics:
+            return
+            
         # update the UI status
         self.diagnostic_container.update_item_status(test_id, "PENDING")
         
         # scroll to the test item being executed
         self.diagnostic_container.scroll_to_item(test_id)
+        
+        # initialize the local result cache
+        self.local_diagnostic_results[test_id] = {
+            "status": "PENDING",
+            "time": "--:--:--",
+            "details": {
+                "message": ""
+            },
+            "start_time": datetime.datetime.now(),
+            "steps": []  # initialize the steps list
+        }
         
         logger.info(f"Diagnostic test started: {test_id}")
     
@@ -296,73 +323,74 @@ class AutoDiagnosticView(QObject):
             success: whether the test is successful
             message: the result message
         """
-        # check if the test id is the one we are tracking
-        if test_id not in self.current_diagnostics:
+        # only handle the diagnostic tests
+        if not test_id.startswith("diagnostic_") or test_id not in self.current_diagnostics:
             return
         
         # prevent duplicate processing of the same test completion event
-        if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] != "PENDING":
+        if test_id in self.local_diagnostic_results and self.local_diagnostic_results[test_id]["status"] != "PENDING":
             logger.warning(f"Received duplicate completion for test {test_id}, ignoring.")
             return
         
         # check if the message is a cancellation message
         if not success and "cancelled" in message.lower():
             # if the message is a cancellation message, but we have already received a success message, ignore the cancellation message
-            if test_id in self.diagnostic_results and self.diagnostic_results[test_id]["status"] == "PASS":
+            if test_id in self.local_diagnostic_results and self.local_diagnostic_results[test_id]["status"] == "PASS":
                 logger.warning(f"Ignoring cancellation message for successful test {test_id}")
                 return
         
         # calculate the test duration
-        if test_id in self.diagnostic_results and "start_time" in self.diagnostic_results[test_id]:
-            start_time = self.diagnostic_results[test_id]["start_time"]
+        time_str = "--:--:--"
+        if test_id in self.local_diagnostic_results and "start_time" in self.local_diagnostic_results[test_id]:
+            start_time = self.local_diagnostic_results[test_id]["start_time"]
             end_time = datetime.datetime.now()
             duration = end_time - start_time
             time_str = f"{duration.seconds}.{duration.microseconds//1000:02d}s"
-        else:
-            time_str = "--:--:--"
         
         # update the diagnostic results
         status = "PASS" if success else "FAIL"
-        self.diagnostic_results[test_id]["status"] = status
-        self.diagnostic_results[test_id]["time"] = time_str
-        self.diagnostic_results[test_id]["details"]["message"] = message
         
-        # try to collect the detailed test results
-        try:
-            # try to get the step information from the active test worker
-            if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
-                test_worker = self.hw_test_manager.active_test_worker
-                # store the detailed test results
-                if hasattr(test_worker, 'steps') and test_worker.steps:
-                    steps_results = []
-                    for i, step in enumerate(test_worker.steps):
-                        step_result = {
-                            "description": step.description,
-                            "command": step.command,
-                            "passed": getattr(step, 'passed', None),
-                            "result": getattr(step, 'result', None),
-                            "response": getattr(step, 'response', None)
-                        }
-                        steps_results.append(step_result)
-                    self.diagnostic_results[test_id]["details"]["steps"] = steps_results
-            # if the active worker has no step information, try to get it from the registered worker
-            elif test_id in self.hw_test_manager.test_workers:
-                test_worker = self.hw_test_manager.test_workers[test_id]
-                # store the detailed test results
-                if hasattr(test_worker, 'steps') and test_worker.steps:
-                    steps_results = []
-                    for i, step in enumerate(test_worker.steps):
-                        step_result = {
-                            "description": step.description,
-                            "command": step.command,
-                            "passed": getattr(step, 'passed', None),
-                            "result": getattr(step, 'result', None),
-                            "response": getattr(step, 'response', None)
-                        }
-                        steps_results.append(step_result)
-                    self.diagnostic_results[test_id]["details"]["steps"] = steps_results
-        except Exception as e:
-            logger.warning(f"Failed to collect detailed test results for {test_id}: {e}")
+        # check if the message is the default success message
+        is_default_success_message = (message == "Test completed successfully")
+        
+        # update the status information in the local cache
+        if test_id in self.local_diagnostic_results:
+            # update the test result status
+            self.local_diagnostic_results[test_id]["status"] = status
+            self.local_diagnostic_results[test_id]["time"] = time_str
+            self.local_diagnostic_results[test_id]["details"]["message"] = message
+            
+            # if there are steps data, use the last step message to update the default message
+            steps = self.local_diagnostic_results[test_id].get("steps", [])
+            if is_default_success_message and steps:
+                last_step = steps[-1]
+                if "message" in last_step and last_step["message"].startswith("Validation PASSED:"):
+                    message = last_step["message"]
+                    self.local_diagnostic_results[test_id]["details"]["message"] = message
+        else:
+            # if there is no previous data, create a basic result
+            self.local_diagnostic_results[test_id] = {
+                "status": status,
+                "time": time_str,
+                "details": {"message": message},
+                "steps": []
+            }
+            
+            # if there is no step information, create a default step
+            default_step = {
+                "index": 0,
+                "success": success,
+                "message": message,
+                "description": "Diagnostic Test",
+                "time": time_str,
+                "command": "",
+                "response": ""
+            }
+            self.local_diagnostic_results[test_id]["steps"].append(default_step)
+        
+        # record the final result through the callback
+        if self.result_recorder:
+            self.result_recorder("diagnostic", test_id, self.local_diagnostic_results[test_id])
         
         # update the UI status
         self.diagnostic_container.update_item_status(test_id, status, time_str)
@@ -390,7 +418,7 @@ class AutoDiagnosticView(QObject):
             # check if all the tests are completed
             all_completed = True
             for tid in self.current_diagnostics:
-                if tid not in self.diagnostic_results or self.diagnostic_results[tid]["status"] == "PENDING":
+                if tid not in self.local_diagnostic_results or self.local_diagnostic_results[tid]["status"] == "PENDING":
                     all_completed = False
                     break
                 
@@ -408,8 +436,176 @@ class AutoDiagnosticView(QObject):
             current_step: the current step index (starting from 1)
             total_steps: the total number of steps
         """
+        # only handle the diagnostic tests
+        if not test_id.startswith("diagnostic_") or test_id not in self.current_diagnostics:
+            return
+            
+        # record the step start time
+        if current_step > 0:
+            now = datetime.datetime.now()
+            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # create the progress record
+            progress_record = {
+                "timestamp": timestamp,
+                "start_time": now,  # record the step start time
+                "current_step": current_step,
+                "total_steps": total_steps
+            }
+            
+            # ensure the local result exists
+            if test_id not in self.local_diagnostic_results:
+                self.local_diagnostic_results[test_id] = {
+                    "status": "PENDING",
+                    "time": "--:--:--",
+                    "details": {"message": ""},
+                    "start_time": now,
+                    "steps": []
+                }
+            
+            # if the steps list is not long enough, expand it
+            steps = self.local_diagnostic_results[test_id].get("steps", [])
+            step_index = current_step - 1  # convert to 0-based index
+            
+            while len(steps) <= step_index:
+                steps.append({})
+            
+            # update the step start time
+            if "start_time" not in steps[step_index]:
+                steps[step_index]["start_time"] = now
+            
+            # save the steps list
+            self.local_diagnostic_results[test_id]["steps"] = steps
+            
+            # record the progress through the callback
+            if self.progress_recorder:
+                self.progress_recorder("diagnostic", test_id, progress_record)
+            
+            logger.debug(f"Diagnostic test progress recorded: {test_id}, step {current_step}/{total_steps}")
+        
         # do not update the UI progress, because the diagnostic items have no progress bar
-        pass
+    
+    @Slot(str, int, bool, str)
+    def _on_test_step_completed(self, test_id: str, step_index: int, success: bool, message: str):
+        """
+        handle the test step completed event
+        
+        Args:
+            test_id: the test id
+            step_index: the step index
+            success: whether the step is successful
+            message: the step result message
+        """
+        # only handle the diagnostic tests
+        if not test_id.startswith("diagnostic_") or test_id not in self.current_diagnostics:
+            return
+        
+        logger.debug(f"Diagnostic step completed: {test_id}, step {step_index+1}, success: {success}, message: {message}")
+        
+        # get the step execution time
+        step_time = "--:--:--"
+        step_end_time = datetime.datetime.now()
+        
+        # try to get the step start time from the test progress record
+        step_start_time = None
+        
+        # get the step start time from the test worker
+        if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+            worker = self.hw_test_manager.active_test_worker
+            if hasattr(worker, 'steps') and len(worker.steps) > step_index:
+                step = worker.steps[step_index]
+                # try to get the step start time
+                if hasattr(step, 'start_time'):
+                    step_start_time = step.start_time
+        
+        # if the start time is not found in the worker, use the test start time
+        if step_start_time is None and test_id in self.local_diagnostic_results:
+            if "start_time" in self.local_diagnostic_results[test_id]:
+                # for the first step, use the test start time
+                if step_index == 0:
+                    step_start_time = self.local_diagnostic_results[test_id]["start_time"]
+                # for other steps, if there is a previous step, use the previous step's end time
+                elif step_index > 0 and "steps" in self.local_diagnostic_results[test_id]:
+                    steps = self.local_diagnostic_results[test_id]["steps"]
+                    if len(steps) > step_index - 1 and "end_time" in steps[step_index - 1]:
+                        step_start_time = steps[step_index - 1]["end_time"]
+                    else:
+                        # if there is no previous step's end time, use the test start time plus an offset
+                        step_start_time = self.local_diagnostic_results[test_id]["start_time"] + datetime.timedelta(seconds=step_index * 1.5)  # assume each step takes about 1.5 seconds
+        
+        # calculate the step execution time
+        if step_start_time:
+            duration = step_end_time - step_start_time
+            step_time = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
+            logger.debug(f"Step {step_index+1} time: {step_time}, start: {step_start_time}, end: {step_end_time}")
+        
+        # try to get the step detailed information from the test worker
+        step_desc = f"Step {step_index+1}"
+        step_command = ""
+        step_response = ""
+        
+        # get the step detailed information from the active test worker
+        if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+            worker = self.hw_test_manager.active_test_worker
+            if hasattr(worker, 'steps') and len(worker.steps) > step_index:
+                step = worker.steps[step_index]
+                if hasattr(step, 'description') and step.description:
+                    step_desc = step.description
+                if hasattr(step, 'command') and step.command:
+                    step_command = step.command
+                if hasattr(step, 'response') and step.response:
+                    step_response = step.response
+                elif hasattr(step, 'result') and step.result:
+                    step_response = step.result
+        
+        # if there is no step detailed information from the active worker, try to get it from the registered workers
+        if step_desc == f"Step {step_index+1}" and test_id in self.hw_test_manager.test_workers:
+            worker = self.hw_test_manager.test_workers[test_id]
+            if hasattr(worker, 'steps') and len(worker.steps) > step_index:
+                step = worker.steps[step_index]
+                if hasattr(step, 'description') and step.description:
+                    step_desc = step.description
+                if hasattr(step, 'command') and step.command:
+                    step_command = step.command
+                if hasattr(step, 'response') and step.response:
+                    step_response = step.response
+                elif hasattr(step, 'result') and step.result:
+                    step_response = step.result
+        
+        # create the step result data
+        step_data = {
+            "index": step_index,
+            "success": success,
+            "message": message,
+            "description": step_desc,
+            "time": step_time,
+            "start_time": step_start_time,
+            "end_time": step_end_time,
+            "command": step_command,
+            "response": step_response
+        }
+        
+        # update the local cache
+        if test_id not in self.local_diagnostic_results:
+            self.local_diagnostic_results[test_id] = {
+                "status": "PENDING",
+                "time": "--:--:--",
+                "details": {"message": ""},
+                "steps": []
+            }
+        
+        # if the step index is out of the current step list, expand the list
+        steps_list = self.local_diagnostic_results[test_id].get("steps", [])
+        while len(steps_list) <= step_index:
+            steps_list.append({})
+        
+        # add or update the step data
+        steps_list[step_index] = step_data
+        self.local_diagnostic_results[test_id]["steps"] = steps_list
+        
+        # record the result through the callback
+        if self.result_recorder:
+            self.result_recorder("diagnostic", test_id, self.local_diagnostic_results[test_id])
     
     def _complete_all_diagnostics(self):
         """complete all the diagnostic tests"""
@@ -431,7 +627,32 @@ class AutoDiagnosticView(QObject):
         Returns:
             a dictionary, the key is the test id, the value is the test result
         """
-        return self.diagnostic_results
+        return self.local_diagnostic_results
+    
+    def clear_diagnostic_results(self):
+        """
+        Clear all diagnostic results
+        Used after exporting results to avoid accumulating old data
+        """
+        # Reset all diagnostic results
+        self.local_diagnostic_results.clear()
+        
+        for test_id in self.current_diagnostics:
+            # Reset UI status to pending
+            if self.diagnostic_container:
+                self.diagnostic_container.reset_item_status(test_id)
+        
+        logger.info("Diagnostic results cleared")
+    
+    def reset_ui(self):
+        """reset the UI status - called by MainWindowController"""
+        # clear the local cache
+        self.local_diagnostic_results.clear()
+        
+        # reset the UI status of all the diagnostic items
+        if self.diagnostic_container:
+            for test_id in self.current_diagnostics:
+                self.diagnostic_container.reset_item_status(test_id)
     
     def cleanup(self):
         """clean up the resources"""
@@ -443,6 +664,7 @@ class AutoDiagnosticView(QObject):
                 self.hw_test_manager.test_started.disconnect(self._on_test_started)
                 self.hw_test_manager.test_completed.disconnect(self._on_test_completed)
                 self.hw_test_manager.test_progress.disconnect(self._on_test_progress)
+                self.hw_test_manager.test_step_completed.disconnect(self._on_test_step_completed)
                 
                 if self.run_all_button:
                     self.run_all_button.clicked.disconnect(self._on_run_all_tests)
