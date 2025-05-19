@@ -26,6 +26,8 @@ class CpuProcessorWorker(BaseTestWorker):
                 expected_response="4", 
                 timeout=5, 
                 description="Check CPU Processor",
+                criteria="'4' in the response",
+                specification="4",
                 max_retries=1,
                 retry_delay=500
             )

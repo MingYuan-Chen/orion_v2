@@ -374,6 +374,8 @@ class TestManagerView(QObject):
             command = ""
             response = ""
             step_desc = ""
+            step_specification = ""
+            step_criteria = ""
             
             # try to get the step command and response from the active test worker
             if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
@@ -392,6 +394,13 @@ class TestManagerView(QObject):
                     elif hasattr(step, 'result') and step.result:
                         response = step.result
                         logger.debug(f"Found result from active worker: '{response}'")
+                    # 获取规格与标准
+                    if hasattr(step, 'specification'):
+                        step_specification = step.specification
+                        logger.debug(f"Found specification from active worker: '{step_specification}'")
+                    if hasattr(step, 'criteria'):
+                        step_criteria = step.criteria
+                        logger.debug(f"Found criteria from active worker: '{step_criteria}'")
             
             # if failed to get the step command and response from the active test worker, try to get them from the registered test worker
             if (not step_desc or not command or not response) and test_id in self.hw_test_manager.test_workers:
@@ -411,6 +420,13 @@ class TestManagerView(QObject):
                         elif hasattr(step, 'result') and step.result:
                             response = step.result
                             logger.debug(f"Found result from registered worker: '{response}'")
+                    # 获取规格与标准
+                    if not step_specification and hasattr(step, 'specification'):
+                        step_specification = step.specification
+                        logger.debug(f"Found specification from registered worker: '{step_specification}'")
+                    if not step_criteria and hasattr(step, 'criteria'):
+                        step_criteria = step.criteria
+                        logger.debug(f"Found criteria from registered worker: '{step_criteria}'")
             
             # record the final collected information
             logger.debug(f"Step data collected - Test: {test_id}, Step: {step_index+1}, Desc: '{step_desc}', Cmd: '{command}', Response length: {len(response)}")
@@ -424,7 +440,9 @@ class TestManagerView(QObject):
                 "start_time": step_start_time,
                 "end_time": step_end_time,
                 "command": command,      # add command
-                "response": response     # add response
+                "response": response,    # add response
+                "specification": step_specification,  # 添加规格
+                "criteria": step_criteria     # 添加标准
             }
             
             # save to the local cache

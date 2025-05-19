@@ -25,6 +25,7 @@ class AudioWorker(BaseTestWorker):
                 expected_response="sgtl5000audio", 
                 timeout=5, 
                 description="Check speaker device",
+                criteria="'sgtl5000audio' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -33,6 +34,7 @@ class AudioWorker(BaseTestWorker):
                 expected_response="sgtl5000audio", 
                 timeout=10, 
                 description="Check microphone device",
+                criteria="'sgtl5000audio' in the response",
                 max_retries=3,
                 retry_delay=1000
             ),
@@ -41,6 +43,7 @@ class AudioWorker(BaseTestWorker):
                 expected_response="audio8k16S.wav",
                 timeout=10, 
                 description="Check audio8k16S.wav exists",
+                criteria="'audio8k16S.wav' in the response",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -57,6 +60,7 @@ class AudioWorker(BaseTestWorker):
                 timeout=10, 
                 description="Play audio from speaker and record from microphone",
                 post_check="Is the audio played from the speaker?",
+                criteria="'Recording WAVE' and 'Playing WAVE' in response",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -66,6 +70,7 @@ class AudioWorker(BaseTestWorker):
                 timeout=10, 
                 description="Play the recorded audio from the speaker",
                 post_check="Is the audio played from the speaker?",
+                criteria="'Playing WAVE' and 'mic.wav' in response",
                 max_retries=2,
                 retry_delay=1500
             ), 

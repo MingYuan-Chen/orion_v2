@@ -662,7 +662,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Module", "Step", "Timestamp", "Time", "Result", "Command", "Response"])
+                writer.writerow(["Module", "Step", "Specification", "Criteria", "Command", "Response", "Result", "Timestamp", "Duration"])
                 
                 # write the functionality test results
                 for test_id, records in test_progress_records.items():
@@ -681,6 +681,8 @@ class MainWindowController(QObject):
                         step_command = ""
                         step_response = ""
                         step_time = "--:--:--"  # default time
+                        step_specification = ""
+                        step_criteria = ""
                         
                         # get the step information from the test results
                         for step in test_steps:
@@ -689,6 +691,11 @@ class MainWindowController(QObject):
                                 # get the step description from the test results
                                 if 'description' in step:
                                     step_desc = step['description']
+                                # get the specification and criteria
+                                if 'specification' in step:
+                                    step_specification = step['specification']
+                                if 'criteria' in step:
+                                    step_criteria = step['criteria']
                                 # get the command and response from the test results
                                 if 'command' in step:
                                     step_command = step['command']
@@ -724,11 +731,13 @@ class MainWindowController(QObject):
                         row_data = [
                             test_id,              # module
                             step_desc,            # step
-                            record['timestamp'],  # timestamp
-                            step_time,            # time - use the step execution time
-                            step_message,         # result
+                            step_specification,   # specification
+                            step_criteria,        # criteria
                             step_command,         # command
-                            step_response         # response
+                            step_response,        # response
+                            step_message,         # result
+                            record['timestamp'],  # timestamp
+                            step_time             # time - use the step execution time
                         ]
                         
                         writer.writerow(row_data)
@@ -746,16 +755,21 @@ class MainWindowController(QObject):
                             step_command = step.get("command", "")
                             step_response = step.get("response", "")
                             step_time = step.get("time", "--:--:--")
+                            # 获取specification和criteria
+                            step_specification = step.get("specification", "")
+                            step_criteria = step.get("criteria", "")
                             
                             # create the data row of the diagnostic step
                             row_data = [
                                 test_id,                # module
                                 step_desc,              # step
-                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                                step_time,              # time
-                                step_message,           # result
+                                step_specification,     # specification
+                                step_criteria,          # criteria
                                 step_command,           # command
-                                step_response           # response
+                                step_response,          # response
+                                step_message,           # result
+                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                                step_time               # time
                             ]
                             
                             writer.writerow(row_data)
@@ -770,11 +784,13 @@ class MainWindowController(QObject):
                         row_data = [
                             test_id,                # module
                             "Diagnostic Test",      # step
-                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                            time_str,               # time
+                            "",                     # specification
+                            "",                     # criteria
+                            "",                     # command
+                            "",                     # response
                             f"{status}: {message}", # result
-                            "",                    # command
-                            ""                     # response
+                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                            time_str                # time
                         ]
                         
                         writer.writerow(row_data)
