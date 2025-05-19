@@ -543,6 +543,8 @@ class AutoDiagnosticView(QObject):
         step_desc = f"Step {step_index+1}"
         step_command = ""
         step_response = ""
+        step_specification = ""
+        step_criteria = ""
         
         # get the step detailed information from the active test worker
         if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
@@ -557,6 +559,11 @@ class AutoDiagnosticView(QObject):
                     step_response = step.response
                 elif hasattr(step, 'result') and step.result:
                     step_response = step.result
+                # 获取specification和criteria
+                if hasattr(step, 'specification') and step.specification:
+                    step_specification = step.specification
+                if hasattr(step, 'criteria') and step.criteria:
+                    step_criteria = step.criteria
         
         # if there is no step detailed information from the active worker, try to get it from the registered workers
         if step_desc == f"Step {step_index+1}" and test_id in self.hw_test_manager.test_workers:
@@ -571,6 +578,11 @@ class AutoDiagnosticView(QObject):
                     step_response = step.response
                 elif hasattr(step, 'result') and step.result:
                     step_response = step.result
+                # 获取specification和criteria
+                if hasattr(step, 'specification') and step.specification:
+                    step_specification = step.specification
+                if hasattr(step, 'criteria') and step.criteria:
+                    step_criteria = step.criteria
         
         # create the step result data
         step_data = {
@@ -582,7 +594,9 @@ class AutoDiagnosticView(QObject):
             "start_time": step_start_time,
             "end_time": step_end_time,
             "command": step_command,
-            "response": step_response
+            "response": step_response,
+            "specification": step_specification,
+            "criteria": step_criteria
         }
         
         # update the local cache

@@ -20,7 +20,8 @@ class TestStep:
     def __init__(self, command: str, expected_response=None, timeout=5, 
                  validation_func: Callable[[str], Tuple[bool, str]] = None, 
                  description: str = "", max_retries: int = 2, retry_delay: int = 1000,
-                 pre_condition: str = "", post_check: str = ""):
+                 pre_condition: str = "", post_check: str = "",
+                 specification: str = "", criteria: str = ""):
         """
         Initialize test step
         
@@ -41,7 +42,7 @@ class TestStep:
         self.validation_func = validation_func
         self.description = description
         self.result = None
-        self.response = None  # 明确初始化response属性
+        self.response = None  # initialize the response attribute
         self.passed = None
         self.max_retries = max_retries  # Maximum retry times
         self.retry_delay = retry_delay  # Retry delay (milliseconds)
@@ -53,6 +54,8 @@ class TestStep:
         self.post_check = post_check    # Human verification instructions
         self.human_judgement = None     # Human judgement result (True/False/None)
         self.log_function = None        # Function to log messages to system log
+        self.specification = specification  # Specification
+        self.criteria = criteria              # Criteria
         
     def log_to_system(self, level, message):
         """
@@ -296,7 +299,7 @@ class BaseTestWorker(QObject):
         if self.wait_timer.isActive():
             self.wait_timer.stop()
         
-        # 重置交互状态
+        # reset the interaction state
         self.interaction_state = InteractionState.NONE
         
         # Emit test completed signal, marked as cancelled
@@ -608,19 +611,19 @@ class BaseTestWorker(QObject):
             logger.warning(f"Command does not match, ignoring this result, received command: '{command}', expected command: '{expected_command}'")
             return
         
-        # Always record command output to step - 确保在所有情况下都设置response
+        # Always record command output to step - ensure the response is set
         step.response = response
         # Also set the result attribute to be the same as response for consistency
         step.result = response
         
-        # 调用响应收集器函数(如果已设置)
+        # call the response collector function (if set)
         if hasattr(self, 'response_collector') and callable(self.response_collector):
             test_id = getattr(self, 'test_id', self.__class__.__name__)
             self.response_collector(test_id, self.current_step_index, command, response)
         
         # Log response to system log if configured (保留这个日志记录功能)
         if hasattr(step, 'log_function') and callable(step.log_function):
-            # 使用一种明显的格式来记录响应，确保在日志中能清晰区分
+            # use a clear format to record the response, ensure it can be clearly distinguished in the log
             step.log_function("INFO", f"[Response] {response}")
         
         # Validate the response if validation function is provided
@@ -776,10 +779,10 @@ class BaseTestWorker(QObject):
 
     def set_response_collector(self, collector_func):
         """
-        设置响应收集器函数，在命令执行后调用该函数
+        Set the response collector function, call it after the command execution
         
         Args:
-            collector_func: 收集器函数，参数为 (test_id, step_index, command, response)
+            collector_func: Collector function, parameters are (test_id, step_index, command, response)
         """
         self.response_collector = collector_func
         logger.debug(f"Response collector function set for {self.__class__.__name__}") 
