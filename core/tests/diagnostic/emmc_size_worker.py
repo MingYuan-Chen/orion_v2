@@ -26,6 +26,7 @@ class EmmcSizeWorker(BaseTestWorker):
                 expected_response="244629504", # get sector size * 512 = expected bytes: 125250306048 = 125GB
                 timeout=5, 
                 description="Check emmc size",
+                criteria="The emmc size is 125GB",
                 max_retries=1,
                 retry_delay=500
             )

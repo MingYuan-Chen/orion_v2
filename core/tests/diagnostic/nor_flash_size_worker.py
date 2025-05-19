@@ -26,6 +26,7 @@ class NorFlashSizeWorker(BaseTestWorker):
                 expected_response="04000000", # 64MB
                 timeout=5, 
                 description="Check NOR flash size",
+                criteria="The NOR flash size is 64MB",
                 max_retries=1,
                 retry_delay=500
             )

@@ -45,6 +45,7 @@ class BatteryWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate dc status",
                 pre_condition="Ensure the DUT is plugged in and the ambient temperature is at room level.",
+                criteria="The dc status is 0 or 1",
                 max_retries=1,
                 retry_delay=500
                 
@@ -54,6 +55,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="Validate battery state",
+                criteria="The battery state is in 0 ~ 100",
                 max_retries=3,
                 retry_delay=500
             ),
@@ -62,6 +64,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_temperature,
                 timeout=10, 
                 description="Validate battery temperature",
+                criteria="The battery temperature is in 0 ~ 100",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -69,7 +72,8 @@ class BatteryWorker(BaseTestWorker):
                 command=self.get_current, 
                 validation_func=self._validate_current,
                 timeout=10, 
-                description="Validate batterycurrent",
+                description="Validate battery current",
+                criteria="The battery current is in 1.5 ~ 2.5",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -78,6 +82,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_led_status,
                 timeout=10, 
                 description="Validate led status",
+                criteria="The led status is in 0 ~ 31",
                 max_retries=2,
                 retry_delay=1500
             )

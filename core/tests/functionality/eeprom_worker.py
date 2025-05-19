@@ -34,6 +34,7 @@ class EepromWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Generate EEPROM0 test data",
+                criteria="'copied' in the response",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -42,15 +43,14 @@ class EepromWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Generate EEPROM1 test data",
+                criteria="'copied' in the response",
                 max_retries=2,
                 retry_delay=500
             ),
             TestStep(
                 command="sync", 
                 timeout=3, 
-                description="Sync",
-                max_retries=1,
-                retry_delay=500
+                description="Sync"
             ),
             
             # Second step: Calculate the MD5 of the test data
@@ -59,6 +59,7 @@ class EepromWorker(BaseTestWorker):
                 validation_func=self._store_to_eeprom0_md5,
                 timeout=5, 
                 description="Calculate the MD5 of EEPROM0 test data",
+                criteria=f"The MD5 value of EEPROM0 test data: {self.to_eeprom0_md5}",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -67,6 +68,7 @@ class EepromWorker(BaseTestWorker):
                 validation_func=self._store_to_eeprom1_md5,
                 timeout=5, 
                 description="Calculate the MD5 of EEPROM1 test data",
+                criteria=f"The MD5 value of EEPROM1 test data: {self.to_eeprom1_md5}",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -77,6 +79,7 @@ class EepromWorker(BaseTestWorker):
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Write data to EEPROM0",
+                criteria="'eeprog' in the response",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -85,15 +88,14 @@ class EepromWorker(BaseTestWorker):
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Write data to EEPROM1",
+                criteria="'eeprog' in the response",
                 max_retries=1,
                 retry_delay=1000
             ),
             TestStep(
                 command="sync", 
                 timeout=3, 
-                description="Sync",
-                max_retries=1,
-                retry_delay=500
+                description="Sync"
             ),
             
             # Fourth step: Read the data from EEPROM
@@ -102,6 +104,7 @@ class EepromWorker(BaseTestWorker):
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Read data from EEPROM0",
+                criteria="'eeprog' in the response",
                 max_retries=3,
                 retry_delay=1000
             ),
@@ -110,15 +113,14 @@ class EepromWorker(BaseTestWorker):
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Read data from EEPROM1",
+                criteria="'eeprog' in the response",
                 max_retries=3,
                 retry_delay=1000
             ),
             TestStep(
                 command="sync",  
                 timeout=3, 
-                description="Sync",
-                max_retries=1,
-                retry_delay=500
+                description="Sync"
             ),
             
             # Fifth step: Calculate the MD5 of the read data
@@ -127,6 +129,7 @@ class EepromWorker(BaseTestWorker):
                 validation_func=self._store_from_eeprom0_md5,
                 timeout=5, 
                 description="Calculate the MD5 of the read data from EEPROM0",
+                criteria=f"The MD5 value of the read data from EEPROM0: {self.from_eeprom0_md5}",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -135,6 +138,7 @@ class EepromWorker(BaseTestWorker):
                 validation_func=self._store_from_eeprom1_md5,
                 timeout=5, 
                 description="Calculate the MD5 of the read data from EEPROM1",
+                criteria=f"The MD5 value of the read data from EEPROM1: {self.from_eeprom1_md5}",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -145,6 +149,7 @@ class EepromWorker(BaseTestWorker):
                 validation_func=self._validate_md5_values,
                 timeout=3, 
                 description="Validate the consistency of EEPROM read and write",
+                criteria="EEPROM0 and EEPROM1 read and write test passed!",
                 max_retries=0,
                 retry_delay=0
             ),
@@ -154,22 +159,16 @@ class EepromWorker(BaseTestWorker):
                 command="rm -f to_eeprom0_data from_eeprom0_data", 
                 timeout=3, 
                 description="Clean up EEPROM0 test files",
-                max_retries=1,
-                retry_delay=500
             ),
             TestStep(
                 command="rm -f to_eeprom1_data from_eeprom1_data", 
                 timeout=3, 
                 description="Clean up EEPROM1 test files",
-                max_retries=1,
-                retry_delay=500
             ),
             TestStep(
                 command="sync", 
                 timeout=3, 
-                description="Sync",
-                max_retries=1,
-                retry_delay=500
+                description="Sync"
             )
         ]
     

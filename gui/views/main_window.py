@@ -727,6 +727,19 @@ class MainWindowController(QObject):
                                     elif hasattr(test_step, 'result') and test_step.result:
                                         step_response = test_step.result
                         
+                        final_response = ""
+                        for line in step_response.split("\n"):
+                            if not line:
+                                continue
+                            if "i2ctransfer" in line:
+                                continue
+                            if "grep" in line:
+                                continue
+                            if "#" in line or "$" in line or ">" in line:
+                                continue
+                            final_response += line + "\n"
+                        
+                        step_response = final_response
                         # create the data row
                         row_data = [
                             test_id,              # module
@@ -739,7 +752,7 @@ class MainWindowController(QObject):
                             record['timestamp'],  # timestamp
                             step_time             # time - use the step execution time
                         ]
-                        
+
                         writer.writerow(row_data)
                 
                 # write the diagnostic test results
@@ -755,10 +768,24 @@ class MainWindowController(QObject):
                             step_command = step.get("command", "")
                             step_response = step.get("response", "")
                             step_time = step.get("time", "--:--:--")
-                            # 获取specification和criteria
+                            # get the specification and criteria
                             step_specification = step.get("specification", "")
                             step_criteria = step.get("criteria", "")
                             
+                            final_response = ""
+                            for line in step_response.split("\n"):
+                                if not line:
+                                    continue
+                                if "i2ctransfer" in line:
+                                    continue
+                                if "grep" in line:
+                                    continue
+                                if "#" in line or "$" in line or ">" in line:
+                                    continue
+                                final_response += line + "\n"
+                            
+                            step_response = final_response
+
                             # create the data row of the diagnostic step
                             row_data = [
                                 test_id,                # module
@@ -832,8 +859,11 @@ class MainWindowController(QObject):
         if device_id != self.device_id:
             return
             
-        # Log command and response
-        self.log_manager.add_log_entry("DEBUG", f"[Response] {response}")
+        # Log command and response - check if it is a test command
+        # NOTE: this is a workaround to avoid logging the command and response for the test commands
+        if not command.startswith("get_logs"):
+            self.log_manager.add_log_entry("INFO", f"[Command] {command}")
+            self.log_manager.add_log_entry("DEBUG", f"[Response] {response}")
         
         # Process response based on command
         if command.startswith("get_logs"):

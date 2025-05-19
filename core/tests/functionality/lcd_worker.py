@@ -28,6 +28,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate red color",
                 post_check="Is the LCD display red?",
+                criteria="'color : red' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -37,6 +38,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate green color",
                 post_check="Is the LCD display green?",
+                criteria="'color : green' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -46,6 +48,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate blue color",
                 post_check="Is the LCD display blue?",
+                criteria="'color : blue' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -55,6 +58,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate black color",
                 post_check="Is the LCD display black?",
+                criteria="'color : black' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -64,6 +68,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate white color",
                 post_check="Is the LCD display white?",
+                criteria="'color : white' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -73,6 +78,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate colorbar",
                 post_check="Is the LCD display colorbar?",
+                criteria="'colorbar' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -82,6 +88,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate gradient",
                 post_check="Is the LCD display gradient?",
+                criteria="'gradient' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -91,6 +98,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate frame",
                 post_check="Is the LCD display frame?",
+                criteria="'frame' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -100,6 +108,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate gray16",
                 post_check="Is the LCD display gray16?",
+                criteria="'gray16' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -109,6 +118,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate gray64",
                 post_check="Is the LCD display gray64?",
+                criteria="'gray64' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -118,6 +128,7 @@ class LcdWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate gray256",
                 post_check="Is the LCD display gray256?",
+                criteria="'gray256' in the response",
                 max_retries=1,
                 retry_delay=500
             )

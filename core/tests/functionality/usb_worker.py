@@ -26,6 +26,7 @@ class UsbWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=5, 
                 description="Write to usb_throughput",
+                criteria="'copied' in the response",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -34,6 +35,7 @@ class UsbWorker(BaseTestWorker):
                 expected_response="copied", 
                 timeout=10, 
                 description="Read from usb_throughput",
+                criteria="'copied' in the response",
                 max_retries=3,
                 retry_delay=1000
             ),
@@ -42,6 +44,7 @@ class UsbWorker(BaseTestWorker):
                 validation_func=self._validate_usb_unmount, 
                 timeout=10, 
                 description="Unmount sda1",
+                criteria="'/run/media/sda1: not mounted' in the response",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -50,6 +53,7 @@ class UsbWorker(BaseTestWorker):
                 expected_response="sda1", 
                 timeout=10, 
                 description="Mount sda1",
+                criteria="'sda1' in the response",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -58,6 +62,7 @@ class UsbWorker(BaseTestWorker):
                 validation_func=self._validate_usb_mount,
                 timeout=10, 
                 description="Validate sda1 mounted",
+                criteria="'/dev/sda1' and '/run/media/sda1' and 'vfat' in the response",
                 max_retries=2,
                 retry_delay=2000
             )

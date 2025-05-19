@@ -25,7 +25,8 @@ class PicVersionWorker(BaseTestWorker):
                 command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 
                 expected_response="0x64",           # convert to decimal: 100
                 timeout=5, 
-                description="Check PIC Version",
+                description="Check PIC Version by i2c",
+                criteria="The PIC version is 0x64(100) checked by i2c",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -33,7 +34,8 @@ class PicVersionWorker(BaseTestWorker):
                 command="cat /proc/hw_rev", 
                 expected_response="100",           # convert to decimal: 100
                 timeout=5, 
-                description="Check PIC Version",
+                description="Check PIC Version by proc",
+                criteria="The PIC version is 100 checked by proc",
                 max_retries=1,
                 retry_delay=500
             )

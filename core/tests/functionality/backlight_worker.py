@@ -38,6 +38,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness",
                 post_check="Is the backlight brightness become to dark?",
+                criteria="The backlight brightness is 0",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -52,6 +53,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 20%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 1",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -66,6 +68,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 30%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 2",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -80,6 +83,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 40%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 3",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -94,6 +98,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 50%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 4",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -108,6 +113,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 60%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 5",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -122,6 +128,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 80%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 6",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -136,6 +143,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check backlight brightness 100%",
                 post_check="Is the backlight brighter than before?",
+                criteria="The backlight brightness is 7",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -150,6 +158,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power off?",
+                criteria="The screen power is off(1)",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -164,6 +173,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power on?",
+                criteria="The screen power is on(0)",
                 max_retries=1,
                 retry_delay=1000
             )

@@ -25,7 +25,8 @@ class DesignVoltageWorker(BaseTestWorker):
                 command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2", 
                 expected_response="0x1c 0x20",           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
                 timeout=5, 
-                description="Check Design Voltage",
+                description="Check Design Voltage by i2c",
+                criteria="The design voltage is 7200(0x1c20)",
                 max_retries=3,
                 retry_delay=500
             )

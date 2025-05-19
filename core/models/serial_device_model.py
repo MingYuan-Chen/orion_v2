@@ -121,7 +121,7 @@ class SerialDeviceModel(DeviceModel):
                 if '#' in line or '$' in line or '>' in line:
                     filtered_lines.append(line)
                 # skip lines containing command itself
-                elif command.strip() not in line:
+                elif command not in line:
                     filtered_lines.append(line)
             
             # remove empty lines at the beginning and end
