@@ -311,6 +311,9 @@ class MainWindowController(QObject):
         # set the ui components
         self.system_info_manager.set_ui_components(system_ui_components)
         
+        # 提供對控制器的引用，用於命令記錄
+        self.system_info_manager.main_controller = self
+        
         # set a function to add system log, directly write to the log manager
         # use anonymous function to wrap, ensure the log will not cause the switch to the system log tab
         self.system_info_manager.add_system_log = lambda level, message: self._add_system_log_without_tab_switch(level, message)
@@ -436,11 +439,8 @@ class MainWindowController(QObject):
         # Add command record to logs
         self.log_manager.add_log_entry("INFO", f"[Command] {command}")
         
-        # 標記此命令已被記錄
-        self.logged_commands.add(command)
-        
-        # 设置一个定时器来清理过时的命令 (3分钟后)
-        QTimer.singleShot(180000, lambda cmd=command: self.logged_commands.discard(cmd))
+        # 使用標記方法記錄命令
+        self.mark_command_as_logged(command)
     
     def _connect_signals(self):
         """Connect signals and slots"""
@@ -1158,3 +1158,14 @@ class MainWindowController(QObject):
             self.test_manager.reset_ui()
         if hasattr(self, 'auto_diagnostic_view'):
             self.auto_diagnostic_view.reset_ui()
+
+    def mark_command_as_logged(self, command):
+        """
+        將命令標記為已記錄，避免重複記錄
+        
+        Args:
+            command: 命令字符串
+        """
+        self.logged_commands.add(command)
+        # 设置一个定时器来清理过时的命令 (3分钟后)
+        QTimer.singleShot(180000, lambda cmd=command: self.logged_commands.discard(cmd))
