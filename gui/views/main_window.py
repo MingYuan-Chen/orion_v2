@@ -134,6 +134,9 @@ class MainWindowController(QObject):
         # add current tab index
         self.current_tab_index = -1
         
+        # 添加命令追踪集合，避免重複記錄
+        self.logged_commands = set()
+        
         # Ensure view_model has system_info_service
         if not hasattr(self.view_model, 'system_info_service') and hasattr(self.view_model, '_serial_worker'):
             from core.services.system_info import SystemInfoService
@@ -432,6 +435,12 @@ class MainWindowController(QObject):
         
         # Add command record to logs
         self.log_manager.add_log_entry("INFO", f"[Command] {command}")
+        
+        # 標記此命令已被記錄
+        self.logged_commands.add(command)
+        
+        # 设置一个定时器来清理过时的命令 (3分钟后)
+        QTimer.singleShot(180000, lambda cmd=command: self.logged_commands.discard(cmd))
     
     def _connect_signals(self):
         """Connect signals and slots"""
@@ -735,11 +744,15 @@ class MainWindowController(QObject):
                                 continue
                             if "grep" in line:
                                 continue
+                            if "............" in line:
+                                continue
                             if "#" in line or "$" in line or ">" in line:
                                 continue
                             final_response += line + "\n"
                         
                         step_response = final_response
+                        if "skip" in step_message.lower():
+                            step_message = "SKIPPED"
                         # create the data row
                         row_data = [
                             test_id,              # module
@@ -785,6 +798,8 @@ class MainWindowController(QObject):
                                 final_response += line + "\n"
                             
                             step_response = final_response
+                            if "skip" in step_message.lower():
+                                step_message = "SKIPPED"
 
                             # create the data row of the diagnostic step
                             row_data = [
@@ -862,8 +877,13 @@ class MainWindowController(QObject):
         # Log command and response - check if it is a test command
         # NOTE: this is a workaround to avoid logging the command and response for the test commands
         if not command.startswith("get_logs"):
-            self.log_manager.add_log_entry("INFO", f"[Command] {command}")
+            # 檢查命令是否已經被記錄過
+            if command not in self.logged_commands:
+                self.log_manager.add_log_entry("INFO", f"[Command] {command}")
+            # 在任何情况下都记录响应
             self.log_manager.add_log_entry("DEBUG", f"[Response] {response}")
+            # 从跟踪集合中移除此命令
+            self.logged_commands.discard(command)
         
         # Process response based on command
         if command.startswith("get_logs"):

@@ -27,7 +27,7 @@ class PowerButtonWorker(BaseTestWorker):
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
-                criteria=f"process id: {self.process_id} exists",
+                criteria=f"process id exists",
                 max_retries=1,
                 retry_delay=500
             ),

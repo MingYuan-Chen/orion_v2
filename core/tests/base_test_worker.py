@@ -633,14 +633,14 @@ class BaseTestWorker(QObject):
                 if result:
                     # Validation passed
                     step.passed = True
-                    logger.info(f"Test step {self.current_step_index+1} passed: Validation PASSED: {message}")
+                    logger.info(f"Test step {self.current_step_index+1} validation PASSED: {message}")
                     self._handle_step_result(True, f"Validation PASSED: {message}")
                     return
                 else:
                     # Validation failed
                     step.passed = False
                     step.retry_messages.append(message)
-                    logger.warning(f"Test step {self.current_step_index+1} failed: {message}")
+                    logger.warning(f"Test step {self.current_step_index+1} FAILED: {message}")
                     
                     # Check if should retry
                     if step.retry_count < step.max_retries:
@@ -650,7 +650,7 @@ class BaseTestWorker(QObject):
                         self.retry_timer.start()
                     else:
                         # Max retries reached, fail the step
-                        logger.warning(f"Test step {self.current_step_index+1} failed: {message} (Retried {step.retry_count} times still failed)")
+                        logger.warning(f"Test step {self.current_step_index+1} FAILED: {message} (Retried {step.retry_count} times still failed)")
                         self._handle_step_result(False, f"{message} (Retried {step.retry_count} times still failed)")
                     return
             except Exception as e:
@@ -661,10 +661,35 @@ class BaseTestWorker(QObject):
                 logger.error(error_message, exc_info=True)
                 self._handle_step_result(False, error_message)
                 return
+        elif step.expected_response is not None:
+            # check if the response contains the expected result
+            if step.expected_response in response:
+                step.passed = True
+                logger.info(f"Test step {self.current_step_index+1} PASSED: expected string '{step.expected_response}' found in response")
+                self._handle_step_result(True, f"Expected string '{step.expected_response}' found in response")
+                return
+            else:
+                # Validation failed
+                step.passed = False
+                error_message = f"Expected string '{step.expected_response}' not found in response"
+                step.retry_messages.append(error_message)
+                logger.warning(f"Test step {self.current_step_index+1} FAILED: {error_message}")
+                
+                # Check if should retry
+                if step.retry_count < step.max_retries:
+                    # Schedule retry
+                    self.retry_timer.setInterval(step.retry_delay)
+                    logger.info(f"Retrying in {step.retry_delay}ms")
+                    self.retry_timer.start()
+                else:
+                    # Max retries reached, fail the step
+                    logger.warning(f"Test step {self.current_step_index+1} FAILED: {error_message} (Retried {step.retry_count} times still failed)")
+                    self._handle_step_result(False, f"{error_message} (Retried {step.retry_count} times still failed)")
+                return
         else:
             # No validation function, pass the step
             step.passed = True
-            logger.info(f"Test step {self.current_step_index+1} passed: Step PASSED: skip validation")
+            logger.info(f"Test step {self.current_step_index+1} PASSED: skip validation")
             self._handle_step_result(True, "Step PASSED: skip validation")
             return
     
