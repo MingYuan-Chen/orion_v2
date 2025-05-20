@@ -230,76 +230,7 @@ class CameraWorker(BaseTestWorker):
                 description="Reset camera port B(J4)",
             ),
 
-            # MIPI 720p camera ======================================================
-            # port A(J1)
-            TestStep(
-                command="reboot",
-                pre_condition="Please ensure MIPI 720p camera is connected to port A(J1)",
-                post_check="Is the device rebooted to the login screen?",
-                timeout=5,
-                description="reboot the device",
-            ),
-            TestStep(
-                command="root",
-                timeout=5,
-                description="enter user name",
-            ),
-            TestStep(
-                command=self.preview_vieo_port(0), 
-                validation_func=self._validate_camera_connection,
-                timeout=5, 
-                description="Preview video on port A(J1)",
-                post_check="Is the camera preview video displayed on the screen?",
-                criteria="The camera preview video is displayed on the screen",
-            ),
-            TestStep(
-                command=self.get_gpio_value(0),
-                timeout=5,
-                description="Get GPIO value",
-            ),
-            TestStep(
-                command="done",
-                validation_func=self._validate_gpio_value_MIPI_720,
-                timeout=5,
-                description="Validate GPIO value of MIPI 720p camera",
-                criteria="The GPIO value is 1101",
-            ),
-            TestStep(
-                command=self.reset_camera(0),
-                timeout=5,
-                description="Reset camera port A(J1)",
-            ),
-            # port B(J4)
-            TestStep(
-                command=self.preview_vieo_port(1), 
-                validation_func=self._validate_camera_connection,
-                timeout=5, 
-                description="Preview video on port B(J4)",
-                pre_condition="Please ensure MIPI 720p camera is connected to port B(J4)",
-                post_check="Is the camera preview video displayed on the screen?",
-                criteria="The camera preview video is displayed on the screen",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command=self.get_gpio_value(1),
-                timeout=5,
-                description="Get GPIO value",
-            ),
-            TestStep(
-                command="done",
-                validation_func=self._validate_gpio_value_MIPI_720,
-                timeout=5,
-                description="Validate GPIO value of MIPI 720p camera",
-                criteria="The GPIO value is 1101",
-            ),
-            TestStep(
-                command=self.reset_camera(1),
-                timeout=5,
-                description="Reset camera port B(J4)",
-            ),
-
-            # smart cable ======================================================
+            # LVDS smart cable ======================================================
             # port A(J1)
             TestStep(
                 command="reboot",
