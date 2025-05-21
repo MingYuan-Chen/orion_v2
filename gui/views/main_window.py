@@ -219,20 +219,18 @@ class MainWindowController(QObject):
         # Create hardware test manager
         self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
         
-        # Create the test manager view
+        # Create the test manager view and auto diagnostic view
         self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
-        
-        # Create auto diagnostic view
         self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.hw_test_manager)
         
         # Connect signals and slots
         self._connect_signals()
         
-        # Initialize functionality test UI
-        self._init_functionality_test_ui()
-        
         # Initialize auto diagnostic view
         self._init_auto_diagnostic_view()
+        
+        # Initialize functionality test UI
+        self._init_functionality_test_ui()
         
         # Connect refresh button
         self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
@@ -523,9 +521,12 @@ class MainWindowController(QObject):
                             item.insertWidget(j, self.window.button_abort_test)
                             break
         
-        # insert the test container between the title row and the test progress
-        # the 0th item is the title row, the 1st item is the test progress, now we insert the test container between them
-        layout.insertWidget(1, test_container)
+        # Attention: Auto Diagnostic is already in the layout index 0 position
+        # So Hardware Tests title row is now in index 2 (0 is Auto Diagnostic, 1 is spacer)
+        # The test container should be inserted at index 3 (after the title row)
+        
+        # Insert the test container (after the title row)
+        layout.insertWidget(3, test_container)
         
         # Set the UI components of the test manager
         self.test_manager.set_ui_components(
@@ -1069,19 +1070,27 @@ class MainWindowController(QObject):
         # create the auto diagnostic component
         self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
         
-        # add the auto diagnostic component as a standalone layout, directly add to the Dashboard tab
-        # get the Dashboard tab layout
-        dashboard_layout = self.window.tab_dashboard.layout()
-        if dashboard_layout:
-            # add the auto diagnostic component (after the System Overview group box)
-            dashboard_layout.addWidget(self.auto_diagnostic_widget)
-        else:
-            # if the Dashboard page has no layout, create a new one
-            dashboard_layout = QVBoxLayout(self.window.tab_dashboard)
-            dashboard_layout.addWidget(self.window.groupBox_system_overview)  # add the system overview first
-            dashboard_layout.addWidget(self.auto_diagnostic_widget)  # then add the auto diagnostic
+        # Place the auto diagnostic component at the top of the Functionality tab
+        # Get the Functionality tab layout
+        tab_functionality = self.window.tab_functionality
+        layout = tab_functionality.layout()
         
-        # set the auto diagnostic test items
+        # Insert the auto diagnostic component at the top of the layout (index 0)
+        if layout:
+            layout.insertWidget(0, self.auto_diagnostic_widget)
+            
+            # Add a small spacing, to separate Auto Diagnostic and Hardware Tests
+            from PySide6.QtWidgets import QSpacerItem, QSizePolicy
+            spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Fixed)
+            layout.insertItem(1, spacer)
+        else:
+            # If the layout does not exist, create a new one (not likely to happen)
+            logger.warning("Functionality tab layout not found, creating new layout")
+            from PySide6.QtWidgets import QVBoxLayout
+            layout = QVBoxLayout(tab_functionality)
+            layout.addWidget(self.auto_diagnostic_widget)
+        
+        # Set the auto diagnostic test items
         diagnostic_tests = {
             "diagnostic_cpu_name": "Check CPU Name",
             "diagnostic_cpu_processor": "Check CPU Processor",
