@@ -439,4 +439,9 @@ class SystemInfoManagerView(QObject):
             
         # Record executed command to system log
         if hasattr(self, 'add_system_log'):
-            self.add_system_log("INFO", f"[Command][{command_name}]: {command}") 
+            self.add_system_log("INFO", f"[Command][{command_name}]: {command}")
+            
+            # 將命令標記為已記錄，避免重複記錄
+            if hasattr(self, 'main_controller') and hasattr(self.main_controller, 'mark_command_as_logged'):
+                # 標記命令為已記錄
+                self.main_controller.mark_command_as_logged(command) 

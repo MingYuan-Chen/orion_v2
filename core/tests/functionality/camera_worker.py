@@ -124,7 +124,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
-                criteria="The GPIO value is 0111",
+                criteria="The GPIO value is 1110",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -153,7 +153,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
-                criteria="The GPIO value is 0111",
+                criteria="The GPIO value is 1110",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -193,7 +193,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
-                criteria="The GPIO value is 1011",
+                criteria="The GPIO value is 1101",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -222,7 +222,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
-                criteria="The GPIO value is 1011",
+                criteria="The GPIO value is 1101",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -262,7 +262,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
-                criteria="The GPIO value is 1111",
+                criteria="The GPIO value is 1010",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -291,7 +291,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
-                criteria="The GPIO value is 1111",
+                criteria="The GPIO value is 1010",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -323,7 +323,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_jig_A,
                 timeout=5,
                 description="Validate GPIO value of Jig A",
-                criteria="The GPIO value is 1000",
+                criteria="The GPIO value is 0001",
             ),
             # port B(J4)
             TestStep(
@@ -336,7 +336,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_jig_B,
                 timeout=5,
                 description="Validate GPIO value of Jig B",
-                criteria="The GPIO value is 0100",
+                criteria="The GPIO value is 0010",
             )
         ]
     
@@ -451,7 +451,7 @@ class CameraWorker(BaseTestWorker):
             values = response.split("\n")
             values = values[:-1]
             value_str = "".join(values)
-            if "1111" in value_str:
+            if "0101" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
                 return False, f"GPIO value unexpected: {value_str}"

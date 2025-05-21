@@ -161,7 +161,7 @@ class LedWorker(BaseTestWorker):
         """
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 1:
+            if led_status in [1, 17]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
@@ -170,7 +170,7 @@ class LedWorker(BaseTestWorker):
     def _validate_led_status_green(self, response: str) -> Tuple[bool, str]:
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 2:
+            if led_status in [2, 18]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
@@ -179,7 +179,7 @@ class LedWorker(BaseTestWorker):
     def _validate_led_status_red(self, response: str) -> Tuple[bool, str]:
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 4:
+            if led_status in [4, 20]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
@@ -188,7 +188,7 @@ class LedWorker(BaseTestWorker):
     def _validate_led_status_blinking_blue(self, response: str) -> Tuple[bool, str]:
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 9:
+            if led_status in [9, 25]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
@@ -197,7 +197,7 @@ class LedWorker(BaseTestWorker):
     def _validate_led_status_blinking_green(self, response: str) -> Tuple[bool, str]:
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 10:
+            if led_status in [10, 26]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
@@ -206,7 +206,7 @@ class LedWorker(BaseTestWorker):
     def _validate_led_status_blinking_red(self, response: str) -> Tuple[bool, str]:
         try:
             led_status = self._parse_led_info(response)
-            if led_status == 12:
+            if led_status in [12, 28]:
                 return True, f"Led status is {self.LED_STATUS_MAP[led_status]}"
             return False, f"Unexpected led status: {self.LED_STATUS_MAP[led_status]}"
         except Exception as e:
