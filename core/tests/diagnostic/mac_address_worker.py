@@ -23,7 +23,7 @@ class MacAddressWorker(BaseTestWorker):
         return [
             TestStep(
                 command="cat /sys/class/net/eth0/address", 
-                expected_response="5a:31:e7:6b:68:2a",
+                expected_response="5a:31:e7:6b:68:2a",       # sometimes it changes to 1a:33:65:6d:72:09
                 timeout=5, 
                 description="Check mac address",
                 criteria="The mac address is 5a:31:e7:6b:68:2a",
