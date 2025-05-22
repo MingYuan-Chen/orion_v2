@@ -1002,7 +1002,15 @@ class MainWindowController(QObject):
                                         step_response = test_step.response
                                     elif hasattr(test_step, 'result') and test_step.result:
                                         step_response = test_step.result
+                                        
+                                # get criteria if not set
+                                if not step_criteria and hasattr(test_step, 'criteria'):
+                                    step_criteria = test_step.criteria
                             
+                            # Skip steps with empty criteria
+                            if not step_criteria:
+                                continue
+                                
                             # process the response text
                             final_response = ""
                             if isinstance(step_response, str):
@@ -1062,6 +1070,10 @@ class MainWindowController(QObject):
                                 step_specification = step.get("specification", "")
                                 step_criteria = step.get("criteria", "")
                                 
+                                # Skip steps with empty criteria
+                                if not step_criteria:
+                                    continue
+                                
                                 # process the response text
                                 final_response = ""
                                 if isinstance(step_response, str):
@@ -1106,6 +1118,10 @@ class MainWindowController(QObject):
                                 details = {}
                                 
                             message = details.get("message", "")
+                            
+                            # Skip this entry if there are no criteria or validation results
+                            if not message or message.strip() == "":
+                                continue
                             
                             # create the data row of the diagnostic result
                             row_data = [
