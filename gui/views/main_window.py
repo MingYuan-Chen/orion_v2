@@ -449,7 +449,7 @@ class MainWindowController(QObject):
         if hasattr(self.window, 'button_export_result') and self.window.button_export_result:
             # disconnect the old connection, avoid duplicate connection
             try:
-                self.window.button_export_result.clicked.disconnect()
+                self.window.button_export_result.clicked.disconnect(self._export_results)
             except:
                 pass
             # reconnect
@@ -605,8 +605,7 @@ class MainWindowController(QObject):
                     background-color: #1C97EA;
                 }
             """)
-            # connect the export result function
-            self.window.button_export_result.clicked.connect(self._export_results)
+            
             hw_title_layout.addWidget(self.window.button_export_result)
             hw_title_layout.addSpacing(10)
         else:
@@ -624,8 +623,7 @@ class MainWindowController(QObject):
                     background-color: #1C97EA;
                 }
             """)
-            # connect the export result function
-            self.window.button_export_result.clicked.connect(self._export_results)
+            
             hw_title_layout.addWidget(self.window.button_export_result)
             hw_title_layout.addSpacing(10)
         
@@ -908,6 +906,11 @@ class MainWindowController(QObject):
     def _export_results(self):
         """Export test results to a CSV file"""
         try:
+            # set the flag to prevent repeated execution
+            if hasattr(self, '_export_in_progress') and self._export_in_progress:
+                return
+            self._export_in_progress = True
+            
             # set the file name
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             default_filename = f"test_results_{self.device_id}_{timestamp}.csv"
@@ -920,13 +923,16 @@ class MainWindowController(QObject):
             )
             
             if not file_path:
+                self._export_in_progress = False
                 return
-            
+                
             # get the test results and progress records from the unified storage
-            # use the data from the two views only for backward compatibility and UI updates
-            test_results = self.unified_test_results["functionality"]
-            test_progress_records = self.unified_test_progress["functionality"]
-            diagnostic_results = self.unified_test_results["diagnostic"]
+            test_results = self.unified_test_results.get("functionality", {})
+            test_progress_records = self.unified_test_progress.get("functionality", {})
+            diagnostic_results = self.unified_test_results.get("diagnostic", {})
+            
+            # check if there is data to export
+            data_exported = False
             
             # write to the CSV file
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
@@ -940,47 +946,46 @@ class MainWindowController(QObject):
                     # get the step details of the test
                     test_steps = []
                     if test_id in test_results:
-                        test_steps = test_results[test_id]["steps"] if "steps" in test_results[test_id] else []
+                        test_steps = test_results[test_id].get("steps", [])
                     
                     for record in records:
-                        # find the corresponding step information
-                        current_step = record['current_step'] - 1  # convert to 0-based index
-                        
-                        # get the step status, message and time from the test results
-                        step_desc = ""
-                        step_message = ""
-                        step_command = ""
-                        step_response = ""
-                        step_time = "--:--:--"  # default time
-                        step_specification = ""
-                        step_criteria = ""
-                        
-                        # get the step information from the test results
-                        for step in test_steps:
-                            if step['index'] == current_step:
-                                step_message = step['message']
-                                # get the step description from the test results
-                                if 'description' in step:
-                                    step_desc = step['description']
-                                # get the specification and criteria
-                                if 'specification' in step:
-                                    step_specification = step['specification']
-                                if 'criteria' in step:
-                                    step_criteria = step['criteria']
-                                # get the command and response from the test results
-                                if 'command' in step:
-                                    step_command = step['command']
-                                if 'response' in step:
-                                    step_response = step['response']
-                                # get the step execution time
-                                if 'time' in step:
-                                    step_time = step['time']
-                                break
-                        
-                        # try to get the step description from the test worker
-                        if not step_desc and test_id in self.hw_test_manager.test_workers:
-                            worker = self.hw_test_manager.test_workers[test_id]
-                            if len(worker.steps) > current_step:
+                        try:
+                            # ensure record is a dictionary and has current_step
+                            if not isinstance(record, dict) or 'current_step' not in record:
+                                continue
+                                
+                            # find the corresponding step information
+                            current_step = record['current_step'] - 1  # convert to 0-based index
+                            if current_step < 0:
+                                continue
+                            
+                            # get the step status, message and time from the test results
+                            step_desc = ""
+                            step_message = ""
+                            step_command = ""
+                            step_response = ""
+                            step_time = "--:--:--"  # default time
+                            step_specification = ""
+                            step_criteria = ""
+                            
+                            # get the step information from the test results
+                            for step in test_steps:
+                                if step.get('index') == current_step:
+                                    step_message = step.get('message', '')
+                                    step_desc = step.get('description', '')
+                                    step_specification = step.get('specification', '')
+                                    step_criteria = step.get('criteria', '')
+                                    step_command = step.get('command', '')
+                                    step_response = step.get('response', '')
+                                    step_time = step.get('time', '--:--:--')
+                                    break
+                            
+                            # try to get the step description from the test worker
+                            worker = None
+                            if not step_desc and hasattr(self.hw_test_manager, 'test_workers'):
+                                worker = self.hw_test_manager.test_workers.get(test_id)
+                                
+                            if worker and hasattr(worker, 'steps') and len(worker.steps) > current_step:
                                 test_step = worker.steps[current_step]
                                 # get the step description
                                 if hasattr(test_step, 'description'):
@@ -997,109 +1002,134 @@ class MainWindowController(QObject):
                                         step_response = test_step.response
                                     elif hasattr(test_step, 'result') and test_step.result:
                                         step_response = test_step.result
-                        
-                        final_response = ""
-                        for line in step_response.split("\n"):
-                            if not line:
-                                continue
-                            if "i2ctransfer" in line:
-                                continue
-                            if "grep" in line:
-                                continue
-                            if "............" in line:
-                                continue
-                            if "#" in line or "$" in line or ">" in line:
-                                continue
-                            final_response += line + "\n"
-                        
-                        step_response = final_response
-                        if "skip" in step_message.lower():
-                            step_message = "SKIPPED"
-                        # create the data row
-                        row_data = [
-                            test_id,              # module
-                            step_desc,            # step
-                            step_specification,   # specification
-                            step_criteria,        # criteria
-                            step_command,         # command
-                            step_response,        # response
-                            step_message,         # result
-                            record['timestamp'],  # timestamp
-                            step_time             # time - use the step execution time
-                        ]
+                            
+                            # process the response text
+                            final_response = ""
+                            if isinstance(step_response, str):
+                                for line in step_response.split("\n"):
+                                    if not line:
+                                        continue
+                                    if "i2ctransfer" in line:
+                                        continue
+                                    if "grep" in line:
+                                        continue
+                                    if "............" in line:
+                                        continue
+                                    if "#" in line or "$" in line or ">" in line:
+                                        continue
+                                    final_response += line + "\n"
+                            else:
+                                final_response = str(step_response)
+                            
+                            step_response = final_response
+                            if isinstance(step_message, str) and "skip" in step_message.lower():
+                                step_message = "SKIPPED"
+                                
+                            # create the data row
+                            row_data = [
+                                test_id,                                       # module
+                                step_desc,                                     # step
+                                step_specification,                            # specification
+                                step_criteria,                                 # criteria
+                                step_command,                                  # command
+                                step_response,                                 # response
+                                step_message,                                  # result
+                                record.get('timestamp', '--:--:--'),           # timestamp
+                                step_time                                      # time - use the step execution time
+                            ]
 
-                        writer.writerow(row_data)
+                            writer.writerow(row_data)
+                            data_exported = True
+                        except Exception as ex:
+                            logger.warning(f"Error processing test record: {str(ex)}")
+                            continue
                 
                 # write the diagnostic test results
                 for test_id, result_data in diagnostic_results.items():
-                    # get the step data of the diagnostic test
-                    test_steps = result_data.get("steps", [])
-                    
-                    # if there is step data, use it
-                    if test_steps:
-                        for step in test_steps:
-                            step_desc = step.get("description", "Diagnostic Test")
-                            step_message = step.get("message", "")
-                            step_command = step.get("command", "")
-                            step_response = step.get("response", "")
-                            step_time = step.get("time", "--:--:--")
-                            # get the specification and criteria
-                            step_specification = step.get("specification", "")
-                            step_criteria = step.get("criteria", "")
-                            
-                            final_response = ""
-                            for line in step_response.split("\n"):
-                                if not line:
-                                    continue
-                                if "i2ctransfer" in line:
-                                    continue
-                                if "grep" in line:
-                                    continue
-                                if "#" in line or "$" in line or ">" in line:
-                                    continue
-                                final_response += line + "\n"
-                            
-                            step_response = final_response
-                            if "skip" in step_message.lower():
-                                step_message = "SKIPPED"
+                    try:
+                        # get the step data of the diagnostic test
+                        test_steps = result_data.get("steps", [])
+                        
+                        # if there is step data, use it
+                        if test_steps:
+                            for step in test_steps:
+                                step_desc = step.get("description", "Diagnostic Test")
+                                step_message = step.get("message", "")
+                                step_command = step.get("command", "")
+                                step_response = step.get("response", "")
+                                step_time = step.get("time", "--:--:--")
+                                # get the specification and criteria
+                                step_specification = step.get("specification", "")
+                                step_criteria = step.get("criteria", "")
+                                
+                                # process the response text
+                                final_response = ""
+                                if isinstance(step_response, str):
+                                    for line in step_response.split("\n"):
+                                        if not line:
+                                            continue
+                                        if "i2ctransfer" in line:
+                                            continue
+                                        if "grep" in line:
+                                            continue
+                                        if "#" in line or "$" in line or ">" in line:
+                                            continue
+                                        final_response += line + "\n"
+                                else:
+                                    final_response = str(step_response)
+                                
+                                step_response = final_response
+                                if isinstance(step_message, str) and "skip" in step_message.lower():
+                                    step_message = "SKIPPED"
 
-                            # create the data row of the diagnostic step
+                                # create the data row of the diagnostic step
+                                row_data = [
+                                    test_id,                # module
+                                    step_desc,              # step
+                                    step_specification,     # specification
+                                    step_criteria,          # criteria
+                                    step_command,           # command
+                                    step_response,          # response
+                                    step_message,           # result
+                                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                                    step_time               # time
+                                ]
+                                
+                                writer.writerow(row_data)
+                                data_exported = True
+                        else:
+                            # if there is no step data, use the basic information
+                            status = result_data.get("status", "")
+                            time_str = result_data.get("time", "--:--:--")
+                            details = result_data.get("details", {})
+                            if not isinstance(details, dict):
+                                details = {}
+                                
+                            message = details.get("message", "")
+                            
+                            # create the data row of the diagnostic result
                             row_data = [
                                 test_id,                # module
-                                step_desc,              # step
-                                step_specification,     # specification
-                                step_criteria,          # criteria
-                                step_command,           # command
-                                step_response,          # response
-                                step_message,           # result
+                                "Diagnostic Test",      # step
+                                "",                     # specification
+                                "",                     # criteria
+                                "",                     # command
+                                "",                     # response
+                                f"{status}: {message}", # result
                                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                                step_time               # time
+                                time_str                # time
                             ]
                             
                             writer.writerow(row_data)
-                    else:
-                        # if there is no step data, use the basic information
-                        status = result_data.get("status", "")
-                        time_str = result_data.get("time", "--:--:--")
-                        details = result_data.get("details", {})
-                        message = details.get("message", "")
-                        
-                        # create the data row of the diagnostic result
-                        row_data = [
-                            test_id,                # module
-                            "Diagnostic Test",      # step
-                            "",                     # specification
-                            "",                     # criteria
-                            "",                     # command
-                            "",                     # response
-                            f"{status}: {message}", # result
-                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                            time_str                # time
-                        ]
-                        
-                        writer.writerow(row_data)
+                            data_exported = True
+                    except Exception as ex:
+                        logger.warning(f"Error processing diagnostic result: {str(ex)}")
+                        continue
             
-            self.log_manager.add_log_entry("INFO", f"Test results exported to: {file_path}")
+            if data_exported:
+                logger.info(f"Test results exported to: {file_path}")
+            else:
+                logger.warning(f"No data was exported to the CSV file")
             
             # clear all the test results
             self.clear_all_test_results()
@@ -1115,12 +1145,15 @@ class MainWindowController(QObject):
                 self.window.progressBar_hardware_test.setVisible(False)
             
             # add the log of clearing the test records
-            self.log_manager.add_log_entry("INFO", "Test and diagnostic records cleared after export")
+            self.log_manager.add_log_entry("INFO", "Test and diagnostic records were cleared after exporting")
             
         except Exception as e:
             error_msg = f"Error exporting test results: {str(e)}"
             logger.error(error_msg)
             self.log_manager.add_log_entry("ERROR", error_msg)
+        finally:
+            # reset the flag
+            self._export_in_progress = False
 
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
@@ -1139,12 +1172,12 @@ class MainWindowController(QObject):
         # Log command and response - check if it is a test command
         # NOTE: this is a workaround to avoid logging the command and response for the test commands
         if not command.startswith("get_logs"):
-            # 檢查命令是否已經被記錄過
+            # check if the command has been logged
             if command not in self.logged_commands:
                 self.log_manager.add_log_entry("INFO", f"[Command] {command}")
-            # 在任何情况下都记录响应
+            # log the response in any case
             self.log_manager.add_log_entry("DEBUG", f"[Response] {response}")
-            # 从跟踪集合中移除此命令
+            # remove the command from the tracking set
             self.logged_commands.discard(command)
         
         # Process response based on command
