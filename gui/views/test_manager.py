@@ -512,51 +512,41 @@ class TestManagerView(QObject):
     @Slot(str, int, int)
     def _on_test_progress(self, test_id: str, current_step: int, total_steps: int):
         """
-        Handle test progress event
+        Handle test progress update
         
         Args:
             test_id: Test ID
-            current_step: Current step index (starts from 1)
+            current_step: Current step index (1-based)
             total_steps: Total number of steps
         """
-        # only handle the functionality tests
-        if not test_id.startswith("functionality_"):
-            return
+        try:
+            # Calculate progress percentage
+            progress_pct = int((current_step / total_steps) * 100) if total_steps > 0 else 0
             
-        # update the progress bar
-        progress_pct = int((current_step / total_steps) * 100)
-        
-        # Update global progress bar
-        if self.progress_bar:
-            self.progress_bar.setValue(progress_pct)
-        
-        # Update test-specific progress
-        self.test_container.set_test_progress(test_id, progress_pct)
-        
-        # record the progress of the actual steps
-        if current_step > 0:
-            now = datetime.datetime.now()
-            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-            progress_record = {
-                "timestamp": timestamp,
-                "start_time": now,  # record the exact start time of the step
-                "current_step": current_step,
-                "total_steps": total_steps,
-                "progress_percentage": progress_pct
+            # Update progress in container
+            if hasattr(self.test_container, 'set_test_progress'):
+                self.test_container.set_test_progress(test_id, progress_pct)
+            
+            # Create progress data
+            progress_data = {
+                'test_id': test_id,
+                'current_step': current_step,
+                'total_steps': total_steps,
+                'progress_percent': progress_pct,
+                'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
-            # save to the local cache
-            if test_id not in self.local_temp_progress:
-                self.local_temp_progress[test_id] = []
-            self.local_temp_progress[test_id].append(progress_record)
-            
-            # record the progress through the callback function
+            # Record progress through callback
             if self.progress_recorder:
-                self.progress_recorder("functionality", test_id, progress_record)
-        
-        # record the progress (every 25% completion)
-        if current_step % max(1, total_steps // 4) == 0 or current_step == total_steps:
-            logger.info(f"Test {test_id} progress: {current_step}/{total_steps} ({progress_pct}%)")
+                self.progress_recorder("functionality", test_id, progress_data)
+            
+            # Update progress bar if available
+            if hasattr(self, 'progress_bar') and self.progress_bar:
+                self.progress_bar.setValue(progress_pct)
+                self.progress_bar.setVisible(True)
+        except Exception as e:
+            # error handling, ensure the test will not be interrupted due to progress display issues
+            logger.error(f"Error updating test progress: {str(e)}")
     
     def _execute_next_test(self):
         """Execute next test in the sequence"""
