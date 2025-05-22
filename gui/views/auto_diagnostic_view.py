@@ -4,7 +4,7 @@ Responsible for managing diagnostic test execution and UI updates
 """
 
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSizePolicy
 from typing import Dict, List, Any, Optional
 import datetime
 
@@ -152,16 +152,25 @@ class AutoDiagnosticView(QObject):
         item_height = 32  # the height of each diagnostic item
         visible_items = 5  # the number of visible items
         
-        # set the diagnostic container height
-        scroll_height = item_height * visible_items + 15
+        # set the diagnostic container height - fixed height regardless of content
+        scroll_height = item_height * visible_items
         self.diagnostic_container.set_fixed_height(scroll_height)
         
         # add the diagnostic container to the main layout
         main_layout.addWidget(self.diagnostic_container)
         
-        # set the main widget fixed height
-        total_height = scroll_height + 60  # the title area is about 60 pixels
+        # set the main widget fixed height - always the same regardless of content
+        title_area_height = 60  # the title area is about 60 pixels
+        separator_height = 1
+        total_height = title_area_height + separator_height + scroll_height
+        
+        # force set the fixed height, ensure it does not change with content
         self.main_widget.setFixedHeight(total_height)
+        self.main_widget.setMinimumHeight(total_height)
+        self.main_widget.setMaximumHeight(total_height)
+        
+        # set the SizePolicy, prevent the layout from stretching
+        self.main_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         
         return self.main_widget
     

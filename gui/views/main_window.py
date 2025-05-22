@@ -12,7 +12,7 @@ import csv
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
-from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy, QMessageBox
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy, QMessageBox, QFrame, QSpacerItem
 
 from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
@@ -227,9 +227,6 @@ class MainWindowController(QObject):
         self._connect_signals()
         
         # Initialize auto diagnostic view
-        self._init_auto_diagnostic_view()
-        
-        # Initialize functionality test UI
         self._init_functionality_test_ui()
         
         # Connect refresh button
@@ -437,7 +434,7 @@ class MainWindowController(QObject):
         # Add command record to logs
         self.log_manager.add_log_entry("INFO", f"[Command] {command}")
         
-        # 使用標記方法記錄命令
+        # mark the command as logged
         self.mark_command_as_logged(command)
     
     def _connect_signals(self):
@@ -448,10 +445,16 @@ class MainWindowController(QObject):
         # connect the all tests completed signal of the test manager
         self.test_manager.all_tests_completed.connect(self._on_all_tests_completed)
         
-        # connect the export result button
-        if hasattr(self.window, 'button_export_result'):
+        # ensure the export result button is correctly connected
+        if hasattr(self.window, 'button_export_result') and self.window.button_export_result:
+            # disconnect the old connection, avoid duplicate connection
+            try:
+                self.window.button_export_result.clicked.disconnect()
+            except:
+                pass
+            # reconnect
             self.window.button_export_result.clicked.connect(self._export_results)
-    
+
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
         # Configure shared test steps table
@@ -465,10 +468,241 @@ class MainWindowController(QObject):
         hw_test_table.verticalHeader().setDefaultSectionSize(30)  # Set row height to 30 pixels
         hw_test_table.setMinimumHeight(180)   # Set minimum height
         
-        # Create the test container
+        # get the functionality test tab
+        tab_functionality = self.window.tab_functionality
+        
+        # set the background color of the tab
+        tab_functionality.setStyleSheet("background-color: #1E1E1E;")
+        
+        # clear all the child widgets in the tab
+        for child in tab_functionality.findChildren(QWidget):
+            # skip the already processed UI components
+            if child.objectName() in ["tableWidget_hardware_test_steps", "progressBar_hardware_test"]:
+                continue
+            # skip the button widgets
+            if isinstance(child, QPushButton) and child in [self.window.button_test_all, self.window.button_export_result]:
+                continue
+            # only process the direct child widgets
+            if child.parent() == tab_functionality:
+                child.setVisible(False)
+                child.deleteLater()
+        
+        # save the original layout reference
+        original_layout = tab_functionality.layout()
+        if original_layout:
+            # remove all the elements in the existing layout (avoid duplicate addition)
+            while original_layout.count():
+                item = original_layout.takeAt(0)
+                if item.widget():
+                    item.widget().setParent(None)
+        else:
+            # if there is no layout, create a new one
+            original_layout = QVBoxLayout(tab_functionality)
+            original_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # create the scroll area
+        scroll_area = QScrollArea(tab_functionality)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.NoFrame)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
+        # set the scroll bar style
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: #1E1E1E;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: #333333;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #555555;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        
+        # create the content container
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(5, 5, 5, 5)
+        content_layout.setSpacing(10)
+        
+        # set the background color of the content container
+        content_widget.setStyleSheet("background-color: #1E1E1E;")
+        
+        # create the auto diagnostic element
+        self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
+        content_layout.addWidget(self.auto_diagnostic_widget)
+        
+        # set the auto diagnostic test items
+        diagnostic_tests = {
+            "diagnostic_cpu_name": "Check CPU Name",
+            "diagnostic_cpu_processor": "Check CPU Processor",
+            "diagnostic_emmc_size": "Check eMMC Size",
+            "diagnostic_mac_address": "Check MAC Address",
+            "diagnostic_memory_size": "Check Memory Size",
+            "diagnostic_nor_flash_size": "Check NOR Flash Size",
+            "diagnostic_pic_version": "Check PIC Version",
+            "diagnostic_sync_time": "Check Sync Time",
+            "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
+            "diagnostic_design_capacity": "Check Design Capacity",
+            "diagnostic_design_voltage": "Check Design Voltage",
+            "diagnostic_uboot_version": "Check U-Boot Version",
+            "diagnostic_kernal_name": "Check Kernal Name",
+            "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
+            "diagnostic_wifi_bt": "Check Wifi and Bluetooth"
+        }
+        self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
+        
+        # set the auto diagnostic log function
+        self.auto_diagnostic_view.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
+        
+        # connect the auto diagnostic signal
+        self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
+        self.auto_diagnostic_view.export_report_requested.connect(self._export_results)
+        
+        # add the spacing
+        spacer = QSpacerItem(20, 30, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        content_layout.addItem(spacer)
+        
+        # create the functionality test title element
+        hw_title_widget = QWidget()
+        hw_title_layout = QHBoxLayout(hw_title_widget)
+        hw_title_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # set the background color of the title area
+        hw_title_widget.setStyleSheet("background-color: #1E1E1E;")
+        
+        hw_title = QLabel("Functionality Test")
+        hw_title.setStyleSheet("font-weight: bold; color: #4FC3F7; font-size: 14px;")
+        hw_title_layout.addWidget(hw_title)
+        
+        hw_title_layout.addStretch()
+        
+        # add the export result button
+        if hasattr(self.window, 'button_export_result'):
+            # if the button_export_result does not exist, create a new one
+            if not self.window.button_export_result:
+                self.window.button_export_result = QPushButton("Export Result")
+            
+            # apply the style
+            self.window.button_export_result.setStyleSheet("""
+                QPushButton {
+                    background-color: #0078D7;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #1C97EA;
+                }
+            """)
+            # connect the export result function
+            self.window.button_export_result.clicked.connect(self._export_results)
+            hw_title_layout.addWidget(self.window.button_export_result)
+            hw_title_layout.addSpacing(10)
+        else:
+            # if there is no this attribute, create a new button
+            self.window.button_export_result = QPushButton("Export Result")
+            self.window.button_export_result.setStyleSheet("""
+                QPushButton {
+                    background-color: #0078D7;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #1C97EA;
+                }
+            """)
+            # connect the export result function
+            self.window.button_export_result.clicked.connect(self._export_results)
+            hw_title_layout.addWidget(self.window.button_export_result)
+            hw_title_layout.addSpacing(10)
+        
+        # add the test all button
+        if hasattr(self.window, 'button_test_all'):
+            # if the button_test_all does not exist, create a new one
+            if not self.window.button_test_all:
+                self.window.button_test_all = QPushButton("Test All")
+            
+            # apply the style
+            self.window.button_test_all.setStyleSheet("""
+                QPushButton {
+                    background-color: #0078D7;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #1C97EA;
+                }
+            """)
+            hw_title_layout.addWidget(self.window.button_test_all)
+        else:
+            # if there is no this attribute, create a new button
+            self.window.button_test_all = QPushButton("Test All")
+            self.window.button_test_all.setStyleSheet("""
+                QPushButton {
+                    background-color: #0078D7;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #1C97EA;
+                }
+            """)
+            hw_title_layout.addWidget(self.window.button_test_all)
+        
+        # create the abort button
+        self.window.button_abort_test = QPushButton("Abort Test")
+        self.window.button_abort_test.setStyleSheet("""
+            QPushButton {
+                background-color: #D32F2F;
+                color: white;
+                border: none;
+                padding: 4px 12px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #F44336;
+            }
+        """)
+        hw_title_layout.addWidget(self.window.button_abort_test)
+        
+        # add the title to the layout
+        content_layout.addWidget(hw_title_widget)
+        
+        # add the separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("background-color: #333333;")
+        separator.setMaximumHeight(1)
+        content_layout.addWidget(separator)
+        
+        # create the test container
         test_container = TestContainer()
         
-        # Create test modules in the container
+        # set the fixed height of the test container, to display more items
+        item_height = 32  # the height of each test item
+        visible_items = 5  # the number of items to display, same as Auto Diagnostic
+        scroll_height = item_height * visible_items + 20  # add some extra space
+        test_container.set_fixed_height(scroll_height)
+        
+        # create the test items
         test_container.add_test_group("functionality_audio", "Audio Test")
         test_container.add_test_group("functionality_backlight", "Backlight Test")
         test_container.add_test_group("functionality_battery", "Battery Test")
@@ -481,68 +715,95 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_power_button", "Power Button Test")
         test_container.add_test_group("functionality_touch", "Touch Test")
         test_container.add_test_group("functionality_usb", "USB Test")
-
         
-        # Get functionality test page layout
-        tab_functionality = self.window.tab_functionality
-        layout = tab_functionality.layout()
+        # add the test container to the layout
+        content_layout.addWidget(test_container)
         
-        # Create abort button
-        self.window.button_abort_test = QPushButton("Abort Test")
-        self.window.button_abort_test.setMinimumSize(100, 0)
+        # add the spacing
+        progress_spacer = QSpacerItem(20, 30, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        content_layout.addItem(progress_spacer)
         
-        # Style abort button (red background for emphasis)
-        self.window.button_abort_test.setStyleSheet("""
-            QPushButton {
-                background-color: #D32F2F;
+        # add the test progress title
+        progress_title = QLabel("Test Progress")
+        progress_title.setStyleSheet("font-weight: bold; color: white; font-size: 13px; background-color: #1E1E1E;")
+        content_layout.addWidget(progress_title)
+        
+        # add the test steps table
+        content_layout.addWidget(hw_test_table)
+        
+        # set the background color of the table
+        hw_test_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1E1E1E;
                 color: white;
+                gridline-color: #333333;
                 border: none;
-                padding: 6px 15px;
-                border-radius: 3px;
             }
-            QPushButton:hover {
-                background-color: #F44336;
+            QTableWidget::item {
+                background-color: #252526;
             }
-            QPushButton:pressed {
-                background-color: #B71C1C;
+            QHeaderView::section {
+                background-color: #252526;
+                color: white;
+                border: 1px solid #333333;
+                padding: 4px;
             }
         """)
         
-        # Add the abort button to the layout
-        if hasattr(self.window, 'button_export_result'):
-            # Find the export result button's parent layout
-            for i in range(layout.count()):
-                item = layout.itemAt(i)
-                if isinstance(item, QHBoxLayout):
-                    for j in range(item.count()):
-                        widget = item.itemAt(j).widget()
-                        if widget == self.window.button_export_result:
-                            # Insert abort button before export result button
-                            item.insertWidget(j, self.window.button_abort_test)
-                            break
+        # add the progress bar
+        if hasattr(self.window, 'progressBar_hardware_test'):
+            content_layout.addWidget(self.window.progressBar_hardware_test)
         
-        # Attention: Auto Diagnostic is already in the layout index 0 position
-        # So Hardware Tests title row is now in index 2 (0 is Auto Diagnostic, 1 is spacer)
-        # The test container should be inserted at index 3 (after the title row)
+        # add the bottom spacing
+        bottom_spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        content_layout.addItem(bottom_spacer)
         
-        # Insert the test container (after the title row)
-        layout.insertWidget(3, test_container)
+        # set the content of the scroll area
+        scroll_area.setWidget(content_widget)
         
-        # Set the UI components of the test manager
+        # add the scroll area to the original layout
+        original_layout.addWidget(scroll_area)
+        
+        # ensure the entire tab page has the correct background color
+        tab_functionality.update()
+        
+        # find and clear any unknown text labels at the bottom of the tab page (excluding known UI components)
+        for label in tab_functionality.findChildren(QLabel):
+            if label.parent() == tab_functionality:  # only process direct child labels
+                # skip title and button UI components
+                if label.text() in ["Functionality Test", "Test Progress", "Auto Diagnostic"]:
+                    continue
+                # only process labels without objectName or obviously redundant labels
+                if not label.objectName() or label.objectName() == "":
+                    label.setVisible(False)
+                    label.deleteLater()
+        
+        # set the UI components
         self.test_manager.set_ui_components(
             test_container,
             self.window.button_test_all,
             self.window.tableWidget_hardware_test_steps,
             self.window.progressBar_hardware_test,
-            self.window,  # Parent widget as the parent of the dialog
-            self.window.button_abort_test  # Pass the abort button to test manager
+            self.window,
+            self.window.button_abort_test
         )
         
-        # Set the log recording function, record the command to the system log
+        # set the log recorder
         self.test_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
         
-        # Hide the progress bar by default
+        # set the default hidden progress bar
         self.window.progressBar_hardware_test.setVisible(False)
+        
+        # set the result recorder
+        self.test_manager.set_result_recorders(
+            lambda test_type, test_id, data: self.record_test_result(test_type, test_id, data),
+            lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
+        )
+
+        self.auto_diagnostic_view.set_result_recorders(
+            lambda test_type, test_id, data: self.record_test_result(test_type, test_id, data),
+            lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
+        )
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
@@ -642,7 +903,7 @@ class MainWindowController(QObject):
     @Slot()
     def _on_all_tests_completed(self):
         """Handle the event of all tests completed"""
-        self.log_manager.add_log_entry("INFO", "All hardware tests completed")
+        self.log_manager.add_log_entry("INFO", "All functionality tests completed")
     
     def _export_results(self):
         """Export test results to a CSV file"""
@@ -1065,57 +1326,6 @@ class MainWindowController(QObject):
         if hasattr(self, 'auto_diagnostic_view'):
             self.auto_diagnostic_view.set_buttons_enabled(enabled)
 
-    def _init_auto_diagnostic_view(self):
-        """Initialize auto diagnostic view settings"""
-        # create the auto diagnostic component
-        self.auto_diagnostic_widget = self.auto_diagnostic_view.create_widget()
-        
-        # Place the auto diagnostic component at the top of the Functionality tab
-        # Get the Functionality tab layout
-        tab_functionality = self.window.tab_functionality
-        layout = tab_functionality.layout()
-        
-        # Insert the auto diagnostic component at the top of the layout (index 0)
-        if layout:
-            layout.insertWidget(0, self.auto_diagnostic_widget)
-            
-            # Add a small spacing, to separate Auto Diagnostic and Hardware Tests
-            from PySide6.QtWidgets import QSpacerItem, QSizePolicy
-            spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Fixed)
-            layout.insertItem(1, spacer)
-        else:
-            # If the layout does not exist, create a new one (not likely to happen)
-            logger.warning("Functionality tab layout not found, creating new layout")
-            from PySide6.QtWidgets import QVBoxLayout
-            layout = QVBoxLayout(tab_functionality)
-            layout.addWidget(self.auto_diagnostic_widget)
-        
-        # Set the auto diagnostic test items
-        diagnostic_tests = {
-            "diagnostic_cpu_name": "Check CPU Name",
-            "diagnostic_cpu_processor": "Check CPU Processor",
-            "diagnostic_emmc_size": "Check eMMC Size",
-            "diagnostic_mac_address": "Check MAC Address",
-            "diagnostic_memory_size": "Check Memory Size",
-            "diagnostic_nor_flash_size": "Check NOR Flash Size",
-            "diagnostic_pic_version": "Check PIC Version",
-            "diagnostic_sync_time": "Check Sync Time",
-            "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
-            "diagnostic_design_capacity": "Check Design Capacity",
-            "diagnostic_design_voltage": "Check Design Voltage",
-            "diagnostic_uboot_version": "Check U-Boot Version",
-            "diagnostic_kernal_name": "Check Kernal Name",
-            "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
-            "diagnostic_wifi_bt": "Check Wifi and Bluetooth"
-        }
-        self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
-        
-        # Set the add_system_log method of the auto diagnostic view
-        self.auto_diagnostic_view.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
-        
-        # connect the signals
-        self.auto_diagnostic_view.all_diagnostics_completed.connect(self._on_all_diagnostics_completed)
-        self.auto_diagnostic_view.export_report_requested.connect(self._export_results)
 
     @Slot()
     def _on_all_diagnostics_completed(self):
