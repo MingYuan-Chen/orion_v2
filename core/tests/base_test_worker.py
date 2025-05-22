@@ -129,6 +129,9 @@ class BaseTestWorker(QObject):
         # Create custom logger
         self.log_function = None
         
+        # 自动验证标志，默认为True
+        self.auto_validation = True
+        
         # Connect device worker signals
         if hasattr(self.device_worker, 'command_result'):
             self.command_connection = self.device_worker.command_result.connect(self._on_command_result)
@@ -610,18 +613,22 @@ class BaseTestWorker(QObject):
         if not command_match:
             logger.warning(f"Command does not match, ignoring this result, received command: '{command}', expected command: '{expected_command}'")
             return
-        
-        # Always record command output to step - ensure the response is set
+            
+        # Always record command output to step
         step.response = response
         # Also set the result attribute to be the same as response for consistency
         step.result = response
         
+        # Skip validation if not auto validation
+        if not self.auto_validation:
+            return
+            
         # call the response collector function (if set)
         if hasattr(self, 'response_collector') and callable(self.response_collector):
             test_id = getattr(self, 'test_id', self.__class__.__name__)
             self.response_collector(test_id, self.current_step_index, command, response)
         
-        # Log response to system log if configured (保留这个日志记录功能)
+        # Log response to system log if configured
         if hasattr(step, 'log_function') and callable(step.log_function):
             # use a clear format to record the response, ensure it can be clearly distinguished in the log
             step.log_function("INFO", f"[Response] {response}")

@@ -939,7 +939,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Module", "Step", "Specification", "Criteria", "Command", "Response", "Result", "Timestamp", "Duration"])
+                writer.writerow(["Module", "Step", "Specification", "Criteria", "Command", "Response", "Result", "Timestamp", "Duration (sec)"])
                 
                 # write the functionality test results
                 for test_id, records in test_progress_records.items():
@@ -1033,6 +1033,14 @@ class MainWindowController(QObject):
                             if isinstance(step_message, str) and "skip" in step_message.lower():
                                 step_message = "SKIPPED"
                                 
+                            # 检查是否有验证标准
+                            has_validation_func = (step_criteria != "")  # 只导出有验证标准的步骤
+                            
+                            # Skip steps with empty criteria
+                            if not has_validation_func:
+                                logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
+                                continue
+
                             # create the data row
                             row_data = [
                                 test_id,                                       # module
@@ -1043,7 +1051,7 @@ class MainWindowController(QObject):
                                 step_response,                                 # response
                                 step_message,                                  # result
                                 record.get('timestamp', '--:--:--'),           # timestamp
-                                step_time                                      # time - use the step execution time
+                                step_time                                      # duration
                             ]
 
                             writer.writerow(row_data)
@@ -1066,6 +1074,51 @@ class MainWindowController(QObject):
                                 step_command = step.get("command", "")
                                 step_response = step.get("response", "")
                                 step_time = step.get("time", "--:--:--")
+                                # debug output, check the value of diagnostic step_time
+                                logger.debug(f"Exporting diagnostic step_time for {test_id}: {step_time}")
+                                
+                                # try to calculate the execution time of the step
+                                has_validation_func = (step_criteria != "")  # only export the steps with validation criteria
+                                
+                                # 1. if the step_time is the default value, calculate the execution time directly from the progress records
+                                if step_time == "--:--:--":
+                                    # get the progress records of the current test
+                                    test_progress_records = self.unified_test_progress.get("diagnostic", {}).get(test_id, [])
+                                    
+                                    # calculate the execution time directly from the progress records
+                                    current_step_start_time = None
+                                    next_step_start_time = None
+                                    
+                                    # find the start time of the current step
+                                    for record in test_progress_records:
+                                        if record.get('current_step') == step.get("index", -1) + 1:  # current_step is 1-based
+                                            if 'timestamp' in record:
+                                                try:
+                                                    current_step_start_time = datetime.datetime.strptime(record['timestamp'], "%Y-%m-%d %H:%M:%S")
+                                                    break
+                                                except Exception:
+                                                    pass
+                                    
+                                    # find the start time of the next step as the end time of the current step
+                                    for record in test_progress_records:
+                                        if record.get('current_step') == step.get("index", -1) + 2:  # current_step is 1-based
+                                            if 'timestamp' in record:
+                                                try:
+                                                    next_step_start_time = datetime.datetime.strptime(record['timestamp'], "%Y-%m-%d %H:%M:%S")
+                                                    break
+                                                except Exception:
+                                                    pass
+                                    
+                                    # if the start and end times are found, calculate the execution time
+                                    if current_step_start_time and next_step_start_time:
+                                        duration = next_step_start_time - current_step_start_time
+                                        step_time = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
+                                        logger.debug(f"Calculated diagnostic step_time from progress records: {step_time}")
+                                
+                                # if the duration is not found, keep using the default value
+                                if step_time == "--:--:--":
+                                    logger.debug(f"Could not determine duration for diagnostic {test_id}, step {step.get('index', -1)}")
+                                
                                 # get the specification and criteria
                                 step_specification = step.get("specification", "")
                                 step_criteria = step.get("criteria", "")

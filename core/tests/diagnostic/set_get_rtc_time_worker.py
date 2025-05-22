@@ -26,7 +26,7 @@ class SetGetRtcTimeWorker(BaseTestWorker):
                 expected_response="Wed Feb 28 23:59:59 UTC 2024",
                 timeout=5, 
                 description="Set Date Time",
-                criteria="The date time is set to 2024-02-28 23:59:59",
+                criteria="Can set date time to 2024-02-28 23:59:59",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -39,8 +39,8 @@ class SetGetRtcTimeWorker(BaseTestWorker):
                 command="hwclock -r",
                 expected_response="Thu Feb 29",
                 timeout=5, 
-                description="Read RTC Time",
-                criteria="The expected RTC time is Thu Feb 29",
+                description="Read RTC Time and verify leap year is handled",
+                criteria="Can read RTC time Thu Feb 29",
             )
         ]
     

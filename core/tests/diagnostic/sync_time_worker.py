@@ -25,8 +25,8 @@ class SyncTimeWorker(BaseTestWorker):
                 command="sudo ntpdate -u time.stdtime.gov.tw", 
                 validation_func=self._validate_sync_time,
                 timeout=5, 
-                description="Check Sync Time",
-                criteria="No error in the response",
+                description="Sync time with time.stdtime.gov.tw",
+                criteria="Can sync time with time.stdtime.gov.tw",
                 max_retries=1,
                 retry_delay=500
             )

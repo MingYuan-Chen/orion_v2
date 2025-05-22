@@ -26,7 +26,7 @@ class CpuNameWorker(BaseTestWorker):
                 expected_response="i.MX6", 
                 timeout=5, 
                 description="Check CPU Name",
-                criteria="'i.MX6' in the response",
+                criteria="CPU name with 'i.MX6'",
                 max_retries=1,
                 retry_delay=500
             )
