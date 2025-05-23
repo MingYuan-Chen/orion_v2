@@ -13,7 +13,6 @@ class UbootVersionWorker(BaseTestWorker):
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.uboot_version = ""  # 初始化为空字符串，等待提取
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -28,7 +27,7 @@ class UbootVersionWorker(BaseTestWorker):
                 validation_func=self._validate_uboot_version,
                 timeout=5, 
                 description="Check U-Boot Version",
-                criteria=f"The U-Boot version can be found: {self.uboot_version}",
+                criteria=f"The U-Boot version can be found",
                 max_retries=1,
                 retry_delay=500
             )
@@ -53,15 +52,13 @@ class UbootVersionWorker(BaseTestWorker):
             if match:
                 # extract the full version
                 full_version = match.group(1).strip()
-                self.uboot_version = full_version
-                logger.info(f"Extract U-Boot version: {self.uboot_version}")
-                return True, f"U-Boot version validation passed: {self.uboot_version}"
+                logger.info(f"Extract U-Boot version: {full_version}")
+                return True, f"U-Boot version validation passed: {full_version}"
             
             else:
                 return False, f"U-Boot version not found"
                 
         except Exception as e:
             logger.error(f"Error occurred while validating U-Boot version: {e}")
-            self.uboot_version = ""
             return False, f"Error occurred while validating U-Boot version: {e}"
 

@@ -444,16 +444,6 @@ class MainWindowController(QObject):
         
         # connect the all tests completed signal of the test manager
         self.test_manager.all_tests_completed.connect(self._on_all_tests_completed)
-        
-        # ensure the export result button is correctly connected
-        if hasattr(self.window, 'button_export_result') and self.window.button_export_result:
-            # disconnect the old connection, avoid duplicate connection
-            try:
-                self.window.button_export_result.clicked.disconnect(self._export_results)
-            except:
-                pass
-            # reconnect
-            self.window.button_export_result.clicked.connect(self._export_results)
 
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -480,7 +470,7 @@ class MainWindowController(QObject):
             if child.objectName() in ["tableWidget_hardware_test_steps", "progressBar_hardware_test"]:
                 continue
             # skip the button widgets
-            if isinstance(child, QPushButton) and child in [self.window.button_test_all, self.window.button_export_result]:
+            if isinstance(child, QPushButton) and child in [self.window.button_test_all]:
                 continue
             # only process the direct child widgets
             if child.parent() == tab_functionality:
@@ -585,47 +575,6 @@ class MainWindowController(QObject):
         hw_title_layout.addWidget(hw_title)
         
         hw_title_layout.addStretch()
-        
-        # add the export result button
-        if hasattr(self.window, 'button_export_result'):
-            # if the button_export_result does not exist, create a new one
-            if not self.window.button_export_result:
-                self.window.button_export_result = QPushButton("Export Result")
-            
-            # apply the style
-            self.window.button_export_result.setStyleSheet("""
-                QPushButton {
-                    background-color: #0078D7;
-                    color: white;
-                    border: none;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #1C97EA;
-                }
-            """)
-            
-            hw_title_layout.addWidget(self.window.button_export_result)
-            hw_title_layout.addSpacing(10)
-        else:
-            # if there is no this attribute, create a new button
-            self.window.button_export_result = QPushButton("Export Result")
-            self.window.button_export_result.setStyleSheet("""
-                QPushButton {
-                    background-color: #0078D7;
-                    color: white;
-                    border: none;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #1C97EA;
-                }
-            """)
-            
-            hw_title_layout.addWidget(self.window.button_export_result)
-            hw_title_layout.addSpacing(10)
         
         # add the test all button
         if hasattr(self.window, 'button_test_all'):
