@@ -428,13 +428,34 @@ class TestManagerView(QObject):
                         step_criteria = step.criteria
                         logger.debug(f"Found criteria from registered worker: '{step_criteria}'")
             
+            # 修正步骤消息：对于手动步骤，确保保存正确的PASS/FAIL状态
+            final_message = message
+            
+            # 检查是否是手动步骤且消息需要修正
+            is_manual_step = False
+            if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
+                active_worker = self.hw_test_manager.active_test_worker
+                if hasattr(active_worker, 'steps') and len(active_worker.steps) > step_index:
+                    step = active_worker.steps[step_index]
+                    is_manual_step = hasattr(step, 'manual_only') and step.manual_only
+                    
+                    # 对于手动步骤，如果消息是"No command specified"，则根据success状态设置正确的消息
+                    if is_manual_step and message == "No command specified":
+                        final_message = "PASS" if success else "FAIL"
+                        logger.debug(f"Corrected manual step message for step {step_index+1}: '{final_message}'")
+                        
+                    # 同时确保手动步骤也有其他状态消息的正确处理
+                    elif is_manual_step and message in ["Step passed based on human judgement", "Step failed based on human judgement"]:
+                        final_message = "PASS" if success else "FAIL"
+                        logger.debug(f"Simplified manual step message for step {step_index+1}: '{final_message}'")
+            
             # record the final collected information
             logger.debug(f"Step data collected - Test: {test_id}, Step: {step_index+1}, Desc: '{step_desc}', Cmd: '{command}', Response length: {len(response)}")
             
             step_data = {
                 "index": step_index,
                 "success": success,
-                "message": message,
+                "message": final_message,  # 使用修正后的消息
                 "description": step_desc,  # add step description
                 "time": step_time,
                 "start_time": step_start_time,
@@ -445,8 +466,21 @@ class TestManagerView(QObject):
                 "criteria": step_criteria     # 添加标准
             }
             
-            # save to the local cache
-            self.local_temp_results[test_id]["steps"].append(step_data)
+            # 检查是否已存在相同索引的步骤记录，如果存在则更新，否则添加新记录
+            existing_step_index = None
+            for i, existing_step in enumerate(self.local_temp_results[test_id]["steps"]):
+                if existing_step.get("index") == step_index:
+                    existing_step_index = i
+                    break
+            
+            if existing_step_index is not None:
+                # 更新现有记录
+                self.local_temp_results[test_id]["steps"][existing_step_index] = step_data
+                logger.debug(f"Updated existing step record for step {step_index+1}: '{final_message}'")
+            else:
+                # 添加新记录
+                self.local_temp_results[test_id]["steps"].append(step_data)
+                logger.debug(f"Added new step record for step {step_index+1}: '{final_message}'")
         
         # update the test step UI
         if self.result_table:

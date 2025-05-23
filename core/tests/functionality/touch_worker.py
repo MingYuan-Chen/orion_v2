@@ -28,84 +28,93 @@ class TouchWorker(BaseTestWorker):
                 post_check="Is test tool running with 'Drag/Draw/Quit' options?"
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Touch the 9 points",
-                criteria="The cross mark is on the screen when the 9 points are touched",
+                criteria="The cross mark should appear on the screen when the 9 points are touched",
                 pre_condition="Please touch the 9 points on the screen",
-                post_check="Is the 9 points touched with cross mark?"
+                post_check="Is the 9 points touched with cross mark?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Single drag",
-                criteria="The cross mark is moving on the screen when the single finger is dragged",
-                pre_condition="Please Drag by single finger on the screen",
-                post_check="Is the cross mark moving on the screen?"
+                criteria="The cross mark should move on the screen when a single finger is dragged",
+                pre_condition="Please drag with a single finger on the screen",
+                post_check="Is the cross mark moving on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Double drag",
-                criteria="The two cross marks are moving on the screen when the two fingers are dragged",
-                pre_condition="Please Drag by two fingers on the screen",
-                post_check="Is the two cross marks moving on the screen?"
+                criteria="Two cross marks should move on the screen when two fingers are dragged",
+                pre_condition="Please drag with two fingers on the screen",
+                post_check="Are the two cross marks moving on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Drag the edge of the screen",
-                criteria="The cross mark is moving along the edge of the screen",
-                pre_condition="Please Drag the edge of the screen",
-                post_check="Is the cross mark moving along the edge of the screen?"
+                criteria="The cross mark should move along the edge of the screen",
+                pre_condition="Please drag along the edge of the screen",
+                post_check="Is the cross mark moving along the edge of the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Drag the screen with water",
-                criteria="The cross mark is moving on the screen with water",
-                pre_condition="Please Drag the screen with water",
-                post_check="Is the cross mark moving on the screen?"
+                criteria="The cross mark should move on the screen even with water present",
+                pre_condition="Please drag the screen with water",
+                post_check="Is the cross mark moving on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Drag the screen by wet finger",
-                criteria="The cross mark is moving on the screen by wet finger",
-                pre_condition="Please Drag the screen by wet finger",
-                post_check="Is the cross mark moving on the screen?"
+                criteria="The cross mark should move on the screen when using a wet finger",
+                pre_condition="Please drag the screen with a wet finger",
+                post_check="Is the cross mark moving on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Drag the screen by finger with standard Hospital Grade Surgical Gloves",
-                criteria="The cross mark is moving on the screen by finger with standard Hospital Grade Surgical Gloves",
-                pre_condition="Please Drag the screen by finger with standard Hospital Grade Surgical Gloves",
-                post_check="Is the cross mark moving on the screen?"
+                criteria="The cross mark should move on the screen when using finger with surgical gloves",
+                pre_condition="Please drag the screen with finger wearing standard Hospital Grade Surgical Gloves",
+                post_check="Is the cross mark moving on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Single draw",
-                criteria="The line is drawn on the screen when the single finger is drawn",
-                pre_condition="Please click the draw button and draw by single finger on the screen",
-                post_check="Is the line drawn on the screen?"
+                criteria="A line should be drawn on the screen when drawing with a single finger",
+                pre_condition="Please click the draw button and draw with a single finger on the screen",
+                post_check="Is the line drawn on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Double draw",
-                criteria="The two lines are drawn on the screen when the two fingers are drawn",
-                pre_condition="Please click the draw button and draw by two fingers on the screen",
-                post_check="Is the two lines drawn on the screen?"
+                criteria="Two lines should be drawn on the screen when drawing with two fingers",
+                pre_condition="Please click the draw button and draw with two fingers on the screen",
+                post_check="Are the two lines drawn on the screen?",
+                manual_only=True
             ),
             TestStep(
-                command="ls",
+                command="",  # No command for manual interaction
                 timeout=5,
                 description="Quit touch test tool",
-                criteria="The touch test tool is closed",
                 pre_condition="Please click the quit button",
-                post_check="Is the touch test tool closed?"
+                post_check="Is the touch test tool closed?",
+                manual_only=True
             ),
 
             # reset the device after testing completed ======================================================
