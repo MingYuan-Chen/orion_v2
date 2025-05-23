@@ -27,7 +27,6 @@ class PowerButtonWorker(BaseTestWorker):
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
-                criteria=f"process id exists",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -57,12 +56,27 @@ class PowerButtonWorker(BaseTestWorker):
         """
         Validate evtest process is running
         """
-        value = response.split("\n")[1].split(" ")[1]
-        if value:
-            self.process_id = value
-            return True, "evtest process is running"
-        else:
-            return False, "evtest process is not running"
+        try:
+            # Split response into lines
+            lines = response.split("\n")
+            
+            # Look for process ID in the format of "[X] YYYY" where YYYY is the PID
+            for line in lines:
+                line = line.strip()
+                
+                # In most shells, background processes are shown as [job_number] process_id
+                if "[" in line and "]" in line:
+                    self.process_id = line.split()[1]
+                    logger.info(f"Found process ID: {self.process_id}")
+                    return True, f"evtest process is running"
+            
+            if self.process_id is None:
+                logger.error("Failed to find process ID in the response")
+                return False, "Failed to extract process ID from evtest command output"
+            
+        except Exception as e:
+            logger.error(f"Error in _validate_evtest_process_is_running: {str(e)}", exc_info=True)
+            return False, f"Error extracting process ID: {str(e)}"
     
     def _validate_evtlog(self, response: str) -> Tuple[bool, str]:
         """

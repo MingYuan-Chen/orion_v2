@@ -23,7 +23,7 @@ class TouchWorker(BaseTestWorker):
         return [
             TestStep(
                 command="ts_test_mt -j 2 -v",  
-                timeout=5, 
+                timeout=5,
                 description="Launch touch test tool",
                 post_check="Is test tool running with 'Drag/Draw/Quit' options?"
             ),

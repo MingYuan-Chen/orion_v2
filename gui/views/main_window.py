@@ -444,16 +444,6 @@ class MainWindowController(QObject):
         
         # connect the all tests completed signal of the test manager
         self.test_manager.all_tests_completed.connect(self._on_all_tests_completed)
-        
-        # ensure the export result button is correctly connected
-        if hasattr(self.window, 'button_export_result') and self.window.button_export_result:
-            # disconnect the old connection, avoid duplicate connection
-            try:
-                self.window.button_export_result.clicked.disconnect(self._export_results)
-            except:
-                pass
-            # reconnect
-            self.window.button_export_result.clicked.connect(self._export_results)
 
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -480,7 +470,7 @@ class MainWindowController(QObject):
             if child.objectName() in ["tableWidget_hardware_test_steps", "progressBar_hardware_test"]:
                 continue
             # skip the button widgets
-            if isinstance(child, QPushButton) and child in [self.window.button_test_all, self.window.button_export_result]:
+            if isinstance(child, QPushButton) and child in [self.window.button_test_all]:
                 continue
             # only process the direct child widgets
             if child.parent() == tab_functionality:
@@ -585,47 +575,6 @@ class MainWindowController(QObject):
         hw_title_layout.addWidget(hw_title)
         
         hw_title_layout.addStretch()
-        
-        # add the export result button
-        if hasattr(self.window, 'button_export_result'):
-            # if the button_export_result does not exist, create a new one
-            if not self.window.button_export_result:
-                self.window.button_export_result = QPushButton("Export Result")
-            
-            # apply the style
-            self.window.button_export_result.setStyleSheet("""
-                QPushButton {
-                    background-color: #0078D7;
-                    color: white;
-                    border: none;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #1C97EA;
-                }
-            """)
-            
-            hw_title_layout.addWidget(self.window.button_export_result)
-            hw_title_layout.addSpacing(10)
-        else:
-            # if there is no this attribute, create a new button
-            self.window.button_export_result = QPushButton("Export Result")
-            self.window.button_export_result.setStyleSheet("""
-                QPushButton {
-                    background-color: #0078D7;
-                    color: white;
-                    border: none;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #1C97EA;
-                }
-            """)
-            
-            hw_title_layout.addWidget(self.window.button_export_result)
-            hw_title_layout.addSpacing(10)
         
         # add the test all button
         if hasattr(self.window, 'button_test_all'):
@@ -939,7 +888,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Module", "Step", "Specification", "Criteria", "Command", "Response", "Result", "Timestamp", "Duration"])
+                writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Timestamp", "Duration (sec)"])
                 
                 # write the functionality test results
                 for test_id, records in test_progress_records.items():
@@ -973,7 +922,7 @@ class MainWindowController(QObject):
                                 if step.get('index') == current_step:
                                     step_message = step.get('message', '')
                                     step_desc = step.get('description', '')
-                                    step_specification = step.get('specification', '')
+                                    # step_specification = step.get('specification', '')
                                     step_criteria = step.get('criteria', '')
                                     step_command = step.get('command', '')
                                     step_response = step.get('response', '')
@@ -1033,17 +982,25 @@ class MainWindowController(QObject):
                             if isinstance(step_message, str) and "skip" in step_message.lower():
                                 step_message = "SKIPPED"
                                 
+                            # 检查是否有验证标准
+                            has_validation_func = (step_criteria != "")  # 只导出有验证标准的步骤
+                            
+                            # Skip steps with empty criteria
+                            if not has_validation_func:
+                                logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
+                                continue
+
                             # create the data row
                             row_data = [
                                 test_id,                                       # module
                                 step_desc,                                     # step
-                                step_specification,                            # specification
+                                # step_specification,                            # specification
                                 step_criteria,                                 # criteria
+                                step_message,                                  # result
                                 step_command,                                  # command
                                 step_response,                                 # response
-                                step_message,                                  # result
                                 record.get('timestamp', '--:--:--'),           # timestamp
-                                step_time                                      # time - use the step execution time
+                                step_time                                      # duration
                             ]
 
                             writer.writerow(row_data)
@@ -1066,6 +1023,51 @@ class MainWindowController(QObject):
                                 step_command = step.get("command", "")
                                 step_response = step.get("response", "")
                                 step_time = step.get("time", "--:--:--")
+                                # debug output, check the value of diagnostic step_time
+                                logger.debug(f"Exporting diagnostic step_time for {test_id}: {step_time}")
+                                
+                                # try to calculate the execution time of the step
+                                has_validation_func = (step_criteria != "")  # only export the steps with validation criteria
+                                
+                                # 1. if the step_time is the default value, calculate the execution time directly from the progress records
+                                if step_time == "--:--:--":
+                                    # get the progress records of the current test
+                                    test_progress_records = self.unified_test_progress.get("diagnostic", {}).get(test_id, [])
+                                    
+                                    # calculate the execution time directly from the progress records
+                                    current_step_start_time = None
+                                    next_step_start_time = None
+                                    
+                                    # find the start time of the current step
+                                    for record in test_progress_records:
+                                        if record.get('current_step') == step.get("index", -1) + 1:  # current_step is 1-based
+                                            if 'timestamp' in record:
+                                                try:
+                                                    current_step_start_time = datetime.datetime.strptime(record['timestamp'], "%Y-%m-%d %H:%M:%S")
+                                                    break
+                                                except Exception:
+                                                    pass
+                                    
+                                    # find the start time of the next step as the end time of the current step
+                                    for record in test_progress_records:
+                                        if record.get('current_step') == step.get("index", -1) + 2:  # current_step is 1-based
+                                            if 'timestamp' in record:
+                                                try:
+                                                    next_step_start_time = datetime.datetime.strptime(record['timestamp'], "%Y-%m-%d %H:%M:%S")
+                                                    break
+                                                except Exception:
+                                                    pass
+                                    
+                                    # if the start and end times are found, calculate the execution time
+                                    if current_step_start_time and next_step_start_time:
+                                        duration = next_step_start_time - current_step_start_time
+                                        step_time = f"{duration.seconds}.{duration.microseconds//1000:03d}s"
+                                        logger.debug(f"Calculated diagnostic step_time from progress records: {step_time}")
+                                
+                                # if the duration is not found, keep using the default value
+                                if step_time == "--:--:--":
+                                    logger.debug(f"Could not determine duration for diagnostic {test_id}, step {step.get('index', -1)}")
+                                
                                 # get the specification and criteria
                                 step_specification = step.get("specification", "")
                                 step_criteria = step.get("criteria", "")
@@ -1098,11 +1100,11 @@ class MainWindowController(QObject):
                                 row_data = [
                                     test_id,                # module
                                     step_desc,              # step
-                                    step_specification,     # specification
+                                    # step_specification,     # specification
                                     step_criteria,          # criteria
-                                    step_command,           # command
-                                    step_response,          # response
-                                    step_message,           # result
+                                    step_message,                                  # result
+                                    step_command,                                  # command
+                                    step_response,                                 # response
                                     datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
                                     step_time               # time
                                 ]
@@ -1127,11 +1129,11 @@ class MainWindowController(QObject):
                             row_data = [
                                 test_id,                # module
                                 "Diagnostic Test",      # step
-                                "",                     # specification
+                                # "",                     # specification
                                 "",                     # criteria
+                                f"{status}: {message}", # result
                                 "",                     # command
                                 "",                     # response
-                                f"{status}: {message}", # result
                                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
                                 time_str                # time
                             ]

@@ -44,9 +44,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blue",
                 post_check="Is the led status blue?",
-                criteria="Led status is blue(1)",
+                criteria="Led status is blue",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{2:#04x}"),  
@@ -59,9 +59,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status green",
                 post_check="Is the led status green?",
-                criteria="Led status is green(2)",
+                criteria="Led status is green",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{4:#04x}"),  
@@ -74,9 +74,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status red",
                 post_check="Is the led status red?",
-                criteria="Led status is red(4)",
+                criteria="Led status is red",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{9:#04x}"),  
@@ -89,9 +89,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking blue",
                 post_check="Is the led status blinking blue?",
-                criteria="Led status is blinking blue(9)",
+                criteria="Led status is blinking blue",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{10:#04x}"),  
@@ -104,9 +104,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking green",
                 post_check="Is the led status blinking green?",
-                criteria="Led status is blinking green(10)",
+                criteria="Led status is blinking green",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{12:#04x}"),  
@@ -119,9 +119,9 @@ class LedWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check led status blinking red",
                 post_check="Is the led status blinking red?",
-                criteria="Led status is blinking red(12)",
+                criteria="Led status is blinking red",
                 max_retries=3,
-                retry_delay=5000
+                retry_delay=1000
             ),
             TestStep(
                 command=self.set_led_status(f"{0:#04x}"),  

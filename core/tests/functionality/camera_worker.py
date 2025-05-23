@@ -56,7 +56,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_lvds,
                 timeout=5,
                 description="Validate GPIO value of LVDS camera",
-                criteria="The GPIO value is 1001",
+                criteria="The camera type is LVDS",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -85,7 +85,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_lvds,
                 timeout=5,
                 description="Validate GPIO value of LVDS camera",
-                criteria="The GPIO value is 1001",
+                criteria="The camera type is LVDS",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -124,7 +124,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
-                criteria="The GPIO value is 1110",
+                criteria="The camera type is Scorpius",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -153,7 +153,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
-                criteria="The GPIO value is 1110",
+                criteria="The camera type is Scorpius",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -193,7 +193,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
-                criteria="The GPIO value is 1101",
+                criteria="The camera type is MIPI VGA",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -222,7 +222,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
-                criteria="The GPIO value is 1101",
+                criteria="The camera type is MIPI VGA",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -262,7 +262,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
-                criteria="The GPIO value is 1010",
+                criteria="The camera type is LVDS smart cable",
             ),
             TestStep(
                 command=self.reset_camera(0),
@@ -291,7 +291,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
-                criteria="The GPIO value is 1010",
+                criteria="The camera type is LVDS smart cable",
             ),
             TestStep(
                 command=self.reset_camera(1),
@@ -323,7 +323,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_jig_A,
                 timeout=5,
                 description="Validate GPIO value of Jig A",
-                criteria="The GPIO value is 0001",
+                criteria="The camera type is Jig A",
             ),
             # port B(J4)
             TestStep(
@@ -336,7 +336,7 @@ class CameraWorker(BaseTestWorker):
                 validation_func=self._validate_gpio_value_jig_B,
                 timeout=5,
                 description="Validate GPIO value of Jig B",
-                criteria="The GPIO value is 0010",
+                criteria="The camera type is Jig B",
             )
         ]
     

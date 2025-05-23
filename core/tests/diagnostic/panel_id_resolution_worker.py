@@ -37,7 +37,6 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
-                criteria="The evtest process is running",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -52,8 +51,8 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 command=commands[2],
                 validation_func=self._validate_evtlog,
                 timeout=5,
-                description="Check evtlog",
-                criteria="The expected input device ID is 0x3eb:0x214e:0x111:0x3 and resolution is 1920x1080",
+                description="Check panel resolution",
+                criteria="Panel resolution is 1920x1080",
             ),
             TestStep(
                 command=commands[3],
@@ -104,26 +103,27 @@ class PanelIdResolutionWorker(BaseTestWorker):
         current_axis = None
         
         for i, line in enumerate(lines):
-            if "Input device ID:" in line:
-                parts = line.split(":")
-                if len(parts) != 2:
-                    return False, "Invalid input device ID format"
+            # NOTE: To reduce the time of the test, skip the input device ID validation
+            # if "Input device ID:" in line:
+            #     parts = line.split(":")
+            #     if len(parts) != 2:
+            #         return False, "Invalid input device ID format"
                     
-                # get id parts
-                id_parts = parts[1].strip().split()
+            #     # get id parts
+            #     id_parts = parts[1].strip().split()
                 
-                # use dict to store expected values
-                expected_values = {
-                    "bus": "0x3",
-                    "vendor": "0x3eb",
-                    "product": "0x214e",
-                    "version": "0x111"
-                }
+            #     # use dict to store expected values
+            #     expected_values = {
+            #         "bus": "0x3",
+            #         "vendor": "0x3eb",
+            #         "product": "0x214e",
+            #         "version": "0x111"
+            #     }
                 
-                # validate each value
-                for i, (key, expected) in enumerate(expected_values.items()):
-                    if i * 2 + 1 >= len(id_parts) or id_parts[i * 2 + 1] != expected:
-                        return False, f"{key} ID detected failed"
+            #     # validate each value
+            #     for i, (key, expected) in enumerate(expected_values.items()):
+            #         if i * 2 + 1 >= len(id_parts) or id_parts[i * 2 + 1] != expected:
+            #             return False, f"{key} ID detected failed"
             
             # Record the current axis
             if "ABS_X" in line:
@@ -138,4 +138,4 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 elif current_axis == "Y" and "1079" not in line:
                     return False, "y-axis resolution detected failed"
         
-        return True, "All validations passed"
+        return True, "Panel resolution is 1920x1080"

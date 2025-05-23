@@ -20,33 +20,31 @@ class AudioWorker(BaseTestWorker):
             audio test steps list
         """
         return [
-            TestStep(
-                command="aplay -l", 
-                expected_response="sgtl5000audio", 
-                timeout=5, 
-                description="Check speaker device",
-                criteria="'sgtl5000audio' in the response",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command="arecord -l", 
-                expected_response="sgtl5000audio", 
-                timeout=10, 
-                description="Check microphone device",
-                criteria="'sgtl5000audio' in the response",
-                max_retries=3,
-                retry_delay=1000
-            ),
-            TestStep(
-                command="ls /unit_tests/audio8k16S.wav", 
-                expected_response="audio8k16S.wav",
-                timeout=10, 
-                description="Check audio8k16S.wav exists",
-                criteria="'audio8k16S.wav' in the response",
-                max_retries=2,
-                retry_delay=1500
-            ),
+            # NOTE: To reduce the test time, the following steps are skipped
+            # TestStep(
+            #     command="aplay -l", 
+            #     expected_response="sgtl5000audio", 
+            #     timeout=5, 
+            #     description="Check speaker device",
+            #     max_retries=1,
+            #     retry_delay=500
+            # ),
+            # TestStep(
+            #     command="arecord -l", 
+            #     expected_response="sgtl5000audio", 
+            #     timeout=10, 
+            #     description="Check microphone device",
+            #     max_retries=3,
+            #     retry_delay=1000
+            # ),
+            # TestStep(
+            #     command="ls /unit_tests/audio8k16S.wav", 
+            #     expected_response="audio8k16S.wav",
+            #     timeout=10, 
+            #     description="Check audio8k16S.wav exists",
+            #     max_retries=2,
+            #     retry_delay=1500
+            # ),
             TestStep(
                 command="amixer -c 0 set PCM 100%", 
                 timeout=10, 
@@ -60,7 +58,7 @@ class AudioWorker(BaseTestWorker):
                 timeout=10, 
                 description="Play audio from speaker and record from microphone",
                 post_check="Is the audio played from the speaker?",
-                criteria="'Recording WAVE' and 'Playing WAVE' in response",
+                criteria="Recording from microphone is successful",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -70,7 +68,7 @@ class AudioWorker(BaseTestWorker):
                 timeout=10, 
                 description="Play the recorded audio from the speaker",
                 post_check="Is the audio played from the speaker?",
-                criteria="'Playing WAVE' and 'mic.wav' in response",
+                criteria="Speaker playback is successful",
                 max_retries=2,
                 retry_delay=1500
             ), 

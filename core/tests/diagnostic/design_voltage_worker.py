@@ -26,7 +26,7 @@ class DesignVoltageWorker(BaseTestWorker):
                 expected_response="0x1c 0x20",           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
                 timeout=5, 
                 description="Check Design Voltage by i2c",
-                criteria="The design voltage is 7200(0x1c20)",
+                criteria="The design voltage is 7200 mV",
                 max_retries=3,
                 retry_delay=500
             )

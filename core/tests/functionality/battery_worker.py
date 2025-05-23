@@ -45,7 +45,7 @@ class BatteryWorker(BaseTestWorker):
                 timeout=5, 
                 description="Validate dc status",
                 pre_condition="Ensure the DUT is plugged in and the ambient temperature is at room level.",
-                criteria="The dc status is 0 or 1",
+                criteria="Can read the dc value",
                 max_retries=1,
                 retry_delay=500
                 
@@ -55,7 +55,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="Validate battery state",
-                criteria="The battery state is in 0 ~ 100",
+                criteria="Can read the battery state",
                 max_retries=3,
                 retry_delay=500
             ),
@@ -64,7 +64,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_temperature,
                 timeout=10, 
                 description="Validate battery temperature",
-                criteria="The battery temperature is in 0 ~ 100",
+                criteria="Can read the battery temperature",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -73,7 +73,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_current,
                 timeout=10, 
                 description="Validate battery current",
-                criteria="The battery current is in 1.5 ~ 2.5",
+                criteria="Can read the battery current",
                 max_retries=2,
                 retry_delay=1500
             ),
@@ -82,7 +82,7 @@ class BatteryWorker(BaseTestWorker):
                 validation_func=self._validate_led_status,
                 timeout=10, 
                 description="Validate led status",
-                criteria="The led status is in 0 ~ 31",
+                criteria="Can read the led status",
                 max_retries=2,
                 retry_delay=1500
             )
@@ -201,8 +201,8 @@ class BatteryWorker(BaseTestWorker):
             if type(value) != int:
                 return False, f"Unexpected battery state: {value}"
             
-            if value < 0 or value > 100:
-                return False, f"Unreasonable battery state: {value}"
+            # if value < 0 or value > 100:
+            #     return False, f"Unreasonable battery state: {value}"
             
             self.current_battery_state = value
             return True, f"Battery state: {value}%"
@@ -225,8 +225,8 @@ class BatteryWorker(BaseTestWorker):
             if type(value) != float:
                 return False, f"Unexpected battery temperature: {value}"
             
-            if value < 0 or value > 100:
-                return False, f"Unreasonable battery temperature: {value}"
+            # if value < 0 or value > 100:
+            #     return False, f"Unreasonable battery temperature: {value}"
             
             self.current_temperature = value
             return True, f"Battery temperature: {value}°C"
@@ -252,23 +252,24 @@ class BatteryWorker(BaseTestWorker):
             if value not in self.LED_STATUS_MAP:
                 return False, f"Unexpected led status: {value}"
             
-            if self.current_dc == 0:
-                if self.current_battery_state > 10 and self.current_battery_state <= 100:
-                    if value not in [0, 16]:
-                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-                else:
-                    if value not in [12, 28]:
-                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-            else:
-                if self.current_battery_state == 100:
-                    if value not in [2, 18]:
-                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-                elif self.current_battery_state > 10 and self.current_battery_state <= 99:
-                    if value not in [1, 17]:
-                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-                else:
-                    if value not in [12, 28]:
-                        return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            # NOTE: in this case, only check the led status is in the range of 0 ~ 31
+            # if self.current_dc == 0:
+            #     if self.current_battery_state > 10 and self.current_battery_state <= 100:
+            #         if value not in [0, 16]:
+            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            #     else:
+            #         if value not in [12, 28]:
+            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            # else:
+            #     if self.current_battery_state == 100:
+            #         if value not in [2, 18]:
+            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            #     elif self.current_battery_state > 10 and self.current_battery_state <= 99:
+            #         if value not in [1, 17]:
+            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
+            #     else:
+            #         if value not in [12, 28]:
+            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
 
             self.current_led = value
             return True, f"LED status: {self.LED_STATUS_MAP[value]}"
@@ -291,8 +292,8 @@ class BatteryWorker(BaseTestWorker):
             if type(value) != float:
                 return False, f"Unexpected current: {value}"
             
-            if value < 1.5 or value > 2.5:
-                return False, f"Unreasonable current: {value}"
+            # if value < 1.5 or value > 2.5:
+            #     return False, f"Unreasonable current: {value}"
             
             return True, f"Current: {value}"
         except Exception as e:

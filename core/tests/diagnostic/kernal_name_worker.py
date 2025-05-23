@@ -26,7 +26,7 @@ class KernalNameWorker(BaseTestWorker):
                 expected_response="Linux gemini",
                 timeout=5, 
                 description="Check kernal name",
-                criteria="The kernal name is Linux gemini",
+                criteria="The kernal name can be found",
                 max_retries=1,
                 retry_delay=500
             )

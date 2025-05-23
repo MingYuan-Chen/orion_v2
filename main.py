@@ -25,8 +25,11 @@ def main():
         app.setOrganizationDomain("orion.com")
         app.setApplicationVersion("1.0.0.0")
         
-        # Ensure Qt knows all windows belong to the same application instance
-        app.setAttribute(Qt.AA_UseHighDpiPixmaps)  # Use high DPI images
+        # 使用非弃用的高DPI设置
+        # 设置Qt应用程序使用高DPI缩放
+        app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+        # 启用高DPI像素图
+        app.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
         
         app.setStyle("Fusion")  # Use Fusion style for a modern look
         
@@ -36,8 +39,8 @@ def main():
             icon_path = os.path.join(sys._MEIPASS, 'resources', 'icons', 'header.ico')
         else:
             # Normal development environment
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            icon_path = os.path.join(current_dir, "resources", "icons", "header.ico")
+            # 使用当前工作目录下的资源文件夹
+            icon_path = os.path.join(os.getcwd(), "resources", "icons", "header.ico")
             
         if os.path.exists(icon_path):
             from PySide6.QtGui import QIcon
