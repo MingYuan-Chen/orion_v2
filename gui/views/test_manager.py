@@ -61,11 +61,11 @@ class TestManagerView(QObject):
         # Add system log function
         self.add_system_log = None
         
-        # 結果記錄回調函數，由MainWindowController設置
+        # result recorder callback function
         self.result_recorder = None
         self.progress_recorder = None
         
-        # 本地臨時緩存用於UI顯示
+        # local temporary cache for UI display
         self.local_temp_results = {}
         self.local_temp_progress = {}
         
@@ -394,7 +394,7 @@ class TestManagerView(QObject):
                     elif hasattr(step, 'result') and step.result:
                         response = step.result
                         logger.debug(f"Found result from active worker: '{response}'")
-                    # 获取规格与标准
+                    # get the specification and criteria
                     if hasattr(step, 'specification'):
                         step_specification = step.specification
                         logger.debug(f"Found specification from active worker: '{step_specification}'")
@@ -420,7 +420,7 @@ class TestManagerView(QObject):
                         elif hasattr(step, 'result') and step.result:
                             response = step.result
                             logger.debug(f"Found result from registered worker: '{response}'")
-                    # 获取规格与标准
+                    # get the specification and criteria
                     if not step_specification and hasattr(step, 'specification'):
                         step_specification = step.specification
                         logger.debug(f"Found specification from registered worker: '{step_specification}'")
@@ -428,10 +428,10 @@ class TestManagerView(QObject):
                         step_criteria = step.criteria
                         logger.debug(f"Found criteria from registered worker: '{step_criteria}'")
             
-            # 修正步骤消息：对于手动步骤，确保保存正确的PASS/FAIL状态
+            # correct the step message: for manual steps, ensure the correct PASS/FAIL status is saved
             final_message = message
             
-            # 检查是否是手动步骤且消息需要修正
+            # check if the step is a manual step and the message needs to be corrected
             is_manual_step = False
             if test_id == self.hw_test_manager.active_test_id and self.hw_test_manager.active_test_worker:
                 active_worker = self.hw_test_manager.active_test_worker
@@ -439,12 +439,12 @@ class TestManagerView(QObject):
                     step = active_worker.steps[step_index]
                     is_manual_step = hasattr(step, 'manual_only') and step.manual_only
                     
-                    # 对于手动步骤，如果消息是"No command specified"，则根据success状态设置正确的消息
+                    # for manual steps, if the message is "No command specified", set the correct message based on the success status
                     if is_manual_step and message == "No command specified":
                         final_message = "PASS" if success else "FAIL"
                         logger.debug(f"Corrected manual step message for step {step_index+1}: '{final_message}'")
                         
-                    # 同时确保手动步骤也有其他状态消息的正确处理
+                    # also ensure the manual steps have the correct handling of other status messages
                     elif is_manual_step and message in ["Step passed based on human judgement", "Step failed based on human judgement"]:
                         final_message = "PASS" if success else "FAIL"
                         logger.debug(f"Simplified manual step message for step {step_index+1}: '{final_message}'")
@@ -455,18 +455,18 @@ class TestManagerView(QObject):
             step_data = {
                 "index": step_index,
                 "success": success,
-                "message": final_message,  # 使用修正后的消息
+                "message": final_message,  # use the corrected message
                 "description": step_desc,  # add step description
                 "time": step_time,
                 "start_time": step_start_time,
                 "end_time": step_end_time,
                 "command": command,      # add command
                 "response": response,    # add response
-                "specification": step_specification,  # 添加规格
-                "criteria": step_criteria     # 添加标准
+                "specification": step_specification,  # add specification
+                "criteria": step_criteria     # add criteria
             }
             
-            # 检查是否已存在相同索引的步骤记录，如果存在则更新，否则添加新记录
+            # check if there is an existing step record with the same index, if so, update it, otherwise add a new record
             existing_step_index = None
             for i, existing_step in enumerate(self.local_temp_results[test_id]["steps"]):
                 if existing_step.get("index") == step_index:
@@ -474,11 +474,11 @@ class TestManagerView(QObject):
                     break
             
             if existing_step_index is not None:
-                # 更新现有记录
+                # update the existing record
                 self.local_temp_results[test_id]["steps"][existing_step_index] = step_data
                 logger.debug(f"Updated existing step record for step {step_index+1}: '{final_message}'")
             else:
-                # 添加新记录
+                # add a new record
                 self.local_temp_results[test_id]["steps"].append(step_data)
                 logger.debug(f"Added new step record for step {step_index+1}: '{final_message}'")
         

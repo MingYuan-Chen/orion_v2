@@ -134,7 +134,7 @@ class MainWindowController(QObject):
         # add current tab index
         self.current_tab_index = -1
         
-        # 添加命令追踪集合，避免重複記錄
+        # Add logged commands set to avoid duplicate logging
         self.logged_commands = set()
         
         # Ensure view_model has system_info_service
@@ -258,7 +258,7 @@ class MainWindowController(QObject):
             "diagnostic": {}      # diagnostic test progress
         }
         
-        # 添加步骤模板存储，保存每个测试的步骤定义
+        # Add step template storage to save the step definition for each test
         self.test_step_templates = {
             "functionality": {},  # functionality test step templates
             "diagnostic": {}      # diagnostic test step templates
@@ -275,7 +275,7 @@ class MainWindowController(QObject):
             lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
         )
         
-        # 连接测试开始信号，保存步骤模板
+        # Connect test started signal to save step templates
         self.hw_test_manager.test_started.connect(self._on_test_started)
     
     def eventFilter(self, obj, event):
@@ -315,7 +315,7 @@ class MainWindowController(QObject):
         # set the ui components
         self.system_info_manager.set_ui_components(system_ui_components)
         
-        # 提供對控制器的引用，用於命令記錄
+        # Provide a reference to the controller for command logging
         self.system_info_manager.main_controller = self
         
         # set a function to add system log, directly write to the log manager
@@ -889,14 +889,14 @@ class MainWindowController(QObject):
             test_progress_records = self.unified_test_progress.get("functionality", {})
             diagnostic_results = self.unified_test_results.get("diagnostic", {})
             
-            # 调试：显示步骤模板存储状态
+            # Debug: Display the step template storage status
             logger.info(f"Export debug - Step templates stored:")
             for test_type, templates in self.test_step_templates.items():
                 logger.info(f"  {test_type}: {list(templates.keys())}")
                 for test_id, step_list in templates.items():
                     logger.info(f"    {test_id}: {len(step_list)} steps")
             
-            # 调试：显示进度记录状态
+            # Debug: Display the progress record status
             logger.info(f"Export debug - Progress records:")
             for test_type, progress in self.unified_test_progress.items():
                 logger.info(f"  {test_type}: {list(progress.keys())}")
@@ -912,12 +912,12 @@ class MainWindowController(QObject):
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Timestamp", "Duration (sec)"])
                 
                 # write the functionality test results
-                # 首先处理有进度记录的测试
+                # first process the tests with progress records
                 processed_tests = set()
                 for test_id, records in test_progress_records.items():
                     processed_tests.add(test_id)
                     
-                    # 确定测试类型：如果test_id以diagnostic_开头，则从diagnostic获取步骤模板
+                    # determine the test type: if the test_id starts with diagnostic_, then get the step templates from diagnostic
                     test_type = "diagnostic" if test_id.startswith("diagnostic_") else "functionality"
                     step_templates = self.test_step_templates.get(test_type, {}).get(test_id, [])
                     logger.info(f"Processing test with progress records: {test_id}, progress records: {len(records)}, step templates: {len(step_templates)} (from {test_type})")
@@ -929,7 +929,7 @@ class MainWindowController(QObject):
                     elif test_id in diagnostic_results:
                         test_steps = diagnostic_results[test_id].get("steps", [])
                     
-                    # 尝试直接从test worker获取步骤信息和执行状态
+                    # try to get the step details and execution status from the test worker
                     worker_steps = []
                     worker = None
                     if hasattr(self.hw_test_manager, 'test_workers'):
@@ -937,32 +937,32 @@ class MainWindowController(QObject):
                         if worker and hasattr(worker, 'steps'):
                             worker_steps = worker.steps
                     
-                    # 如果有步骤模板，基于步骤模板导出所有有criteria的步骤
+                    # if there are step templates, export all steps with criteria based on the step templates
                     if step_templates:
                         logger.info(f"Using step templates to export {len(step_templates)} steps for {test_id}")
                         
                         for template_index, template in enumerate(step_templates):
                             try:
-                                # 只导出有criteria的步骤
+                                # export only the steps with criteria
                                 step_criteria = template.get('criteria', '')
                                 if not step_criteria:
                                     logger.debug(f"Skipping template step {template_index} for {test_id} - no criteria")
                                     continue
                                 
-                                # 获取步骤基本信息
+                                # get the basic step information
                                 step_desc = template.get('description', '')
                                 step_command = template.get('command', '')
                                 is_manual_step = template.get('manual_only', False)
                                 
-                                # 初始化结果变量
+                                # initialize the result variables
                                 step_message = "NOT_EXECUTED"
                                 step_response = ""
                                 step_time = "--:--:--"
                                 
-                                # 尝试从test_steps获取更详细的信息
+                                # try to get more detailed information from test_steps
                                 for step in test_steps:
                                     if step.get('index') == template_index:
-                                        # 优先使用test_steps中的信息（这些是实际执行时记录的）
+                                        # use the information from test_steps (these are the ones recorded during actual execution)
                                         test_step_message = step.get('message', '')
                                         logger.debug(f"Found test_step for {template_index}: message='{test_step_message}', response='{step.get('response', '')[:50]}...'")
                                         
@@ -970,8 +970,8 @@ class MainWindowController(QObject):
                                             step_message = test_step_message
                                             logger.debug(f"Using test_step message for {template_index}: '{step_message}'")
                                         elif test_step_message == "No command specified" and is_manual_step:
-                                            # 对于手动步骤，如果是"No command specified"，检查是否有实际的PASS/FAIL结果
-                                            # 从worker获取更准确的状态
+                                            # for manual steps, if it is "No command specified", check if there is an actual PASS/FAIL result
+                                            # get the more accurate status from the worker
                                             if worker and template_index < len(worker_steps):
                                                 worker_step = worker_steps[template_index]
                                                 if hasattr(worker_step, 'passed') and worker_step.passed is not None:
@@ -986,7 +986,7 @@ class MainWindowController(QObject):
                                             step_time = step.get('time', step_time)
                                         break
                                 
-                                # 如果test_steps中没有找到合适的结果，再从worker获取
+                                # if no suitable result is found in test_steps, then get it from the worker
                                 if step_message == "NOT_EXECUTED" and worker and template_index < len(worker_steps):
                                     worker_step = worker_steps[template_index]
                                     if hasattr(worker_step, 'passed') and worker_step.passed is not None:
@@ -995,7 +995,7 @@ class MainWindowController(QObject):
                                             step_response = f"Manual interaction step - {step_message} (verified by user)"
                                         logger.debug(f"Using worker as fallback for step {template_index}: '{step_message}'")
                                 
-                                # 如果仍然是"No command specified"但这是manual步骤且有worker结果，使用worker结果
+                                # if it is still "No command specified" but this is a manual step and there is a worker result, then use the worker result
                                 if step_message == "No command specified" and is_manual_step and worker and template_index < len(worker_steps):
                                     worker_step = worker_steps[template_index]
                                     if hasattr(worker_step, 'passed') and worker_step.passed is not None:
@@ -1003,14 +1003,14 @@ class MainWindowController(QObject):
                                         step_response = f"Manual interaction step - {step_message} (verified by user)"
                                         logger.debug(f"Overriding 'No command specified' for manual step {template_index}: '{step_message}'")
                                 
-                                # 处理响应文本，过滤无用信息
+                                # process the response text, filter out the useless information
                                 final_response = ""
                                 if isinstance(step_response, str):
                                     if is_manual_step:
-                                        # 对于manual步骤，保留原始response
+                                        # for manual steps, keep the original response
                                         final_response = step_response
                                     else:
-                                        # 对于非manual步骤，进行过滤处理
+                                        # for non-manual steps, filter the response
                                         for line in step_response.split("\n"):
                                             if not line.strip():
                                                 continue
@@ -1020,20 +1020,20 @@ class MainWindowController(QObject):
                                 
                                 step_response = final_response.strip()
                                 
-                                # 处理跳过的步骤
+                                # process the skipped steps
                                 if isinstance(step_message, str) and "skip" in step_message.lower():
                                     step_message = "SKIPPED"
                                 
-                                # 获取时间戳
+                                # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                # 尝试从进度记录获取实际时间戳
+                                # try to get the actual timestamp from the progress records
                                 for record in records:
                                     if isinstance(record, dict) and record.get('current_step') == template_index + 1:
                                         timestamp = record.get('timestamp', timestamp)
                                         break
                                 
-                                # 创建数据行
+                                # create the data row
                                 row_data = [
                                     test_id,                    # module
                                     step_desc,                  # step
@@ -1057,7 +1057,7 @@ class MainWindowController(QObject):
                     else:
                         logger.info(f"No step templates found for {test_id}, using progress records only")
                         
-                        # 如果没有步骤模板，回退到原来的逻辑
+                        # if there are no step templates, fall back to the original logic
                         for record in records:
                             try:
                                 # ensure record is a dictionary and has current_step
@@ -1077,7 +1077,7 @@ class MainWindowController(QObject):
                                 step_time = "--:--:--"  # default time
                                 step_criteria = ""
                                 
-                                # 初始化test_step变量
+                                # initialize the test_step variable
                                 test_step = None
                                 
                                 # get the step information from the test results
@@ -1114,9 +1114,9 @@ class MainWindowController(QObject):
                                     if not step_criteria and hasattr(test_step, 'criteria'):
                                         step_criteria = test_step.criteria
                                     
-                                    # 对于manual_only步骤，根据实际执行结果设置消息和响应
+                                    # for manual_only steps, set the message and response based on the actual execution result
                                     if hasattr(test_step, 'manual_only') and test_step.manual_only:
-                                        # 根据步骤的passed状态设置消息
+                                        # set the message based on the passed status
                                         if hasattr(test_step, 'passed') and test_step.passed is not None:
                                             step_message = "PASS" if test_step.passed else "FAIL"
                                             if test_step.passed:
@@ -1132,7 +1132,7 @@ class MainWindowController(QObject):
                                     logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
                                     continue
                                 
-                                # 处理"No command specified"的情况 - 对于manual步骤，如果有执行结果就使用实际结果
+                                # process the "No command specified" case - for manual steps, if there is an execution result, use it
                                 if step_message == "No command specified" and test_step:
                                     if hasattr(test_step, 'manual_only') and test_step.manual_only:
                                         if hasattr(test_step, 'passed') and test_step.passed is not None:
@@ -1143,12 +1143,12 @@ class MainWindowController(QObject):
                                 # process the response text
                                 final_response = ""
                                 if isinstance(step_response, str):
-                                    # 对于manual_only步骤，保留原始response
+                                    # for manual_only steps, keep the original response
                                     is_manual_step = test_step and hasattr(test_step, 'manual_only') and test_step.manual_only
                                     if is_manual_step:
                                         final_response = step_response
                                     else:
-                                        # 对于非manual步骤，进行过滤处理
+                                        # for non-manual steps, filter the response
                                         for line in step_response.split("\n"):
                                             if not line:
                                                 continue
@@ -1185,44 +1185,44 @@ class MainWindowController(QObject):
                                 logger.warning(f"Error processing test record: {str(ex)}")
                                 continue
                 
-                # 处理没有进度记录但有步骤模板的测试 - 跳过这部分，只导出已执行的测试
-                # 注释掉这部分代码，因为用户只想导出有执行的模块
+                # process the tests without progress records but with step templates - skip this part, only export the executed tests
+                # comment out this part of the code, because the user only wants to export the executed modules
                 
-                # 如果步骤模板为空，尝试直接从test_workers获取步骤信息 - 也跳过这部分
-                # 注释掉这部分代码，因为用户只想导出有执行的模块
+                # if the step templates are empty, try to get the step information directly from test_workers - also skip this part
+                # comment out this part of the code, because the user only wants to export the executed modules
             
             # write the diagnostic test results
             for test_id, result_data in diagnostic_results.items():
                 try:
-                    # 先获取该测试的步骤模板
+                    # get the step templates of the diagnostic test
                     step_templates = self.test_step_templates.get("diagnostic", {}).get(test_id, [])
                     logger.info(f"Processing diagnostic test: {test_id}, step templates: {len(step_templates)}")
                     
                     # get the step data of the diagnostic test
                     test_steps = result_data.get("steps", [])
                     
-                    # 如果有步骤模板，基于步骤模板导出所有有criteria的步骤
+                    # if there are step templates, export all steps with criteria based on the step templates
                     if step_templates:
                         logger.info(f"Using step templates to export diagnostic {test_id}")
                         
                         for template_index, template in enumerate(step_templates):
                             try:
-                                # 只导出有criteria的步骤
+                                # export only the steps with criteria
                                 step_criteria = template.get('criteria', '')
                                 if not step_criteria:
                                     logger.debug(f"Skipping diagnostic template step {template_index} for {test_id} - no criteria")
                                     continue
                                 
-                                # 获取步骤基本信息
+                                # get the basic step information
                                 step_desc = template.get('description', 'Diagnostic Test')
                                 step_command = template.get('command', '')
                                 
-                                # 初始化结果变量
+                                # initialize the result variables
                                 step_message = "NOT_EXECUTED"
                                 step_response = ""
                                 step_time = "--:--:--"
                                 
-                                # 尝试从test_steps获取执行结果
+                                # try to get the execution result from test_steps
                                 for step in test_steps:
                                     if step.get('index') == template_index:
                                         step_message = step.get('message', 'NOT_EXECUTED')
@@ -1232,7 +1232,7 @@ class MainWindowController(QObject):
                                             step_command = step.get('command', step_command)
                                         break
                                 
-                                # 处理响应文本，过滤无用信息
+                                # process the response text, filter out the useless information
                                 final_response = ""
                                 if isinstance(step_response, str):
                                     for line in step_response.split("\n"):
@@ -1244,14 +1244,14 @@ class MainWindowController(QObject):
                                 
                                 step_response = final_response.strip()
                                 
-                                # 处理跳过的步骤
+                                # process the skipped steps
                                 if isinstance(step_message, str) and "skip" in step_message.lower():
                                     step_message = "SKIPPED"
                                 
-                                # 获取时间戳
+                                # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                # 创建数据行
+                                # create the data row
                                 row_data = [
                                     test_id,                    # module
                                     step_desc,                  # step
@@ -1271,7 +1271,7 @@ class MainWindowController(QObject):
                                 logger.warning(f"Error processing diagnostic template step {template_index}: {str(ex)}")
                                 continue
                     
-                    # 如果没有步骤模板，使用原有逻辑
+                    # if there are no step templates, use the original logic
                     elif test_steps:
                         for step in test_steps:
                             step_desc = step.get("description", "Diagnostic Test")
