@@ -1006,15 +1006,26 @@ class MainWindowController(QObject):
                                 # process the response text, filter out the useless information
                                 final_response = ""
                                 if isinstance(step_response, str):
+                                    # for manual_only steps, keep the original response
+                                    is_manual_step = template.get('manual_only', False)
                                     if is_manual_step:
-                                        # for manual steps, keep the original response
                                         final_response = step_response
                                     else:
                                         # for non-manual steps, filter the response
                                         for line in step_response.split("\n"):
-                                            if not line.strip():
+                                            line_stripped = line.strip()
+                                            if not line_stripped:
                                                 continue
-                                            if any(filter_str in line for filter_str in ["i2ctransfer", "grep", "............", "#", "$", ">"]):
+                                            # filter out the obvious command lines and control information
+                                            if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
+                                                continue
+                                            # filter out the obvious command prompt lines
+                                            # check if the line is a command prompt line (usually starts with #, $, or >)
+                                            if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
+                                                line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
+                                                continue
+                                            # filter out the empty command prompt lines (only contains prompt characters and spaces)
+                                            if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
                                                 continue
                                             final_response += line + "\n"
                                 
@@ -1144,21 +1155,25 @@ class MainWindowController(QObject):
                                 final_response = ""
                                 if isinstance(step_response, str):
                                     # for manual_only steps, keep the original response
-                                    is_manual_step = test_step and hasattr(test_step, 'manual_only') and test_step.manual_only
+                                    is_manual_step = template.get('manual_only', False)
                                     if is_manual_step:
                                         final_response = step_response
                                     else:
                                         # for non-manual steps, filter the response
                                         for line in step_response.split("\n"):
-                                            if not line:
+                                            line_stripped = line.strip()
+                                            if not line_stripped:
                                                 continue
-                                            if "i2ctransfer" in line:
+                                            # filter out the obvious command lines and control information
+                                            if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
                                                 continue
-                                            if "grep" in line:
+                                            # filter out the obvious command prompt lines
+                                            # check if the line is a command prompt line (usually starts with #, $, or >)
+                                            if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
+                                                line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
                                                 continue
-                                            if "............" in line:
-                                                continue
-                                            if "#" in line or "$" in line or ">" in line:
+                                            # filter out the empty command prompt lines (only contains prompt characters and spaces)
+                                            if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
                                                 continue
                                             final_response += line + "\n"
                                 
@@ -1236,9 +1251,19 @@ class MainWindowController(QObject):
                                 final_response = ""
                                 if isinstance(step_response, str):
                                     for line in step_response.split("\n"):
-                                        if not line.strip():
+                                        line_stripped = line.strip()
+                                        if not line_stripped:
                                             continue
-                                        if any(filter_str in line for filter_str in ["i2ctransfer", "grep", "............", "#", "$", ">"]):
+                                        # filter out the obvious command lines and control information
+                                        if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
+                                            continue
+                                        # filter out the obvious command prompt lines
+                                        # check if the line is a command prompt line (usually starts with #, $, or >)
+                                        if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
+                                            line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
+                                            continue
+                                        # filter out the empty command prompt lines (only contains prompt characters and spaces)
+                                        if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
                                             continue
                                         final_response += line + "\n"
                                 
@@ -1290,13 +1315,19 @@ class MainWindowController(QObject):
                             final_response = ""
                             if isinstance(step_response, str):
                                 for line in step_response.split("\n"):
-                                    if not line:
+                                    line_stripped = line.strip()
+                                    if not line_stripped:
                                         continue
-                                    if "i2ctransfer" in line:
+                                    # filter out the obvious command lines and control information
+                                    if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
                                         continue
-                                    if "grep" in line:
+                                    # filter out the obvious command prompt lines
+                                    # check if the line is a command prompt line (usually starts with #, $, or >)
+                                    if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
+                                        line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
                                         continue
-                                    if "#" in line or "$" in line or ">" in line:
+                                    # filter out the empty command prompt lines (only contains prompt characters and spaces)
+                                    if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
                                         continue
                                     final_response += line + "\n"
                             else:
