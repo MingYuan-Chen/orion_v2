@@ -101,41 +101,40 @@ class PanelIdResolutionWorker(BaseTestWorker):
         """
         lines = response.split("\n")
         current_axis = None
+        x_resolution_correct = False
+        y_resolution_correct = False
         
-        for i, line in enumerate(lines):
-            # NOTE: To reduce the time of the test, skip the input device ID validation
-            # if "Input device ID:" in line:
-            #     parts = line.split(":")
-            #     if len(parts) != 2:
-            #         return False, "Invalid input device ID format"
-                    
-            #     # get id parts
-            #     id_parts = parts[1].strip().split()
-                
-            #     # use dict to store expected values
-            #     expected_values = {
-            #         "bus": "0x3",
-            #         "vendor": "0x3eb",
-            #         "product": "0x214e",
-            #         "version": "0x111"
-            #     }
-                
-            #     # validate each value
-            #     for i, (key, expected) in enumerate(expected_values.items()):
-            #         if i * 2 + 1 >= len(id_parts) or id_parts[i * 2 + 1] != expected:
-            #             return False, f"{key} ID detected failed"
+        for line in lines:
+            line = line.strip()
             
-            # Record the current axis
-            if "ABS_X" in line:
+            # Record the current axis based on the event code
+            if "Event code 0 (ABS_X)" in line:
                 current_axis = "X"
-            elif "ABS_Y" in line:
+            elif "Event code 1 (ABS_Y)" in line:
                 current_axis = "Y"
+            elif line.startswith("Event code") and ("ABS_X" not in line and "ABS_Y" not in line):
+                # Reset axis when encountering other event codes (not ABS_X or ABS_Y)
+                current_axis = None
             
-            # validate resolution
-            if "Max" in line and current_axis:
-                if current_axis == "X" and "1919" not in line:
-                    return False, "x-axis resolution detected failed"
-                elif current_axis == "Y" and "1079" not in line:
-                    return False, "y-axis resolution detected failed"
+            # Check Max value for current axis
+            if line.startswith("Max") and current_axis:
+                if current_axis == "X":
+                    if "1919" in line:
+                        x_resolution_correct = True
+                        logger.debug(f"Found correct ABS_X Max value: {line}")
+                    else:
+                        return False, f"x-axis resolution detected failed - expected 1919, found: {line}"
+                elif current_axis == "Y":
+                    if "1079" in line:
+                        y_resolution_correct = True
+                        logger.debug(f"Found correct ABS_Y Max value: {line}")
+                    else:
+                        return False, f"y-axis resolution detected failed - expected 1079, found: {line}"
+        
+        # Check if both resolutions were found and correct
+        if not x_resolution_correct:
+            return False, "x-axis resolution not found or incorrect"
+        if not y_resolution_correct:
+            return False, "y-axis resolution not found or incorrect"
         
         return True, "Panel resolution is 1920x1080"

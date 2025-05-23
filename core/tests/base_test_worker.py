@@ -61,7 +61,7 @@ class TestStep:
         self.criteria = criteria              # Criteria
         self.manual_only = manual_only  # Whether this is a manual-only step
         
-        # 为manual_only步骤设置默认的response
+        # for manual_only steps, set the default response
         if self.manual_only:
             self.response = "Manual interaction step - no command response"
             self.result = "Manual interaction step"
@@ -138,7 +138,7 @@ class BaseTestWorker(QObject):
         # Create custom logger
         self.log_function = None
         
-        # 自动验证标志，默认为True
+        # auto validation flag, default is True
         self.auto_validation = True
         
         # Connect device worker signals
@@ -494,9 +494,9 @@ class BaseTestWorker(QObject):
             # Record human judgement result
             step = self.steps[self.current_step_index]
             step.human_judgement = is_passed
-            step.passed = is_passed  # 直接设置passed状态
+            step.passed = is_passed  # directly set the passed status
             
-            # 确保manual_only步骤有适当的response记录
+            # ensure manual_only steps have appropriate response records
             if step.manual_only:
                 if is_passed:
                     step.response = "Manual interaction step - PASS (verified by user)"
@@ -589,7 +589,7 @@ class BaseTestWorker(QObject):
         step = self.steps[self.current_step_index]
         step.passed = passed
         
-        # 为manual_only步骤确保有response记录
+        # for manual_only steps, ensure there is a response record
         if step.manual_only and not step.response:
             step.response = "Manual interaction step - no command executed"
             step.result = "Manual interaction step"

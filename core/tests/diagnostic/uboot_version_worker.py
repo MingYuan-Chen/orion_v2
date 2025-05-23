@@ -23,7 +23,7 @@ class UbootVersionWorker(BaseTestWorker):
         """
         return [
             TestStep(
-                command="strings /dev/mtd0 | grep -E 'U-Boot'", 
+                command="strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\.'", 
                 validation_func=self._validate_uboot_version,
                 timeout=5, 
                 description="Check U-Boot Version",
