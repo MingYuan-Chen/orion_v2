@@ -26,7 +26,7 @@ class DesignCapacityWorker(BaseTestWorker):
                 expected_response="0x0c 0xb2",           # concatenate the two bytes as 0x0d16 then convert to decimal: 3350
                 timeout=5, 
                 description="Check Design Capacity",
-                criteria="The design capacity is 3250",
+                criteria="The design capacity is 3250 mAh",
                 max_retries=3,
                 retry_delay=500
             )

@@ -641,7 +641,10 @@ class BaseTestWorker(QObject):
                     # Validation passed
                     step.passed = True
                     logger.info(f"Test step {self.current_step_index+1} validation PASSED: {message}")
-                    self._handle_step_result(True, f"Validation PASSED: {message}")
+                    
+                    # NOTE: Current requirement is to simply result message
+                    # self._handle_step_result(True, f"Validation PASSED: {message}")
+                    self._handle_step_result(True, f"PASS")
                     return
                 else:
                     # Validation failed
@@ -658,7 +661,10 @@ class BaseTestWorker(QObject):
                     else:
                         # Max retries reached, fail the step
                         logger.warning(f"Test step {self.current_step_index+1} FAILED: {message} (Retried {step.retry_count} times still failed)")
-                        self._handle_step_result(False, f"{message} (Retried {step.retry_count} times still failed)")
+                        
+                        # NOTE: Current requirement is to simply result message
+                        # self._handle_step_result(False, f"{message} (Retried {step.retry_count} times still failed)")
+                        self._handle_step_result(False, f"FAIL")
                     return
             except Exception as e:
                 # Validation function error
@@ -666,14 +672,20 @@ class BaseTestWorker(QObject):
                 error_message = f"Validation function error: {str(e)}"
                 step.retry_messages.append(error_message)
                 logger.error(error_message, exc_info=True)
-                self._handle_step_result(False, error_message)
+                
+                # NOTE: Current requirement is to simply result message
+                # self._handle_step_result(False, error_message)
+                self._handle_step_result(False, f"FAIL")
                 return
         elif step.expected_response is not None:
             # check if the response contains the expected result
             if step.expected_response in response:
                 step.passed = True
                 logger.info(f"Test step {self.current_step_index+1} PASSED: expected string '{step.expected_response}' found in response")
-                self._handle_step_result(True, f"Expected string '{step.expected_response}' found in response")
+                
+                # NOTE: Current requirement is to simply result message
+                # self._handle_step_result(True, f"Expected string '{step.expected_response}' found in response")
+                self._handle_step_result(True, f"PASS")
                 return
             else:
                 # Validation failed
@@ -691,13 +703,17 @@ class BaseTestWorker(QObject):
                 else:
                     # Max retries reached, fail the step
                     logger.warning(f"Test step {self.current_step_index+1} FAILED: {error_message} (Retried {step.retry_count} times still failed)")
-                    self._handle_step_result(False, f"{error_message} (Retried {step.retry_count} times still failed)")
+                    # NOTE: Current requirement is to simply result message
+                    # self._handle_step_result(False, f"{error_message} (Retried {step.retry_count} times still failed)")
+                    self._handle_step_result(False, f"FAIL")
                 return
         else:
             # No validation function, pass the step
             step.passed = True
             logger.info(f"Test step {self.current_step_index+1} PASSED: skip validation")
-            self._handle_step_result(True, "Step PASSED: skip validation")
+            # NOTE: Current requirement is to simply result message
+            # self._handle_step_result(True, "Step PASSED: skip validation")
+            self._handle_step_result(True, "SKIP")
             return
     
     def _execute_wait_step(self, step):

@@ -51,7 +51,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 command=commands[2],
                 validation_func=self._validate_evtlog,
                 timeout=5,
-                description="Check evtlog",
+                description="Check panel resolution",
                 criteria="Panel resolution is 1920x1080",
             ),
             TestStep(

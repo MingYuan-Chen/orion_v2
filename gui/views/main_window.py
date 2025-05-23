@@ -939,7 +939,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Module", "Step", "Specification", "Criteria", "Command", "Response", "Result", "Timestamp", "Duration (sec)"])
+                writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Timestamp", "Duration (sec)"])
                 
                 # write the functionality test results
                 for test_id, records in test_progress_records.items():
@@ -973,7 +973,7 @@ class MainWindowController(QObject):
                                 if step.get('index') == current_step:
                                     step_message = step.get('message', '')
                                     step_desc = step.get('description', '')
-                                    step_specification = step.get('specification', '')
+                                    # step_specification = step.get('specification', '')
                                     step_criteria = step.get('criteria', '')
                                     step_command = step.get('command', '')
                                     step_response = step.get('response', '')
@@ -1045,11 +1045,11 @@ class MainWindowController(QObject):
                             row_data = [
                                 test_id,                                       # module
                                 step_desc,                                     # step
-                                step_specification,                            # specification
+                                # step_specification,                            # specification
                                 step_criteria,                                 # criteria
+                                step_message,                                  # result
                                 step_command,                                  # command
                                 step_response,                                 # response
-                                step_message,                                  # result
                                 record.get('timestamp', '--:--:--'),           # timestamp
                                 step_time                                      # duration
                             ]
@@ -1151,11 +1151,11 @@ class MainWindowController(QObject):
                                 row_data = [
                                     test_id,                # module
                                     step_desc,              # step
-                                    step_specification,     # specification
+                                    # step_specification,     # specification
                                     step_criteria,          # criteria
-                                    step_command,           # command
-                                    step_response,          # response
-                                    step_message,           # result
+                                    step_message,                                  # result
+                                    step_command,                                  # command
+                                    step_response,                                 # response
                                     datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
                                     step_time               # time
                                 ]
@@ -1180,11 +1180,11 @@ class MainWindowController(QObject):
                             row_data = [
                                 test_id,                # module
                                 "Diagnostic Test",      # step
-                                "",                     # specification
+                                # "",                     # specification
                                 "",                     # criteria
+                                f"{status}: {message}", # result
                                 "",                     # command
                                 "",                     # response
-                                f"{status}: {message}", # result
                                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
                                 time_str                # time
                             ]

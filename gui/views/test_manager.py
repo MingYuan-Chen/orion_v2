@@ -642,7 +642,7 @@ class TestManagerView(QObject):
         """
         if self.test_container:
             for test_id in self.test_container.get_all_test_ids():
-                self.test_container.get_test_widget(test_id).set_button_enabled(enabled)
+                self.test_container.get_test_widget(test_id).set_enabled(enabled)
             
         # Enable or disable "Test All" button
         if self.test_all_button:
