@@ -21,7 +21,7 @@ class TestStep:
                  validation_func: Callable[[str], Tuple[bool, str]] = None, 
                  description: str = "", max_retries: int = 2, retry_delay: int = 1000,
                  pre_condition: str = "", post_check: str = "",
-                 specification: str = "", criteria: str = ""):
+                 specification: str = "", criteria: str = "", manual_only: bool = False):
         """
         Initialize test step
         
@@ -35,6 +35,9 @@ class TestStep:
             retry_delay: Retry delay (milliseconds)
             pre_condition: Preparation instructions displayed before step execution
             post_check: Human verification instructions displayed after step execution
+            specification: Specification
+            criteria: Criteria
+            manual_only: Whether this is a manual-only step (no command execution, only human verification)
         """
         self.command = command
         self.expected_response = expected_response
@@ -56,6 +59,12 @@ class TestStep:
         self.log_function = None        # Function to log messages to system log
         self.specification = specification  # Specification
         self.criteria = criteria              # Criteria
+        self.manual_only = manual_only  # Whether this is a manual-only step
+        
+        # 为manual_only步骤设置默认的response
+        if self.manual_only:
+            self.response = "Manual interaction step - no command response"
+            self.result = "Manual interaction step"
         
     def log_to_system(self, level, message):
         """
@@ -356,6 +365,31 @@ class BaseTestWorker(QObject):
         if step.is_wait_step:
             self._execute_wait_step(step)
             return
+        
+        # If step is manual_only, skip command execution and go directly to post_check
+        if step.manual_only:
+            logger.debug(f"Manual-only step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+            # Set a default successful response for manual steps
+            step.response = "Manual interaction step - no command executed"
+            step.result = "Manual interaction step"
+            
+            # Log the manual step
+            if hasattr(step, 'log_to_system'):
+                step.log_to_system("INFO", f"[Manual Step] {step.description}")
+            
+            # Check if the step has post_check requirements
+            if step.post_check:
+                # Set interaction state to post_check and emit signal
+                self.interaction_state = InteractionState.POST_CHECK
+                logger.info(f"Post-check required for manual step {self.current_step_index+1}: {step.post_check}")
+                self.post_check_required.emit(self.current_step_index, step.post_check)
+                return
+            else:
+                # No post_check, mark as passed and continue
+                step.passed = True
+                self.test_step_completed.emit(self.current_step_index, True, "Manual step completed without verification")
+                self._execute_next_step()
+                return
             
         # Log command to system log
         if step.command and hasattr(step, 'log_to_system'):
@@ -460,15 +494,28 @@ class BaseTestWorker(QObject):
             # Record human judgement result
             step = self.steps[self.current_step_index]
             step.human_judgement = is_passed
+            step.passed = is_passed  # 直接设置passed状态
+            
+            # 确保manual_only步骤有适当的response记录
+            if step.manual_only:
+                if is_passed:
+                    step.response = "Manual interaction step - PASS (verified by user)"
+                    step.result = "Manual interaction step - PASS"
+                else:
+                    step.response = "Manual interaction step - FAIL (verified by user)"  
+                    step.result = "Manual interaction step - FAIL"
             
             # Update step result based on human judgement
             if not is_passed:
-                step.passed = False
                 if self.current_step_index not in self.failed_steps:
                     self.failed_steps.append(self.current_step_index)
                 logger.warning(f"Step {self.current_step_index+1} failed based on human judgement")
-                self.test_step_completed.emit(
-                    self.current_step_index, False, "Step failed based on human judgement")
+                message = "FAIL" if step.manual_only else "Step failed based on human judgement"
+                self.test_step_completed.emit(self.current_step_index, False, message)
+            else:
+                logger.info(f"Step {self.current_step_index+1} passed based on human judgement")
+                message = "PASS" if step.manual_only else "Step passed based on human judgement"
+                self.test_step_completed.emit(self.current_step_index, True, message)
             
             # Continue to next step
             self._execute_next_step()
@@ -541,6 +588,11 @@ class BaseTestWorker(QObject):
         # Get current step
         step = self.steps[self.current_step_index]
         step.passed = passed
+        
+        # 为manual_only步骤确保有response记录
+        if step.manual_only and not step.response:
+            step.response = "Manual interaction step - no command executed"
+            step.result = "Manual interaction step"
         
         if not passed:
             self.failed_steps.append(self.current_step_index)

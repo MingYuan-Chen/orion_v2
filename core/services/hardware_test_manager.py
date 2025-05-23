@@ -235,8 +235,9 @@ class HardwareTestManagerService(QObject):
             if hasattr(worker, 'log_function') and worker.log_function:
                 step.log_function = worker.log_function
         
-        # Start the test
+        # Start the test - emit signal AFTER steps are prepared
         logger.info(f"Starting test: {test_id} for device: {device_id}")
+        logger.info(f"Test steps prepared: {len(worker.steps)} steps")
         self.test_started.emit(test_id)
         worker.start_test(device_id)
     
