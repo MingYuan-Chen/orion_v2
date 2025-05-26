@@ -25,11 +25,11 @@ class ChargeWorker(BaseTestWorker):
         return [
             TestStep(
                 command="cat /sys/class/gpio/gpio133/value", 
-                expected_response="0",
+                expected_response="1",
                 timeout=5, 
-                description="Validate DUT is unplugged from the power source",
-                criteria="The DUT is unplugged from the power source",
-                pre_condition="Ensure the DUT is unplugged from the power source.",
+                description="Validate DUT is charging",
+                criteria="The DUT is charging",
+                pre_condition="Ensure battery state is lower than 23% and Connect the DUT to the power source",
                 max_retries=1,
                 retry_delay=500
                 
@@ -38,9 +38,8 @@ class ChargeWorker(BaseTestWorker):
                 command=self.get_battery_state, 
                 validation_func=self._validate_battery_state,
                 timeout=5, 
-                description="Validate battery state is lower than 25%",
-                criteria="Battery state is in 0 ~ 25%",
-                pre_condition="Ensure the battery state is lower than 25%",
+                description="Validate battery state is lower than 23%",
+                criteria="Battery state is in 0 ~ 23%",
                 max_retries=3,
                 retry_delay=500
             ),
@@ -48,9 +47,8 @@ class ChargeWorker(BaseTestWorker):
                 command=self.get_current,
                 validation_func=self._validate_current,
                 timeout=5,
-                description="Validate current is negative",
-                criteria="Current is in 0 ~ -3900mA",
-                pre_condition="Ensure the current is negative",
+                description="Validate current is positive",
+                criteria="Current is in 0 ~ 1200mA",
                 max_retries=3,
                 retry_delay=500
             )
@@ -87,7 +85,7 @@ class ChargeWorker(BaseTestWorker):
         """
         try:
             value = self._parse_response(response)
-            if value < 25 and value > 0:
+            if value < 24 and value > 0:
                 return True, f"Battery state is {value}%"
             else:
                 return False, f"Battery state is {value}%"
@@ -108,7 +106,7 @@ class ChargeWorker(BaseTestWorker):
         """
         try:
             value = self._parse_response(response)
-            if value < 0 and value > -3900:
+            if value > 0 and value < 1200:
                 return True, f"Current is {value}mA"
             else:
                 return False, f"Current is {value}mA"
