@@ -473,6 +473,8 @@ class BaseTestWorker(QObject):
                 step = self.steps[self.current_step_index]
                 step.passed = True
                 self.test_step_completed.emit(self.current_step_index, True, "Step skipped by user")
+                # Continue to next step
+                self._execute_next_step()
     
     @Slot()
     def handle_pre_condition_cancel(self):
