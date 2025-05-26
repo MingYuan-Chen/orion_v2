@@ -510,11 +510,11 @@ class BaseTestWorker(QObject):
                 if self.current_step_index not in self.failed_steps:
                     self.failed_steps.append(self.current_step_index)
                 logger.warning(f"Step {self.current_step_index+1} failed based on human judgement")
-                message = "FAIL" if step.manual_only else "Step failed based on human judgement"
+                message = "FAIL"
                 self.test_step_completed.emit(self.current_step_index, False, message)
             else:
                 logger.info(f"Step {self.current_step_index+1} passed based on human judgement")
-                message = "PASS" if step.manual_only else "Step passed based on human judgement"
+                message = "PASS"
                 self.test_step_completed.emit(self.current_step_index, True, message)
             
             # Continue to next step

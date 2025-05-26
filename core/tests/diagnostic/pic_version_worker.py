@@ -23,10 +23,12 @@ class PicVersionWorker(BaseTestWorker):
         return [
             TestStep(
                 command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 
-                expected_response="0x72",           # convert to decimal: 114
+                expected_response="0x64",           # convert to decimal: 114
+                # Hydra: 0x64
+                # Argo: 0x72
                 timeout=5, 
                 description="Check PIC Version by i2c",
-                criteria="The PIC version is 114",
+                criteria="The PIC version is 100",
                 max_retries=1,
                 retry_delay=500
             ),

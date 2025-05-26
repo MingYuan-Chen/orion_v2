@@ -158,7 +158,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power off?",
-                criteria="The screen power is off(1)",
+                criteria="The screen power is off",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -173,7 +173,7 @@ class BacklightWorker(BaseTestWorker):
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power on?",
-                criteria="The screen power is on(0)",
+                criteria="The screen power is on",
                 max_retries=1,
                 retry_delay=1000
             )

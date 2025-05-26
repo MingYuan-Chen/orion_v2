@@ -1074,3 +1074,434 @@ graph TD
    - 實現語言設置和切換功能
 
 這些發展方向將進一步提升系統的功能性、易用性和擴展性，滿足更多用戶的需求和場景。
+
+## 16. 測試資料記錄與報告導出流程
+
+本章節詳細說明 Orion 系統中 functionality 測試和 auto diagnostic 測試的資料記錄機制以及最終報告導出的完整流程。
+
+### 16.1 整體架構流程
+
+```mermaid
+graph TD
+    A[測試開始] --> B[步驟模板保存]
+    B --> C[測試步驟執行]
+    C --> D[命令響應記錄]
+    D --> E[步驟結果記錄]
+    E --> F[測試進度更新]
+    F --> G{測試是否完成?}
+    G -->|否| C
+    G -->|是| H[測試結果彙整]
+    H --> I[報告導出]
+    I --> J[CSV檔案生成]
+```
+
+### 16.2 詳細資料流向
+
+```mermaid
+sequenceDiagram
+    participant BT as BaseTestWorker
+    participant TM as TestManager/AutoDiagnostic
+    participant MC as MainWindowController
+    participant Storage as 統一資料存儲
+    participant Export as 報告導出器
+    
+    Note over BT,MC: 階段1: 測試啟動與模板保存
+    BT->>MC: test_started信號(test_id)
+    MC->>Storage: 保存步驟模板到test_step_templates
+    
+    Note over BT,MC: 階段2: 步驟執行與記錄
+    loop 每個測試步驟
+        BT->>BT: 執行測試步驟
+        BT->>BT: _on_command_result處理響應
+        BT->>TM: test_step_completed信號
+        TM->>MC: record_test_result調用
+        MC->>Storage: 更新unified_test_results
+        TM->>MC: record_test_progress調用  
+        MC->>Storage: 更新unified_test_progress
+    end
+    
+    Note over BT,MC: 階段3: 報告導出
+    MC->>Export: _export_results調用
+    Export->>Storage: 讀取test_step_templates
+    Export->>Storage: 讀取unified_test_results
+    Export->>Storage: 讀取unified_test_progress
+    Export->>Export: 資料整合與過濾
+    Export->>Export: 生成CSV報告
+```
+
+### 16.3 資料存儲結構
+
+#### 16.3.1 統一測試結果存儲 (unified_test_results)
+
+```python
+self.unified_test_results = {
+    "functionality": {
+        "functionality_touch": {
+            "status": "completed",
+            "steps": [
+                {
+                    "index": 0,
+                    "description": "Launch ts_test",
+                    "message": "PASS",
+                    "command": "ts_test_mt -j 2 -v",
+                    "response": "Test output...",
+                    "time": "00:00:05",
+                    "criteria": "Test should launch successfully",
+                    "specification": "Touch test specification"
+                },
+                # ... 更多步驟
+            ]
+        }
+    },
+    "diagnostic": {
+        "diagnostic_cpu_name": {
+            "status": "completed", 
+            "steps": [
+                {
+                    "index": 0,
+                    "description": "Check CPU Name",
+                    "message": "PASS",
+                    "command": "cat /proc/cpuinfo | grep 'model name'",
+                    "response": "model name: ARM Cortex-A7",
+                    "time": "00:00:02",
+                    "criteria": "CPU name should be detected",
+                    "specification": "CPU detection specification"
+                }
+            ]
+        }
+    }
+}
+```
+
+#### 16.3.2 測試進度記錄 (unified_test_progress)
+
+```python
+self.unified_test_progress = {
+    "functionality": {
+        "functionality_touch": [
+            {
+                "current_step": 1,
+                "total_steps": 13,
+                "timestamp": "2025-05-23 15:30:00",
+                "status": "executing"
+            },
+            {
+                "current_step": 2, 
+                "total_steps": 13,
+                "timestamp": "2025-05-23 15:30:05",
+                "status": "completed"
+            }
+            # ... 更多進度記錄
+        ]
+    },
+    "diagnostic": {
+        "diagnostic_cpu_name": [
+            {
+                "current_step": 1,
+                "total_steps": 1,
+                "timestamp": "2025-05-23 15:25:00",
+                "status": "completed"
+            }
+        ]
+    }
+}
+```
+
+#### 16.3.3 步驟模板存儲 (test_step_templates)
+
+```python
+self.test_step_templates = {
+    "functionality": {
+        "functionality_touch": [
+            {
+                "index": 0,
+                "description": "Launch ts_test",
+                "criteria": "Test should launch successfully",
+                "command": "ts_test_mt -j 2 -v",
+                "manual_only": False,
+                "specification": "Touch test specification",
+                "pre_condition": "",
+                "post_check": ""
+            },
+            {
+                "index": 1,
+                "description": "Touch the 9 points",
+                "criteria": "User should touch all 9 points correctly",
+                "command": "",
+                "manual_only": True,
+                "specification": "Manual interaction test",
+                "pre_condition": "Ensure screen is clean",
+                "post_check": "Verify all 9 points were touched"
+            }
+            # ... 更多步驟模板
+        ]
+    },
+    "diagnostic": {
+        "diagnostic_cpu_name": [
+            {
+                "index": 0,
+                "description": "Check CPU Name", 
+                "criteria": "CPU name should be detected",
+                "command": "cat /proc/cpuinfo | grep 'model name'",
+                "manual_only": False,
+                "specification": "CPU detection specification"
+            }
+        ]
+    }
+}
+```
+
+### 16.4 關鍵記錄節點
+
+#### 16.4.1 測試啟動記錄
+
+```python
+@Slot(str)
+def _on_test_started(self, test_id: str):
+    """處理測試啟動事件，保存步驟模板資訊"""
+    try:
+        # 從 hardware test manager 獲取當前 active worker 的步驟資訊
+        if hasattr(self.hw_test_manager, 'active_test_worker') and self.hw_test_manager.active_test_worker:
+            worker = self.hw_test_manager.active_test_worker
+            
+            if hasattr(worker, 'steps') and worker.steps:
+                # 保存步驟模板資訊
+                step_templates = []
+                for i, step in enumerate(worker.steps):
+                    step_template = {
+                        'index': i,
+                        'description': getattr(step, 'description', ''),
+                        'criteria': getattr(step, 'criteria', ''),
+                        'command': getattr(step, 'command', ''),
+                        'manual_only': getattr(step, 'manual_only', False),
+                        'specification': getattr(step, 'specification', ''),
+                    }
+                    step_templates.append(step_template)
+                
+                # 確定測試類型並保存模板
+                test_type = "functionality" if test_id.startswith("functionality_") else "diagnostic"
+                self.test_step_templates[test_type][test_id] = step_templates
+                
+                logger.info(f"Saved {len(step_templates)} step templates for {test_id}")
+```
+
+#### 16.4.2 步驟完成記錄
+
+在 `test_manager.py` 中的 `_on_test_step_completed` 方法：
+
+```python
+def _on_test_step_completed(self, step_index: int, success: bool, message: str):
+    """處理測試步驟完成事件"""
+    # 獲取當前測試資訊
+    current_test_id = self.hw_test_manager.active_test_id
+    
+    # 記錄步驟結果
+    if current_test_id in self.local_temp_results:
+        # 從 active worker 獲取詳細步驟資訊
+        step_data = {
+            "index": step_index,
+            "success": success,
+            "message": self._determine_final_message(message, success),
+            "description": self._get_step_description(step_index),
+            "command": self._get_step_command(step_index),
+            "response": self._get_step_response(step_index),
+            "criteria": self._get_step_criteria(step_index),
+            "specification": self._get_step_specification(step_index),
+            "time": self._calculate_step_time(step_index)
+        }
+        
+        # 檢查是否已存在相同索引的步驟記錄，若存在則更新
+        self._update_or_add_step_record(current_test_id, step_data)
+```
+
+#### 16.4.3 統一資料記錄
+
+```python
+def record_test_result(self, test_type, test_id, result_data):
+    """記錄測試結果到統一存儲"""
+    if test_type in self.unified_test_results:
+        self.unified_test_results[test_type][test_id] = result_data
+        logger.debug(f"Recorded test result for {test_type}/{test_id}")
+
+def record_test_progress(self, test_type, test_id, progress_data):
+    """記錄測試進度到統一存儲"""
+    if test_type in self.unified_test_progress:
+        if test_id not in self.unified_test_progress[test_type]:
+            self.unified_test_progress[test_type][test_id] = []
+        self.unified_test_progress[test_type][test_id].append(progress_data)
+        logger.debug(f"Recorded test progress for {test_type}/{test_id}")
+```
+
+### 16.5 報告導出機制
+
+#### 16.5.1 導出流程概述
+
+```mermaid
+graph TD
+    A[用戶點擊導出] --> B[_export_results方法]
+    B --> C[獲取測試結果資料]
+    C --> D[獲取步驟模板資料]
+    D --> E[獲取進度記錄資料]
+    E --> F[資料整合與驗證]
+    F --> G[響應內容過濾]
+    G --> H[CSV格式化]
+    H --> I[檔案保存]
+    I --> J[清理測試資料]
+```
+
+#### 16.5.2 雙階段資料處理
+
+**階段1: 處理有進度記錄的測試**
+
+```python
+# 處理有進度記錄的測試（已執行的測試）
+for test_id, records in test_progress_records.items():
+    # 確定測試類型
+    test_type = "diagnostic" if test_id.startswith("diagnostic_") else "functionality"
+    step_templates = self.test_step_templates.get(test_type, {}).get(test_id, [])
+    
+    # 獲取實際執行的測試步驟資料
+    test_steps = []
+    if test_id in test_results:
+        test_steps = test_results[test_id].get("steps", [])
+    elif test_id in diagnostic_results:
+        test_steps = diagnostic_results[test_id].get("steps", [])
+    
+    # 基於步驟模板導出，確保所有有criteria的步驟都被導出
+    for template_index, template in enumerate(step_templates):
+        if not template.get('criteria', ''):
+            continue  # 跳過無criteria的步驟
+            
+        # 從實際執行資料中獲取結果
+        step_result = self._get_step_result_from_execution(template_index, test_steps)
+        
+        # 整合模板資訊與執行結果
+        final_row_data = self._merge_template_and_execution_data(template, step_result)
+        
+        # 寫入CSV
+        writer.writerow(final_row_data)
+```
+
+**階段2: 響應內容智能過濾**
+
+```python
+def _filter_response_content(self, step_response, is_manual_step=False):
+    """智能過濾響應內容"""
+    if is_manual_step:
+        return step_response  # 手動步驟保持原始響應
+    
+    final_response = ""
+    if isinstance(step_response, str):
+        for line in step_response.split("\n"):
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+                
+            # 過濾明顯的命令行和控制資訊
+            if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
+                continue
+                
+            # 智能過濾命令提示符：只過濾明顯的提示符行
+            if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
+                line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
+                continue
+                
+            # 過濾空的提示符行
+            if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
+                continue
+                
+            final_response += line + "\n"
+    
+    return final_response.strip()
+```
+
+#### 16.5.3 CSV報告格式
+
+最終生成的CSV報告包含以下欄位：
+
+| 欄位名稱 | 說明 | 範例 |
+|---------|------|------|
+| Module | 測試模組名稱 | functionality_touch |
+| Step | 步驟描述 | Touch the 9 points |
+| Criteria | 測試標準 | User should touch all 9 points correctly |
+| Result | 測試結果 | PASS/FAIL/SKIPPED |
+| Command | 執行命令 | ts_test_mt -j 2 -v |
+| Response | 命令響應 | Test completed successfully |
+| Timestamp | 執行時間戳 | 2025-05-23 15:30:00 |
+| Duration (sec) | 執行時長 | 00:00:05 |
+
+#### 16.5.4 資料清理機制
+
+```python
+def clear_all_test_results(self):
+    """清理所有測試資料"""
+    # 清理測試結果
+    for test_type in self.unified_test_results:
+        self.unified_test_results[test_type].clear()
+        self.unified_test_progress[test_type].clear()
+    
+    # 清理步驟模板
+    for test_type in self.test_step_templates:
+        self.test_step_templates[test_type].clear()
+    
+    # 通知視圖重置UI
+    if hasattr(self, 'test_manager'):
+        self.test_manager.reset_ui()
+    if hasattr(self, 'auto_diagnostic_view'):
+        self.auto_diagnostic_view.reset_ui()
+        
+    logger.info("All test results and templates cleared after export")
+```
+
+### 16.6 關鍵設計決策
+
+#### 16.6.1 為什麼使用步驟模板系統？
+
+1. **完整性保證**：確保所有定義的測試步驟都被記錄，即使某些步驟因為系統問題沒有完整執行
+2. **標準化資訊**：提供統一的步驟描述、標準和規格資訊
+3. **手動步驟支援**：特別處理需要人工驗證的手動交互步驟
+
+#### 16.6.2 雙重資料來源整合
+
+1. **步驟模板**：提供完整的步驟定義和標準
+2. **執行記錄**：提供實際的執行結果和響應
+3. **智能整合**：優先使用執行記錄，模板作為備援和補充
+
+#### 16.6.3 響應過濾策略
+
+1. **保護重要資訊**：避免過濾掉包含特殊字符但實際上是有效響應的內容（如`uname -a`中的`#1`）
+2. **清理冗餘資訊**：移除命令提示符和控制字符，提高報告可讀性
+3. **手動步驟特殊處理**：保持手動驗證步驟的原始響應
+
+### 16.7 故障排除與調試
+
+#### 16.7.1 常見問題
+
+1. **步驟模板未保存**：
+   - 檢查`test_started`信號是否正確發送
+   - 驗證worker的steps屬性是否正確設置
+
+2. **執行結果丟失**：
+   - 確認`record_test_result`和`record_test_progress`被正確調用
+   - 檢查test_id匹配是否正確
+
+3. **響應內容為空**：
+   - 檢查響應過濾邏輯是否過於嚴格
+   - 確認命令執行是否成功返回響應
+
+#### 16.7.2 調試工具
+
+系統提供詳細的日誌記錄來協助調試：
+
+```python
+# 步驟模板保存日誌
+logger.info(f"Saved {len(step_templates)} step templates for {test_id}")
+
+# 步驟執行日誌  
+logger.info(f"Step {template_index} final export: '{step_desc}' -> Result: '{step_message}'")
+
+# 導出處理日誌
+logger.info(f"Processing test with progress records: {test_id}, progress records: {len(records)}, step templates: {len(step_templates)}")
+```
+
+透過這套完整的記錄與導出機制，Orion系統能夠生成詳細、準確的測試報告，為用戶提供全面的測試結果分析和問題診斷支援。
