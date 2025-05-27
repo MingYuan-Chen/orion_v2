@@ -12,13 +12,15 @@ import csv
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
-from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy, QMessageBox, QFrame, QSpacerItem
+from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QSizePolicy, QMessageBox, QFrame, QSpacerItem, QGroupBox
 
 from gui.views.test_manager import TestManagerView
 from gui.widgets.test_container import TestContainer
 from gui.views.system_info_manager import SystemInfoManagerView
 from gui.views.log_manager import LogManagerView
 from gui.views.auto_diagnostic_view import AutoDiagnosticView
+from gui.views.hw_sw_config_manager import HWSWConfigManager
+from gui.views.firmware_os_manager import FirmwareOSManager
 
 
 class DarkEditDialog(QDialog):
@@ -207,11 +209,26 @@ class MainWindowController(QObject):
         # create the system info manager
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
         
+        # create the HW/SW configuration manager
+        self.hw_sw_config_manager = HWSWConfigManager()
+        
+        # create the firmware & OS manager
+        self.firmware_os_manager = FirmwareOSManager()
+        
         # create the log manager
         self.log_manager = LogManagerView(self.device_id)
         
         # Initialize system info view
         self._init_system_info_view()
+        
+        # Initialize HW/SW config view
+        self._init_hw_sw_config_view()
+        
+        # Initialize firmware & OS view
+        self._init_firmware_os_view()
+        
+        # Initialize dashboard scrolling
+        self._init_dashboard_scrolling()
         
         # Initialize logs view
         self._init_logs_view()
@@ -329,6 +346,152 @@ class MainWindowController(QObject):
         
         # when the update is error, add the error log, and close the waiting icon
         self.system_info_manager.info_update_error.connect(self._on_system_info_update_error)
+    
+    def _init_hw_sw_config_view(self):
+        """Initialize HW/SW configuration view"""
+        # Get the table widget from the UI
+        hw_sw_table = self.window.tableWidget_hw_sw_config
+        
+        # Set up the HW/SW config manager with the table widget and edit dialog
+        self.hw_sw_config_manager.set_ui_components(hw_sw_table, DarkEditDialog)
+        
+        # Connect signals if needed
+        self.hw_sw_config_manager.config_updated.connect(self._on_hw_sw_config_updated)
+        
+        logger.info("HW/SW configuration view initialized")
+    
+    def _init_firmware_os_view(self):
+        """Initialize firmware & OS view"""
+        # Set up the firmware & OS manager with the window and edit dialog
+        self.firmware_os_manager.set_ui_components(self.window, DarkEditDialog)
+        
+        # Connect signals
+        self.firmware_os_manager.info_updated.connect(self._on_firmware_os_updated)
+        
+        logger.info("Firmware & OS view initialized")
+    
+    def _init_dashboard_scrolling(self):
+        """Initialize dashboard scrolling functionality"""
+        try:
+            # Check if scroll area already exists in the UI file
+            if hasattr(self.window, 'scrollArea_dashboard'):
+                logger.info("Scroll area already exists in UI file, configuring existing components")
+                
+                # Just configure the fixed heights for existing components
+                system_overview = self.window.groupBox_system_overview
+                if system_overview:
+                    system_overview.setMinimumHeight(280)
+                    system_overview.setMaximumHeight(280)
+                    logger.debug("Set System Overview fixed height: 280px")
+                
+                # Find and configure HW Components
+                hw_components = self.window.tableWidget_hw_sw_config
+                if hw_components:
+                    # Find the parent groupbox
+                    hw_groupbox = hw_components.parent()
+                    while hw_groupbox and not isinstance(hw_groupbox, QGroupBox):
+                        hw_groupbox = hw_groupbox.parent()
+                    
+                    if hw_groupbox:
+                        hw_groupbox.setMinimumHeight(400)
+                        hw_groupbox.setMaximumHeight(400)
+                        logger.debug("Set HW Components group fixed height: 400px")
+                    
+                    # Set the table to show all rows without internal scrolling
+                    hw_components.setMinimumHeight(350)
+                    hw_components.setMaximumHeight(350)
+                    hw_components.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                    logger.debug("Set HW Components table fixed height: 350px, no internal scrolling")
+                
+                # Find and configure Firmware & OS group
+                firmware_os_groupbox = self.window.groupBox_firmware_os
+                if firmware_os_groupbox:
+                    firmware_os_groupbox.setMinimumHeight(200)
+                    firmware_os_groupbox.setMaximumHeight(200)
+                    logger.debug("Set Firmware & OS group fixed height: 200px")
+                
+                logger.info("Dashboard scrolling functionality configured successfully")
+                return
+            
+            # If no scroll area exists, create one dynamically (fallback)
+            logger.info("No scroll area found in UI file, creating dynamically")
+            
+            # Get the dashboard tab
+            dashboard_tab = self.window.tab_dashboard
+            
+            # Get the existing layout
+            existing_layout = dashboard_tab.layout()
+            if not existing_layout:
+                logger.warning("No existing layout found in dashboard tab")
+                return
+            
+            # Create a scroll area
+            scroll_area = QScrollArea(dashboard_tab)
+            scroll_area.setFrameShape(QScrollArea.NoFrame)
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            
+            # Create content widget for scroll area
+            content_widget = QWidget()
+            content_layout = QVBoxLayout(content_widget)
+            content_layout.setContentsMargins(10, 10, 10, 10)
+            content_layout.setSpacing(10)
+            
+            # Move all existing widgets to the content layout
+            while existing_layout.count():
+                item = existing_layout.takeAt(0)
+                if item.widget():
+                    content_layout.addWidget(item.widget())
+                elif item.layout():
+                    content_layout.addLayout(item.layout())
+                elif item.spacerItem():
+                    content_layout.addItem(item.spacerItem())
+            
+            # Set fixed heights for groups
+            system_overview = self.window.groupBox_system_overview
+            if system_overview:
+                system_overview.setMinimumHeight(280)
+                system_overview.setMaximumHeight(280)
+                logger.debug("Set System Overview fixed height: 280px")
+            
+            # Add a vertical spacer at the bottom to handle extra space
+            spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+            content_layout.addItem(spacer)
+            
+            # Set the content widget to the scroll area
+            scroll_area.setWidget(content_widget)
+            
+            # Remove the old layout and add the scroll area
+            dashboard_tab.setLayout(None)
+            new_layout = QVBoxLayout(dashboard_tab)
+            new_layout.setContentsMargins(0, 0, 0, 0)
+            new_layout.addWidget(scroll_area)
+            
+            logger.info("Dashboard scrolling functionality created dynamically")
+            
+        except Exception as e:
+            logger.error(f"Error initializing dashboard scrolling: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    def _on_hw_sw_config_updated(self, component_id: str, field_type: str, new_value: str):
+        """Handle HW/SW configuration update"""
+        # Log the configuration change
+        self.log_manager.add_log_entry(
+            "INFO", 
+            f"HW/SW Config updated - {component_id} {field_type}: {new_value}"
+        )
+        logger.info(f"HW/SW Config updated: {component_id} {field_type} = {new_value}")
+    
+    def _on_firmware_os_updated(self, field_name: str, new_value: str):
+        """Handle firmware & OS information update"""
+        # Log the firmware & OS change
+        self.log_manager.add_log_entry(
+            "INFO", 
+            f"Firmware & OS updated - {field_name}: {new_value}"
+        )
+        logger.info(f"Firmware & OS updated: {field_name} = {new_value}")
     
     def _add_system_log_without_tab_switch(self, level, message):
         """Add system log without switching tabs"""
@@ -1514,6 +1677,24 @@ class MainWindowController(QObject):
                 if hasattr(self.system_info_manager, 'cleanup'):
                     self.system_info_manager.cleanup()
                 self.system_info_manager = None
+            
+            # Clean up HW/SW config manager
+            if hasattr(self, 'hw_sw_config_manager') and self.hw_sw_config_manager:
+                logger.debug("Cleaning up HW/SW config manager")
+                try:
+                    self.hw_sw_config_manager.config_updated.disconnect()
+                except Exception:
+                    pass
+                self.hw_sw_config_manager = None
+            
+            # Clean up firmware & OS manager
+            if hasattr(self, 'firmware_os_manager') and self.firmware_os_manager:
+                logger.debug("Cleaning up firmware & OS manager")
+                try:
+                    self.firmware_os_manager.info_updated.disconnect()
+                except Exception:
+                    pass
+                self.firmware_os_manager = None
             
             # Clean up log manager
             if self.log_manager:
