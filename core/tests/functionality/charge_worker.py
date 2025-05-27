@@ -38,7 +38,7 @@ class ChargeWorker(BaseTestWorker):
                 command=self.get_battery_state, 
                 validation_func=self._validate_battery_state,
                 timeout=5, 
-                description="Validate battery state is lower than 23%",
+                description="For charge current test, validate battery state is lower than 23% (Upper limited 25% by BLT tool)",
                 criteria="Battery state is in 0 ~ 23%",
                 max_retries=3,
                 retry_delay=500
