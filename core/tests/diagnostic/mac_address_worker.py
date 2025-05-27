@@ -28,7 +28,7 @@ class MacAddressWorker(BaseTestWorker):
                 # FHD Hydra: sometimes it changes to 1a:33:65:6d:72:09
                 # FHD Argo: 7a:30:22:24:b9:fa
                 timeout=5, 
-                description="Check the Mac label match the system reading",
+                description="Check the Mac address label match the system reading",
                 criteria="The mac address is 7a:30:22:24:b9:fa",
                 max_retries=1,
                 retry_delay=500
