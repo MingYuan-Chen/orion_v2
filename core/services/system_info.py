@@ -143,7 +143,17 @@ class SystemInfoService(QObject):
         
         # Execute command and receive result in signal processing
         try:
-            self.serial_worker.send_command(self.current_device_id, command, 3)
+            # Use different timeouts based on command type
+            if command_name in ["uboot_version", "pic_firmware"] or "i2ctransfer" in command:
+                # Complex commands need more time
+                timeout = 8
+            elif command_name in ["os_version", "cpu_info", "memory_info"]:
+                # Simple commands can use shorter timeout
+                timeout = 5
+            else:
+                timeout = 6
+                
+            self.serial_worker.send_command(self.current_device_id, command, timeout)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
             self._execute_next_command()
@@ -217,8 +227,16 @@ class SystemInfoService(QObject):
         except Exception as e:
             logger.error(f"Error parsing response for {command_name}: {str(e)}")
         
-        # Execute next command
-        self._execute_next_command()
+        # Add delay before next command, especially for i2c commands
+        if command_name and ("i2ctransfer" in self.commands.get(command_name, "") or 
+                           command_name in ["pic_firmware", "relative_state", "charging_voltage", "charging_current", "temperature"]):
+            # Add extra delay for i2c commands to prevent response mixing
+            # Use longer delay for relative_state as it's particularly problematic
+            delay = 1500 if command_name == "relative_state" else 800
+            QTimer.singleShot(delay, self._execute_next_command)
+        else:
+            # Execute next command immediately for non-i2c commands
+            self._execute_next_command()
     
     def _parse_cpu_info(self, response: str) -> Dict[str, Any]:
         """
@@ -233,9 +251,41 @@ class SystemInfoService(QObject):
         cpu_info = {}
         
         try:
-            cpu_info["model"] = response.strip().split('\n')[1]
-        except:
-            logger.warning(f"Failed to parse CPU information: {response}")
+            # Split response into lines and look for the actual hardware information
+            lines = [line.strip() for line in response.strip().split('\n') if line.strip()]
+            
+            # Look for lines that contain hardware information (not command echoes)
+            for line in lines:
+                # Skip command echo lines
+                if 'grep' in line or 'Hardware' in line and 'proc' in line:
+                    continue
+                # Skip prompt lines
+                if 'root@' in line or line.startswith('#'):
+                    continue
+                # Look for hardware model information
+                if any(keyword in line.lower() for keyword in ['freescale', 'imx', 'mx6', 'cortex', 'arm', 'intel', 'amd']):
+                    cpu_info["model"] = line.strip()
+                    break
+            
+            # If no specific hardware model found, try to find any non-empty line that's not a command
+            if "model" not in cpu_info:
+                for line in lines:
+                    if (line and 
+                        'grep' not in line and 
+                        'Hardware' not in line and 
+                        'proc' not in line and
+                        'root@' not in line and 
+                        not line.startswith('#') and
+                        len(line) > 3):  # Ensure it's meaningful content
+                        cpu_info["model"] = line.strip()
+                        break
+            
+            # Final fallback
+            if "model" not in cpu_info:
+                cpu_info["model"] = "Unknown"
+                
+        except Exception as e:
+            logger.warning(f"Failed to parse CPU information: {response} - Error: {e}")
             cpu_info["model"] = "Unknown"
         
         return cpu_info
@@ -340,40 +390,131 @@ class SystemInfoService(QObject):
             if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
                                "charging_current", "temperature", "cycle_count", "led_status"]:
                 try:
-                    # Extract hexadecimal value part
-                    value = response.split("r2\n")[1].split("root")[0].split("\n")[1].replace(" 0x", "")
-                    value = int(value, 16)
+                    # Enhanced parsing for i2c responses with better error handling
+                    # Look for hex values more robustly
+                    lines = response.strip().split('\n')
+                    hex_values = []
+                    command_hex_values = {}  # Track hex values by command type
                     
-                    # Convert format according to different types
-                    if command_name == "capacity":
-                        # Return capacity value directly
-                        parsed_value = value
-                    elif command_name == "full_capacity":
-                        # Return full capacity value directly
-                        parsed_value = value
-                    elif command_name == "relative_state":
-                        # Return relative state value directly
-                        parsed_value = value
-                    elif command_name == "charging_voltage":
-                        # Convert voltage to volts (V)
-                        parsed_value = round(float(value/1000), 2)
-                    elif command_name == "charging_current":
-                        # Convert current to amperes (A)
-                        parsed_value = round(float(value/1000), 2)
-                    elif command_name == "temperature":
-                        # Convert temperature to Celsius (°C)
-                        parsed_value = round(float(value/10)-273.15, 2)
-                    elif command_name == "cycle_count":
-                        # Return cycle count value directly
-                        parsed_value = value
-                    elif command_name == "led_status":
-                        # Return LED status value directly
-                        parsed_value = value
+                    current_command_context = None
+                    for line in lines:
+                        # Skip command echo lines
+                        if 'i2ctransfer' in line or 'sleep' in line or 'root@' in line:
+                            # Detect which command this line belongs to based on register address
+                            if command_name == "relative_state" and "0x0d" in line:
+                                current_command_context = "relative_state"
+                            elif command_name == "charging_voltage" and "0x15" in line:
+                                current_command_context = "charging_voltage"
+                            elif command_name == "charging_current" and "0x14" in line:
+                                current_command_context = "charging_current"
+                            elif command_name == "temperature" and "0x08" in line:
+                                current_command_context = "temperature"
+                            elif command_name == "pic_firmware" and "0x10" in line:
+                                current_command_context = "pic_firmware"
+                            continue
+                            
+                        # Look for hex values in the line
+                        if '0x' in line:
+                            line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                            if line_hex:
+                                hex_values.extend(line_hex)
+                                # Associate hex values with current command context
+                                if current_command_context:
+                                    if current_command_context not in command_hex_values:
+                                        command_hex_values[current_command_context] = []
+                                    command_hex_values[current_command_context].extend(line_hex)
+                    
+                    # Try to use command-specific hex values first
+                    target_hex_values = command_hex_values.get(command_name, hex_values)
+                    
+                    # Special handling for pic_firmware
+                    if command_name == "pic_firmware":
+                        if len(target_hex_values) >= 3:
+                            # Response structure: [status_byte, version_high, version_low]
+                            # Skip the first hex value (0x00 status byte) and use the next two
+                            version_high = target_hex_values[1]  # "0x01"
+                            version_low = target_hex_values[2]   # "0x02"
+                            # Combine as "0x0102" then convert to int
+                            combined_hex = "0x" + version_high[2:] + version_low[2:]  # "0x0102"
+                            firmware_version = int(combined_hex, 16)  # 258
+                            return f"v{firmware_version}"
+                        elif len(target_hex_values) == 2:
+                            # If only two values, assume they are version data
+                            version_high = target_hex_values[0]  # "0x01"
+                            version_low = target_hex_values[1]   # "0x02"
+                            # Combine as "0x0102" then convert to int
+                            combined_hex = "0x" + version_high[2:] + version_low[2:]  # "0x0102"
+                            firmware_version = int(combined_hex, 16)  # 258
+                            return f"v{firmware_version}"
+                        else:
+                            value = int(target_hex_values[0], 16) if target_hex_values else 0
+                            logger.debug(f"Parsed {command_name}: {value} (from hex values: {target_hex_values})")
+                            return value
                     else:
-                        parsed_value = value
-                    
-                    logger.debug(f"Parsed {command_name}: {parsed_value}")
-                    return parsed_value
+                        # Extract the correct hex values based on expected pattern
+                        if len(target_hex_values) >= 2:
+                            # For multi-byte values, take the last two meaningful hex values
+                            # Filter out status bytes (0x02) which are common in responses
+                            data_hex = [h for h in target_hex_values if h != '0x02']
+                            
+                            if len(data_hex) >= 2:
+                                high_byte = int(data_hex[-2], 16)
+                                low_byte = int(data_hex[-1], 16)
+                                value = (high_byte << 8) + low_byte
+                            elif len(data_hex) == 1:
+                                value = int(data_hex[0], 16)
+                            else:
+                                # Fall back to using all hex values if no data hex found
+                                if len(target_hex_values) >= 2:
+                                    high_byte = int(target_hex_values[-2], 16)
+                                    low_byte = int(target_hex_values[-1], 16)
+                                    value = (high_byte << 8) + low_byte
+                                else:
+                                    value = int(target_hex_values[-1], 16)
+                        elif len(target_hex_values) == 1:
+                            value = int(target_hex_values[0], 16)
+                        else:
+                            # Fallback to original parsing method
+                            if "r2" in response:
+                                value_part = response.split("r2")[1].split("root")[0]
+                                value_line = [line for line in value_part.split('\n') if '0x' in line]
+                                if value_line:
+                                    value = int(value_line[0].replace(' 0x', '').replace('0x', ''), 16)
+                                else:
+                                    raise ValueError("No hex values found in response")
+                            else:
+                                raise ValueError("Invalid response format")
+                        
+                        # Convert format according to different types
+                        if command_name == "capacity":
+                            # Return capacity value directly
+                            parsed_value = value
+                        elif command_name == "full_capacity":
+                            # Return full capacity value directly
+                            parsed_value = value
+                        elif command_name == "relative_state":
+                            # Return relative state value directly
+                            parsed_value = value
+                        elif command_name == "charging_voltage":
+                            # Convert voltage to volts (V)
+                            parsed_value = round(float(value/1000), 2)
+                        elif command_name == "charging_current":
+                            # Convert current to amperes (A)
+                            parsed_value = round(float(value/1000), 2)
+                        elif command_name == "temperature":
+                            # Convert temperature to Celsius (°C)
+                            parsed_value = round(float(value/10)-273.15, 2)
+                        elif command_name == "cycle_count":
+                            # Return cycle count value directly
+                            parsed_value = value
+                        elif command_name == "led_status":
+                            # Return LED status value directly
+                            parsed_value = value
+                        else:
+                            parsed_value = value
+                        
+                        logger.debug(f"Parsed {command_name}: {parsed_value} (from hex values: {target_hex_values})")
+                        return parsed_value
                     
                 except Exception as e:
                     logger.error(f"Failed to parse {command_name}: {e}")
@@ -416,9 +557,12 @@ class SystemInfoService(QObject):
             Parsed information string
         """
         try:
+            # Clean up response first
+            clean_response = response.strip()
+            lines = [line.strip() for line in clean_response.split('\n') if line.strip()]
+            
             if command_name == "uboot_version":
                 # Parse U-Boot version from strings output
-                lines = response.strip().split('\n')
                 for line in lines:
                     if 'U-Boot' in line and any(char.isdigit() for char in line):
                         # Extract version information
@@ -428,24 +572,73 @@ class SystemInfoService(QObject):
             elif command_name == "pic_firmware":
                 # Parse PIC firmware version from i2c response
                 try:
-                    value = response.split("r2\n")[1].split("root")[0].split("\n")[1].replace(" 0x", "")
-                    firmware_version = int(value, 16)
-                    return f"v{firmware_version}"
-                except:
-                    return "Unknown PIC Version"
+                    # Enhanced parsing for PIC firmware
+                    lines = response.strip().split('\n')
+                    hex_values = []
+                    
+                    for line in lines:
+                        # Skip command echo lines
+                        if 'i2ctransfer' in line or 'sleep' in line or 'root@' in line:
+                            continue
+                        # Look for hex values in the line
+                        if '0x' in line:
+                            line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                            hex_values.extend(line_hex)
+                    
+                    if len(hex_values) >= 3:
+                        # Response structure: [status_byte, version_high, version_low]
+                        # Skip the first hex value (0x00 status byte) and use the next two
+                        version_high = hex_values[1]  # "0x01"
+                        version_low = hex_values[2]   # "0x02"
+                        # Combine as "0x0102" then convert to int
+                        combined_hex = "0x" + version_high[2:] + version_low[2:]  # "0x0102"
+                        firmware_version = int(combined_hex, 16)  # 258
+                        return f"v{firmware_version}"
+                    elif len(hex_values) == 2:
+                        # If only two values, assume they are version data
+                        version_high = hex_values[0]  # "0x01"
+                        version_low = hex_values[1]   # "0x02"
+                        # Combine as "0x0102" then convert to int
+                        combined_hex = "0x" + version_high[2:] + version_low[2:]  # "0x0102"
+                        firmware_version = int(combined_hex, 16)  # 258
+                        return f"v{firmware_version}"
+                    elif len(hex_values) == 1:
+                        # Single hex value
+                        firmware_version = int(hex_values[0], 16)
+                        return f"v{firmware_version}"
+                    else:
+                        # Fallback to original parsing
+                        if "r2" in response:
+                            value_part = response.split("r2")[1].split("root")[0]
+                            value_line = [line for line in value_part.split('\n') if '0x' in line]
+                            if value_line:
+                                hex_val = value_line[0].replace(' 0x', '').replace('0x', '')
+                                firmware_version = int(hex_val, 16)
+                                return f"v{firmware_version}"
+                        raise ValueError("No valid firmware version found")
+                except Exception as e:
+                    logger.debug(f"Error parsing PIC firmware: {e}")
+                    
+                return "Unknown PIC Version"
                 
             elif command_name == "os_version":
                 # Parse OS version from uname -a output
-                os_version = response.split("#")[0]
-                return os_version
+                for line in lines:
+                    if 'Linux' in line and any(char.isdigit() for char in line):
+                        # Extract kernel information, avoid command echoes
+                        if not line.startswith('uname'):
+                            # Clean up the line by splitting at first # and taking the part before
+                            clean_line = line.split('#')[0].strip()
+                            return clean_line if clean_line else line.strip()
+                return "Unknown OS Version"
                 
             else:
                 # Return original response for unknown commands
-                return response.strip()
+                return clean_response[:100] if clean_response else "No response"
                 
         except Exception as e:
             logger.warning(f"Failed to parse {command_name}: {e}")
-            return response.strip()
+            return clean_response[:100] if clean_response else "Parse error"
 
 
 if __name__ == "__main__":

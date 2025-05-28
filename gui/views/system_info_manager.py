@@ -243,15 +243,25 @@ class SystemInfoManagerView(QObject):
         Args:
             system_info: System information dictionary
         """
+        logger.debug(f"Updating system info display with data: {system_info}")
+        
         # CPU info
         if "cpu" in system_info and "model" in system_info["cpu"] and "cpu" in self.ui_components:
-            self.ui_components["cpu"].setText(system_info["cpu"]["model"])
+            cpu_model = system_info["cpu"]["model"]
+            logger.debug(f"Updating CPU info: {cpu_model}")
+            self.ui_components["cpu"].setText(cpu_model)
+            logger.debug("CPU info updated in UI")
+        else:
+            logger.debug(f"CPU info not updated - cpu in system_info: {'cpu' in system_info}, "
+                        f"model in cpu: {'model' in system_info.get('cpu', {})}, "
+                        f"cpu in ui_components: {'cpu' in self.ui_components}")
         
         # Memory info
         if "memory" in system_info and "memory" in self.ui_components:
             mem_info = system_info["memory"]
             if "total" in mem_info and "used" in mem_info:
                 mem_text = f"{mem_info['total']} ({mem_info['used']} Used)"
+                logger.debug(f"Updating memory info: {mem_text}")
                 self.ui_components["memory"].setText(mem_text)
         
         # Storage info
@@ -259,11 +269,13 @@ class SystemInfoManagerView(QObject):
             storage_info = system_info["storage"]
             if "total" in storage_info and "available" in storage_info:
                 storage_text = f"{storage_info['total']} ({storage_info['available']} Available)"
+                logger.debug(f"Updating storage info: {storage_text}")
                 self.ui_components["storage"].setText(storage_text)
         
         # Battery info
         if "battery" in system_info:
             battery_info = system_info["battery"]
+            logger.debug(f"Updating battery info: {battery_info}")
             
             # Battery charge percentage
             if "relative_state" in battery_info and "charge" in self.ui_components:

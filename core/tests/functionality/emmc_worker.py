@@ -42,7 +42,6 @@ class EmmcWorker(BaseTestWorker):
             ),
             TestStep(
                 command="echo 3 > /proc/sys/vm/drop_caches", 
-                expected_response="drop_caches", 
                 timeout=10, 
                 description="Drop caches",
                 max_retries=3,

@@ -20,9 +20,9 @@ class FirmwareOSManager(QObject):
         
         # Default information data
         self.firmware_os_data = {
-            "uboot_version": "2025.03",
-            "pic_firmware": "v2.4.8", 
-            "os_version": "Linux gemini 4.1.15",
+            "uboot_version": "...",
+            "pic_firmware": "...", 
+            "os_version": "...",
             "kernel": "6.2.0-36-generic"
         }
         

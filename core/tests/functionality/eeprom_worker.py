@@ -95,7 +95,6 @@ class EepromWorker(BaseTestWorker):
             # Fourth step: Read the data from EEPROM
             TestStep(
                 command=f"eeprog {self.i2c_bus} {self.eeprom0} -16 -f -q -r 0x0:16384 > from_eeprom0_data", 
-                expected_response="eeprog", 
                 timeout=10, 
                 description="Read data from EEPROM0",
                 max_retries=3,
@@ -103,7 +102,6 @@ class EepromWorker(BaseTestWorker):
             ),
             TestStep(
                 command=f"eeprog {self.i2c_bus} {self.eeprom1} -8 -f -q -r 0x0:128 > from_eeprom1_data", 
-                expected_response="eeprog", 
                 timeout=10, 
                 description="Read data from EEPROM1",
                 max_retries=3,

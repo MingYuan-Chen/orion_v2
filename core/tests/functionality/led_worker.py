@@ -135,16 +135,39 @@ class LedWorker(BaseTestWorker):
         Parse led information from i2ctransfer commands
         
         Args:
-            command_name: Name of the command (capacity, full_capacity, etc.)
             response: Command response
             
         Returns:
-            Parsed battery information value
+            Parsed LED status value
         """
             
         try:
-            value = response.split("r2\n")[1].split("root")[0].split("\n")[1].replace(" 0x", "")
-            return int(value, 16)
+            # LED command response format:
+            # Line 1: 0x02 (status)
+            # Line 2: 0x00 0x0a (actual LED status data)
+            
+            lines = [line.strip() for line in response.strip().split('\n') if line.strip()]
+            
+            # Look for hex values in the response
+            hex_values = []
+            for line in lines:
+                if '0x' in line:
+                    # Extract all hex values from this line
+                    line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                    hex_values.extend(line_hex)
+            
+            # For LED status, we need the last hex value (the actual status)
+            if len(hex_values) >= 2:
+                # Take the last hex value as the LED status
+                led_status_hex = hex_values[-1]
+                return int(led_status_hex, 16)
+            elif len(hex_values) == 1:
+                # If only one hex value, use it
+                return int(hex_values[0], 16)
+            else:
+                logger.error(f"No hex values found in LED response: {response}")
+                return None
+                
         except Exception as e:  
             logger.error(f"Failed to parse led status: {e}")
             return None
