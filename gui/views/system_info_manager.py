@@ -191,6 +191,10 @@ class SystemInfoManagerView(QObject):
         # Update UI with received data
         self._update_system_info_display(system_info)
         
+        # Update firmware and OS information if available
+        if "firmware_os" in system_info:
+            self._update_firmware_os_display(system_info["firmware_os"])
+        
         # get the cpu model information
         cpu_model = system_info.get('cpu', {}).get('model', 'N/A')
         
@@ -304,6 +308,20 @@ class SystemInfoManagerView(QObject):
         """
         if "serial_number" in self.ui_components:
             self.ui_components["serial_number"].setText(serial)
+    
+    def _update_firmware_os_display(self, firmware_os_info: Dict[str, Any]):
+        """
+        Update firmware and OS information display
+        
+        Args:
+            firmware_os_info: Firmware and OS information dictionary
+        """
+        # Update firmware and OS information through the main controller
+        if hasattr(self, 'main_controller') and hasattr(self.main_controller, 'firmware_os_manager'):
+            firmware_os_manager = self.main_controller.firmware_os_manager
+            if firmware_os_manager:
+                firmware_os_manager.set_firmware_os_data(firmware_os_info)
+                logger.debug(f"Updated firmware and OS information: {firmware_os_info}")
     
     def update_battery_model(self, model: str):
         """
