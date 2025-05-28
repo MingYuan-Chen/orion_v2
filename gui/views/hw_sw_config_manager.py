@@ -1,6 +1,6 @@
 """
 HW/SW Configuration Manager
-管理硬件和軟件配置信息的顯示和編輯
+Manage the HW/SW configuration of the Hydra
 """
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QHBoxLayout, QWidget
 from PySide6.QtCore import QObject, Signal, Qt
@@ -8,9 +8,9 @@ from util.logger import logger
 
 
 class HWSWConfigManager(QObject):
-    """HW/SW Configuration 管理器"""
+    """HW/SW Configuration Manager"""
     
-    # 配置更新信號
+    # Configuration update signal
     config_updated = Signal(str, str, str)  # component_id, field_type, new_value
     
     def __init__(self):
@@ -18,7 +18,7 @@ class HWSWConfigManager(QObject):
         self.table_widget = None
         self.edit_dialog_class = None
         
-        # 預設配置數據
+        # Default configuration data
         self.config_data = [
             {
                 "id": "touch",
@@ -66,11 +66,11 @@ class HWSWConfigManager(QObject):
     
     def set_ui_components(self, table_widget: QTableWidget, edit_dialog_class=None):
         """
-        設置 UI 組件
+        Set UI components
         
         Args:
-            table_widget: 配置表格組件
-            edit_dialog_class: 編輯對話框類別
+            table_widget: Configuration table component
+            edit_dialog_class: Edit dialog class
         """
         self.table_widget = table_widget
         self.edit_dialog_class = edit_dialog_class
@@ -80,28 +80,28 @@ class HWSWConfigManager(QObject):
             self._populate_table()
     
     def _setup_table(self):
-        """設置表格屬性"""
-        # 設置表格列寬
+        """Set table properties"""
+        # Set table column widths
         header = self.table_widget.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Component 列
-        header.setSectionResizeMode(1, QHeaderView.Stretch)          # Part Number 列
-        header.setSectionResizeMode(2, QHeaderView.Stretch)          # Serial Number 列
-        header.setSectionResizeMode(3, QHeaderView.Stretch)          # Note 列
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Component column
+        header.setSectionResizeMode(1, QHeaderView.Stretch)          # Part Number column
+        header.setSectionResizeMode(2, QHeaderView.Stretch)          # Serial Number column
+        header.setSectionResizeMode(3, QHeaderView.Stretch)          # Note column
         
-        # 設置表格高度以顯示所有 6 個組件
-        header_height = 35  # 標題行高度
-        row_height = 50     # 每行的高度
-        total_rows = 6      # 總共 6 個組件
-        table_height = header_height + (total_rows * row_height) + 10  # 額外的邊距
+        # Set table height to display all 6 components
+        header_height = 35  # Header row height
+        row_height = 50     # Row height
+        total_rows = 6      # Total 6 components
+        table_height = header_height + (total_rows * row_height) + 10  # Additional margin
         
-        # 設置表格的固定高度以顯示所有組件
+        # Set table fixed height to display all components
         self.table_widget.setFixedHeight(table_height)
         
-        # 禁用表格內部滾動條
+        # Disable internal scroll bars
         self.table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.table_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         
-        # 設置表格樣式
+        # Set table style
         self.table_widget.setStyleSheet("""
             QTableWidget {
                 background-color: #252526;
@@ -192,15 +192,15 @@ class HWSWConfigManager(QObject):
         """)
     
     def _populate_table(self):
-        """填充表格數據"""
+        """Fill table data"""
         self.table_widget.setRowCount(len(self.config_data))
         
         for row, config in enumerate(self.config_data):
-            # Component 列 - 只顯示文字
+            # Component column - Display only text
             component_item = QTableWidgetItem(config["component"])
             self.table_widget.setItem(row, 0, component_item)
             
-            # Part Number 列 - 包含文字和編輯按鈕
+            # Part Number column - Contains text and edit button
             part_number_widget = self._create_editable_cell(
                 config["part_number"], 
                 config["id"], 
@@ -208,7 +208,7 @@ class HWSWConfigManager(QObject):
             )
             self.table_widget.setCellWidget(row, 1, part_number_widget)
             
-            # Serial Number 列 - 包含文字和編輯按鈕
+            # Serial Number column - Contains text and edit button
             serial_number_widget = self._create_editable_cell(
                 config["serial_number"],
                 config["id"], 
@@ -216,7 +216,7 @@ class HWSWConfigManager(QObject):
             )
             self.table_widget.setCellWidget(row, 2, serial_number_widget)
             
-            # Note 列 - 包含文字和編輯按鈕
+            # Note column - Contains text and edit button
             note_widget = self._create_editable_cell(
                 config["note"],
                 config["id"], 
@@ -224,32 +224,32 @@ class HWSWConfigManager(QObject):
             )
             self.table_widget.setCellWidget(row, 3, note_widget)
         
-        # 設置行高
+        # Set row height
         for row in range(self.table_widget.rowCount()):
             self.table_widget.setRowHeight(row, 50)
     
     def _create_editable_cell(self, value: str, component_id: str, field_type: str):
         """
-        創建可編輯的單元格組件
+        Create editable cell component
         
         Args:
-            value: 顯示值
-            component_id: 組件ID
-            field_type: 字段類型 (part_number 或 serial_number)
+            value: Display value
+            component_id: Component ID
+            field_type: Field type (part_number or serial_number)
             
         Returns:
-            包含文字和編輯按鈕的 QWidget
+            QWidget with text and edit button
         """
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(10)
         
-        # 值標籤
+        # Value label
         value_item = QTableWidgetItem(value)
-        value_item.setData(1000, value)  # 存儲原始值
+        value_item.setData(1000, value)  # Store original value
         
-        # 編輯按鈕
+        # Edit button
         edit_button = QPushButton("✎")
         edit_button.setProperty("class", "config-edit-button")
         edit_button.setMaximumSize(24, 24)
@@ -258,7 +258,7 @@ class HWSWConfigManager(QObject):
             lambda: self._on_edit_clicked(component_id, field_type, value)
         )
         
-        # 將原始值顯示為文字
+        # Display original value as text
         from PySide6.QtWidgets import QLabel
         value_label = QLabel(value)
         value_label.setStyleSheet("color: #4FC3F7; font-weight: bold;")
@@ -267,7 +267,7 @@ class HWSWConfigManager(QObject):
         layout.addStretch()
         layout.addWidget(edit_button)
         
-        # 保存引用以便後續更新
+        # Save reference for later updates
         widget.value_label = value_label
         widget.component_id = component_id
         widget.field_type = field_type
@@ -276,18 +276,18 @@ class HWSWConfigManager(QObject):
     
     def _on_edit_clicked(self, component_id: str, field_type: str, current_value: str):
         """
-        處理編輯按鈕點擊事件
+        Handle edit button click event
         
         Args:
-            component_id: 組件ID
-            field_type: 字段類型
-            current_value: 當前值
+            component_id: Component ID
+            field_type: Field type
+            current_value: Current value
         """
         if not self.edit_dialog_class:
             logger.warning("Edit dialog class not set")
             return
         
-        # 確定對話框標題和標籤
+        # Determine dialog title and label
         if field_type == "part_number":
             title = "Edit Part Number"
             label = "Enter new part number:"
@@ -298,7 +298,7 @@ class HWSWConfigManager(QObject):
             title = "Edit Note"
             label = "Enter note:"
         
-        # 顯示編輯對話框
+        # Display edit dialog
         dialog = self.edit_dialog_class(
             title=title,
             label_text=label,
@@ -309,38 +309,38 @@ class HWSWConfigManager(QObject):
             new_value = dialog.get_text().strip()
             if new_value and new_value != current_value:
                 self._update_config_value(component_id, field_type, new_value)
-                # 發送更新信號
+                # Send update signal
                 self.config_updated.emit(component_id, field_type, new_value)
                 logger.info(f"Updated {component_id} {field_type}: {current_value} -> {new_value}")
     
     def _update_config_value(self, component_id: str, field_type: str, new_value: str):
         """
-        更新配置值並刷新 UI
+        Update config value and refresh UI
         
         Args:
-            component_id: 組件ID
-            field_type: 字段類型
-            new_value: 新值
+            component_id: Component ID
+            field_type: Field type
+            new_value: New value
         """
-        # 更新內部數據
+        # Update internal data
         for config in self.config_data:
             if config["id"] == component_id:
                 config[field_type] = new_value
                 break
         
-        # 更新表格顯示
+        # Update table display
         self._refresh_table_display(component_id, field_type, new_value)
     
     def _refresh_table_display(self, component_id: str, field_type: str, new_value: str):
         """
-        刷新表格顯示
+        Refresh table display
         
         Args:
-            component_id: 組件ID
-            field_type: 字段類型
-            new_value: 新值
+            component_id: Component ID
+            field_type: Field type
+            new_value: New value
         """
-        # 確定列索引
+        # Determine column index
         if field_type == "part_number":
             col_index = 1
         elif field_type == "serial_number":
@@ -348,7 +348,7 @@ class HWSWConfigManager(QObject):
         else:  # note
             col_index = 3
         
-        # 找到對應的行
+        # Find corresponding row
         for row in range(self.table_widget.rowCount()):
             widget = self.table_widget.cellWidget(row, col_index)
             if widget and hasattr(widget, 'component_id') and widget.component_id == component_id:
@@ -357,22 +357,22 @@ class HWSWConfigManager(QObject):
                 break
     
     def get_config_data(self):
-        """獲取當前配置數據"""
+        """Get current config data"""
         return self.config_data.copy()
     
     def set_config_data(self, new_data: list):
         """
-        設置新的配置數據
+        Set new config data
         
         Args:
-            new_data: 新的配置數據列表
+            new_data: New config data list
         """
         self.config_data = new_data.copy()
         if self.table_widget:
             self._populate_table()
     
     def export_config(self):
-        """導出配置數據"""
+        """Export config data"""
         return {
             "hw_sw_configuration": self.config_data
         } 

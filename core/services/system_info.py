@@ -143,7 +143,7 @@ class SystemInfoService(QObject):
         
         # Execute command and receive result in signal processing
         try:
-            self.serial_worker.send_command(self.current_device_id, command, 0)
+            self.serial_worker.send_command(self.current_device_id, command, 3)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
             self._execute_next_command()
@@ -203,6 +203,14 @@ class SystemInfoService(QObject):
                 parsed_value = self._parse_battery_info(command_name, response)
                 if parsed_value is not None:
                     self.collected_info["battery"][command_name] = parsed_value
+            elif command_name in ["uboot_version", "pic_firmware", "os_version"]:
+                # Handle firmware and OS information commands
+                if "firmware_os" not in self.collected_info:
+                    self.collected_info["firmware_os"] = {}
+                
+                # Parse and store firmware/OS data
+                parsed_value = self._parse_firmware_os_info(command_name, response)
+                self.collected_info["firmware_os"][command_name] = parsed_value
             else:
                 # Store original response
                 self.collected_info[command_name] = response
@@ -395,6 +403,53 @@ class SystemInfoService(QObject):
         self.is_updating = False
         
         logger.info("System info service cleaned up")
+    
+    def _parse_firmware_os_info(self, command_name: str, response: str) -> str:
+        """
+        Parse firmware and OS information from command response
+        
+        Args:
+            command_name: Command name (uboot_version, pic_firmware, os_version)
+            response: Command response
+            
+        Returns:
+            Parsed information string
+        """
+        try:
+            if command_name == "uboot_version":
+                # Parse U-Boot version from strings output
+                lines = response.strip().split('\n')
+                for line in lines:
+                    if 'U-Boot' in line and any(char.isdigit() for char in line):
+                        # Extract version information
+                        return line.strip()
+                return "Unknown U-Boot Version"
+                
+            elif command_name == "pic_firmware":
+                # Parse PIC firmware version from i2c response
+                lines = response.strip().split('\n')
+                if len(lines) >= 2:
+                    # Combine the two response lines for version
+                    try:
+                        # Parse hex values and convert to version format
+                        version_major = lines[0].strip()
+                        version_minor = lines[1].strip() if len(lines) > 1 else "00"
+                        return f"v{version_major}.{version_minor}"
+                    except:
+                        return f"v{response.strip()}"
+                return "Unknown PIC Version"
+                
+            elif command_name == "os_version":
+                # Parse OS version from uname -a output
+                return response.strip()
+                
+            else:
+                # Return original response for unknown commands
+                return response.strip()
+                
+        except Exception as e:
+            logger.warning(f"Failed to parse {command_name}: {e}")
+            return response.strip()
 
 
 if __name__ == "__main__":

@@ -98,11 +98,11 @@ class SystemInfoManagerView(QObject):
         if "serial_number" in self.ui_components:
             self.ui_components["serial_number"].setText("...")
         if "cpu" in self.ui_components:
-            self.ui_components["cpu"].setText("Initializing...")
+            self.ui_components["cpu"].setText("...")
         if "memory" in self.ui_components:
-            self.ui_components["memory"].setText("Initializing...")
+            self.ui_components["memory"].setText("...")
         if "storage" in self.ui_components:
-            self.ui_components["storage"].setText("Initializing...")
+            self.ui_components["storage"].setText("...")
         
         # Battery info
         if "battery_model" in self.ui_components:
@@ -112,13 +112,13 @@ class SystemInfoManagerView(QObject):
         if "charge_progress" in self.ui_components:
             self.ui_components["charge_progress"].setValue(0)
         if "charge" in self.ui_components:
-            self.ui_components["charge"].setText("Initializing...")
+            self.ui_components["charge"].setText("...")
         if "voltage" in self.ui_components:
-            self.ui_components["voltage"].setText("Initializing...")
+            self.ui_components["voltage"].setText("...")
         if "current" in self.ui_components:
-            self.ui_components["current"].setText("Initializing...")
+            self.ui_components["current"].setText("...")
         if "temperature" in self.ui_components:
-            self.ui_components["temperature"].setText("Initializing...")
+            self.ui_components["temperature"].setText("...")
     
     def refresh_system_info(self):
         """Refresh system information"""
