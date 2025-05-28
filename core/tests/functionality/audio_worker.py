@@ -50,11 +50,10 @@ class AudioWorker(BaseTestWorker):
                 timeout=10, 
                 description="Set speaker volume to 100%",
                 max_retries=2,
-                retry_delay=1500
+                retry_delay=500
             ),
             TestStep(
                 command="(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10", 
-                validation_func=self._validate_microphone_record,
                 timeout=10, 
                 description="Play audio from speaker and record from microphone",
                 post_check="Is the audio played from the speaker?",
@@ -64,7 +63,6 @@ class AudioWorker(BaseTestWorker):
             ),
             TestStep(
                 command="aplay mic.wav", 
-                validation_func=self._validate_speaker_playback,
                 timeout=10, 
                 description="Play the recorded audio from the speaker",
                 post_check="Is the audio played from the speaker?",

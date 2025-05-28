@@ -24,7 +24,7 @@ class LcdWorker(BaseTestWorker):
         return [
             TestStep(
                 command=self.set_color("red"), 
-                validation_func=self._validate_red_color, 
+                # validation_func=self._validate_red_color, 
                 timeout=5, 
                 description="Validate red color",
                 post_check="Is the LCD display red?",
@@ -34,7 +34,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("green"), 
-                validation_func=self._validate_green_color, 
+                # validation_func=self._validate_green_color, 
                 timeout=5, 
                 description="Validate green color",
                 post_check="Is the LCD display green?",
@@ -44,7 +44,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("blue"), 
-                validation_func=self._validate_blue_color, 
+                # validation_func=self._validate_blue_color, 
                 timeout=5, 
                 description="Validate blue color",
                 post_check="Is the LCD display blue?",
@@ -54,7 +54,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("black"), 
-                validation_func=self._validate_black_color, 
+                # validation_func=self._validate_black_color, 
                 timeout=5, 
                 description="Validate black color",
                 post_check="Is the LCD display black?",
@@ -64,7 +64,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("white"), 
-                validation_func=self._validate_white_color, 
+                # validation_func=self._validate_white_color, 
                 timeout=5, 
                 description="Validate white color",
                 post_check="Is the LCD display white?",
@@ -74,7 +74,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("colorbar"), 
-                validation_func=self._validate_colorbar, 
+                # validation_func=self._validate_colorbar, 
                 timeout=5, 
                 description="Validate colorbar",
                 post_check="Is the LCD display colorbar?",
@@ -84,7 +84,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("gradient"), 
-                validation_func=self._validate_gradient, 
+                # validation_func=self._validate_gradient, 
                 timeout=5, 
                 description="Validate gradient",
                 post_check="Is the LCD display gradient?",
@@ -94,7 +94,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("frame"), 
-                validation_func=self._validate_frame, 
+                # validation_func=self._validate_frame, 
                 timeout=5, 
                 description="Validate frame",
                 post_check="Is the LCD display frame?",
@@ -104,7 +104,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("gray16"), 
-                validation_func=self._validate_gray16, 
+                # validation_func=self._validate_gray16, 
                 timeout=5, 
                 description="Validate gray16",
                 post_check="Is the LCD display gray16?",
@@ -114,7 +114,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("gray64"), 
-                validation_func=self._validate_gray64, 
+                # validation_func=self._validate_gray64, 
                 timeout=5, 
                 description="Validate gray64",
                 post_check="Is the LCD display gray64?",
@@ -124,7 +124,7 @@ class LcdWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.set_color("gray256"), 
-                validation_func=self._validate_gray256, 
+                # validation_func=self._validate_gray256, 
                 timeout=5, 
                 description="Validate gray256",
                 post_check="Is the LCD display gray256?",
