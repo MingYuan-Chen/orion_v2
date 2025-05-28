@@ -249,6 +249,9 @@ class DeviceManagerWidget(QWidget):
                 self.device_windows[device_id] = controller
                 controller.show()
                 logger.info(f"Opened new main window for device: {device_id}")
+                
+                # Update window close restriction state
+                self._update_close_restriction()
             
         except Exception as e:
             error_msg = f"Failed to open main window: {str(e)}"
@@ -264,6 +267,63 @@ class DeviceManagerWidget(QWidget):
             # Remove window reference
             del self.device_windows[device_id]
             logger.debug(f"Removed window reference for device: {device_id}")
+            
+            # Update window close restriction state
+            self._update_close_restriction()
+    
+    def _update_close_restriction(self):
+        """Update window close restriction based on active main windows"""
+        has_active_windows = self._has_active_main_windows()
+        
+        if has_active_windows:
+            logger.debug("Main windows are active - close restriction enabled")
+        else:
+            logger.debug("No active main windows - close restriction disabled")
+    
+    def _has_active_main_windows(self):
+        """Check if there are any active main windows
+        
+        Returns:
+            bool: True if there are active main windows, False otherwise
+        """
+        if not hasattr(self, 'device_windows') or not self.device_windows:
+            return False
+        
+        # Check if any windows are actually visible and valid
+        active_count = 0
+        for device_id, controller in list(self.device_windows.items()):
+            try:
+                if controller and hasattr(controller, 'window') and controller.window.isVisible():
+                    active_count += 1
+                else:
+                    # Clean up invalid references
+                    logger.debug(f"Cleaning up invalid window reference for device: {device_id}")
+                    del self.device_windows[device_id]
+            except Exception as e:
+                logger.warning(f"Error checking window state for device {device_id}: {e}")
+                # Clean up problematic references
+                if device_id in self.device_windows:
+                    del self.device_windows[device_id]
+        
+        return active_count > 0
+    
+    def _get_active_window_info(self):
+        """Get information about active main windows for display in messages
+        
+        Returns:
+            list: List of device IDs with active windows
+        """
+        active_devices = []
+        
+        if hasattr(self, 'device_windows') and self.device_windows:
+            for device_id, controller in self.device_windows.items():
+                try:
+                    if controller and hasattr(controller, 'window') and controller.window.isVisible():
+                        active_devices.append(device_id)
+                except Exception:
+                    pass
+        
+        return active_devices
     
     def _on_device_selection_changed(self):
         """Handle device selection change in the table"""
@@ -461,6 +521,22 @@ class DeviceManagerWidget(QWidget):
         if hasattr(self, '_is_closing') and self._is_closing:
             logger.debug("Close event is already being processed, ignore duplicate calls")
             event.accept()
+            return
+        
+        # Check if there are active main windows
+        if self._has_active_main_windows():
+            active_devices = self._get_active_window_info()
+            device_list = ", ".join(active_devices)
+            
+            QMessageBox.warning(
+                self, 
+                "Cannot close Device Manager", 
+                f"Please close the main window of the following devices first:\n\n{device_list}\n\n"
+                "This ensures proper disconnection of the devices."
+            )
+            
+            logger.info(f"Close event blocked due to active main windows: {device_list}")
+            event.ignore()
             return
             
         # Set the closing flag
