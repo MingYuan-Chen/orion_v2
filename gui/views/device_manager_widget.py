@@ -343,10 +343,88 @@ class DeviceManagerWidget(QWidget):
             logger.info(f"Device connected: {device_id}")
             # Refresh device list to show the new device
             self._refresh_device_list()
+            
+            # Use QTimer to delay auto-selection to ensure UI is fully updated
+            QTimer.singleShot(100, lambda: self._select_device_by_id(device_id))
+            
             # Optionally show a notification
             # QMessageBox.information(self, "Connection Success", message)
         else:
             logger.error(f"Device connection failed: {device_id} - {message}")
+    
+    def _select_device_by_id(self, device_id, retry_count=0):
+        """Select device in the table by device ID
+        
+        Args:
+            device_id: ID of the device to select
+            retry_count: Internal retry counter to prevent infinite recursion
+        """
+        try:
+            # Force UI update first to ensure table is fully rendered
+            QApplication.processEvents()
+            
+            # Get filtered devices list
+            filtered_devices = self._get_filtered_devices()
+            
+            # Try to find and select the device
+            if self._select_device_in_current_list(device_id, filtered_devices):
+                return
+            
+            # Device not found in current filter - try switching to "All Devices" (only once)
+            if retry_count == 0:
+                all_devices = self.view_model.get_connected_devices()
+                device_found_in_all = any(device.get('id') == device_id for device in all_devices)
+                
+                if device_found_in_all:
+                    # Device exists but is filtered out, switch to "All Devices" filter
+                    logger.info(f"Device {device_id} not visible with current filter, switching to 'All Devices'")
+                    self.ui_widget.combo_box_filter.setCurrentText("All Devices")
+                    self._refresh_device_list()
+                    QApplication.processEvents()
+                    
+                    # Retry once after filter change
+                    QTimer.singleShot(50, lambda: self._select_device_by_id(device_id, retry_count + 1))
+                    return
+            
+            # Could not find device
+            logger.warning(f"Could not find device {device_id} for auto-selection")
+            
+        except Exception as e:
+            logger.error(f"Error auto-selecting device {device_id}: {e}")
+    
+    def _select_device_in_current_list(self, device_id, filtered_devices):
+        """Helper method to select device from the current filtered list
+        
+        Args:
+            device_id: ID of the device to select
+            filtered_devices: Current filtered device list
+            
+        Returns:
+            bool: True if device was found and selected, False otherwise
+        """
+        try:
+            for row, device in enumerate(filtered_devices):
+                if device.get('id') == device_id:
+                    # Clear current selection and select the device
+                    self.ui_widget.table_widget_devices.clearSelection()
+                    self.ui_widget.table_widget_devices.selectRow(row)
+                    self.ui_widget.table_widget_devices.setCurrentCell(row, 0)
+                    
+                    # Ensure the row is visible
+                    item = self.ui_widget.table_widget_devices.item(row, 0)
+                    if item:
+                        self.ui_widget.table_widget_devices.scrollToItem(item)
+                    
+                    # Force UI update and trigger selection event
+                    QApplication.processEvents()
+                    self._on_device_selection_changed()
+                    
+                    logger.info(f"Auto-selected device {device_id} at row {row}")
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Error selecting device in current list: {e}")
+            return False
     
     @Slot(str, bool, str)
     def _on_device_disconnected(self, device_id, success, message):
