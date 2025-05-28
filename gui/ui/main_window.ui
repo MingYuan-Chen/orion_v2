@@ -847,7 +847,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <item>
                     <widget class="QLabel" name="value_uboot_version">
                      <property name="text">
-                      <string>2025.03</string>
+                      <string>...</string>
                      </property>
                      <property name="class" stdset="0">
                       <string>panel-value</string>
@@ -884,7 +884,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <item>
                     <widget class="QLabel" name="value_pic_firmware">
                      <property name="text">
-                      <string>v2.4.8</string>
+                      <string>...</string>
                      </property>
                      <property name="class" stdset="0">
                       <string>panel-value</string>
@@ -921,7 +921,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <item>
                     <widget class="QLabel" name="value_os_version">
                      <property name="text">
-                      <string>Linux gemini 4.1.15</string>
+                      <string>...</string>
                      </property>
                      <property name="class" stdset="0">
                       <string>panel-value</string>

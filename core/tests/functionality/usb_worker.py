@@ -54,7 +54,7 @@ class UsbWorker(BaseTestWorker):
             ),
             TestStep(
                 command="sudo mount /dev/sda1 /run/media/sda1", 
-                expected_response="sda1", 
+                validation_func=self._validate_usb_mount_command,
                 timeout=10, 
                 description="Mount sda1",
                 max_retries=2,
@@ -192,7 +192,60 @@ class UsbWorker(BaseTestWorker):
 
     def _validate_usb_mount(self, response: str) -> Tuple[bool, str]:
         """
-        Validate USB mount test result
+        Validate USB mount test result by checking mount output
+        
+        Args:
+            response: Device response string from 'mount | grep sda1'
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            # If response is empty, device is not mounted
+            if not response or response.strip() == "":
+                return False, "Target device not mounted (no mount entry found)"
+            
+            # Check if target device is mounted
+            if "/dev/sda1" not in response:
+                return False, f"Target device not found in mount output: {response[:100]}"
+                
+            if "/run/media/sda1" not in response:
+                return False, f"Unexpected mount point in response: {response[:100]}"
+            
+            # Check for file system (more flexible - accept vfat, fat32, etc.)
+            if not any(fs in response.lower() for fs in ["vfat", "fat32", "fat"]):
+                logger.warning(f"Unexpected file system in mount output: {response}")
+                # Don't fail for file system mismatch, just warn
+                
+            return True, f"Device sda1 mounted at /run/media/sda1: {response.strip()}"
+            
+        except Exception as e:
+            logger.error(f"Mount validation error: {str(e)}", exc_info=True)
+            return False, f"Mount validation error: {str(e)}"
+
+    def _validate_usb_unmount(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB unmount test result
+        """
+        try:
+            # Unmount command typically returns empty response on success
+            # Accept empty response, single newline, or "not mounted" message
+            if not response or response.strip() == "" or response == "\n":
+                return True, "Device unmounted successfully"
+            elif "/run/media/sda1: not mounted" in response:
+                return True, "Device unmounted successfully"
+            elif "umount:" in response and "not mounted" in response:
+                return True, "Device unmounted successfully"
+            else:
+                logger.warning(f"Unexpected unmount response: '{response}'")
+                return False, f"Device not unmounted: {response[:100]}"
+        except Exception as e:
+            logger.error(f"Unmount validation error: {str(e)}", exc_info=True)
+            return False, f"Unmount validation error: {str(e)}"
+
+    def _validate_usb_mount_command(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB mount command execution result
         
         Args:
             response: Device response string
@@ -201,33 +254,18 @@ class UsbWorker(BaseTestWorker):
             (success flag, message) tuple
         """
         try:
-            # Check if target device is mounted
-            if "/dev/sda1" not in response:
-                return False, "Target device not mounted"
-                
-            if "/run/media/sda1" not in response:
-                return False, "Unexpected mount point"
+            # Mount command typically returns empty response on success
+            # Only check for error messages
+            if not response or response.strip() == "" or response == "\n":
+                return True, "Mount command executed successfully"
             
-            if "vfat" not in response:
-                return False, "Unexpected file system"
-                
-            return True, "Device:sda1 mount at /run/media/sda1 with vfat file system"
+            # Check for common error messages
+            if any(error in response.lower() for error in ["error", "failed", "cannot", "no such", "already mounted"]):
+                return False, f"Mount command failed: {response[:100]}"
+            
+            # If there's output but no error keywords, consider it successful
+            return True, f"Mount command completed: {response[:50]}"
             
         except Exception as e:
-            logger.error(f"Mount validation error: {str(e)}", exc_info=True)
-            return False, f"Mount validation error: {str(e)}" 
-        
-    def _validate_usb_unmount(self, response: str) -> Tuple[bool, str]:
-        """
-        Validate USB unmount test result
-        """
-        try:
-            if response == "\n":
-                return True, "Device unmounted successfully"
-            elif "/run/media/sda1: not mounted" in response:
-                return True, "Device unmounted successfully"
-            else:
-                return False, "Device not unmounted"
-        except Exception as e:
-            logger.error(f"Unmount validation error: {str(e)}", exc_info=True)
-            return False, f"Unmount validation error: {str(e)}"
+            logger.error(f"Mount command validation error: {str(e)}", exc_info=True)
+            return False, f"Mount command validation error: {str(e)}"

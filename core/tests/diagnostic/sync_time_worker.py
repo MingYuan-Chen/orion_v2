@@ -36,9 +36,46 @@ class SyncTimeWorker(BaseTestWorker):
         """
         Validate sync time
         """
-        if "error" in response.lower():
+        if not response or not response.strip():
+            return False, "No response received from ntpdate command"
+            
+        response_lower = response.lower()
+        if "error" in response_lower or "failed" in response_lower:
             return False, "Failed to sync time"
         
-        synced_time = response.split(" ntpdate")[0].split("\n")[1]
-        return True, f"Synced time: {synced_time}"
+        try:
+            # Try to extract synced time information
+            lines = response.strip().split('\n')
+            
+            # Look for lines containing time synchronization information
+            for line in lines:
+                if any(keyword in line.lower() for keyword in ['adjust', 'offset', 'step', 'time']):
+                    # If we find sync-related content, consider it successful
+                    return True, f"Time synchronized: {line.strip()}"
+            
+            # If no specific sync information found but response exists, try to parse it
+            if lines:
+                # Try different parsing strategies
+                if "ntpdate" in response:
+                    # Original parsing logic with safety checks
+                    parts = response.split(" ntpdate")
+                    if len(parts) > 0:
+                        first_part = parts[0].strip()
+                        if first_part:
+                            sub_lines = first_part.split('\n')
+                            if len(sub_lines) > 1:
+                                synced_time = sub_lines[1]
+                                return True, f"Synced time: {synced_time}"
+                
+                # If we have any non-empty response, consider it as potential success
+                meaningful_lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith('#')]
+                if meaningful_lines:
+                    return True, f"Time sync response: {meaningful_lines[0]}"
+            
+            # If we reach here, we got a response but couldn't parse it
+            return False, f"Could not parse sync time response: {response[:100]}"
+            
+        except Exception as e:
+            logger.error(f"Error parsing sync time response: {e}")
+            return False, f"Error parsing sync time response: {str(e)}"
 

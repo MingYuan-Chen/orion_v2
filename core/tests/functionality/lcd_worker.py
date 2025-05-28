@@ -179,9 +179,10 @@ class LcdWorker(BaseTestWorker):
     
     def _validate_frame(self, response: str) -> Tuple[bool, str]:
         """Validate frame"""
-        if "successfully" not in response and "frame" not in response:
-            return False, "Failed to validate frame"
-        return True, "Frame validated successfully"
+        # Frame command should produce screen info and draw output
+        if ("Screen info" in response or "successfully" in response) and "Draw" in response:
+            return True, "Frame validated successfully"
+        return False, "Failed to validate frame"
     
     def _validate_gray16(self, response: str) -> Tuple[bool, str]:
         """Validate gray16"""
