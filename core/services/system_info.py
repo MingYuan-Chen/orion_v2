@@ -427,21 +427,17 @@ class SystemInfoService(QObject):
                 
             elif command_name == "pic_firmware":
                 # Parse PIC firmware version from i2c response
-                lines = response.strip().split('\n')
-                if len(lines) >= 2:
-                    # Combine the two response lines for version
-                    try:
-                        # Parse hex values and convert to version format
-                        version_major = lines[0].strip()
-                        version_minor = lines[1].strip() if len(lines) > 1 else "00"
-                        return f"v{version_major}.{version_minor}"
-                    except:
-                        return f"v{response.strip()}"
-                return "Unknown PIC Version"
+                try:
+                    value = response.split("r2\n")[1].split("root")[0].split("\n")[1].replace(" 0x", "")
+                    firmware_version = int(value, 16)
+                    return f"v{firmware_version}"
+                except:
+                    return "Unknown PIC Version"
                 
             elif command_name == "os_version":
                 # Parse OS version from uname -a output
-                return response.strip()
+                os_version = response.split("#")[0]
+                return os_version
                 
             else:
                 # Return original response for unknown commands
