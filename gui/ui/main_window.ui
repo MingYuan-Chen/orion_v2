@@ -827,7 +827,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                </size>
               </property>
               <property name="title">
-               <string>Firmware &amp; OS Information</string>
+               <string>Firmware and OS Information</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_firmware_os">
                <item>
