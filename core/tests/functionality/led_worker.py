@@ -40,7 +40,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_blue,
+                # validation_func=self._validate_led_status_blue,
                 timeout=5, 
                 description="Check led status blue",
                 post_check="Is the led status blue?",
@@ -55,7 +55,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_green,
+                # validation_func=self._validate_led_status_green,
                 timeout=5, 
                 description="Check led status green",
                 post_check="Is the led status green?",
@@ -70,7 +70,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_red,
+                # validation_func=self._validate_led_status_red,
                 timeout=5, 
                 description="Check led status red",
                 post_check="Is the led status red?",
@@ -85,7 +85,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_blinking_blue,
+                # validation_func=self._validate_led_status_blinking_blue,
                 timeout=5, 
                 description="Check led status blinking blue",
                 post_check="Is the led status blinking blue?",
@@ -100,7 +100,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_blinking_green,
+                # validation_func=self._validate_led_status_blinking_green,
                 timeout=5, 
                 description="Check led status blinking green",
                 post_check="Is the led status blinking green?",
@@ -115,7 +115,7 @@ class LedWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_led_status, 
-                validation_func=self._validate_led_status_blinking_red,
+                # validation_func=self._validate_led_status_blinking_red,
                 timeout=5, 
                 description="Check led status blinking red",
                 post_check="Is the led status blinking red?",

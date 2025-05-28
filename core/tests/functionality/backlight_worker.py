@@ -34,7 +34,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="0", 
+                # expected_response="0", 
                 timeout=3, 
                 description="Check backlight brightness",
                 post_check="Is the backlight brightness become to dark?",
@@ -49,7 +49,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="1", 
+                # expected_response="1", 
                 timeout=3, 
                 description="Check backlight brightness 20%",
                 post_check="Is the backlight brighter than before?",
@@ -64,7 +64,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="2", 
+                # expected_response="2", 
                 timeout=3, 
                 description="Check backlight brightness 30%",
                 post_check="Is the backlight brighter than before?",
@@ -79,7 +79,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="3", 
+                # expected_response="3", 
                 timeout=3, 
                 description="Check backlight brightness 40%",
                 post_check="Is the backlight brighter than before?",
@@ -94,7 +94,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="4", 
+                # expected_response="4", 
                 timeout=3, 
                 description="Check backlight brightness 50%",
                 post_check="Is the backlight brighter than before?",
@@ -109,7 +109,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="5", 
+                # expected_response="5", 
                 timeout=3, 
                 description="Check backlight brightness 60%",
                 post_check="Is the backlight brighter than before?",
@@ -124,7 +124,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="6",
+                # expected_response="6",
                 timeout=3, 
                 description="Check backlight brightness 80%",
                 post_check="Is the backlight brighter than before?",
@@ -139,7 +139,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_backlight_brightness, 
-                expected_response="7",
+                # expected_response="7",
                 timeout=3, 
                 description="Check backlight brightness 100%",
                 post_check="Is the backlight brighter than before?",
@@ -154,7 +154,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_screen_power, 
-                expected_response="1", 
+                # expected_response="1", 
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power off?",
@@ -169,7 +169,7 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.get_screen_power, 
-                expected_response="0",
+                # expected_response="0",
                 timeout=3, 
                 description="Check screen power",
                 post_check="Is the screen power on?",

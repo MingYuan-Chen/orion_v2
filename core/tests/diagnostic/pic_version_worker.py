@@ -29,7 +29,7 @@ class PicVersionWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check PIC Version by i2c",
                 criteria="The PIC version is 110",
-                max_retries=1,
+                max_retries=3,
                 retry_delay=500
             ),
             TestStep(

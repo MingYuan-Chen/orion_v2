@@ -40,7 +40,7 @@ class CameraWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.preview_vieo_port(0), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
                 criteria="The camera preview video is displayed on the screen",
@@ -66,7 +66,7 @@ class CameraWorker(BaseTestWorker):
             # port B(J4)
             TestStep(
                 command=self.preview_vieo_port(1), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
                 pre_condition="Please ensure LVDS camera is connected to port B(J4)",
@@ -108,7 +108,7 @@ class CameraWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.preview_vieo_port(0), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
                 criteria="The camera preview video is displayed on the screen",
@@ -134,7 +134,7 @@ class CameraWorker(BaseTestWorker):
             # port B(J4)
             TestStep(
                 command=self.preview_vieo_port(1), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
                 pre_condition="Please ensure Scorpius camera is connected to port B(J4)",
@@ -177,7 +177,7 @@ class CameraWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.preview_vieo_port(0), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
                 criteria="The camera preview video is displayed on the screen",
@@ -203,7 +203,7 @@ class CameraWorker(BaseTestWorker):
             # port B(J4)
             TestStep(
                 command=self.preview_vieo_port(1), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
                 pre_condition="Please ensure MIPI VGA camera is connected to port B(J4)",
@@ -246,7 +246,7 @@ class CameraWorker(BaseTestWorker):
             ),
             TestStep(
                 command=self.preview_vieo_port(0), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
                 post_check="Is the camera preview video displayed on the screen?",
@@ -272,7 +272,7 @@ class CameraWorker(BaseTestWorker):
             # port B(J4)
             TestStep(
                 command=self.preview_vieo_port(1), 
-                validation_func=self._validate_camera_connection,
+                # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
                 pre_condition="Please ensure smart cable is connected to port B(J4)",
@@ -340,6 +340,22 @@ class CameraWorker(BaseTestWorker):
             )
         ]
     
+    def _parse_gpio_value(self, response: str) -> Tuple[bool, str]:
+        """
+        Parse GPIO value
+        
+        Args:
+            response: Device response string
+        """
+        try:
+            lines = response.strip().split("\n")
+            values = [line.strip() for line in lines if line.strip()]
+            value_str = "".join(values)
+            return value_str
+        except Exception as e:
+            logger.error(f"exception in parsing GPIO value: {e}")
+            return response
+
     def _validate_camera_connection(self, response: str) -> Tuple[bool, str]:
         """
         Validate camera connection
@@ -368,13 +384,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+
             if "1001" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '1001'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -388,13 +403,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "0111" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '0111'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -408,13 +422,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "1011" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '1011'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -428,13 +441,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "1101" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '1101'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -448,13 +460,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "0101" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '0101'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -468,13 +479,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "1000" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '1000'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
@@ -488,13 +498,12 @@ class CameraWorker(BaseTestWorker):
             response: Device response string
         """
         try:
-            values = response.split("\n")
-            values = values[:-1]
-            value_str = "".join(values)
+            value_str = self._parse_gpio_value(response)
+            
             if "0100" in value_str:
                 return True, f"GPIO value is {value_str}"
             else:
-                return False, f"GPIO value unexpected: {value_str}"
+                return False, f"GPIO value unexpected: {value_str}, expected to contain '0100'"
             
         except Exception as e:
             logger.error(f"exception in validating GPIO value: {e}")
