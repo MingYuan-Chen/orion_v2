@@ -1,6 +1,6 @@
 """
 Firmware & OS Information Manager
-管理韌體和作業系統資訊的顯示和編輯
+Manage the display and editing of firmware and OS information
 """
 from PySide6.QtWidgets import QLabel, QPushButton
 from PySide6.QtCore import QObject, Signal
@@ -8,9 +8,9 @@ from util.logger import logger
 
 
 class FirmwareOSManager(QObject):
-    """Firmware & OS Information 管理器"""
+    """Firmware & OS Information Manager"""
     
-    # 資訊更新信號
+    # Information update signal
     info_updated = Signal(str, str)  # field_name, new_value
     
     def __init__(self):
@@ -18,7 +18,7 @@ class FirmwareOSManager(QObject):
         self.ui_components = {}
         self.edit_dialog_class = None
         
-        # 預設資訊數據
+        # Default information data
         self.firmware_os_data = {
             "uboot_version": "2025.03",
             "pic_firmware": "v2.4.8", 
@@ -26,7 +26,7 @@ class FirmwareOSManager(QObject):
             "kernel": "6.2.0-36-generic"
         }
         
-        # 欄位標籤映射
+        # Field label mapping
         self.field_labels = {
             "uboot_version": "U-Boot Version",
             "pic_firmware": "PIC Firmware",
@@ -36,15 +36,15 @@ class FirmwareOSManager(QObject):
     
     def set_ui_components(self, window, edit_dialog_class=None):
         """
-        設置 UI 組件
+        Set UI components
         
         Args:
-            window: 主窗口物件
-            edit_dialog_class: 編輯對話框類別
+            window: Main window object
+            edit_dialog_class: Edit dialog class
         """
         self.edit_dialog_class = edit_dialog_class
         
-        # 設置 UI 組件引用
+        # Set UI components reference
         self.ui_components = {
             "uboot_version": {
                 "value_label": window.value_uboot_version,
@@ -64,14 +64,14 @@ class FirmwareOSManager(QObject):
             }
         }
         
-        # 連接編輯按鈕信號
+        # Connect edit button signal
         self._connect_edit_buttons()
         
-        # 初始化顯示
+        # Initialize display
         self._update_display()
     
     def _connect_edit_buttons(self):
-        """連接編輯按鈕的點擊信號"""
+        """Connect edit button click signal"""
         for field_name, components in self.ui_components.items():
             edit_button = components["edit_button"]
             edit_button.clicked.connect(
@@ -80,10 +80,10 @@ class FirmwareOSManager(QObject):
     
     def _on_edit_clicked(self, field_name: str):
         """
-        處理編輯按鈕點擊事件
+        Handle edit button click event
         
         Args:
-            field_name: 欄位名稱
+            field_name: Field name
         """
         if not self.edit_dialog_class:
             logger.warning("Edit dialog class not set")
@@ -92,7 +92,7 @@ class FirmwareOSManager(QObject):
         current_value = self.firmware_os_data.get(field_name, "")
         field_label = self.field_labels.get(field_name, field_name)
         
-        # 顯示編輯對話框
+        # Display edit dialog
         dialog = self.edit_dialog_class(
             title=f"Edit {field_label}",
             label_text=f"Enter new {field_label.lower()}:",
@@ -103,49 +103,49 @@ class FirmwareOSManager(QObject):
             new_value = dialog.get_text().strip()
             if new_value and new_value != current_value:
                 self._update_field_value(field_name, new_value)
-                # 發送更新信號
+                # Send update signal
                 self.info_updated.emit(field_name, new_value)
                 logger.info(f"Updated {field_label}: {current_value} -> {new_value}")
     
     def _update_field_value(self, field_name: str, new_value: str):
         """
-        更新欄位值並刷新 UI
+        Update field value and refresh UI
         
         Args:
-            field_name: 欄位名稱
-            new_value: 新值
+            field_name: Field name
+            new_value: New value
         """
-        # 更新內部數據
+        # Update internal data
         self.firmware_os_data[field_name] = new_value
         
-        # 更新顯示
+        # Update display
         if field_name in self.ui_components:
             value_label = self.ui_components[field_name]["value_label"]
             value_label.setText(new_value)
     
     def _update_display(self):
-        """更新所有欄位的顯示"""
+        """Update all field display"""
         for field_name, value in self.firmware_os_data.items():
             if field_name in self.ui_components:
                 value_label = self.ui_components[field_name]["value_label"]
                 value_label.setText(value)
     
     def get_firmware_os_data(self):
-        """獲取當前韌體和作業系統資訊"""
+        """Get current firmware and OS information"""
         return self.firmware_os_data.copy()
     
     def set_firmware_os_data(self, new_data: dict):
         """
-        設置新的韌體和作業系統資訊
+        Set new firmware and OS information
         
         Args:
-            new_data: 新的資訊數據字典
+            new_data: New information data dictionary
         """
         self.firmware_os_data.update(new_data)
         self._update_display()
     
     def export_data(self):
-        """導出韌體和作業系統資訊"""
+        """Export firmware and OS information"""
         return {
             "firmware_os_information": self.firmware_os_data
         } 
