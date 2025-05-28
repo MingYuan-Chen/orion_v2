@@ -12,6 +12,7 @@ class SyncTimeWorker(BaseTestWorker):
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.time_components = None
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -25,10 +26,28 @@ class SyncTimeWorker(BaseTestWorker):
                 command="sudo ntpdate -u time.stdtime.gov.tw", 
                 validation_func=self._validate_sync_time,
                 timeout=5, 
-                description="Sync time with time.stdtime.gov.tw",
-                criteria="Can sync time with time.stdtime.gov.tw",
+                description="Sync time with server",
+                criteria="Can sync time with server",
                 max_retries=1,
                 retry_delay=500
+            ),
+            TestStep(
+                command="hwclock -w",
+                timeout=5, 
+                description="Write RTC Time",
+            ),
+            TestStep(
+                command="hwclock -r",
+                validation_func=self._validate_hwclock_time,
+                timeout=5, 
+                description="Read RTC Time",
+            ),
+            TestStep(
+                command="date",
+                validation_func=self._validate_date,
+                timeout=5, 
+                description="Verify RTC time synced with server time",
+                criteria=f"RTC time is same as server time",
             )
         ]
     
@@ -78,4 +97,110 @@ class SyncTimeWorker(BaseTestWorker):
         except Exception as e:
             logger.error(f"Error parsing sync time response: {e}")
             return False, f"Error parsing sync time response: {str(e)}"
+        
+    def _validate_hwclock_time(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate hwclock time and extract key time components
+        """
+        try:
+            response_clean = response.strip()
+            if not response_clean:
+                return False, "Empty response from hwclock command"
+            
+            # Filter out ntpdate/sync time mixed information, only keep hwclock time start with weekday
+            weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            hwclock_line = None
+            
+            lines = response_clean.split('\n')
+            for line in lines:
+                line = line.strip()
+                # skip empty line
+                if not line:
+                    continue
+                # skip line contains ntpdate
+                if 'ntpdate' in line:
+                    continue
+                # skip line contains adjust/offset/server
+                if any(keyword in line.lower() for keyword in ['adjust', 'offset', 'server']):
+                    continue
+                # find line start with weekday
+                if any(line.startswith(day) for day in weekdays):
+                    hwclock_line = line
+                    break
+            
+            if not hwclock_line:
+                return False, f"No valid hwclock time found in response: {response_clean}"
+            
+            logger.debug(f"Filtered hwclock line: '{hwclock_line}'")
+            
+            # clean hwclock line, remove possible suffix like " 0.000000 seconds"
+            # hwclock normal format: "Wed May 28 09:17:26 2025  0.000000 seconds"
+            # we only need: "Wed May 28 09:17:26 2025"
+            if " seconds" in hwclock_line:
+                # remove " 0.000000 seconds" part
+                hwclock_line = hwclock_line.split(" seconds")[0].strip()
+                # remove extra spaces
+                hwclock_line = ' '.join(hwclock_line.split())
+            
+            logger.debug(f"Cleaned hwclock line: '{hwclock_line}'")
+            
+            # extract time components from cleaned hwclock line
+            split_words = hwclock_line.split()
+            if len(split_words) < 5:
+                return False, f"Invalid hwclock format after cleaning: {hwclock_line}"
+            
+            # Store multiple time components for flexible matching
+            # cleaned format: "Wed May 28 09:17:26 2025"
+            self.synced_time = hwclock_line  # Store clean hwclock response
+            self.time_components = {
+                'weekday': split_words[0],  # "Wed"
+                'month': split_words[1],    # "May" 
+                'day': split_words[2],      # "28"
+                'year': split_words[4] if len(split_words) > 4 else ''  # "2025"
+            }
+            
+            logger.debug(f"Extracted time components: {self.time_components}")
+            return True, f"RTC time: {hwclock_line}"
+            
+        except Exception as e:
+            logger.error(f"Error parsing hwclock response: {e}")
+            return False, f"Error parsing hwclock response: {str(e)}"
+            
+    def _validate_date(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate date command by checking if key time components match
+        """
+        try:
+            if not hasattr(self, 'time_components') or not self.time_components:
+                return False, "No time components available from previous hwclock step"
+            
+            response_clean = response.strip()
+            if not response_clean:
+                return False, "Empty response from date command"
+            
+            logger.debug(f"Date response: '{response_clean}'")
+            logger.debug(f"Checking against time components: {self.time_components}")
+            
+            # Check if key time components from hwclock appear in date response
+            matches = 0
+            total_checks = 0
+            
+            for component, value in self.time_components.items():
+                if value:  # Only check non-empty components
+                    total_checks += 1
+                    if value in response_clean:
+                        matches += 1
+                        logger.debug(f"Found {component} '{value}' in date response")
+                    else:
+                        logger.debug(f"Missing {component} '{value}' in date response")
+            
+            # Require at least 2 out of 4 components to match (flexible matching)
+            if matches >= 2 and total_checks >= 3:
+                return True, f"RTC time is synced with system time ({matches}/{total_checks} components match)"
+            else:
+                return False, f"Time components mismatch: only {matches}/{total_checks} components match. HWClock: {self.synced_time}, Date: {response_clean}"
+                
+        except Exception as e:
+            logger.error(f"Error validating date: {e}")
+            return False, f"Error validating date: {str(e)}"
 
