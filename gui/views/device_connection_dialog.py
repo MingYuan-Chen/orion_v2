@@ -14,6 +14,14 @@ from PySide6.QtCore import QFile, Signal, Slot, QIODevice, Qt
 from PySide6.QtUiTools import QUiLoader
 from util.logger import logger
 
+# Import for serial port detection
+try:
+    import serial.tools.list_ports
+    SERIAL_AVAILABLE = True
+except ImportError:
+    SERIAL_AVAILABLE = False
+    logger.warning("pyserial not available - serial port detection disabled")
+
 
 class DeviceConnectionDialog(QDialog):
     """Device connection dialog class"""
@@ -126,16 +134,210 @@ class DeviceConnectionDialog(QDialog):
     def _setup_ui(self):
         """Set up UI with initial values"""
         try:
-            # Serial port setup - and default values
-            self.ui_widget.combo_box_port.addItems(["COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyUSB2"])
+            # 为串口选择添加刷新按钮
+            self._add_refresh_button()
+            
+            # 动态检测可用的串口
+            available_ports = self._get_available_serial_ports()
+            
+            # Serial port setup - 使用检测到的端口
+            if available_ports:
+                self.ui_widget.combo_box_port.addItems(available_ports)
+                logger.info(f"Detected {len(available_ports)} serial ports: {available_ports}")
+            else:
+                # 如果没有检测到端口，添加一些默认值作为备选
+                default_ports = ["COM1", "COM2", "COM3", "COM4", "/dev/ttyUSB0", "/dev/ttyUSB1"]
+                self.ui_widget.combo_box_port.addItems(default_ports)
+                logger.warning("No serial ports detected, using default port list")
+            
+            # 其他配置项保持不变
             self.ui_widget.combo_box_baudrate.addItems(["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"])
             self.ui_widget.combo_box_latency.addItems(["1", "2", "3", "5", "10", "16"])
-            self.ui_widget.combo_box_port.setCurrentText("COM4")
-            self.ui_widget.combo_box_baudrate.setCurrentText("115200")
-            self.ui_widget.combo_box_latency.setCurrentText("3")
+            
+            # 设置默认值
+            self._set_default_values()
 
         except Exception as e:
             logger.error(f"Error setting UI initial values: {str(e)}", exc_info=True)
+    
+    def _add_refresh_button(self):
+        """add refresh button to serial port selection"""
+        try:
+            from PySide6.QtWidgets import QPushButton, QHBoxLayout
+            from PySide6.QtGui import QIcon
+            from PySide6.QtCore import QSize
+            
+            # get the grid layout of the serial port selection
+            grid_layout = self.ui_widget.group_box_serial.layout()
+            
+            # create refresh button
+            self.refresh_button = QPushButton("🔄")
+            self.refresh_button.setToolTip("重新扫描可用串口")
+            self.refresh_button.setMaximumSize(QSize(30, 25))
+            self.refresh_button.setMinimumSize(QSize(30, 25))
+            
+            # connect the click event of the refresh button
+            self.refresh_button.clicked.connect(self._refresh_serial_ports)
+            
+            # add the refresh button to the serial port selection row
+            grid_layout.addWidget(self.refresh_button, 0, 2, 1, 1)  # row=0, col=2
+            
+            logger.debug("Refresh button added to serial port selection")
+            
+        except Exception as e:
+            logger.error(f"Error adding refresh button: {str(e)}", exc_info=True)
+    
+    def _refresh_serial_ports(self):
+        """refresh serial port list"""
+        try:
+            logger.info("Refreshing serial port list...")
+            
+            # temporarily disable the refresh button
+            self.refresh_button.setEnabled(False)
+            self.refresh_button.setText("...")
+            QApplication.processEvents()
+            
+            # save the current selected port
+            current_port = self.ui_widget.combo_box_port.currentText()
+            
+            # clear the current list
+            self.ui_widget.combo_box_port.clear()
+            
+            # re-detect the serial ports
+            available_ports = self._get_available_serial_ports()
+            
+            if available_ports:
+                self.ui_widget.combo_box_port.addItems(available_ports)
+                logger.info(f"Refreshed serial ports: {available_ports}")
+                
+                # try to restore the previous selected port
+                index = self.ui_widget.combo_box_port.findText(current_port)
+                if index >= 0:
+                    self.ui_widget.combo_box_port.setCurrentIndex(index)
+                    logger.debug(f"Restored previous selection: {current_port}")
+                else:
+                    # if the previous port is no longer available, select the first one
+                    if self.ui_widget.combo_box_port.count() > 0:
+                        self.ui_widget.combo_box_port.setCurrentIndex(0)
+                        logger.debug(f"Previous port {current_port} no longer available, selected first port")
+                        
+            else:
+                # if no ports are detected, add default values
+                default_ports = ["COM1", "COM2", "COM3", "COM4", "/dev/ttyUSB0", "/dev/ttyUSB1"]
+                self.ui_widget.combo_box_port.addItems(default_ports)
+                logger.warning("No serial ports detected after refresh, using default port list")
+                
+                # try to restore the previous selection
+                index = self.ui_widget.combo_box_port.findText(current_port)
+                if index >= 0:
+                    self.ui_widget.combo_box_port.setCurrentIndex(index)
+                    
+        except Exception as e:
+            logger.error(f"Error refreshing serial ports: {str(e)}", exc_info=True)
+        finally:
+            # re-enable the refresh button
+            self.refresh_button.setEnabled(True)
+            self.refresh_button.setText("🔄")
+    
+    def _get_available_serial_ports(self):
+        """check available serial ports
+        
+        Returns:
+            list: available serial ports
+        """
+        ports = []
+        
+        if not SERIAL_AVAILABLE:
+            logger.warning("Serial port detection not available - pyserial module not found")
+            return ports
+            
+        try:
+            # get all available serial ports
+            available_ports = serial.tools.list_ports.comports()
+            
+            for port_info in available_ports:
+                port_name = port_info.device
+                port_description = port_info.description
+                
+                # filter out some ports (e.g. bluetooth)
+                if self._is_valid_serial_port(port_info):
+                    ports.append(port_name)
+                    logger.debug(f"Found serial port: {port_name} - {port_description}")
+                else:
+                    logger.debug(f"Filtered out port: {port_name} - {port_description}")
+            
+            # sort by port name
+            ports.sort()
+            
+        except Exception as e:
+            logger.error(f"Error detecting serial ports: {str(e)}", exc_info=True)
+            
+        return ports
+    
+    def _is_valid_serial_port(self, port_info):
+        """check if the port is a valid serial port
+        
+        Args:
+            port_info: serial port info object
+            
+        Returns:
+            bool: whether the port is a valid serial port
+        """
+        port_name = port_info.device.lower()
+        description = port_info.description.lower()
+        
+        # exclude bluetooth ports
+        if 'bluetooth' in description or 'bt' in description:
+            return False
+            
+        # exclude virtual ports
+        if 'virtual' in description:
+            return False
+            
+        # Windows system - contains COM ports
+        if port_name.startswith('com'):
+            return True
+            
+        # Linux system - contains common USB serial ports and serial devices
+        if (port_name.startswith('/dev/ttyusb') or 
+            port_name.startswith('/dev/ttyacm') or 
+            port_name.startswith('/dev/ttys') or
+            port_name.startswith('/dev/ttyama')):
+            return True
+            
+        # macOS system - USB serial ports
+        if port_name.startswith('/dev/cu.usb') or port_name.startswith('/dev/tty.usb'):
+            return True
+            
+        return False
+    
+    def _set_default_values(self):
+        """set default values"""
+        try:
+            # try to set a common default port
+            port_count = self.ui_widget.combo_box_port.count()
+            if port_count > 0:
+                # on Windows, prefer COM4, on Linux, prefer the first detected port
+                default_set = False
+                
+                for i in range(port_count):
+                    port_text = self.ui_widget.combo_box_port.itemText(i)
+                    # on Windows, prefer COM4
+                    if port_text.upper() == "COM4":
+                        self.ui_widget.combo_box_port.setCurrentIndex(i)
+                        default_set = True
+                        break
+                
+                # if COM4 is not found, select the first port
+                if not default_set:
+                    self.ui_widget.combo_box_port.setCurrentIndex(0)
+            
+            # set other default values
+            self.ui_widget.combo_box_baudrate.setCurrentText("115200")
+            self.ui_widget.combo_box_latency.setCurrentText("3")
+            
+        except Exception as e:
+            logger.error(f"Error setting default values: {str(e)}", exc_info=True)
     
     def _on_connection_type_changed(self, index):
         """Handle connection type change
