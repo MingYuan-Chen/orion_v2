@@ -55,16 +55,108 @@ class SerialDeviceModel(DeviceModel):
         """Disconnect from serial device"""
         if self.device and self.device.is_open:
             try:
-                self.device.reset_input_buffer()
-                self.device.reset_output_buffer()
-                self.device.close()
+                # 检测端口类型以决定断开策略
+                port_type = self._detect_port_type()
+                logger.debug(f"Disconnecting {self.device_id} ({self.port}) - detected as {port_type}")
+                
+                # 根据端口类型采用不同的断开策略
+                if port_type == "usb_hardware":
+                    # USB硬件端口 - 快速断开
+                    self._fast_disconnect()
+                elif port_type == "virtual_network":
+                    # 虚拟/网络端口 - 强制快速断开，避免延迟
+                    self._force_fast_disconnect()
+                else:
+                    # 其他端口 - 标准断开
+                    self._standard_disconnect()
+                
                 self.update_connection_status(False)
-                logger.info(f"Serial device connection closed for {self.device_id}")
+                logger.info(f"Serial device connection closed for {self.device_id} using {port_type} strategy")
                 return True
             except Exception as e:
                 logger.error(f"Error while closing serial device {self.device_id}: {str(e)}")
                 return False
         return True
+    
+    def _detect_port_type(self) -> str:
+        """检测端口类型以选择合适的断开策略
+        
+        Returns:
+            str: 端口类型 ("usb_hardware", "virtual_network", "standard")
+        """
+        try:
+            import serial.tools.list_ports
+            
+            # 查找当前端口的信息
+            for port_info in serial.tools.list_ports.comports():
+                if port_info.device == self.port:
+                    description = port_info.description.lower()
+                    
+                    # USB硬件设备
+                    if (port_info.vid is not None and port_info.pid is not None and 
+                        any(keyword in description for keyword in ['usb', 'prolific', 'ftdi', 'ch340', 'cp210'])):
+                        return "usb_hardware"
+                    
+                    # 虚拟/网络端口
+                    if any(keyword in description for keyword in 
+                           ['intel', 'amt', 'sol', 'serial over lan', 'virtual', 'bluetooth']):
+                        return "virtual_network"
+                    
+                    # 检查是否为传统COM端口（COM1, COM2等，通常为虚拟）
+                    if self.port.upper() in ['COM1', 'COM2'] and port_info.vid is None:
+                        return "virtual_network"
+            
+            # 默认为标准端口
+            return "standard"
+            
+        except Exception as e:
+            logger.warning(f"Failed to detect port type for {self.port}: {e}")
+            return "standard"
+    
+    def _fast_disconnect(self):
+        """快速断开连接策略 - 适用于USB硬件端口"""
+        self.device.reset_input_buffer()
+        self.device.reset_output_buffer()
+        self.device.close()
+    
+    def _force_fast_disconnect(self):
+        """强制快速断开连接策略 - 适用于虚拟/网络端口
+        
+        避免虚拟端口的延迟问题，使用更激进的断开方式
+        """
+        try:
+            # 设置短超时避免hang
+            original_timeout = self.device.timeout
+            self.device.timeout = 0.1
+            
+            # 快速清理缓冲区，不等待
+            try:
+                self.device.reset_input_buffer()
+            except:
+                pass  # 忽略虚拟端口的缓冲区错误
+            
+            try:
+                self.device.reset_output_buffer()
+            except:
+                pass  # 忽略虚拟端口的缓冲区错误
+            
+            # 恢复原始超时并立即关闭
+            self.device.timeout = original_timeout
+            self.device.close()
+            
+        except Exception as e:
+            # 如果常规关闭失败，强制关闭
+            logger.warning(f"Force closing virtual port {self.port}: {e}")
+            try:
+                self.device.close()
+            except:
+                pass  # 忽略关闭时的任何错误
+    
+    def _standard_disconnect(self):
+        """标准断开连接策略"""
+        self.device.reset_input_buffer()
+        self.device.reset_output_buffer()
+        self.device.close()
         
     def send_command(self, command: str, timeout: int = 10) -> str:
         """
