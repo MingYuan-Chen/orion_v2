@@ -294,7 +294,7 @@ class SystemInfoManagerView(QObject):
             # Charging current
             if "charging_current" in battery_info and "current" in self.ui_components:
                 current = battery_info["charging_current"]
-                self.ui_components["current"].setText(f"{current} mA")
+                self.ui_components["current"].setText(f"{current} A")
             
             # Battery temperature
             if "temperature" in battery_info and "temperature" in self.ui_components:

@@ -368,13 +368,22 @@ class DeviceManagerWidget(QWidget):
         for row, device in enumerate(filtered_devices):
             self.ui_widget.table_widget_devices.insertRow(row)
             
-            # Set data for each column
-            self.ui_widget.table_widget_devices.setItem(row, 0, QTableWidgetItem(device['name']))
-            self.ui_widget.table_widget_devices.setItem(row, 1, QTableWidgetItem(device['type']))
-            self.ui_widget.table_widget_devices.setItem(row, 2, QTableWidgetItem(device['address']))
+            # Set data for each column with read-only flags
+            name_item = QTableWidgetItem(device['name'])
+            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
+            self.ui_widget.table_widget_devices.setItem(row, 0, name_item)
+            
+            type_item = QTableWidgetItem(device['type'])
+            type_item.setFlags(type_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
+            self.ui_widget.table_widget_devices.setItem(row, 1, type_item)
+            
+            address_item = QTableWidgetItem(device['address'])
+            address_item.setFlags(address_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
+            self.ui_widget.table_widget_devices.setItem(row, 2, address_item)
             
             # Create status item with color based on status
             status_item = QTableWidgetItem(device['status'])
+            status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
             if device['status'] == 'Connected':
                 status_item.setForeground(Qt.green)
             elif device['status'] == 'Disconnected':
