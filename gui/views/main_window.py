@@ -294,6 +294,9 @@ class MainWindowController(QObject):
         
         # Connect test started signal to save step templates
         self.hw_test_manager.test_started.connect(self._on_test_started)
+
+        # trigger the update of the system info after the main window ui is loaded
+        QTimer.singleShot(100, self._on_refresh_system_info)
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
