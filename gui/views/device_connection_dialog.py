@@ -134,27 +134,27 @@ class DeviceConnectionDialog(QDialog):
     def _setup_ui(self):
         """Set up UI with initial values"""
         try:
-            # 为串口选择添加刷新按钮
-            self._add_refresh_button()
+            # add refresh button
+            # self._add_refresh_button()
             
-            # 动态检测可用的串口
+            # dynamic detection of available serial ports
             available_ports = self._get_available_serial_ports()
             
-            # Serial port setup - 使用检测到的端口
+            # Serial port setup - use detected ports
             if available_ports:
                 self.ui_widget.combo_box_port.addItems(available_ports)
                 logger.info(f"Detected {len(available_ports)} serial ports: {available_ports}")
             else:
-                # 如果没有检测到端口，添加一些默认值作为备选
+                # if no ports are detected, add some default values as alternatives
                 default_ports = ["COM1", "COM2", "COM3", "COM4", "/dev/ttyUSB0", "/dev/ttyUSB1"]
                 self.ui_widget.combo_box_port.addItems(default_ports)
                 logger.warning("No serial ports detected, using default port list")
             
-            # 其他配置项保持不变
+            # other configuration items remain unchanged
             self.ui_widget.combo_box_baudrate.addItems(["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"])
             self.ui_widget.combo_box_latency.addItems(["1", "2", "3", "5", "10", "16"])
             
-            # 设置默认值
+            # set default values
             self._set_default_values()
 
         except Exception as e:
@@ -172,7 +172,7 @@ class DeviceConnectionDialog(QDialog):
             
             # create refresh button
             self.refresh_button = QPushButton("🔄")
-            self.refresh_button.setToolTip("重新扫描可用串口")
+            self.refresh_button.setToolTip("Refresh available serial ports")
             self.refresh_button.setMaximumSize(QSize(30, 25))
             self.refresh_button.setMinimumSize(QSize(30, 25))
             

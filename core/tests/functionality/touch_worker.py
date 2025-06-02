@@ -12,6 +12,7 @@ class TouchWorker(BaseTestWorker):
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.touch_tool = "/run/media/sda1/TouchTestQt"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -22,91 +23,24 @@ class TouchWorker(BaseTestWorker):
         """
         return [
             TestStep(
+                command="/run/media/sda1/TouchTestQt",  
+                timeout=5,
+                description="Launch touch test tool",
+            ),
+            TestStep(
+                command="",
+                timeout=5,
+                description="Touch the 9 red circles",
+                criteria="The 9 red circles should become green",
+                pre_condition="Please touch the 9 red circles on the screen",
+                post_check="Is the 9 red circles become green? \n NOTE: Please click 'Close' button after testing",
+                manual_only=True
+            ),
+            TestStep(
                 command="ts_test_mt -j 2 -v",  
                 timeout=5,
                 description="Launch touch test tool",
                 post_check="Is test tool running with 'Drag/Draw/Quit' options?"
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the left top corner",
-                criteria="The cross mark should appear on the left top corner of the screen",
-                pre_condition="Please touch the left top corner on the screen",
-                post_check="Is the left top corner touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the right top corner",
-                criteria="The cross mark should appear on the right top corner of the screen",
-                pre_condition="Please touch the right top corner on the screen",
-                post_check="Is the right top corner touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the left bottom corner",
-                criteria="The cross mark should appear on the left bottom corner of the screen",
-                pre_condition="Please touch the left bottom corner on the screen",
-                post_check="Is the left bottom corner touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the right bottom corner",
-                criteria="The cross mark should appear on the right bottom corner of the screen",
-                pre_condition="Please touch the right bottom corner on the screen",
-                post_check="Is the right bottom corner touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the center of the screen",
-                criteria="The cross mark should appear on the center of the screen",
-                pre_condition="Please touch the center of the screen",
-                post_check="Is the center of the screen touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the left center of the screen",
-                criteria="The cross mark should appear on the left center of the screen",
-                pre_condition="Please touch the left center of the screen",
-                post_check="Is the left center of the screen touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the right center of the screen",
-                criteria="The cross mark should appear on the right center of the screen",
-                pre_condition="Please touch the right center of the screen",
-                post_check="Is the right center of the screen touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the top center of the screen",
-                criteria="The cross mark should appear on the top center of the screen",
-                pre_condition="Please touch the top center of the screen",
-                post_check="Is the top center of the screen touched with cross mark?",
-                manual_only=True
-            ),
-            TestStep(
-                command="",
-                timeout=5,
-                description="Touch the bottom center of the screen",
-                criteria="The cross mark should appear on the bottom center of the screen",
-                pre_condition="Please touch the bottom center of the screen",
-                post_check="Is the bottom center of the screen touched with cross mark?",
-                manual_only=True
             ),
             TestStep(
                 command="",

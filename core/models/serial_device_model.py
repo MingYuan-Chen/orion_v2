@@ -55,19 +55,19 @@ class SerialDeviceModel(DeviceModel):
         """Disconnect from serial device"""
         if self.device and self.device.is_open:
             try:
-                # 检测端口类型以决定断开策略
+                # check port type
                 port_type = self._detect_port_type()
                 logger.debug(f"Disconnecting {self.device_id} ({self.port}) - detected as {port_type}")
                 
-                # 根据端口类型采用不同的断开策略
+                # different disconnect strategies based on port type
                 if port_type == "usb_hardware":
-                    # USB硬件端口 - 快速断开
+                    # USB hardware port - fast disconnect
                     self._fast_disconnect()
                 elif port_type == "virtual_network":
-                    # 虚拟/网络端口 - 强制快速断开，避免延迟
+                    # virtual/network port - force fast disconnect, avoid delay
                     self._force_fast_disconnect()
                 else:
-                    # 其他端口 - 标准断开
+                    # other ports - standard disconnect
                     self._standard_disconnect()
                 
                 self.update_connection_status(False)
@@ -79,34 +79,34 @@ class SerialDeviceModel(DeviceModel):
         return True
     
     def _detect_port_type(self) -> str:
-        """检测端口类型以选择合适的断开策略
+        """detect port type to select appropriate disconnect strategy
         
         Returns:
-            str: 端口类型 ("usb_hardware", "virtual_network", "standard")
+            str: port type ("usb_hardware", "virtual_network", "standard")
         """
         try:
             import serial.tools.list_ports
             
-            # 查找当前端口的信息
+            # find current port information
             for port_info in serial.tools.list_ports.comports():
                 if port_info.device == self.port:
                     description = port_info.description.lower()
                     
-                    # USB硬件设备
+                    # USB hardware device
                     if (port_info.vid is not None and port_info.pid is not None and 
                         any(keyword in description for keyword in ['usb', 'prolific', 'ftdi', 'ch340', 'cp210'])):
                         return "usb_hardware"
                     
-                    # 虚拟/网络端口
+                    # virtual/network port
                     if any(keyword in description for keyword in 
                            ['intel', 'amt', 'sol', 'serial over lan', 'virtual', 'bluetooth']):
                         return "virtual_network"
                     
-                    # 检查是否为传统COM端口（COM1, COM2等，通常为虚拟）
+                    # check if it's a traditional COM port (COM1, COM2, etc., usually virtual)
                     if self.port.upper() in ['COM1', 'COM2'] and port_info.vid is None:
                         return "virtual_network"
             
-            # 默认为标准端口
+            # default to standard port
             return "standard"
             
         except Exception as e:
@@ -114,46 +114,46 @@ class SerialDeviceModel(DeviceModel):
             return "standard"
     
     def _fast_disconnect(self):
-        """快速断开连接策略 - 适用于USB硬件端口"""
+        """fast disconnect strategy - for USB hardware port"""
         self.device.reset_input_buffer()
         self.device.reset_output_buffer()
         self.device.close()
     
     def _force_fast_disconnect(self):
-        """强制快速断开连接策略 - 适用于虚拟/网络端口
+        """force fast disconnect strategy
         
-        避免虚拟端口的延迟问题，使用更激进的断开方式
+        avoid virtual port delay issues, use more aggressive disconnect method
         """
         try:
-            # 设置短超时避免hang
+            # set short timeout to avoid hang
             original_timeout = self.device.timeout
             self.device.timeout = 0.1
             
-            # 快速清理缓冲区，不等待
+            # fast clean buffer, no waiting
             try:
                 self.device.reset_input_buffer()
             except:
-                pass  # 忽略虚拟端口的缓冲区错误
+                pass  # ignore virtual port buffer error
             
             try:
                 self.device.reset_output_buffer()
             except:
-                pass  # 忽略虚拟端口的缓冲区错误
+                pass  # ignore virtual port buffer error
             
-            # 恢复原始超时并立即关闭
+            # restore original timeout and close immediately
             self.device.timeout = original_timeout
             self.device.close()
             
         except Exception as e:
-            # 如果常规关闭失败，强制关闭
+            # if normal close fails, force close
             logger.warning(f"Force closing virtual port {self.port}: {e}")
             try:
                 self.device.close()
             except:
-                pass  # 忽略关闭时的任何错误
+                pass  # ignore any errors during close
     
     def _standard_disconnect(self):
-        """标准断开连接策略"""
+        """standard disconnect strategy for non-USB hardware ports"""
         self.device.reset_input_buffer()
         self.device.reset_output_buffer()
         self.device.close()
