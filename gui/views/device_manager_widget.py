@@ -37,6 +37,7 @@ class DeviceManagerWidget(QWidget):
         self.view_model.disconnection_result.connect(self._on_device_disconnected)
         self.view_model.command_result.connect(self._on_command_completed)
         self.view_model.device_list_changed.connect(self._on_device_list_changed)
+        self.view_model.services_initialization_completed.connect(self._on_services_initialized)
         
         # Load UI
         self._load_ui_direct()
@@ -331,9 +332,10 @@ class DeviceManagerWidget(QWidget):
         has_selection = self.ui_widget.table_widget_devices.currentRow() >= 0
         
         self.ui_widget.push_button_disconnect.setEnabled(has_selection)
-        self.ui_widget.push_button_open_main_window.setEnabled(has_selection)
         
-        # In a real app, you might want to check the device status to determine if buttons should be enabled
+        # For open main window button, need to check both selection and services status
+        can_open_main_window = False
+        
         if has_selection:
             selected_row = self.ui_widget.table_widget_devices.currentRow()
             device = self._get_filtered_devices()[selected_row]
@@ -341,8 +343,21 @@ class DeviceManagerWidget(QWidget):
             # Only enable disconnect button if device is connected
             self.ui_widget.push_button_disconnect.setEnabled(device['status'] == 'Connected')
             
-            # Only enable open main window button if device is connected
-            self.ui_widget.push_button_open_main_window.setEnabled(device['status'] == 'Connected')
+            # For main window: device must be connected AND services must be initialized
+            device_connected = device['status'] == 'Connected'
+            services_ready = self.view_model.are_services_initialized()
+            
+            can_open_main_window = device_connected and services_ready
+            
+            # Update button text and tooltip based on status
+            if device_connected and not services_ready:
+                self.ui_widget.push_button_open_main_window.setText("Initializing...")
+                self.ui_widget.push_button_open_main_window.setToolTip("Services are being initialized. Please wait...")
+            else:
+                self.ui_widget.push_button_open_main_window.setText("Open Main Window")
+                self.ui_widget.push_button_open_main_window.setToolTip("Open main window for the selected device")
+        
+        self.ui_widget.push_button_open_main_window.setEnabled(can_open_main_window)
     
     def _get_filtered_devices(self):
         """Get devices filtered by selected filter type"""
@@ -415,6 +430,9 @@ class DeviceManagerWidget(QWidget):
             
             # Use QTimer to delay auto-selection to ensure UI is fully updated
             QTimer.singleShot(100, lambda: self._select_device_by_id(device_id))
+            
+            # Update button states based on current selection and service status
+            QTimer.singleShot(150, self._on_device_selection_changed)
             
             # Optionally show a notification
             # QMessageBox.information(self, "Connection Success", message)
@@ -524,6 +542,22 @@ class DeviceManagerWidget(QWidget):
         logger.debug(f"Device list updated, {len(devices_list)} devices")
         self._refresh_device_list()
     
+    @Slot(str)
+    def _on_services_initialized(self, platform_name):
+        """Handle services initialization completed event
+        
+        Args:
+            platform_name: The platform name used for service initialization
+        """
+        logger.info(f"Services initialized with platform: {platform_name}")
+        
+        # Update button states now that services are ready
+        self._on_device_selection_changed()
+        
+        # Optionally show a brief notification
+        # Note: You might want to show this in a status bar instead of a message box
+        # QMessageBox.information(self, "Services Ready", f"Platform services initialized: {platform_name}")
+    
     def closeEvent(self, event):
         """Handle window close event"""
         # Prevent duplicate processing of close events
@@ -591,6 +625,7 @@ class DeviceManagerWidget(QWidget):
                     self.view_model.disconnection_result.disconnect(self._on_device_disconnected)
                     self.view_model.command_result.disconnect(self._on_command_completed)
                     self.view_model.device_list_changed.disconnect(self._on_device_list_changed)
+                    self.view_model.services_initialization_completed.disconnect(self._on_services_initialized)
                 except Exception as e:
                     logger.warning(f"Error disconnecting view_model signals: {e}")
         except Exception as e:

@@ -18,13 +18,13 @@ class SystemInfoService(QObject):
     info_error = Signal(str, str)      # device_id, error_message
     command_executed = Signal(str, str, str)  # device_id, command_name, command
     
-    def __init__(self, serial_worker, platform_name="hydra"):
+    def __init__(self, serial_worker, platform_name="hydra_fhd"):
         """
         Initialize system info service
         
         Args:
             serial_worker: Serial device worker for command execution
-            platform_name: Platform name for command set, default is "hydra"
+            platform_name: Platform name for command set, default is "hydra_fhd"
         """
         super().__init__()
         self.serial_worker = serial_worker

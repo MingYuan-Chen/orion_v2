@@ -22,13 +22,13 @@ class HardwareTestManagerService(QObject):
     test_pre_condition_required = Signal(str, int, str)  # test_id, step_index, pre_condition
     test_post_check_required = Signal(str, int, str)  # test_id, step_index, post_check
     
-    def __init__(self, device_worker, platform_name="hydra"):
+    def __init__(self, device_worker, platform_name="hydra_fhd"):
         """
         Initialize hardware test manager
         
         Args:
             device_worker: Device worker object, will be passed to all test workers
-            platform_name: Platform name for command set, default is "hydra"
+            platform_name: Platform name for command set, default is "hydra_fhd"
         """
         super().__init__()
         self.device_worker = device_worker
