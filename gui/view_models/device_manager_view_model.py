@@ -217,6 +217,10 @@ class DeviceManagerViewModel(QObject):
             # Emit signal
             self.connection_result.emit(device_id, success, message)
             self.device_list_changed.emit(list(self.connected_devices.values()))
+        else:
+            # Connection failed - also emit signal to notify UI
+            logger.error(f"Device connection failed: {device_id} - {message}")
+            self.connection_result.emit(device_id, success, message)
         
     @Slot(str, bool, str)
     def _on_disconnection_completed(self, device_id: str, success: bool, message: str):

@@ -10,7 +10,7 @@ import sys
 import time
 import random
 from PySide6.QtWidgets import QDialog, QMessageBox, QApplication, QVBoxLayout
-from PySide6.QtCore import QFile, Signal, Slot, QIODevice, Qt
+from PySide6.QtCore import QFile, Signal, Slot, QIODevice, Qt, QTimer
 from PySide6.QtUiTools import QUiLoader
 from util.logger import logger
 
@@ -36,6 +36,11 @@ class DeviceConnectionDialog(QDialog):
         
         # Connected device information (to be returned to caller)
         self.connected_device = None
+        
+        # Connection timeout timer
+        self.connection_timeout_timer = QTimer()
+        self.connection_timeout_timer.setSingleShot(True)
+        self.connection_timeout_timer.timeout.connect(self._on_connection_timeout)
         
         # Load UI
         self._load_ui_direct()
@@ -365,6 +370,9 @@ class DeviceConnectionDialog(QDialog):
             self.ui_widget.push_button_connect.setText("Connecting...")
             QApplication.processEvents()  # Ensure UI update
             
+            # Start connection timeout timer (15 seconds)
+            self.connection_timeout_timer.start(15000)
+            
             # Process by connection type
             if connection_type == "Serial":
                 self._connect_serial()
@@ -379,6 +387,9 @@ class DeviceConnectionDialog(QDialog):
             error_msg = f"Connection failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
             
+            # Stop timeout timer
+            self.connection_timeout_timer.stop()
+            
             # Re-enable connect button
             self.ui_widget.push_button_connect.setEnabled(True)
             self.ui_widget.push_button_connect.setText("Connect")
@@ -386,8 +397,22 @@ class DeviceConnectionDialog(QDialog):
             # Show error dialog
             QMessageBox.critical(self, "Connection Error", error_msg)
     
+    def _on_connection_timeout(self):
+        """Handle connection timeout"""
+        logger.warning("Device connection timed out")
+        
+        # Re-enable connect button
+        self.ui_widget.push_button_connect.setEnabled(True)
+        self.ui_widget.push_button_connect.setText("Connect")
+        
+        # Show timeout error dialog
+        QMessageBox.critical(self, "Connection Timeout", "Device connection timed out. Please check if the device is properly connected and try again.")
+    
     def _on_disconnect_clicked(self):
         """Handle disconnect button click (cancel)"""
+        # Stop timeout timer if running
+        self.connection_timeout_timer.stop()
+        
         # If we were in process of connecting, cancel it
         if not self.ui_widget.push_button_connect.isEnabled():
             self.ui_widget.push_button_connect.setEnabled(True)
@@ -407,11 +432,6 @@ class DeviceConnectionDialog(QDialog):
         if hasattr(self, 'view_model') and self.view_model:
             logger.info(f"Using view model to connect to device: {port}")
             
-            # Disable connect button and show connecting status
-            self.ui_widget.push_button_connect.setEnabled(False)
-            self.ui_widget.push_button_connect.setText("Connecting...")
-            QApplication.processEvents()  # Ensure UI updates
-            
             # Generate device ID (adjust as needed)
             device_id = f"serial_{port.replace('/', '_').replace(':', '_')}"
             
@@ -420,6 +440,9 @@ class DeviceConnectionDialog(QDialog):
             
             # Note: Connection results will be handled by _on_device_connected_result function
             return
+        else:
+            # If no view model, show error
+            raise RuntimeError("View model not available for device connection")
     
     def _connect_ssh(self):
         """Connect to SSH device"""
@@ -537,6 +560,9 @@ class DeviceConnectionDialog(QDialog):
             success: connection success
             message: connection result message
         """
+        # Stop timeout timer
+        self.connection_timeout_timer.stop()
+        
         # Re-enable connect button
         self.ui_widget.push_button_connect.setEnabled(True)
         self.ui_widget.push_button_connect.setText("Connect")
@@ -584,8 +610,38 @@ class DeviceConnectionDialog(QDialog):
             # Connection failed
             logger.error(f"Failed to connect to device: {message}")
             
+            # Translate common error messages for better user understanding
+            friendly_message = self._get_friendly_error_message(message)
+            
             # Show error dialog
-            QMessageBox.critical(self, "Connection Error", message)
+            QMessageBox.critical(self, "Connection Error", f"Failed to connect to device:\n{friendly_message}")
+    
+    def _get_friendly_error_message(self, message):
+        """Get user-friendly error message
+        
+        Args:
+            message: original error message
+            
+        Returns:
+            str: user-friendly message
+        """
+        message_lower = message.lower()
+        
+        # Common error translations to more user-friendly messages
+        if "could not open port" in message_lower:
+            if "指定的裝置不存在" in message or "device does not exist" in message_lower:
+                return "The specified device does not exist or is being used by another application.\nPlease check the device connection or try another port."
+            else:
+                return "Unable to open the port.\nThe device may be in use by another application or does not exist."
+        elif "access denied" in message_lower or "permission denied" in message_lower:
+            return "Access denied to the device.\nPlease run the application as administrator or check device permissions."
+        elif "timeout" in message_lower:
+            return "Connection timeout.\nPlease check if the device is properly connected and available."
+        elif "device not found" in message_lower:
+            return "The specified device was not found.\nPlease check if the device is properly connected."
+        else:
+            # Return original message if no friendly translation available
+            return message
 
     def _get_dark_style_sheet(self):
         """Return the dark style sheet"""
