@@ -21,12 +21,18 @@ class DeviceManagerViewModel(QObject):
     # Command execution signals
     command_result = Signal(str, str, str)  # device_id, command, response
     
-    def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra"):
+    # Service initialization signals
+    services_initialization_completed = Signal(str)  # platform_name
+    
+    def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd"):
         super().__init__()
         # Initialize device manager
         self.device_manager = device_manager or DeviceManagerModel()
         self.connected_devices = {}  # device_id: device_info
         self.platform_name = platform_name
+        
+        # Platform detection tracking - stores detection results for each device
+        self.platform_detection_status = {}  # device_id: {command_results: {}, completed_commands: set(), detected_platform: str}
         
         # Create device worker thread
         self._serial_worker = SerialDeviceWorker(self.device_manager)
@@ -36,15 +42,39 @@ class DeviceManagerViewModel(QObject):
         self._serial_worker.disconnection_result.connect(self._on_disconnection_completed)
         self._serial_worker.command_result.connect(self._on_command_completed)
         
-        # Initialize SystemInfoService with platform name
-        from core.services.system_info import SystemInfoService
-        self.system_info_service = SystemInfoService(self._serial_worker, platform_name=self.platform_name)
+        # Initialize services as None - will be created after device connection
+        self.system_info_service = None
+        self.hardware_test_manager = None
         
-        # Initialize HardwareTestManagerService
-        from core.services.hardware_test_manager import HardwareTestManagerService
-        self.hardware_test_manager = HardwareTestManagerService(self._serial_worker, platform_name=self.platform_name)
+        logger.info(f"DeviceManagerViewModel initialized with default platform: {platform_name}")
         
-        logger.info(f"DeviceManagerViewModel initialized with platform: {platform_name}")
+    def _initialize_services(self, platform_name: str = None):
+        """Initialize services with the specified or default platform name
+        
+        Args:
+            platform_name: Platform name to use for service initialization
+        """
+        if platform_name:
+            self.platform_name = platform_name
+            
+        logger.info(f"Initializing services with platform: {self.platform_name}")
+        
+        try:
+            # Initialize SystemInfoService with platform name
+            from core.services.system_info import SystemInfoService
+            self.system_info_service = SystemInfoService(self._serial_worker, platform_name=self.platform_name)
+            
+            # Initialize HardwareTestManagerService
+            from core.services.hardware_test_manager import HardwareTestManagerService
+            self.hardware_test_manager = HardwareTestManagerService(self._serial_worker, platform_name=self.platform_name)
+            
+            logger.info(f"Services initialized successfully with platform: {self.platform_name}")
+            
+            # Emit signal to notify UI that services are ready
+            self.services_initialization_completed.emit(self.platform_name)
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize services: {str(e)}", exc_info=True)
         
     def cleanup(self):
         """Release resources and clean up"""
@@ -157,9 +187,28 @@ class DeviceManagerViewModel(QObject):
                 except Exception as e:
                     logger.error(f"Error cleaning up device manager model: {e}")
             
-            # 6. Clear all device-related collections
+            # 6. Clean up services
+            try:
+                if hasattr(self, 'system_info_service') and self.system_info_service:
+                    # Clear service reference
+                    self.system_info_service = None
+                    logger.debug("System info service cleaned up")
+                
+                if hasattr(self, 'hardware_test_manager') and self.hardware_test_manager:
+                    # Clear service reference  
+                    self.hardware_test_manager = None
+                    logger.debug("Hardware test manager service cleaned up")
+                    
+            except Exception as e:
+                logger.error(f"Error cleaning up services: {e}")
+            
+            # 7. Clear all device-related collections
             if hasattr(self, 'connected_devices'):
                 self.connected_devices.clear()
+            
+            # 8. Clear platform detection status
+            if hasattr(self, 'platform_detection_status'):
+                self.platform_detection_status.clear()
             
         except Exception as e:
             logger.error(f"Error cleaning up DeviceManagerViewModel resources: {e}")
@@ -209,10 +258,24 @@ class DeviceManagerViewModel(QObject):
             # Store device info
             self.connected_devices[device_id] = device_info
 
+            # Initialize platform detection status for this device
+            self.platform_detection_status[device_id] = {
+                'command_results': {},
+                'completed_commands': set(),
+                'detected_platform': None
+            }
+
             # workaround to ensure the device is connected
             # TODO: when other connection methods are applied, this workaround should be removed
             # TODO: Should consider more robust way to ensure the device is connected
             self._serial_worker.send_command(device_id, "root", 0)
+
+            # Send platform detection commands
+            logger.info(f"Sending platform detection commands to device {device_id}")
+            self._serial_worker.send_command(device_id, "cat /proc/panel_id", 0)
+            self._serial_worker.send_command(device_id, "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 0)
+            
+            # Note: Services will be initialized in _on_command_completed when all platform detection responses are received
                 
             # Emit signal
             self.connection_result.emit(device_id, success, message)
@@ -228,6 +291,19 @@ class DeviceManagerViewModel(QObject):
         if success and device_id in self.connected_devices:
             del self.connected_devices[device_id]
             
+        # Clean up platform detection status for this device if it exists
+        if device_id in self.platform_detection_status:
+            del self.platform_detection_status[device_id]
+            logger.debug(f"Cleared platform detection status for device {device_id}")
+        
+        # Check if all devices are now disconnected
+        if not self.connected_devices:
+            logger.info("All devices disconnected, resetting services to allow re-initialization")
+            # Reset services to None so they can be re-initialized on next connection
+            self.system_info_service = None
+            self.hardware_test_manager = None
+            logger.debug("Services reset to None - ready for re-initialization")
+            
         # Emit signal
         self.disconnection_result.emit(device_id, success, message)
         self.device_list_changed.emit(list(self.connected_devices.values()))
@@ -235,7 +311,93 @@ class DeviceManagerViewModel(QObject):
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
         """Handle command execution completion"""
+        # Check if this is one of the platform detection commands
+        detected_platform = None
+        is_platform_detection_command = False
+        
+        if command == "cat /proc/panel_id":
+            logger.info(f"Received platform detection response from {device_id}: {response}")
+            detected_platform = self._detect_platform_from_panel_id(response)
+            logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
+            is_platform_detection_command = True
+        
+        elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
+            logger.info(f"Received PIC version response from {device_id}: {response}")
+            # Determine platform based on PIC version response
+            if '0x72' in response:
+                detected_platform = "argo"
+                logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
+            is_platform_detection_command = True
+        
+        # Handle platform detection command completion
+        if is_platform_detection_command and device_id in self.platform_detection_status:
+            # Store command result
+            self.platform_detection_status[device_id]['command_results'][command] = response
+            self.platform_detection_status[device_id]['completed_commands'].add(command)
+            
+            # Update detected platform if we found one
+            if detected_platform:
+                self.platform_detection_status[device_id]['detected_platform'] = detected_platform
+            
+            # Check if all platform detection commands are completed
+            expected_commands = {
+                "cat /proc/panel_id",
+                "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+            }
+            completed_commands = self.platform_detection_status[device_id]['completed_commands']
+            
+            if expected_commands.issubset(completed_commands):
+                logger.info(f"All platform detection commands completed for device {device_id}")
+                
+                # Get the final detected platform
+                final_platform = self.platform_detection_status[device_id]['detected_platform']
+                if not final_platform:
+                    # If no platform was detected from any command, use default
+                    final_platform = self.platform_name
+                    logger.warning(f"No platform detected from commands, using default: {final_platform}")
+                
+                # Initialize services if this is the first connected device or if services are not initialized
+                if self.system_info_service is None or self.hardware_test_manager is None:
+                    # Update platform name and initialize services
+                    self.platform_name = final_platform
+                    self._initialize_services()
+                    logger.info(f"Services initialized with detected platform: {final_platform}")
+                else:
+                    logger.debug(f"Services already initialized, skipping for device {device_id}")
+                
+                # Clean up detection status for this device
+                del self.platform_detection_status[device_id]
+        
+        # Always emit the command result signal for other components
         self.command_result.emit(device_id, command, response)
+    
+    def _detect_platform_from_panel_id(self, panel_id_response: str) -> str:
+        """Detect platform name based on panel_id response
+        
+        Args:
+            panel_id_response: Response from 'cat /proc/panel_id' command
+            
+        Returns:
+            str: Detected platform name
+        """
+        # Remove whitespace and convert to lowercase for comparison
+        response = panel_id_response.strip().lower()
+        
+        logger.debug(f"Analyzing panel_id response: '{response}'")
+        
+        # Platform detection logic based on panel_id
+        if "01" in response:
+            return "hydra_fhd"
+        elif "00" in response:
+            return "hydra"
+        elif "10" in response:
+            return "gemini_fhd"
+        elif "11" in response:
+            return "gemini"
+        else:
+            # Default fallback - log the unknown response for debugging
+            logger.warning(f"Unknown panel_id response: '{panel_id_response}', using default platform")
+            return self.platform_name  # Keep current default platform
         
     def connect_serial_device(self, device_id: str, port: str, baudrate: int = 115200, timeout: int = 3):
         """Connect serial device"""
@@ -304,8 +466,38 @@ class DeviceManagerViewModel(QObject):
         logger.info(f"Changing platform to: {platform_name}")
         self.platform_name = platform_name
         
-        # Update platform for services
+        # Update platform for services if they are already initialized
         if hasattr(self, 'system_info_service') and self.system_info_service:
             self.system_info_service.set_platform(platform_name)
+            logger.debug("Updated system_info_service platform")
         
-        # For test workers, they'll get the platform name when they're created
+        if hasattr(self, 'hardware_test_manager') and self.hardware_test_manager:
+            # Check if hardware_test_manager has set_platform method
+            if hasattr(self.hardware_test_manager, 'set_platform'):
+                self.hardware_test_manager.set_platform(platform_name)
+                logger.debug("Updated hardware_test_manager platform")
+        
+        # Note: If services are not yet initialized, they will use the updated 
+        # platform_name when _initialize_services() is called
+
+    def are_services_initialized(self) -> bool:
+        """Check if all required services are initialized
+        
+        Returns:
+            bool: True if all services are initialized, False otherwise
+        """
+        return (self.system_info_service is not None and 
+                self.hardware_test_manager is not None)
+    
+    def get_services_status(self) -> dict:
+        """Get detailed status of service initialization
+        
+        Returns:
+            dict: Status information about services
+        """
+        return {
+            'system_info_service': self.system_info_service is not None,
+            'hardware_test_manager': self.hardware_test_manager is not None,
+            'all_initialized': self.are_services_initialized(),
+            'platform_name': self.platform_name
+        }

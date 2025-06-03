@@ -610,38 +610,8 @@ class DeviceConnectionDialog(QDialog):
             # Connection failed
             logger.error(f"Failed to connect to device: {message}")
             
-            # Translate common error messages for better user understanding
-            friendly_message = self._get_friendly_error_message(message)
-            
             # Show error dialog
-            QMessageBox.critical(self, "Connection Error", f"Failed to connect to device:\n{friendly_message}")
-    
-    def _get_friendly_error_message(self, message):
-        """Get user-friendly error message
-        
-        Args:
-            message: original error message
-            
-        Returns:
-            str: user-friendly message
-        """
-        message_lower = message.lower()
-        
-        # Common error translations to more user-friendly messages
-        if "could not open port" in message_lower:
-            if "指定的裝置不存在" in message or "device does not exist" in message_lower:
-                return "The specified device does not exist or is being used by another application.\nPlease check the device connection or try another port."
-            else:
-                return "Unable to open the port.\nThe device may be in use by another application or does not exist."
-        elif "access denied" in message_lower or "permission denied" in message_lower:
-            return "Access denied to the device.\nPlease run the application as administrator or check device permissions."
-        elif "timeout" in message_lower:
-            return "Connection timeout.\nPlease check if the device is properly connected and available."
-        elif "device not found" in message_lower:
-            return "The specified device was not found.\nPlease check if the device is properly connected."
-        else:
-            # Return original message if no friendly translation available
-            return message
+            QMessageBox.critical(self, "Connection Error", f"Failed to connect to device: {message}")
 
     def _get_dark_style_sheet(self):
         """Return the dark style sheet"""
