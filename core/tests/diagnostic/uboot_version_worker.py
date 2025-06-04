@@ -6,13 +6,14 @@ import re
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class UbootVersionWorker(BaseTestWorker):
     """Diagnostic u-boot version worker, implement diagnostic u-boot version test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "diagnostic_uboot_version"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -21,9 +22,11 @@ class UbootVersionWorker(BaseTestWorker):
         Returns:
             diagnostic u-boot version test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         return [
             TestStep(
-                command="strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\.'", 
+                command=commands[0], 
                 validation_func=self._validate_uboot_version,
                 timeout=5, 
                 description="Check U-Boot Version",

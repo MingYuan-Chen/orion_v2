@@ -5,13 +5,16 @@ Implement diagnostic sync time test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
+from datetime import datetime
+import re
 
 class SyncTimeWorker(BaseTestWorker):
     """Diagnostic sync time worker, implement diagnostic sync time test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "diagnostic_sync_time"
         self.time_components = None
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -21,9 +24,11 @@ class SyncTimeWorker(BaseTestWorker):
         Returns:
             diagnostic sync time test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         return [
             TestStep(
-                command="sudo ntpdate -u time.stdtime.gov.tw", 
+                command=commands[0], 
                 validation_func=self._validate_sync_time,
                 timeout=5, 
                 description="Sync time with server",
@@ -32,18 +37,18 @@ class SyncTimeWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="hwclock -w",
+                command=commands[1],
                 timeout=5, 
                 description="Write RTC Time",
             ),
             TestStep(
-                command="hwclock -r",
+                command=commands[2],
                 validation_func=self._validate_hwclock_time,
                 timeout=5, 
                 description="Read RTC Time",
             ),
             TestStep(
-                command="date",
+                command=commands[3],
                 validation_func=self._validate_date,
                 timeout=5, 
                 description="Verify RTC time synced with server time",
