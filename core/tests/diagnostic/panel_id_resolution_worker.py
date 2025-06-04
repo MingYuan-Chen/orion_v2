@@ -58,6 +58,13 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 command=commands[3],
                 timeout=5,
                 description="Remove evtlog",
+            ),
+            TestStep(
+                command=commands[4],
+                expected_response="01",
+                timeout=5,
+                description="Check panel ID",
+                criteria="Panel ID is Hydra FHD",
             )
         ]
         

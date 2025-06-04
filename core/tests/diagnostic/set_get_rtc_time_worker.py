@@ -5,13 +5,14 @@ Implement diagnostic set and get rtc time test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class SetGetRtcTimeWorker(BaseTestWorker):
     """Diagnostic set and get rtc time worker, implement diagnostic set and get rtc time test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "diagnostic_set_get_rtc_time"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -20,9 +21,11 @@ class SetGetRtcTimeWorker(BaseTestWorker):
         Returns:
             diagnostic set and get rtc time test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         return [
             TestStep(
-                command="date -s '2024-02-28 23:59:59'", 
+                command=commands[0], 
                 expected_response="Wed Feb 28 23:59:59 UTC 2024",
                 timeout=5, 
                 description="Set Date Time",
@@ -31,12 +34,12 @@ class SetGetRtcTimeWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="hwclock -w",
+                command=commands[1],
                 timeout=5, 
                 description="Write RTC Time",
             ),
             TestStep(
-                command="hwclock -r",
+                command=commands[2],
                 expected_response="Thu Feb 29",
                 timeout=5, 
                 description="Read RTC Time and verify leap year is handled",

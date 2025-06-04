@@ -5,13 +5,14 @@ Implement diagnostic pic version test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class PicVersionWorker(BaseTestWorker):
     """Diagnostic pic version worker, implement diagnostic pic version test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "diagnostic_pic_version"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -20,9 +21,11 @@ class PicVersionWorker(BaseTestWorker):
         Returns:
             diagnostic pic version test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         return [
             TestStep(
-                command="i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 
+                command=commands[0], 
                 expected_response="0x6e",           # convert to decimal: 110
                 # Hydra: 0x6e = 110
                 # Argo: 0x72 = 114
@@ -33,7 +36,7 @@ class PicVersionWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="cat /proc/hw_rev", 
+                command=commands[1], 
                 expected_response="100",           # convert to decimal: 100
                 timeout=5, 
                 description="Check HW revision by proc",

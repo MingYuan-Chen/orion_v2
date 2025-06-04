@@ -5,13 +5,14 @@ Implement diagnostic kernal name test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class KernalNameWorker(BaseTestWorker):
     """Diagnostic kernal name worker, implement diagnostic kernal name test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "diagnostic_kernal_name"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -20,9 +21,11 @@ class KernalNameWorker(BaseTestWorker):
         Returns:
             diagnostic kernal name test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        
         return [
             TestStep(
-                command="uname -a", 
+                command=commands[0], 
                 expected_response="Linux gemini",
                 timeout=5, 
                 description="Check kernal name",
