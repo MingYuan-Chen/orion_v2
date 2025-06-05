@@ -5,13 +5,14 @@ Implement power button test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class PowerButtonWorker(BaseTestWorker):
     """Power button worker, implement power button test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "functionality_power_button"
         self.process_id = None
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -21,9 +22,10 @@ class PowerButtonWorker(BaseTestWorker):
         Returns:
             power button test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command="evtest /dev/input/event2 > evtlog &", 
+                command=commands[0], 
                 validation_func=self._validate_evtest_process_is_running,
                 timeout=5, 
                 description="Check evtest process is running",
@@ -31,7 +33,7 @@ class PowerButtonWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="cat evtlog",
+                command=commands[1],
                 validation_func=self._validate_evtlog,
                 pre_condition="Please press the power button then release it",
                 timeout=5,
@@ -41,12 +43,12 @@ class PowerButtonWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=f"kill {self.process_id}",
+                command=commands[2],
                 timeout=5,
                 description="Kill evtest process",
             ),
             TestStep(
-                command="rm evtlog",
+                command=commands[3],
                 timeout=5,
                 description="Remove evtlog",
             )

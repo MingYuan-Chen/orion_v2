@@ -1,0 +1,73 @@
+{
+  "functionality_audio": [
+    "amixer -c 0 set PCM 100%",
+    "(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+    "aplay mic.wav",
+    "rm -f mic.wav"
+  ],
+  "functionality_backlight": [
+    "echo 0 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 1 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 2 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 3 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 4 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 5 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 6 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 7 > /sys/class/backlight/backlight/brightness",
+    "cat /sys/class/backlight/backlight/brightness",
+    "echo 1 > /sys/class/backlight/backlight/bl_power",
+    "cat /sys/class/backlight/backlight/bl_power",
+    "echo 0 > /sys/class/backlight/backlight/bl_power",
+    "cat /sys/class/backlight/backlight/bl_power"
+  ],
+  "functionality_battery": [
+    "cat /sys/class/gpio/gpio133/value",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
+  ],
+  "functionality_power_button": [
+    "evtest /dev/input/event2 > evtlog &",
+    "cat evtlog",
+    "kill {process_id}",
+    "rm -f evtlog"
+  ],
+  "functionality_charge": [
+    "cat /sys/class/gpio/gpio133/value",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+  ],
+  "functionality_eeprom": [
+    "dd if=/dev/urandom of=to_eeprom0_data bs=1K count=16",
+    "dd if=/dev/urandom of=to_eeprom1_data bs=1 count=128",
+    "sync",
+    "md5sum to_eeprom0_data | cut -d' ' -f1",
+    "md5sum to_eeprom1_data | cut -d' ' -f1",
+    "cat to_eeprom0_data | eeprog -f -16 /dev/i2c-0 0x55 -w 0x0",
+    "cat to_eeprom1_data | eeprog -f -8 /dev/i2c-0 0x57 -w 0x0",
+    "sync",
+    "eeprog /dev/i2c-0 0x55 -16 -f -q -r 0x0:16384 > from_eeprom0_data",
+    "eeprog /dev/i2c-0 0x57 -8 -f -q -r 0x0:128 > from_eeprom1_data",
+    "sync",
+    "md5sum from_eeprom0_data | cut -d' ' -f1",
+    "md5sum from_eeprom1_data | cut -d' ' -f1",
+    "echo 'Comparing MD5 values'",
+    "rm -f to_eeprom0_data from_eeprom0_data",
+    "rm -f to_eeprom1_data from_eeprom1_data",
+    "sync"
+  ],
+  "functionality_emmc": [
+    "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
+    "sync",
+    "echo 3 > /proc/sys/vm/drop_caches",
+    "dd if=/emmc_througtput of=/dev/null bs=1M"
+  ]
+}

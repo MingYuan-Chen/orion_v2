@@ -5,14 +5,14 @@ Implement charge test for device
 from typing import List, Tuple, Any
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
+from core.models.platform_command_set import CommandType
 
 class ChargeWorker(BaseTestWorker):
     """Charge worker, implement charge test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.get_battery_state = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"
-        self.get_current = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+        self.test_id = "functionality_charge"
 
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -22,9 +22,10 @@ class ChargeWorker(BaseTestWorker):
         Returns:
             charge test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)  
         return [
             TestStep(
-                command="cat /sys/class/gpio/gpio133/value", 
+                command=commands[0], 
                 expected_response="1",
                 timeout=5, 
                 description="Validate DUT is charging",
@@ -35,7 +36,7 @@ class ChargeWorker(BaseTestWorker):
                 
             ),
             TestStep(
-                command=self.get_battery_state, 
+                command=commands[1], 
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="For charge current test, validate battery state is lower than 23% (Upper limited 25% by BLT tool)",
@@ -44,7 +45,7 @@ class ChargeWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_current,
+                command=commands[2],
                 validation_func=self._validate_current,
                 timeout=5,
                 description="Validate current is positive",
@@ -65,9 +66,30 @@ class ChargeWorker(BaseTestWorker):
             Parsed value
         """
         try:
-            value = response.split("\n")[3]
-            from util.numeric_converter import numeric_converter
-            return numeric_converter.hex_to_signed_decimal(value)
+            lines = response.strip().split('\n')
+            hex_values = []
+            for line in lines:
+                # Skip command echo lines
+                if 'i2ctransfer' in line or 'sleep' in line or 'root@' in line:
+                    continue
+                    
+                logger.debug(f"filter line: {line}")
+                # Look for hex values in the line
+                if '0x' in line:
+                    line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                    if line_hex:
+                        hex_values.extend(line_hex)
+            
+            if len(hex_values) >= 3:
+                # Use the last two hex values to form the result
+                # For example: ['0x02', '0x00', '0x3a'] -> use '0x00' and '0x3a' to form '0x003a'
+                hex1 = hex_values[-2].replace('0x', '')  # Remove '0x' prefix
+                hex2 = hex_values[-1].replace('0x', '')  # Remove '0x' prefix
+                combined_hex = f"0x{hex1}{hex2}"  # Combine as "0x003a"
+                return int(combined_hex, 16)
+            else:
+                logger.error(f"Get unexpected hex values: {hex_values}")
+                return None
         
         except Exception as e:
             logger.error(f"Error in i2ctransfer command response parsing: {str(e)}")
@@ -91,8 +113,8 @@ class ChargeWorker(BaseTestWorker):
                 return False, f"Battery state is {value}%"
             
         except Exception as e:
-            logger.error(f"exception in discharging state: {e}")
-            return False, f"exception in discharging state: {e}"
+            logger.error(f"exception in charging state: {e}")
+            return False, f"exception in charging state: {e}"
         
     def _validate_current(self, response: str) -> Tuple[bool, str]:
         """

@@ -139,11 +139,6 @@ class MainWindowController(QObject):
         # Add logged commands set to avoid duplicate logging
         self.logged_commands = set()
         
-        # Ensure view_model has system_info_service
-        if not hasattr(self.view_model, 'system_info_service') and hasattr(self.view_model, '_serial_worker'):
-            from core.services.system_info import SystemInfoService
-            self.view_model.system_info_service = SystemInfoService(self.view_model._serial_worker)
-        
         # Load UI
         try:
             # Get UI file path - support PyInstaller
@@ -233,12 +228,9 @@ class MainWindowController(QObject):
         # Initialize logs view
         self._init_logs_view()
         
-        # Create hardware test manager
-        self.hw_test_manager = HardwareTestManagerService(self.view_model._serial_worker)
-        
         # Create the test manager view and auto diagnostic view
-        self.test_manager = TestManagerView(self.device_id, self.hw_test_manager)
-        self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.hw_test_manager)
+        self.test_manager = TestManagerView(self.device_id, self.view_model.hardware_test_manager)
+        self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.view_model.hardware_test_manager)
         
         # Connect signals and slots
         self._connect_signals()
@@ -293,7 +285,7 @@ class MainWindowController(QObject):
         )
         
         # Connect test started signal to save step templates
-        self.hw_test_manager.test_started.connect(self._on_test_started)
+        self.view_model.hardware_test_manager.test_started.connect(self._on_test_started)
 
         # trigger the update of the system info after the main window ui is loaded
         QTimer.singleShot(100, self._on_refresh_system_info)
@@ -1098,8 +1090,8 @@ class MainWindowController(QObject):
                     # try to get the step details and execution status from the test worker
                     worker_steps = []
                     worker = None
-                    if hasattr(self.hw_test_manager, 'test_workers'):
-                        worker = self.hw_test_manager.test_workers.get(test_id)
+                    if hasattr(self.view_model.hardware_test_manager, 'test_workers'):
+                        worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
                         if worker and hasattr(worker, 'steps'):
                             worker_steps = worker.steps
                     
@@ -1653,12 +1645,12 @@ class MainWindowController(QObject):
                 self.waiting_spinner = None
             
             # Clean up hardware test manager
-            if self.hw_test_manager:
+            if self.view_model.hardware_test_manager:
                 logger.debug("Cleaning up hardware test manager")
                 # Stop any running tests
-                self.hw_test_manager.stop_current_test()
-                if hasattr(self.hw_test_manager, 'cleanup'):
-                    self.hw_test_manager.cleanup()
+                self.view_model.hardware_test_manager.stop_current_test()
+                if hasattr(self.view_model.hardware_test_manager, 'cleanup'):
+                    self.view_model.hardware_test_manager.cleanup()
             
             # Clean up test manager
             if self.test_manager:
@@ -1877,8 +1869,8 @@ class MainWindowController(QObject):
         
         try:
             # 从hardware test manager获取当前active worker的步骤信息
-            if hasattr(self.hw_test_manager, 'active_test_worker') and self.hw_test_manager.active_test_worker:
-                worker = self.hw_test_manager.active_test_worker
+            if hasattr(self.view_model.hardware_test_manager, 'active_test_worker') and self.view_model.hardware_test_manager.active_test_worker:
+                worker = self.view_model.hardware_test_manager.active_test_worker
                 logger.info(f"Found active worker for {test_id}: {type(worker).__name__}")
                 
                 if hasattr(worker, 'steps') and worker.steps:

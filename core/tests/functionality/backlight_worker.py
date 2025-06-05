@@ -5,20 +5,15 @@ Implement backlight function test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class BacklightWorker(BaseTestWorker):
     """Backlight worker, implement backlight function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        # brightness level: 0-7
-        self.set_backlight_brightness = lambda level: f"echo {level} > /sys/class/backlight/backlight/brightness"
-        self.get_backlight_brightness = "cat /sys/class/backlight/backlight/brightness"
-        # screen power:= 0-1
-        self.set_screen_power = lambda power: f"echo {power} > /sys/class/backlight/backlight/bl_power"
-        self.get_screen_power = "cat /sys/class/backlight/backlight/bl_power"
-    
+        self.test_id = "functionality_backlight"
+
     def prepare_test_steps(self) -> List[TestStep]:
         """
         Prepare backlight test steps
@@ -26,14 +21,15 @@ class BacklightWorker(BaseTestWorker):
         Returns:
             backlight test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command=self.set_backlight_brightness(0), 
+                command=commands[0], 
                 timeout=3, 
                 description="Set backlight brightness to 0",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[1], 
                 # expected_response="0", 
                 timeout=3, 
                 description="Check backlight brightness",
@@ -43,12 +39,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(1), 
+                command=commands[2], 
                 timeout=3, 
                 description="Set backlight brightness to 1",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[3], 
                 # expected_response="1", 
                 timeout=3, 
                 description="Check backlight brightness 20%",
@@ -58,12 +54,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(2), 
+                command=commands[4], 
                 timeout=3, 
                 description="Set backlight brightness to 2",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[5], 
                 # expected_response="2", 
                 timeout=3, 
                 description="Check backlight brightness 30%",
@@ -73,12 +69,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(3), 
+                command=commands[6], 
                 timeout=3, 
                 description="Set backlight brightness to 3",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[7], 
                 # expected_response="3", 
                 timeout=3, 
                 description="Check backlight brightness 40%",
@@ -88,12 +84,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(4), 
+                command=commands[8], 
                 timeout=3, 
                 description="Set backlight brightness to 4",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[9], 
                 # expected_response="4", 
                 timeout=3, 
                 description="Check backlight brightness 50%",
@@ -103,12 +99,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(5), 
+                command=commands[10], 
                 timeout=3, 
                 description="Set backlight brightness to 5",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[11], 
                 # expected_response="5", 
                 timeout=3, 
                 description="Check backlight brightness 60%",
@@ -118,12 +114,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(6), 
+                command=commands[12], 
                 timeout=3, 
                 description="Set backlight brightness to 6",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[13], 
                 # expected_response="6",
                 timeout=3, 
                 description="Check backlight brightness 80%",
@@ -133,12 +129,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_backlight_brightness(7), 
+                command=commands[14], 
                 timeout=3, 
                 description="Set backlight brightness to 7",
             ),
             TestStep(
-                command=self.get_backlight_brightness, 
+                command=commands[15], 
                 # expected_response="7",
                 timeout=3, 
                 description="Check backlight brightness 100%",
@@ -148,12 +144,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_screen_power(1), 
+                command=commands[16], 
                 timeout=3, 
                 description="Set screen power off",
             ),
             TestStep(
-                command=self.get_screen_power, 
+                command=commands[17], 
                 # expected_response="1", 
                 timeout=3, 
                 description="Check screen power",
@@ -163,12 +159,12 @@ class BacklightWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_screen_power(0), 
+                command=commands[18], 
                 timeout=3, 
                 description="Set screen power on",
             ),
             TestStep(
-                command=self.get_screen_power, 
+                command=commands[19], 
                 # expected_response="0",
                 timeout=3, 
                 description="Check screen power",
