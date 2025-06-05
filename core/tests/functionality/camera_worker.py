@@ -5,16 +5,14 @@ Implement camera function test for device
 from typing import List, Tuple
 from util.logger import logger
 from core.tests.base_test_worker import BaseTestWorker, TestStep
-
+from core.tests.base_test_worker import CommandType
 
 class CameraWorker(BaseTestWorker):
     """Camera worker, implement camera function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.preview_vieo_port = lambda port: f"/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video{port} -bg -r 1 &"
-        self.get_gpio_value = lambda port:f"for i in 0 1 2 3; do cat /sys/class/gpio/vfe{port+1}_blade_det$i/value"
-        self.reset_camera = lambda port: f"fuser -k /dev/video{port}"
+        self.test_id = "functionality_camera"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -23,23 +21,24 @@ class CameraWorker(BaseTestWorker):
         Returns:
             camera test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             # LVDS Camera ======================================================
             # port A(J1)
             TestStep(
-                command="reboot",
+                command=commands[0],
                 pre_condition="Please ensure LVDS camera is connected to port A(J1)",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[1],
                 timeout=5,
                 description="enter user name",
             ),
             TestStep(
-                command=self.preview_vieo_port(0), 
+                command=commands[2],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
@@ -47,25 +46,25 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command=self.get_gpio_value(0),
+                command=commands[3],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[4],
                 validation_func=self._validate_gpio_value_lvds,
                 timeout=5,
                 description="Validate GPIO value of LVDS camera",
                 criteria="The camera type is LVDS",
             ),
             TestStep(
-                command=self.reset_camera(0),
+                command=commands[5],
                 timeout=5,
                 description="Reset camera port A(J1)",
             ),
             # port B(J4)
             TestStep(
-                command=self.preview_vieo_port(1), 
+                command=commands[6],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
@@ -76,38 +75,38 @@ class CameraWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_gpio_value(1),
+                command=commands[7],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[8],
                 validation_func=self._validate_gpio_value_lvds,
                 timeout=5,
                 description="Validate GPIO value of LVDS camera",
                 criteria="The camera type is LVDS",
             ),
             TestStep(
-                command=self.reset_camera(1),
+                command=commands[9],
                 timeout=5,
                 description="Reset camera port B(J4)",
             ),
             # Scorpius camera ======================================================
             # port A(J1)
             TestStep(
-                command="reboot",
+                command=commands[10],
                 pre_condition="Please ensure Scorpius camera is connected to port A(J1",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[11],
                 timeout=5,
                 description="enter user name",
             ),
             TestStep(
-                command=self.preview_vieo_port(0), 
+                command=commands[12],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
@@ -115,25 +114,25 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command=self.get_gpio_value(0),
+                command=commands[13],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[14],
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
                 criteria="The camera type is Scorpius",
             ),
             TestStep(
-                command=self.reset_camera(0),
+                command=commands[15],
                 timeout=5,
                 description="Reset camera port A(J1)",
             ),
             # port B(J4)
             TestStep(
-                command=self.preview_vieo_port(1), 
+                command=commands[16],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
@@ -144,19 +143,19 @@ class CameraWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_gpio_value(1),
+                command=commands[17],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[18],
                 validation_func=self._validate_gpio_value_Scorpius,
                 timeout=5,
                 description="Validate GPIO value of Scorpius camera",
                 criteria="The camera type is Scorpius",
             ),
             TestStep(
-                command=self.reset_camera(1),
+                command=commands[19],
                 timeout=5,
                 description="Reset camera port B(J4)",
             ),
@@ -164,19 +163,19 @@ class CameraWorker(BaseTestWorker):
             # MIPI VGA camera ======================================================
             # port A(J1)
             TestStep(
-                command="reboot",
+                command=commands[20],
                 pre_condition="Please ensure MIPI VGA camera is connected to port A(J1)",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[21],
                 timeout=5,
                 description="enter user name",
             ),
             TestStep(
-                command=self.preview_vieo_port(0), 
+                command=commands[22],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
@@ -184,25 +183,25 @@ class CameraWorker(BaseTestWorker):
                 post_check="Is the camera preview video displayed on the screen?",
             ),
             TestStep(
-                command=self.get_gpio_value(0),
+                command=commands[23],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[24],
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
                 criteria="The camera type is MIPI VGA",
             ),
             TestStep(
-                command=self.reset_camera(0),
+                command=commands[25],
                 timeout=5,
                 description="Reset camera port A(J1)",
             ),
             # port B(J4)
             TestStep(
-                command=self.preview_vieo_port(1), 
+                command=commands[26],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
@@ -213,19 +212,19 @@ class CameraWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_gpio_value(1),
+                command=commands[27],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[28],
                 validation_func=self._validate_gpio_value_MIPI_VGA,
                 timeout=5,
                 description="Validate GPIO value of MIPI VGA camera",
                 criteria="The camera type is MIPI VGA",
             ),
             TestStep(
-                command=self.reset_camera(1),
+                command=commands[29],
                 timeout=5,
                 description="Reset camera port B(J4)",
             ),
@@ -233,19 +232,19 @@ class CameraWorker(BaseTestWorker):
             # LVDS smart cable ======================================================
             # port A(J1)
             TestStep(
-                command="reboot",
+                command=commands[30],
                 pre_condition="Please ensure smart cable is connected to port A(J1)",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[31],
                 timeout=5,
                 description="enter user name",
             ),
             TestStep(
-                command=self.preview_vieo_port(0), 
+                command=commands[32],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port A(J1)",
@@ -253,25 +252,25 @@ class CameraWorker(BaseTestWorker):
                 criteria="The camera preview video is displayed on the screen",
             ),
             TestStep(
-                command=self.get_gpio_value(0),
+                command=commands[33],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[34],
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
                 criteria="The camera type is LVDS smart cable",
             ),
             TestStep(
-                command=self.reset_camera(0),
+                command=commands[35],
                 timeout=5,
                 description="Reset camera port A(J1)",
             ),
             # port B(J4)
             TestStep(
-                command=self.preview_vieo_port(1), 
+                command=commands[36],
                 # validation_func=self._validate_camera_connection,
                 timeout=5, 
                 description="Preview video on port B(J4)",
@@ -282,19 +281,19 @@ class CameraWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_gpio_value(1),
+                command=commands[37],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[38],
                 validation_func=self._validate_gpio_value_smart_cable,
                 timeout=5,
                 description="Validate GPIO value of smart cable",
                 criteria="The camera type is LVDS smart cable",
             ),
             TestStep(
-                command=self.reset_camera(1),
+                command=commands[39],
                 timeout=5,
                 description="Reset camera port B(J4)",
             ),
@@ -302,24 +301,24 @@ class CameraWorker(BaseTestWorker):
             # Jig A and B ======================================================
             # port A(J1)
             TestStep(
-                command="reboot",
+                command=commands[40],
                 pre_condition="Please ensure Jig A is connected to port A(J1), Jig B is connected to port B(J4)",
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[41],
                 timeout=5,
                 description="enter user name",
             ),
             TestStep(
-                command=self.get_gpio_value(0),
+                command=commands[42],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[43],
                 validation_func=self._validate_gpio_value_jig_A,
                 timeout=5,
                 description="Validate GPIO value of Jig A",
@@ -327,12 +326,12 @@ class CameraWorker(BaseTestWorker):
             ),
             # port B(J4)
             TestStep(
-                command=self.get_gpio_value(1),
+                command=commands[44],
                 timeout=5,
                 description="Get GPIO value",
             ),
             TestStep(
-                command="done",
+                command=commands[45],
                 validation_func=self._validate_gpio_value_jig_B,
                 timeout=5,
                 description="Validate GPIO value of Jig B",

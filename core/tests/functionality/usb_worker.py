@@ -5,13 +5,14 @@ Implement USB port function test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class UsbWorker(BaseTestWorker):
     """USB worker, implement USB port function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "functionality_usb"
         
         # set usb write speed threshold
         self.usb_write_speed_threshold = 60.0  # unit: MB/s
@@ -25,9 +26,10 @@ class UsbWorker(BaseTestWorker):
         Returns:
             USB test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command="dd if=/dev/zero of=/run/media/sda1/usb_throughput bs=1M count=200 status=progress", 
+                command=commands[0], 
                 validation_func=self._validate_usb_write,
                 timeout=5, 
                 description="Write to usb_throughput",
@@ -36,7 +38,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="dd if=/run/media/sda1/usb_throughput of=/dev/null bs=1M", 
+                command=commands[1], 
                 validation_func=self._validate_usb_read,
                 timeout=10, 
                 description="Read from usb_throughput",
@@ -45,7 +47,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command="sudo umount /run/media/sda1", 
+                command=commands[2], 
                 validation_func=self._validate_usb_unmount, 
                 timeout=10, 
                 description="Unmount sda1",
@@ -53,7 +55,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command="sudo mount /dev/sda1 /run/media/sda1", 
+                command=commands[3], 
                 validation_func=self._validate_usb_mount_command,
                 timeout=10, 
                 description="Mount sda1",
@@ -61,7 +63,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command="mount | grep sda1", 
+                command=commands[4], 
                 validation_func=self._validate_usb_mount,
                 timeout=10, 
                 description="Validate sda1 mounted",

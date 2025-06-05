@@ -5,14 +5,14 @@ Implement touch function test for device
 from typing import List, Tuple
 from util.logger import logger
 from core.tests.base_test_worker import BaseTestWorker, TestStep
-
+from core.models.platform_command_set import CommandType
 
 class TouchWorker(BaseTestWorker):
     """Touch worker, implement touch function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.touch_tool = "/run/media/sda1/TouchTestQt"
+        self.test_id = "functionality_touch"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -21,14 +21,15 @@ class TouchWorker(BaseTestWorker):
         Returns:
             touch test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command="/run/media/sda1/TouchTestQt",  
+                command=commands[0],  
                 timeout=5,
                 description="Launch touch test tool",
             ),
             TestStep(
-                command="",
+                command=commands[1],
                 timeout=5,
                 description="Touch the 9 red circles",
                 criteria="The 9 red circles should become green",
@@ -37,13 +38,13 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="ts_test_mt -j 2 -v",  
+                command=commands[2],  
                 timeout=5,
                 description="Launch touch test tool",
                 post_check="Is test tool running with 'Drag/Draw/Quit' options?"
             ),
             TestStep(
-                command="",
+                command=commands[3],
                 description="Single drag",
                 criteria="The cross mark should move on the screen when a single finger is dragged",
                 pre_condition="Please drag with a single finger on the screen",
@@ -51,7 +52,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[4],
                 timeout=5,
                 description="Double drag",
                 criteria="Two cross marks should move on the screen when two fingers are dragged",
@@ -60,7 +61,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[5],
                 timeout=5,
                 description="Drag the edge of the screen",
                 criteria="The cross mark should move along the edge of the screen",
@@ -69,7 +70,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[6],
                 timeout=5,
                 description="Drag the screen with water",
                 criteria="The cross mark should move on the screen even with water present",
@@ -78,7 +79,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[7],
                 timeout=5,
                 description="Drag the screen by wet finger",
                 criteria="The cross mark should move on the screen when using a wet finger",
@@ -87,7 +88,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[8],
                 timeout=5,
                 description="Drag the screen by finger with standard Hospital Grade Surgical Gloves",
                 criteria="The cross mark should move on the screen when using finger with surgical gloves",
@@ -96,7 +97,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[9],
                 timeout=5,
                 description="Single draw",
                 criteria="A line should be drawn on the screen when drawing with a single finger",
@@ -105,7 +106,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[10],
                 timeout=5,
                 description="Double draw",
                 criteria="Two lines should be drawn on the screen when drawing with two fingers",
@@ -114,7 +115,7 @@ class TouchWorker(BaseTestWorker):
                 manual_only=True
             ),
             TestStep(
-                command="",
+                command=commands[11],
                 timeout=5,
                 description="Quit touch test tool",
                 pre_condition="Please click the quit button",
@@ -124,13 +125,13 @@ class TouchWorker(BaseTestWorker):
 
             # reset the device after testing completed ======================================================
             TestStep(
-                command="reboot",
+                command=commands[12],
                 post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
             TestStep(
-                command="root",
+                command=commands[13],
                 timeout=5,
                 description="login as root",
             )
