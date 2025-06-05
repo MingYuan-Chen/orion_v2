@@ -5,16 +5,15 @@ Implement battery test for device
 from typing import List, Tuple, Any
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
+from core.models.platform_command_set import CommandType
 
 class BatteryWorker(BaseTestWorker):
     """Battery worker, implement battery test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.get_battery_state = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"
-        self.get_temperature = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2"
-        self.get_led_status = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
-        self.get_current = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2"
+        self.test_id = "functionality_battery"
+        
         self.LED_STATUS_MAP = {
             0: "Off", 8: "Off", 16: "Off", 24: "Off",
             1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
@@ -38,9 +37,10 @@ class BatteryWorker(BaseTestWorker):
         Returns:
             battery test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command="cat /sys/class/gpio/gpio133/value", 
+                command=commands[0], 
                 validation_func=self._validate_dc_status,
                 timeout=5, 
                 description="Validate dc status",
@@ -51,7 +51,7 @@ class BatteryWorker(BaseTestWorker):
                 
             ),
             TestStep(
-                command=self.get_battery_state, 
+                command=commands[1], 
                 validation_func=self._validate_battery_state,
                 timeout=5, 
                 description="Validate battery state",
@@ -60,7 +60,7 @@ class BatteryWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.get_temperature, 
+                command=commands[2], 
                 validation_func=self._validate_temperature,
                 timeout=10, 
                 description="Validate battery temperature",
@@ -69,7 +69,7 @@ class BatteryWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command=self.get_current, 
+                command=commands[3], 
                 validation_func=self._validate_current,
                 timeout=10, 
                 description="Validate battery current",
@@ -78,7 +78,7 @@ class BatteryWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[4], 
                 validation_func=self._validate_led_status,
                 timeout=10, 
                 description="Validate led status",

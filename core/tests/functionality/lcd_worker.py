@@ -5,14 +5,14 @@ Implement LCD function test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class LcdWorker(BaseTestWorker):
     """Lcd worker, implement lcd function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.set_color = lambda color: f"/unit_tests/drawfb.out {color}"
+        self.test_id = "functionality_lcd"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -21,9 +21,10 @@ class LcdWorker(BaseTestWorker):
         Returns:
             lcd test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command=self.set_color("red"), 
+                command=commands[0], 
                 # validation_func=self._validate_red_color, 
                 timeout=5, 
                 description="Validate red color",
@@ -33,7 +34,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("green"), 
+                command=commands[1], 
                 # validation_func=self._validate_green_color, 
                 timeout=5, 
                 description="Validate green color",
@@ -43,7 +44,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("blue"), 
+                command=commands[2], 
                 # validation_func=self._validate_blue_color, 
                 timeout=5, 
                 description="Validate blue color",
@@ -53,7 +54,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("black"), 
+                command=commands[3], 
                 # validation_func=self._validate_black_color, 
                 timeout=5, 
                 description="Validate black color",
@@ -63,7 +64,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("white"), 
+                command=commands[4], 
                 # validation_func=self._validate_white_color, 
                 timeout=5, 
                 description="Validate white color",
@@ -73,7 +74,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("colorbar"), 
+                command=commands[5], 
                 # validation_func=self._validate_colorbar, 
                 timeout=5, 
                 description="Validate colorbar",
@@ -83,7 +84,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("gradient"), 
+                command=commands[6], 
                 # validation_func=self._validate_gradient, 
                 timeout=5, 
                 description="Validate gradient",
@@ -93,7 +94,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("frame"), 
+                command=commands[7], 
                 # validation_func=self._validate_frame, 
                 timeout=5, 
                 description="Validate frame",
@@ -103,7 +104,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("gray16"), 
+                command=commands[8], 
                 # validation_func=self._validate_gray16, 
                 timeout=5, 
                 description="Validate gray16",
@@ -113,7 +114,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("gray64"), 
+                command=commands[9], 
                 # validation_func=self._validate_gray64, 
                 timeout=5, 
                 description="Validate gray64",
@@ -123,7 +124,7 @@ class LcdWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=self.set_color("gray256"), 
+                command=commands[10], 
                 # validation_func=self._validate_gray256, 
                 timeout=5, 
                 description="Validate gray256",

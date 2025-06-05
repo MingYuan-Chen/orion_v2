@@ -5,13 +5,13 @@
   "diagnostic_mac_address": ["cat /sys/class/net/eth0/address"],
   "diagnostic_memory_size": ["grep MemTotal /proc/meminfo"],
   "diagnostic_nor_flash_size": ["cat /proc/mtd | grep 'mtd0"],
-  "diagnostic_pic_version": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
-  "diagnostic_sync_time": ["sudo ntpdate -u time.stdtime.gov.tw"],
+  "diagnostic_pic_version": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/hw_rev"],
+  "diagnostic_sync_time": ["sudo ntpdate -u time.stdtime.gov.tw", "hwclock -w", "hwclock -r", "date"],
   "diagnostic_set_get_rtc_time": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
   "diagnostic_design_capacity": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
   "diagnostic_design_voltage": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
   "diagnostic_uboot_version": ["strings /dev/mtd0 | grep -E 'U-Boot'"],
   "diagnostic_kernal_name": ["uname -a"],
-  "diagnostic_panel_id_resolution": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog"],
+  "diagnostic_panel_id_resolution": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog", "cat /proc/panel_id"],
   "diagnostic_wifi_bt": ["lsusb", "lspci"]
 }

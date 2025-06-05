@@ -5,16 +5,14 @@ Implement EEPROM function test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class EepromWorker(BaseTestWorker):
     """EEPROM worker, implement EEPROM function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.i2c_bus = "/dev/i2c-0"
-        self.eeprom0 = "0x55"  # external 128Kbit EEPROM chip
-        self.eeprom1 = "0x57"  # 1Kbit EEPROM inside RTC
+        self.test_id = "functionality_eeprom"
         self.to_eeprom0_md5 = ""
         self.to_eeprom1_md5 = ""
         self.from_eeprom0_md5 = ""
@@ -27,10 +25,11 @@ class EepromWorker(BaseTestWorker):
         Returns:
             eeprom test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY) 
         return [
             # First step: Generate random test data
             TestStep(
-                command="dd if=/dev/urandom of=to_eeprom0_data bs=1K count=16", 
+                command=commands[0], 
                 expected_response="copied", 
                 timeout=5, 
                 description="Generate EEPROM0 test data",
@@ -38,7 +37,7 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="dd if=/dev/urandom of=to_eeprom1_data bs=1 count=128", 
+                command=commands[1], 
                 expected_response="copied", 
                 timeout=5, 
                 description="Generate EEPROM1 test data",
@@ -46,14 +45,14 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="sync", 
+                command=commands[2], 
                 timeout=3, 
                 description="Sync"
             ),
             
             # Second step: Calculate the MD5 of the test data
             TestStep(
-                command="md5sum to_eeprom0_data | cut -d' ' -f1", 
+                command=commands[3], 
                 validation_func=self._store_to_eeprom0_md5,
                 timeout=5, 
                 description="Calculate the MD5 of EEPROM0 test data",
@@ -61,7 +60,7 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="md5sum to_eeprom1_data | cut -d' ' -f1", 
+                command=commands[4], 
                 validation_func=self._store_to_eeprom1_md5,
                 timeout=5, 
                 description="Calculate the MD5 of EEPROM1 test data",
@@ -71,7 +70,7 @@ class EepromWorker(BaseTestWorker):
             
             # Third step: Write the data to EEPROM
             TestStep(
-                command=f"cat to_eeprom0_data | eeprog -f -16 {self.i2c_bus} {self.eeprom0} -w 0x0", 
+                command=commands[5], 
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Write data to EEPROM0",
@@ -79,7 +78,7 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=f"cat to_eeprom1_data | eeprog -f -8 {self.i2c_bus} {self.eeprom1} -w 0x0", 
+                command=commands[6], 
                 expected_response="eeprog", 
                 timeout=10, 
                 description="Write data to EEPROM1",
@@ -87,35 +86,35 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command="sync", 
+                command=commands[7], 
                 timeout=3, 
                 description="Sync"
             ),
             
             # Fourth step: Read the data from EEPROM
             TestStep(
-                command=f"eeprog {self.i2c_bus} {self.eeprom0} -16 -f -q -r 0x0:16384 > from_eeprom0_data", 
+                command=commands[8], 
                 timeout=10, 
                 description="Read data from EEPROM0",
                 max_retries=3,
                 retry_delay=1000
             ),
             TestStep(
-                command=f"eeprog {self.i2c_bus} {self.eeprom1} -8 -f -q -r 0x0:128 > from_eeprom1_data", 
+                command=commands[9], 
                 timeout=10, 
                 description="Read data from EEPROM1",
                 max_retries=3,
                 retry_delay=1000
             ),
             TestStep(
-                command="sync",  
+                command=commands[10],  
                 timeout=3, 
                 description="Sync"
             ),
             
             # Fifth step: Calculate the MD5 of the read data
             TestStep(
-                command="md5sum from_eeprom0_data | cut -d' ' -f1", 
+                command=commands[11], 
                 validation_func=self._store_from_eeprom0_md5,
                 timeout=5, 
                 description="Calculate the MD5 of the read data from EEPROM0",
@@ -123,7 +122,7 @@ class EepromWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command="md5sum from_eeprom1_data | cut -d' ' -f1", 
+                command=commands[12], 
                 validation_func=self._store_from_eeprom1_md5,
                 timeout=5, 
                 description="Calculate the MD5 of the read data from EEPROM1",
@@ -133,7 +132,7 @@ class EepromWorker(BaseTestWorker):
             
             # Sixth step: Compare the MD5 values
             TestStep(
-                command="echo 'Comparing MD5 values'", 
+                command=commands[13], 
                 validation_func=self._validate_md5_values,
                 timeout=3, 
                 description="Validate the consistency of EEPROM read and write",
@@ -144,17 +143,17 @@ class EepromWorker(BaseTestWorker):
             
             # Seventh step: Clean up files
             TestStep(
-                command="rm -f to_eeprom0_data from_eeprom0_data", 
+                command=commands[14], 
                 timeout=3, 
                 description="Clean up EEPROM0 test files",
             ),
             TestStep(
-                command="rm -f to_eeprom1_data from_eeprom1_data", 
+                command=commands[15], 
                 timeout=3, 
                 description="Clean up EEPROM1 test files",
             ),
             TestStep(
-                command="sync", 
+                command=commands[16], 
                 timeout=3, 
                 description="Sync"
             )

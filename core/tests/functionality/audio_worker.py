@@ -5,12 +5,14 @@ Implement audio function test for device
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
+from core.models.platform_command_set import CommandType
 
 class AudioWorker(BaseTestWorker):
     """Audio worker, implement audio function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "functionality_audio"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -19,41 +21,17 @@ class AudioWorker(BaseTestWorker):
         Returns:
             audio test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
-            # NOTE: To reduce the test time, the following steps are skipped
-            # TestStep(
-            #     command="aplay -l", 
-            #     expected_response="sgtl5000audio", 
-            #     timeout=5, 
-            #     description="Check speaker device",
-            #     max_retries=1,
-            #     retry_delay=500
-            # ),
-            # TestStep(
-            #     command="arecord -l", 
-            #     expected_response="sgtl5000audio", 
-            #     timeout=10, 
-            #     description="Check microphone device",
-            #     max_retries=3,
-            #     retry_delay=1000
-            # ),
-            # TestStep(
-            #     command="ls /unit_tests/audio8k16S.wav", 
-            #     expected_response="audio8k16S.wav",
-            #     timeout=10, 
-            #     description="Check audio8k16S.wav exists",
-            #     max_retries=2,
-            #     retry_delay=1500
-            # ),
             TestStep(
-                command="amixer -c 0 set PCM 100%", 
+                command=commands[0], 
                 timeout=10, 
                 description="Set speaker volume to 100%",
                 max_retries=2,
                 retry_delay=500
             ),
             TestStep(
-                command="(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10", 
+                command=commands[1], 
                 timeout=10, 
                 description="Play audio from speaker and record from microphone",
                 post_check="Is the audio played from the speaker?",
@@ -62,7 +40,7 @@ class AudioWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command="aplay mic.wav", 
+                command=commands[2], 
                 timeout=10, 
                 description="Play the recorded audio from the speaker",
                 post_check="Is the audio played from the speaker?",
@@ -71,7 +49,7 @@ class AudioWorker(BaseTestWorker):
                 retry_delay=1500
             ), 
             TestStep(
-                command="rm -f mic.wav",
+                command=commands[3],
                 timeout=10, 
                 description="Remove microphone recording",
                 max_retries=2,
