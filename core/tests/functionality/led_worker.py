@@ -5,15 +5,14 @@ Implement led function test for device
 from typing import List, Tuple, Any
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
-
+from core.models.platform_command_set import CommandType
 
 class LedWorker(BaseTestWorker):
     """Led worker, implement led function test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
-        self.set_led_status = lambda status: f"i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 {status} r2"
-        self.get_led_status = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
+        self.test_id = "functionality_led"
         self.LED_STATUS_MAP = {
             0: "Off", 8: "Off", 16: "Off", 24: "Off",
             1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
@@ -32,14 +31,15 @@ class LedWorker(BaseTestWorker):
         Returns:
             led test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             TestStep(
-                command=self.set_led_status(f"{1:#04x}"),  
+                command=commands[0],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[1]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[1],  
                 # validation_func=self._validate_led_status_blue,
                 timeout=5, 
                 description="Check led status blue",
@@ -49,12 +49,12 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{2:#04x}"),  
+                command=commands[2],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[2]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[3],  
                 # validation_func=self._validate_led_status_green,
                 timeout=5, 
                 description="Check led status green",
@@ -64,12 +64,12 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{4:#04x}"),  
+                command=commands[4],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[4]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[5],  
                 # validation_func=self._validate_led_status_red,
                 timeout=5, 
                 description="Check led status red",
@@ -79,12 +79,12 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{9:#04x}"),  
+                command=commands[6],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[9]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[7],  
                 # validation_func=self._validate_led_status_blinking_blue,
                 timeout=5, 
                 description="Check led status blinking blue",
@@ -94,12 +94,12 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{10:#04x}"),  
+                command=commands[8],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[10]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[9],  
                 # validation_func=self._validate_led_status_blinking_green,
                 timeout=5, 
                 description="Check led status blinking green",
@@ -109,12 +109,12 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{12:#04x}"),  
+                command=commands[10],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[12]}",
             ),
             TestStep(
-                command=self.get_led_status, 
+                command=commands[11],  
                 # validation_func=self._validate_led_status_blinking_red,
                 timeout=5, 
                 description="Check led status blinking red",
@@ -124,7 +124,7 @@ class LedWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=self.set_led_status(f"{0:#04x}"),  
+                command=commands[12],  
                 timeout=5, 
                 description=f"Set led status to {self.LED_STATUS_MAP[0]}",
             )

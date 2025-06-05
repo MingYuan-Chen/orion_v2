@@ -16,7 +16,6 @@ logs/
 venv/
 
 # IDE files
-*.spec
 *.iml
 .idea/
 
