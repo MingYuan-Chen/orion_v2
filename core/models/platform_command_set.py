@@ -114,7 +114,7 @@ class PlatformCommandSet:
                 except Exception as e:
                     print(f"Failed to load command set: {file_path}, error: {str(e)}")
     
-    def get_command(self, command_type: CommandType, command_name: str) -> Optional[str]:
+    def get_command(self, command_type: CommandType, command_name: str) -> Optional[Any]:
         """
         Get the command of a specified type and name
         
@@ -123,10 +123,45 @@ class PlatformCommandSet:
             command_name: The command name
             
         Returns:
-            The command string, return None if not found
+            The command data (string, list, or dict), return None if not found
         """
         if command_type in self.command_sets and command_name in self.command_sets[command_type]:
-            return self.command_sets[command_type][command_name]
+            cmd_data = self.command_sets[command_type][command_name]
+            
+            # Handle new object format with "commands" key
+            if isinstance(cmd_data, dict) and "commands" in cmd_data:
+                return cmd_data["commands"]
+            
+            # Handle legacy format (direct list or string)
+            return cmd_data
+            
+        logger.warning(f"Command not found: {command_type} {command_name}")
+        return None
+    
+    def get_command_metadata(self, command_type: CommandType, command_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the complete command metadata (for new object format)
+        
+        Args:
+            command_type: The command type
+            command_name: The command name
+            
+        Returns:
+            The complete command metadata dict, or None if not found
+        """
+        if command_type in self.command_sets and command_name in self.command_sets[command_type]:
+            cmd_data = self.command_sets[command_type][command_name]
+            
+            # If it's the new object format, return as is
+            if isinstance(cmd_data, dict):
+                return cmd_data
+            
+            # If it's legacy format, wrap it
+            if isinstance(cmd_data, list):
+                return {"commands": cmd_data}
+            elif isinstance(cmd_data, str):
+                return {"commands": [cmd_data]}
+                
         logger.warning(f"Command not found: {command_type} {command_name}")
         return None
     
