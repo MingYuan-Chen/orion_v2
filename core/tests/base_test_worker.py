@@ -307,6 +307,10 @@ class BaseTestWorker(QObject):
         self.test_start_time = datetime.datetime.now()
         self.test_end_time = None
         self.steps = self.prepare_test_steps()
+        
+        # Apply ignore filter if configuration exists
+        self.steps = self._filter_steps_by_ignore_flags(self.steps)
+        
         self.failed_steps = []
         self.interaction_state = InteractionState.NONE
         
@@ -912,6 +916,64 @@ class BaseTestWorker(QObject):
             logger.error(f"Error processing command '{command}': {str(e)}", exc_info=True)
             # Return original command when error occurs
             return command 
+
+    def _filter_steps_by_ignore_flags(self, steps: List[TestStep]) -> List[TestStep]:
+        """
+        Filter test steps based on ignore_commands configuration
+        
+        Args:
+            steps: Original list of test steps
+            
+        Returns:
+            Filtered list of test steps
+        """
+        # Check if worker has test_id attribute
+        if not hasattr(self, 'test_id'):
+            logger.debug("No test_id found, skipping ignore filter")
+            return steps
+        
+        try:
+            # Get metadata from configuration
+            metadata = self.get_command_metadata(self.test_id, CommandType.FUNCTIONALITY)
+            if not metadata:
+                # Fallback to AUTO_DIAGNOSTIC if FUNCTIONALITY not found
+                metadata = self.get_command_metadata(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+            
+            if not metadata:
+                logger.debug(f"No metadata found for {self.test_id}, skipping ignore filter")
+                return steps
+            
+            ignore_flags = metadata.get("ignore_commands", [])
+            if not ignore_flags:
+                logger.debug(f"No ignore_commands found for {self.test_id}, skipping ignore filter")
+                return steps
+            
+            # Filter steps based on ignore flags
+            filtered_steps = []
+            ignored_count = 0
+            
+            for i, step in enumerate(steps):
+                should_ignore = False
+                if i < len(ignore_flags):
+                    # Support both string and boolean values
+                    flag_value = ignore_flags[i]
+                    should_ignore = (str(flag_value).lower() == "true" or flag_value is True)
+                
+                if not should_ignore:
+                    filtered_steps.append(step)
+                else:
+                    ignored_count += 1
+                    logger.debug(f"Ignoring step {i+1}: {step.description}")
+            
+            if ignored_count > 0:
+                logger.info(f"Filtered out {ignored_count} steps based on ignore_commands configuration")
+            
+            return filtered_steps
+            
+        except Exception as e:
+            logger.warning(f"Error filtering steps by ignore flags: {e}")
+            # Return original steps if filtering fails
+            return steps
 
     def set_response_collector(self, collector_func):
         """

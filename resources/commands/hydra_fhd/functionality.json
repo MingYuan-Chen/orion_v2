@@ -53,7 +53,8 @@
       "cat /sys/class/gpio/gpio133/value",
       "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"
-    ]
+    ],
+    "expected_response": ["1", "", ""]
   },
   "functionality_eeprom": {
     "commands": [
@@ -74,7 +75,8 @@
       "rm -f to_eeprom0_data from_eeprom0_data",
       "rm -f to_eeprom1_data from_eeprom1_data",
       "sync"
-    ]
+    ],
+    "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
   },
   "functionality_emmc": {
     "commands": [
