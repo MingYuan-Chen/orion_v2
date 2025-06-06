@@ -27,6 +27,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
         
         # Get commands from the platform command set
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         # When creating steps, the process_id is not available yet.
         # It will be set during the execution of the first step.
@@ -35,6 +36,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
             TestStep(
                 command=commands[0], 
                 validation_func=self._validate_evtest_process_is_running,
+                expected_response=expected_responses[0] if len(expected_responses) > 0 else None,
                 timeout=5, 
                 description="Check evtest process is running",
                 max_retries=1,
@@ -44,24 +46,27 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 # This command contains a placeholder that will be replaced at runtime
                 # after the process_id is determined from step 1.
                 command=commands[1],
+                expected_response=expected_responses[1] if len(expected_responses) > 1 else None,
                 timeout=5,
                 description="Kill evtest process",
             ),
             TestStep(
                 command=commands[2],
                 validation_func=self._validate_evtlog,
+                expected_response=expected_responses[2] if len(expected_responses) > 2 else None,
                 timeout=5,
                 description="Check panel resolution",
                 criteria="Panel resolution is 1920x1080",
             ),
             TestStep(
                 command=commands[3],
+                expected_response=expected_responses[3] if len(expected_responses) > 3 else None,
                 timeout=5,
                 description="Remove evtlog",
             ),
             TestStep(
                 command=commands[4],
-                expected_response="01",
+                expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
                 timeout=5,
                 description="Check panel ID",
                 criteria="Panel ID is Hydra FHD",

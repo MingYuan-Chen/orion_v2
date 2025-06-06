@@ -22,11 +22,12 @@ class EmmcSizeWorker(BaseTestWorker):
             diagnostic emmc size test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="244629504", # get sector size * 512 = expected bytes: 125250306048 = 116.65GB
+                expected_response=expected_responses[0] if expected_responses else None, # get sector size * 512 = expected bytes: 125250306048 = 116.65GB
                 timeout=5, 
                 description="Check emmc size",
                 criteria="The emmc size is 125250306048 bytes(116.65GB)",

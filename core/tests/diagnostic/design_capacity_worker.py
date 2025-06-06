@@ -22,11 +22,12 @@ class DesignCapacityWorker(BaseTestWorker):
             diagnostic design capacity test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="0x0d 0x16",
+                expected_response=expected_responses[0] if expected_responses else None,
                 # Hydra: 0x0d 0x16 = 3350
                 # Argo: 0x0c 0xb2 = 3250
                 timeout=5, 

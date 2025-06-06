@@ -22,11 +22,12 @@ class DesignVoltageWorker(BaseTestWorker):
             diagnostic design voltage test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="0x1c 0x20",           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
+                expected_response=expected_responses[0] if expected_responses else None,           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
                 timeout=5, 
                 description="Check Design Voltage by i2c",
                 criteria="The design voltage is 7200 mV",

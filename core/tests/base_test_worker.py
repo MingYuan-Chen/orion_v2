@@ -198,6 +198,40 @@ class BaseTestWorker(QObject):
         
         return []
     
+    def get_command_metadata(self, command_name: str, command_type: CommandType = CommandType.AUTO_DIAGNOSTIC):
+        """
+        Get complete command metadata including expected_response
+        
+        Args:
+            command_name: Command name
+            command_type: Command type, default is AUTO_DIAGNOSTIC
+        
+        Returns:
+            Dict containing commands and expected_response, or None if not found
+        """
+        return self.platform_command_set.get_command_metadata(command_type, command_name)
+
+    def get_expected_responses(self, command_name: str, command_type: CommandType = CommandType.AUTO_DIAGNOSTIC):
+        """
+        Get expected responses for a command
+        
+        Args:
+            command_name: Command name
+            command_type: Command type
+            
+        Returns:
+            List of expected responses, or empty list if not found
+        """
+        metadata = self.get_command_metadata(command_name, command_type)
+        if metadata and "expected_response" in metadata:
+            expected_responses = metadata["expected_response"]
+            # Ensure we return a list
+            if isinstance(expected_responses, list):
+                return expected_responses
+            elif expected_responses:
+                return [expected_responses]
+        return []
+    
     def set_continue_on_failure(self, value: bool):
         """
         Set whether to continue testing after a step fails

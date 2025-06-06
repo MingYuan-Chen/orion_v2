@@ -22,11 +22,12 @@ class CpuProcessorWorker(BaseTestWorker):
             diagnostic cpu processor test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="4", 
+                expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check CPU Processor",
                 criteria="4 processors",

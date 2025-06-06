@@ -22,11 +22,12 @@ class MemorySizeWorker(BaseTestWorker):
             diagnostic memory size test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="3886520", 
+                expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check Memory Size by proc/meminfo",
                 criteria="The memory size is 3886520 bytes(3.7GB)",

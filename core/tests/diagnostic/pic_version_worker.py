@@ -22,11 +22,12 @@ class PicVersionWorker(BaseTestWorker):
             diagnostic pic version test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="0x6e",           # convert to decimal: 110
+                expected_response=expected_responses[0] if len(expected_responses) > 0 else None,           # convert to decimal: 110
                 # Hydra: 0x6e = 110
                 # Argo: 0x72 = 114
                 timeout=5, 
@@ -37,7 +38,7 @@ class PicVersionWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[1], 
-                expected_response="100",           # convert to decimal: 100
+                expected_response=expected_responses[1] if len(expected_responses) > 1 else None,           # convert to decimal: 100
                 timeout=5, 
                 description="Check HW revision by proc",
                 criteria="The HW revision is 100",
