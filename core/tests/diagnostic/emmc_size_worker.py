@@ -30,7 +30,9 @@ class EmmcSizeWorker(BaseTestWorker):
                 expected_response=expected_responses[0] if expected_responses else None, # get sector size * 512 = expected bytes: 125250306048 = 116.65GB
                 timeout=5, 
                 description="Check emmc size",
-                criteria="The emmc size is 125250306048 bytes(116.65GB)",
+                criteria="The emmc size is 125069950976 bytes(116.48GB)",
+                # fhd hydra: 244629504 = 125250306048 bytes= 116.64GB
+                # hydra:    244277248 = 125069950976 bytes= 116.48GB
                 max_retries=1,
                 retry_delay=500
             )
