@@ -29,8 +29,8 @@ class MacAddressWorker(BaseTestWorker):
                 command=commands[0], 
                 expected_response=expected_responses[0] if expected_responses else None,
                 # FHD Hydra: 5a:31:e7:6b:68:2a
-                # FHD Hydra: sometimes it changes to 1a:33:65:6d:72:09
-                # FHD Argo: 7a:30:22:24:b9:fa
+                # Hydra: 8e:65:70:f4:f2:ba
+                # Argo: 7a:30:22:24:b9:fa
                 timeout=5, 
                 description="Check the Mac address label match the system reading",
                 criteria="The mac address is 7a:30:22:24:b9:fa",

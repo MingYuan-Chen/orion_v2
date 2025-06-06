@@ -56,7 +56,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 expected_response=expected_responses[2] if len(expected_responses) > 2 else None,
                 timeout=5,
                 description="Check panel resolution",
-                criteria="Panel resolution is 1920x1080",
+                criteria=self._get_expected_resolution_criteria(),
             ),
             TestStep(
                 command=commands[3],
@@ -74,6 +74,20 @@ class PanelIdResolutionWorker(BaseTestWorker):
         ]
         
         return steps
+    
+    def _get_expected_resolution_criteria(self) -> str:
+        """
+        Get expected resolution criteria based on platform_name
+        
+        Returns:
+            Criteria string describing expected resolution
+        """
+        if self.platform_name in ["argo", "gemini_fhd", "hydra_fhd"]:
+            return "Panel resolution is 1920x1080"
+        elif self.platform_name in ["hydra", "gemini"]:
+            return "Panel resolution is 1366x768"
+        else:
+            return "Panel resolution is 1920x1080"  # Default
     
     def _validate_evtest_process_is_running(self, response: str) -> Tuple[bool, str]:
         """
@@ -109,8 +123,26 @@ class PanelIdResolutionWorker(BaseTestWorker):
     
     def _validate_evtlog(self, response: str) -> Tuple[bool, str]:
         """
-        Validate evtlog
+        Validate evtlog based on platform-specific resolution expectations
         """
+        # Define expected resolutions based on platform_name
+        if self.platform_name in ["argo", "gemini_fhd", "hydra_fhd"]:
+            expected_x = "1919"
+            expected_y = "1079"
+            resolution_desc = "1920x1080"
+        elif self.platform_name in ["hydra", "gemini"]:
+            expected_x = "1365"
+            expected_y = "767"
+            resolution_desc = "1366x768"
+        else:
+            # Default fallback for unknown platforms
+            logger.warning(f"Unknown platform: {self.platform_name}, using default FHD resolution")
+            expected_x = "1919"
+            expected_y = "1079"
+            resolution_desc = "1920x1080"
+        
+        logger.info(f"Platform: {self.platform_name}, Expected resolution: {resolution_desc} (X={expected_x}, Y={expected_y})")
+        
         lines = response.split("\n")
         current_axis = None
         x_resolution_correct = False
@@ -131,22 +163,22 @@ class PanelIdResolutionWorker(BaseTestWorker):
             # Check Max value for current axis
             if line.startswith("Max") and current_axis:
                 if current_axis == "X":
-                    if "1919" in line:
+                    if expected_x in line:
                         x_resolution_correct = True
                         logger.debug(f"Found correct ABS_X Max value: {line}")
                     else:
-                        return False, f"x-axis resolution detected failed - expected 1919, found: {line}"
+                        return False, f"x-axis resolution detected failed - expected {expected_x}, found: {line}"
                 elif current_axis == "Y":
-                    if "1079" in line:
+                    if expected_y in line:
                         y_resolution_correct = True
                         logger.debug(f"Found correct ABS_Y Max value: {line}")
                     else:
-                        return False, f"y-axis resolution detected failed - expected 1079, found: {line}"
+                        return False, f"y-axis resolution detected failed - expected {expected_y}, found: {line}"
         
         # Check if both resolutions were found and correct
         if not x_resolution_correct:
-            return False, "x-axis resolution not found or incorrect"
+            return False, f"x-axis resolution not found or incorrect (expected {expected_x})"
         if not y_resolution_correct:
-            return False, "y-axis resolution not found or incorrect"
+            return False, f"y-axis resolution not found or incorrect (expected {expected_y})"
         
-        return True, "Panel resolution is 1920x1080"
+        return True, f"Panel resolution is {resolution_desc}"
