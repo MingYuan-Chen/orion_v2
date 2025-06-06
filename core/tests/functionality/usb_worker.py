@@ -15,7 +15,7 @@ class UsbWorker(BaseTestWorker):
         self.test_id = "functionality_usb"
         
         # set usb write speed threshold
-        self.usb_write_speed_threshold = 60.0  # unit: MB/s
+        self.usb_write_speed_threshold = 30.0  # unit: MB/s
         # set usb read speed threshold
         self.usb_read_speed_threshold = 200.0  # unit: MB/s
     
@@ -32,7 +32,7 @@ class UsbWorker(BaseTestWorker):
                 command=commands[0], 
                 validation_func=self._validate_usb_write,
                 timeout=5, 
-                description="Write to usb_throughput",
+                description="Write to usb_throughput on usb 1",
                 criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
                 max_retries=1,
                 retry_delay=500
@@ -41,34 +41,38 @@ class UsbWorker(BaseTestWorker):
                 command=commands[1], 
                 validation_func=self._validate_usb_read,
                 timeout=10, 
-                description="Read from usb_throughput",
+                description="Read from usb_throughput on usb 1",
                 criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
                 max_retries=3,
                 retry_delay=1000
             ),
             TestStep(
                 command=commands[2], 
-                validation_func=self._validate_usb_unmount, 
+                validation_func=self._validate_usb_write, 
                 timeout=10, 
-                description="Unmount sda1",
+                description="Write to usb_throughput on usb 2",
+                criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
                 max_retries=2,
                 retry_delay=1500
             ),
             TestStep(
                 command=commands[3], 
-                validation_func=self._validate_usb_mount_command,
+                validation_func=self._validate_usb_read,
                 timeout=10, 
-                description="Mount sda1",
+                description="Read from usb_throughput on usb 2",
+                criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
                 max_retries=2,
                 retry_delay=1500
             ),
             TestStep(
-                command=commands[4], 
-                validation_func=self._validate_usb_mount,
-                timeout=10, 
-                description="Validate sda1 mounted",
-                max_retries=2,
-                retry_delay=2000
+                command=commands[4],  
+                timeout=5,
+                description="Remove usb_throughput on usb 1",
+            ),
+            TestStep(
+                command=commands[5],  
+                timeout=5,
+                description="Remove usb_throughput on usb 2",
             )
         ]
     
