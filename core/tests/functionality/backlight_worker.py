@@ -30,10 +30,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[1], 
-                # expected_response="0", 
+                expected_response="0", 
                 timeout=3, 
                 description="Check backlight brightness",
-                post_check="Is the backlight brightness become to dark?",
                 criteria="The backlight brightness is 0%",
                 max_retries=1,
                 retry_delay=1000
@@ -45,10 +44,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[3], 
-                # expected_response="1", 
+                expected_response="1", 
                 timeout=3, 
                 description="Check backlight brightness 20%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 20%",
                 max_retries=1,
                 retry_delay=1000
@@ -60,10 +58,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[5], 
-                # expected_response="2", 
+                expected_response="2", 
                 timeout=3, 
                 description="Check backlight brightness 30%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 30%",
                 max_retries=1,
                 retry_delay=1000
@@ -75,10 +72,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[7], 
-                # expected_response="3", 
+                expected_response="3", 
                 timeout=3, 
                 description="Check backlight brightness 40%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 40%",
                 max_retries=1,
                 retry_delay=1000
@@ -90,10 +86,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[9], 
-                # expected_response="4", 
+                expected_response="4", 
                 timeout=3, 
                 description="Check backlight brightness 50%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 50%",
                 max_retries=1,
                 retry_delay=1000
@@ -105,10 +100,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[11], 
-                # expected_response="5", 
+                expected_response="5", 
                 timeout=3, 
                 description="Check backlight brightness 60%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 60%",
                 max_retries=1,
                 retry_delay=1000
@@ -120,10 +114,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[13], 
-                # expected_response="6",
+                expected_response="6",
                 timeout=3, 
                 description="Check backlight brightness 80%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 80%",
                 max_retries=1,
                 retry_delay=1000
@@ -135,10 +128,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[15], 
-                # expected_response="7",
+                expected_response="7",
                 timeout=3, 
                 description="Check backlight brightness 100%",
-                post_check="Is the backlight brighter than before?",
                 criteria="The backlight brightness is 100%",
                 max_retries=1,
                 retry_delay=1000
@@ -150,10 +142,9 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[17], 
-                # expected_response="1", 
+                expected_response="1", 
                 timeout=3, 
                 description="Check screen power",
-                post_check="Is the screen power off?",
                 criteria="The screen power is off",
                 max_retries=1,
                 retry_delay=1000
@@ -165,11 +156,11 @@ class BacklightWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[19], 
-                # expected_response="0",
+                expected_response="0",
                 timeout=3, 
                 description="Check screen power",
-                post_check="Is the screen power on?",
                 criteria="The screen power is on",
+                post_check="Please check the backlight behavior is expected\n1. Brightness switch to 0%, 20%, 30%, 40%, 50%, 60%, 80%, 100%\n2. Screen power set to off and on",
                 max_retries=1,
                 retry_delay=1000
             )
