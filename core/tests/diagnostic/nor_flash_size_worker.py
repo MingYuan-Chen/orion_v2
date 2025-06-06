@@ -22,11 +22,12 @@ class NorFlashSizeWorker(BaseTestWorker):
             diagnostic nor flash size test steps list
         """ 
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="04000000", # 64MB
+                expected_response=expected_responses[0] if expected_responses else None, # 64MB
                 timeout=5, 
                 description="Check NOR flash size",
                 criteria="The NOR flash size is 64MB",

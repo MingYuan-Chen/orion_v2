@@ -23,11 +23,12 @@ class CpuNameWorker(BaseTestWorker):
             diagnostic cpu name test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="i.MX6", 
+                expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check CPU Name",
                 criteria="CPU name with 'i.MX6'",

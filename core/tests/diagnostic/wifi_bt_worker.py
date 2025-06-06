@@ -22,11 +22,12 @@ class WifiBtWorker(BaseTestWorker):
             diagnostic wifi and bluetooth test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="1286:2046",            # Get the ID
+                expected_response=expected_responses[0] if len(expected_responses) > 0 else None,            # Get the ID
                 timeout=5, 
                 description="Check bluetooth device ID",
                 criteria="The bluetooth device ID is 1286:2046",
@@ -35,7 +36,7 @@ class WifiBtWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[1], 
-                expected_response="Marvell",            # Get the wifi device name
+                expected_response=expected_responses[1] if len(expected_responses) > 1 else None,            # Get the wifi device name
                 timeout=5, 
                 description="Check wifi device name",
                 criteria="The wifi device name is Marvell",

@@ -22,11 +22,12 @@ class SetGetRtcTimeWorker(BaseTestWorker):
             diagnostic set and get rtc time test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="Wed Feb 28 23:59:59 UTC 2024",
+                expected_response=expected_responses[0] if len(expected_responses) > 0 else None,
                 timeout=5, 
                 description="Set Date Time",
                 criteria="Can set date time to 2024-02-28 23:59:59",
@@ -35,12 +36,13 @@ class SetGetRtcTimeWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[1],
+                expected_response=expected_responses[1] if len(expected_responses) > 1 else None,
                 timeout=5, 
                 description="Write RTC Time",
             ),
             TestStep(
                 command=commands[2],
-                expected_response="Thu Feb 29",
+                expected_response=expected_responses[2] if len(expected_responses) > 2 else None,
                 timeout=5, 
                 description="Read RTC Time and verify leap year is handled",
                 criteria="Can read RTC time Thu Feb 29",
