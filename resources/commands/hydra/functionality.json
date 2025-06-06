@@ -29,7 +29,10 @@
       "cat /sys/class/backlight/backlight/bl_power",
       "echo 0 > /sys/class/backlight/backlight/bl_power",
       "cat /sys/class/backlight/backlight/bl_power"
-    ]
+    ],
+    "expected_response": [
+      "", "0", "", "1", "", "2", "", "3", "", "4", "", "5", "", "6", "", "7",
+      "", "1", "", "0"]
   },
   "functionality_battery": {
     "commands": [
