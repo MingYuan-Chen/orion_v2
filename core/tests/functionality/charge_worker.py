@@ -22,11 +22,13 @@ class ChargeWorker(BaseTestWorker):
         Returns:
             charge test steps list
         """
-        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)  
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.FUNCTIONALITY)
+        
         return [
             TestStep(
                 command=commands[0], 
-                expected_response="1",
+                expected_response=expected_responses[0] if expected_responses else None,
                 timeout=5, 
                 description="Validate DUT is charging",
                 criteria="The DUT is charging",

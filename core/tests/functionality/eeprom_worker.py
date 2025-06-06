@@ -25,12 +25,14 @@ class EepromWorker(BaseTestWorker):
         Returns:
             eeprom test steps list
         """
-        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY) 
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.FUNCTIONALITY)
+        
         return [
             # First step: Generate random test data
             TestStep(
                 command=commands[0], 
-                expected_response="copied", 
+                expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
                 timeout=5, 
                 description="Generate EEPROM0 test data",
                 max_retries=2,
@@ -38,7 +40,7 @@ class EepromWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[1], 
-                expected_response="copied", 
+                expected_response=expected_responses[1] if len(expected_responses) > 1 else None, 
                 timeout=5, 
                 description="Generate EEPROM1 test data",
                 max_retries=2,
@@ -71,7 +73,7 @@ class EepromWorker(BaseTestWorker):
             # Third step: Write the data to EEPROM
             TestStep(
                 command=commands[5], 
-                expected_response="eeprog", 
+                expected_response=expected_responses[5] if len(expected_responses) > 5 else None, 
                 timeout=10, 
                 description="Write data to EEPROM0",
                 max_retries=1,
@@ -79,7 +81,7 @@ class EepromWorker(BaseTestWorker):
             ),
             TestStep(
                 command=commands[6], 
-                expected_response="eeprog", 
+                expected_response=expected_responses[6] if len(expected_responses) > 6 else None, 
                 timeout=10, 
                 description="Write data to EEPROM1",
                 max_retries=1,
@@ -163,28 +165,68 @@ class EepromWorker(BaseTestWorker):
         """Store the MD5 value of EEPROM0 test data"""
         if not response.strip():
             return False, "Failed to get the MD5 value of EEPROM0 test data"
-        self.to_eeprom0_md5 = response.strip()
+        
+        # Extract MD5 hash from response (32 characters hexadecimal)
+        import re
+        md5_pattern = r'[a-fA-F0-9]{32}'
+        matches = re.findall(md5_pattern, response)
+        
+        if not matches:
+            return False, f"No valid MD5 hash found in response: {response.strip()}"
+        
+        # Take the last MD5 hash found (in case there are multiple)
+        self.to_eeprom0_md5 = matches[-1].lower()
         return True, f"The MD5 value of EEPROM0 test data: {self.to_eeprom0_md5}"
     
     def _store_to_eeprom1_md5(self, response: str) -> Tuple[bool, str]:
         """Store the MD5 value of EEPROM1 test data"""
         if not response.strip():
             return False, "Failed to get the MD5 value of EEPROM1 test data"
-        self.to_eeprom1_md5 = response.strip()
+        
+        # Extract MD5 hash from response (32 characters hexadecimal)
+        import re
+        md5_pattern = r'[a-fA-F0-9]{32}'
+        matches = re.findall(md5_pattern, response)
+        
+        if not matches:
+            return False, f"No valid MD5 hash found in response: {response.strip()}"
+        
+        # Take the last MD5 hash found (in case there are multiple)
+        self.to_eeprom1_md5 = matches[-1].lower()
         return True, f"The MD5 value of EEPROM1 test data: {self.to_eeprom1_md5}"
     
     def _store_from_eeprom0_md5(self, response: str) -> Tuple[bool, str]:
         """Store the MD5 value of the read data from EEPROM0"""
         if not response.strip():
             return False, "Failed to get the MD5 value of the read data from EEPROM0"
-        self.from_eeprom0_md5 = response.strip()
+        
+        # Extract MD5 hash from response (32 characters hexadecimal)
+        import re
+        md5_pattern = r'[a-fA-F0-9]{32}'
+        matches = re.findall(md5_pattern, response)
+        
+        if not matches:
+            return False, f"No valid MD5 hash found in response: {response.strip()}"
+        
+        # Take the last MD5 hash found (in case there are multiple)
+        self.from_eeprom0_md5 = matches[-1].lower()
         return True, f"The MD5 value of the read data from EEPROM0: {self.from_eeprom0_md5}"
     
     def _store_from_eeprom1_md5(self, response: str) -> Tuple[bool, str]:
         """Store the MD5 value of the read data from EEPROM1"""
         if not response.strip():
             return False, "Failed to get the MD5 value of the read data from EEPROM1"
-        self.from_eeprom1_md5 = response.strip()
+        
+        # Extract MD5 hash from response (32 characters hexadecimal)
+        import re
+        md5_pattern = r'[a-fA-F0-9]{32}'
+        matches = re.findall(md5_pattern, response)
+        
+        if not matches:
+            return False, f"No valid MD5 hash found in response: {response.strip()}"
+        
+        # Take the last MD5 hash found (in case there are multiple)
+        self.from_eeprom1_md5 = matches[-1].lower()
         return True, f"The MD5 value of the read data from EEPROM1: {self.from_eeprom1_md5}"
     
     def _validate_md5_values(self, response: str) -> Tuple[bool, str]:
