@@ -23,13 +23,15 @@ class DeviceManagerViewModel(QObject):
     
     # Service initialization signals
     services_initialization_completed = Signal(str)  # platform_name
+    platform_detection_failed = Signal(str, str)  # device_id, port
     
-    def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd"):
+    def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd", parent_widget=None):
         super().__init__()
         # Initialize device manager
         self.device_manager = device_manager or DeviceManagerModel()
         self.connected_devices = {}  # device_id: device_info
         self.platform_name = platform_name
+        self.parent_widget = parent_widget  # Store parent widget for message boxes
         
         # Platform detection tracking - stores detection results for each device
         self.platform_detection_status = {}  # device_id: {command_results: {}, completed_commands: set(), detected_platform: str}
@@ -262,18 +264,13 @@ class DeviceManagerViewModel(QObject):
             self.platform_detection_status[device_id] = {
                 'command_results': {},
                 'completed_commands': set(),
-                'detected_platform': None
+                'detected_platform': None,
+                'status': 'checking_connection'  # 'checking_connection' -> 'detecting_platform' -> 'completed'
             }
 
-            # workaround to ensure the device is connected
-            # TODO: when other connection methods are applied, this workaround should be removed
-            # TODO: Should consider more robust way to ensure the device is connected
-            self._serial_worker.send_command(device_id, "root", 0)
-
-            # Send platform detection commands
-            logger.info(f"Sending platform detection commands to device {device_id}")
-            self._serial_worker.send_command(device_id, "cat /proc/panel_id", 0)
-            self._serial_worker.send_command(device_id, "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 0)
+            # First, send the root command to check if device is responsive
+            logger.info(f"Checking device responsiveness for {device_id}")
+            self._serial_worker.send_command(device_id, "root", 10)
             
             # Note: Services will be initialized in _on_command_completed when all platform detection responses are received
                 
@@ -311,23 +308,67 @@ class DeviceManagerViewModel(QObject):
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
         """Handle command execution completion"""
+        
+        # Check if this device is in platform detection process
+        if device_id in self.platform_detection_status:
+            status = self.platform_detection_status[device_id]['status']
+            response_lower = response.strip().lower()
+            
+            # Handle root command (connection check)
+            if command == "root" and status == 'checking_connection':
+                if "error: no response received from device" in response_lower:
+                    logger.warning(f"Device {device_id} is not responsive, indicating unsupported device")
+                    
+                    # Get device port information
+                    device_port = self.connected_devices.get(device_id, {}).get('port', 'Unknown')
+                    
+                    # Emit platform detection failed signal immediately
+                    self.platform_detection_failed.emit(device_id, device_port)
+                    
+                    # Clean up detection status for this device
+                    del self.platform_detection_status[device_id]
+                    
+                    # Always emit the command result signal for other components
+                    self.command_result.emit(device_id, command, response)
+                    return
+                else:
+                    # Device is responsive, proceed to platform detection
+                    logger.info(f"Device {device_id} is responsive, starting platform detection")
+                    self.platform_detection_status[device_id]['status'] = 'detecting_platform'
+                    
+                    # Now send platform detection commands
+                    logger.info(f"Sending platform detection commands to device {device_id}")
+                    self._serial_worker.send_command(device_id, "cat /proc/panel_id", 10)
+                    self._serial_worker.send_command(device_id, "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 10)
+                    
+                    # Always emit the command result signal for other components
+                    self.command_result.emit(device_id, command, response)
+                    return
+        
         # Check if this is one of the platform detection commands
         detected_platform = None
         is_platform_detection_command = False
         
-        if command == "cat /proc/panel_id":
-            logger.info(f"Received platform detection response from {device_id}: {response}")
-            detected_platform = self._detect_platform_from_panel_id(response)
-            logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
-            is_platform_detection_command = True
-        
-        elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
-            logger.info(f"Received PIC version response from {device_id}: {response}")
-            # Determine platform based on PIC version response
-            if '0x72' in response:
-                detected_platform = "argo"
-                logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
-            is_platform_detection_command = True
+        # Only process platform detection commands if we're in the detecting_platform status
+        if device_id in self.platform_detection_status and self.platform_detection_status[device_id]['status'] == 'detecting_platform':
+            if command == "cat /proc/panel_id":
+                logger.info(f"Received platform detection response from {device_id}: {response}")
+                detected_platform = self._detect_platform_from_panel_id(response)
+                logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
+                is_platform_detection_command = True
+            
+            elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
+                logger.info(f"Received PIC version response from {device_id}: {response}")
+                # Check if this is an error response first
+                response_lower = response.strip().lower()
+                if "error" in response_lower or "no response" in response_lower:
+                    logger.warning(f"Invalid PIC version response: '{response}', platform detection failed")
+                else:
+                    # Determine platform based on PIC version response
+                    if '0x72' in response:
+                        detected_platform = "argo"
+                        logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
+                is_platform_detection_command = True
         
         # Handle platform detection command completion
         if is_platform_detection_command and device_id in self.platform_detection_status:
@@ -352,9 +393,18 @@ class DeviceManagerViewModel(QObject):
                 # Get the final detected platform
                 final_platform = self.platform_detection_status[device_id]['detected_platform']
                 if not final_platform:
-                    # If no platform was detected from any command, use default
-                    final_platform = self.platform_name
-                    logger.warning(f"No platform detected from commands, using default: {final_platform}")
+                    # If no platform was detected from any command, emit platform detection failed signal
+                    logger.warning(f"No platform detected from commands for device {device_id}")
+                    
+                    # Get device port information
+                    device_port = self.connected_devices.get(device_id, {}).get('port', 'Unknown')
+                    
+                    # Emit platform detection failed signal
+                    self.platform_detection_failed.emit(device_id, device_port)
+                    
+                    # Clean up detection status for this device
+                    del self.platform_detection_status[device_id]
+                    return
                 
                 # Initialize services if this is the first connected device or if services are not initialized
                 if self.system_info_service is None or self.hardware_test_manager is None:
@@ -371,19 +421,24 @@ class DeviceManagerViewModel(QObject):
         # Always emit the command result signal for other components
         self.command_result.emit(device_id, command, response)
     
-    def _detect_platform_from_panel_id(self, panel_id_response: str) -> str:
+    def _detect_platform_from_panel_id(self, panel_id_response: str) -> Optional[str]:
         """Detect platform name based on panel_id response
         
         Args:
             panel_id_response: Response from 'cat /proc/panel_id' command
             
         Returns:
-            str: Detected platform name
+            Optional[str]: Detected platform name, or None if detection failed
         """
         # Remove whitespace and convert to lowercase for comparison
         response = panel_id_response.strip().lower()
         
         logger.debug(f"Analyzing panel_id response: '{response}'")
+        
+        # Check if this is an error response
+        if "error" in response or "no response" in response or response == "":
+            logger.warning(f"Invalid panel_id response: '{panel_id_response}', platform detection failed")
+            return None
         
         # Platform detection logic based on panel_id
         if "01" in response:
@@ -395,9 +450,9 @@ class DeviceManagerViewModel(QObject):
         elif "11" in response:
             return "gemini"
         else:
-            # Default fallback - log the unknown response for debugging
-            logger.warning(f"Unknown panel_id response: '{panel_id_response}', using default platform")
-            return self.platform_name  # Keep current default platform
+            # Unknown but valid response - log for debugging
+            logger.warning(f"Unknown panel_id response: '{panel_id_response}', platform detection failed")
+            return None
         
     def connect_serial_device(self, device_id: str, port: str, baudrate: int = 115200, timeout: int = 3):
         """Connect serial device"""
