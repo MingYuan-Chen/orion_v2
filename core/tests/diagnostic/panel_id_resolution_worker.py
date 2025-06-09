@@ -69,7 +69,7 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
                 timeout=5,
                 description="Check panel ID",
-                criteria="Panel ID is Hydra FHD",
+                criteria=f"Panel ID is {self.platform_name}",
             )
         ]
         
@@ -84,8 +84,10 @@ class PanelIdResolutionWorker(BaseTestWorker):
         """
         if self.platform_name in ["argo", "gemini_fhd", "hydra_fhd"]:
             return "Panel resolution is 1920x1080"
-        elif self.platform_name in ["hydra", "gemini"]:
+        elif self.platform_name in ["hydra"]:
             return "Panel resolution is 1366x768"
+        elif self.platform_name in ["gemini"]:
+            return "Panel resolution is 1280x800"
         else:
             return "Panel resolution is 1920x1080"  # Default
     
@@ -130,10 +132,14 @@ class PanelIdResolutionWorker(BaseTestWorker):
             expected_x = "1919"
             expected_y = "1079"
             resolution_desc = "1920x1080"
-        elif self.platform_name in ["hydra", "gemini"]:
+        elif self.platform_name in ["hydra"]:
             expected_x = "1365"
             expected_y = "767"
             resolution_desc = "1366x768"
+        elif self.platform_name in ["gemini"]:
+            expected_x = "1279"
+            expected_y = "799"
+            resolution_desc = "1280x800"
         else:
             # Default fallback for unknown platforms
             logger.warning(f"Unknown platform: {self.platform_name}, using default FHD resolution")

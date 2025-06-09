@@ -13,7 +13,7 @@
   },
   "diagnostic_mac_address": {
     "commands": ["cat /sys/class/net/eth0/address"],
-    "expected_response": ["5a:31:e7:6b:68:2a"]
+    "expected_response": ["3a:32:a0:22:a3:d9"]
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],
@@ -25,7 +25,7 @@
   },
   "diagnostic_pic_version": {
     "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/hw_rev"],
-    "expected_response": ["0x6e", "100"]
+    "expected_response": ["0x72", "100"]
   },
   "diagnostic_sync_time": {
     "commands": ["sudo ntpdate -u time.stdtime.gov.tw", "hwclock -w", "hwclock -r", "date"]
@@ -36,7 +36,7 @@
   },
   "diagnostic_design_capacity": {
     "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
-    "expected_response": ["0x0d 0x16"]
+    "expected_response": ["0x0c 0xb2"]
   },
   "diagnostic_design_voltage": {
     "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
