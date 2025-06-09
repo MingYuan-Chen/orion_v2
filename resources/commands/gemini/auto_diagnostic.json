@@ -9,11 +9,11 @@
   },
   "diagnostic_emmc_size": {
     "commands": ["cat /sys/block/mmcblk2/size"],
-    "expected_response": ["244629504"]
+    "expected_response": ["244277248"]
   },
   "diagnostic_mac_address": {
     "commands": ["cat /sys/class/net/eth0/address"],
-    "expected_response": ["5a:31:e7:6b:68:2a"]
+    "expected_response": ["8e:65:70:f4:f2:ba"]
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],
@@ -25,7 +25,7 @@
   },
   "diagnostic_pic_version": {
     "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/hw_rev"],
-    "expected_response": ["0x6e", "100"]
+    "expected_response": ["0x64", "100"]
   },
   "diagnostic_sync_time": {
     "commands": ["sudo ntpdate -u time.stdtime.gov.tw", "hwclock -w", "hwclock -r", "date"]
@@ -51,7 +51,7 @@
   },
   "diagnostic_panel_id_resolution": {
     "commands": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog", "cat /proc/panel_id"],
-    "expected_response": ["", "", "", "", "01"]
+    "expected_response": ["", "", "", "", "11"]
   },
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],

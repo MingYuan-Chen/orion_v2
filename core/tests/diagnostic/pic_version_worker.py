@@ -13,6 +13,11 @@ class PicVersionWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "diagnostic_pic_version"
+        self.expected_pic_version_mapping = {
+            "hydra": 110,
+            "gemini": 100,
+            "argo": 114
+        }
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -30,9 +35,10 @@ class PicVersionWorker(BaseTestWorker):
                 expected_response=expected_responses[0] if len(expected_responses) > 0 else None,           # convert to decimal: 110
                 # Hydra: 0x6e = 110
                 # Argo: 0x72 = 114
+                # Gemini: 0x64 = 100
                 timeout=5, 
                 description="Check PIC Version by i2c",
-                criteria="The PIC version is 110",
+                criteria=f"The PIC version is {self.expected_pic_version_mapping[self.platform_name]}",
                 max_retries=3,
                 retry_delay=500
             ),

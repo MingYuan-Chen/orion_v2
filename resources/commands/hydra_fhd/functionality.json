@@ -122,14 +122,15 @@
     "commands": [
       "dd if=/dev/zero of=/run/media/sda1/usb_throughput bs=1M count=200 status=progress",
       "dd if=/run/media/sda1/usb_throughput of=/dev/null bs=1M",
-      "sudo umount /run/media/sda1",
-      "sudo mount /dev/sda1 /run/media/sda1",
-      "mount | grep sda1"
+      "dd if=/dev/zero of=/run/media/sdb1/usb_throughput bs=1M count=200 status=progress",
+      "dd if=/run/media/sdb1/usb_throughput of=/dev/null bs=1M",
+      "rm -f /run/media/sda1/usb_throughput",
+      "rm -f /run/media/sdb1/usb_throughput"
     ]
   },
   "functionality_touch": {
     "commands": [
-      "/run/media/sda1/TouchTestQt", "",
+      "/run/media/sda1/TouchTestQt", "/run/media/sdb1/TouchTestQt", "",
       "ts_test_mt -j 2 -v",
       "", "", "", "", "", "", "", "", "",
       "reboot", "root"

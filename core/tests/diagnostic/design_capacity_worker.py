@@ -13,6 +13,12 @@ class DesignCapacityWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "diagnostic_design_capacity"
+        self.expected_design_capacity_mapping = {
+            "hydra_fhd": 3350,
+            "hydra": 3350,
+            "gemini": 3350,
+            "argo": 3250
+        }
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -31,9 +37,10 @@ class DesignCapacityWorker(BaseTestWorker):
                 # FHD Hydra: 0x0d 0x16 = 3350
                 # Hydra: 0x0d 0x16 = 3350
                 # Argo: 0x0c 0xb2 = 3250
+                # Gemini: 0x0d 0x16 = 3350
                 timeout=5, 
                 description="Check Design Capacity",
-                criteria="The design capacity is 3250 mAh",
+                criteria=f"The design capacity is {self.expected_design_capacity_mapping[self.platform_name]} mAh",
                 max_retries=3,
                 retry_delay=500
             )
