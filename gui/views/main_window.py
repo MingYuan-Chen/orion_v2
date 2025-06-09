@@ -1082,10 +1082,14 @@ class MainWindowController(QObject):
                     
                     # get the step details of the test
                     test_steps = []
+                    overall_test_time = "--:--:--"
                     if test_id in test_results:
                         test_steps = test_results[test_id].get("steps", [])
+                        # Try to get overall test time from functionality results
+                        overall_test_time = test_results[test_id].get("time", "--:--:--")
                     elif test_id in diagnostic_results:
                         test_steps = diagnostic_results[test_id].get("steps", [])
+                        overall_test_time = diagnostic_results[test_id].get("time", "--:--:--")
                     
                     # try to get the step details and execution status from the test worker
                     worker_steps = []
@@ -1196,11 +1200,20 @@ class MainWindowController(QObject):
                                 # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                # try to get the actual timestamp from the progress records
+                                # try to get the actual timestamp and duration from the progress records
                                 for record in records:
                                     if isinstance(record, dict) and record.get('current_step') == template_index + 1:
                                         timestamp = record.get('timestamp', timestamp)
+                                        # Try to get duration from progress record
+                                        if 'duration' in record:
+                                            step_time = record.get('duration', step_time)
+                                        elif 'time' in record:
+                                            step_time = record.get('time', step_time)
                                         break
+                                
+                                # As a fallback, use overall test time if step time is still default
+                                if step_time == "--:--:--" and overall_test_time != "--:--:--":
+                                    step_time = overall_test_time
                                 
                                 # create the data row
                                 row_data = [
@@ -1338,6 +1351,16 @@ class MainWindowController(QObject):
                                 step_response = final_response
                                 if isinstance(step_message, str) and "skip" in step_message.lower():
                                     step_message = "SKIPPED"
+
+                                # Try to get duration from progress record if not available
+                                if step_time == "--:--:--":
+                                    if 'duration' in record:
+                                        step_time = record.get('duration', step_time)
+                                    elif 'time' in record:
+                                        step_time = record.get('time', step_time)
+                                    # As a fallback, use overall test time if available
+                                    elif overall_test_time != "--:--:--":
+                                        step_time = overall_test_time
 
                                 # create the data row
                                 row_data = [
