@@ -30,7 +30,7 @@ class DeviceManagerWidget(QWidget):
         self._is_closing = False
         
         # Initialize view model
-        self.view_model = DeviceManagerViewModel()
+        self.view_model = DeviceManagerViewModel(parent_widget=self)
         
         # Connect view model signals
         self.view_model.connection_result.connect(self._on_device_connected)
@@ -38,6 +38,7 @@ class DeviceManagerWidget(QWidget):
         self.view_model.command_result.connect(self._on_command_completed)
         self.view_model.device_list_changed.connect(self._on_device_list_changed)
         self.view_model.services_initialization_completed.connect(self._on_services_initialized)
+        self.view_model.platform_detection_failed.connect(self._on_platform_detection_failed)
         
         # Load UI
         self._load_ui_direct()
@@ -558,6 +559,44 @@ class DeviceManagerWidget(QWidget):
         # Note: You might want to show this in a status bar instead of a message box
         # QMessageBox.information(self, "Services Ready", f"Platform services initialized: {platform_name}")
     
+    @Slot(str, str)
+    def _on_platform_detection_failed(self, device_id, port):
+        """Handle platform detection failed event
+        
+        Args:
+            device_id: The device ID that failed platform detection
+            port: The COM port of the device
+        """
+        logger.warning(f"Platform detection failed for device {device_id} on port {port}")
+        
+        # Show error message to user
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Unsupported Device")
+        msg_box.setText("Device Detection Failed")
+        msg_box.setInformativeText("Unsupported device, will automatically disconnect.")
+        msg_box.setIcon(QMessageBox.Warning)
+        
+        # Apply dark theme to message box
+        msg_box.setStyleSheet(self._get_dark_style_sheet())
+        
+        # Adjust the width of the text label in the message box
+        from PySide6.QtWidgets import QLabel
+        for label in msg_box.findChildren(QLabel):
+            if label.text() == "Unsupported device, will automatically disconnect.":
+                # Set the width of the text label and enable word wrap
+                label.setMinimumWidth(350)
+                label.setWordWrap(True)
+        
+        # Show the message box
+        msg_box.exec()
+        
+        # Automatically disconnect the device after closing the message box
+        logger.info(f"Automatically disconnecting unsupported device {device_id}")
+        self.view_model.disconnect_device(device_id)
+        
+        self.ui_widget.push_button_open_main_window.setText("Open Main Window")
+        self.ui_widget.push_button_open_main_window.setToolTip("Open main window for the selected device")
+    
     def closeEvent(self, event):
         """Handle window close event"""
         # Prevent duplicate processing of close events
@@ -626,6 +665,7 @@ class DeviceManagerWidget(QWidget):
                     self.view_model.command_result.disconnect(self._on_command_completed)
                     self.view_model.device_list_changed.disconnect(self._on_device_list_changed)
                     self.view_model.services_initialization_completed.disconnect(self._on_services_initialized)
+                    self.view_model.platform_detection_failed.disconnect(self._on_platform_detection_failed)
                 except Exception as e:
                     logger.warning(f"Error disconnecting view_model signals: {e}")
         except Exception as e:
