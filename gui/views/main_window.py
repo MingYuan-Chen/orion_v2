@@ -114,21 +114,30 @@ class MainWindowController(QObject):
     """
     # Add window closed signal
     window_closed = Signal(str)  # Send device ID
+    platform_mapping = {
+        "argo": "Argo",
+        "hydra_fhd": "Hydra FHD",
+        "hydra": "Hydra",
+        "gemini_fhd": "Gemini FHD",
+        "gemini": "Gemini"
+    }
     
-    def __init__(self, device_id, view_model):
+    def __init__(self, device_id, view_model, platform_name=None):
         """
         Initialize main window controller
         
         Args:
             device_id: device ID
             view_model: DeviceManagerViewModel instance
+            platform_name: platform name for display in window title
         """
         # Call QObject initialization
         super().__init__()
         
-        # Save device ID and view model
+        # Save device ID, view model and platform name
         self.device_id = device_id
         self.view_model = view_model
+        self.platform_name = self.platform_mapping[platform_name]
         
         # Add update status flag
         self.is_updating = False
@@ -200,6 +209,9 @@ class MainWindowController(QObject):
         
         # Set window properties
         self._set_window_properties()
+        
+        # Update dashboard title based on platform name
+        self._update_dashboard_title()
         
         # create the system info manager
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
@@ -976,17 +988,13 @@ class MainWindowController(QObject):
             if not app:
                 logger.warning("Unable to get QApplication instance")
                 return
-                
-            # Get global application display name
-            app_name = app.applicationDisplayName() or app.applicationName() or "VT Hydra System Monitor"
             
             # Use application icon
             if app.windowIcon() and not self.window.windowIcon():
                 self.window.setWindowIcon(app.windowIcon())
                 
-            # Set window title to include application name
-            title = f"{app_name} - Device {self.device_id} Monitoring"
-            self.window.setWindowTitle(title)
+            # Set window title to include platform name if available
+            self.window.setWindowTitle("Main Window")
             
             # Set window flags to ensure it is recognized as the main application window
             self.window.setWindowFlags(self.window.windowFlags() | Qt.Window)
@@ -1013,6 +1021,25 @@ class MainWindowController(QObject):
             logger.debug(f"Window properties set: {title}")
         except Exception as e:
             logger.warning(f"Error setting window properties: {e}")
+    
+    def _update_dashboard_title(self):
+        """Update dashboard title label based on platform name"""
+        try:
+            # Check if the label_title widget exists
+            if hasattr(self.window, 'label_title'):
+                if self.platform_name:
+                    # Update the title to include platform name
+                    title_text = f"System Monitor - {self.platform_name}"
+                    self.window.label_title.setText(title_text)
+                    logger.debug(f"Updated dashboard title to: {title_text}")
+                else:
+                    # Keep original title if no platform name
+                    self.window.label_title.setText("System Monitoring Dashboard")
+                    logger.debug("Using default dashboard title")
+            else:
+                logger.warning("label_title widget not found in main window")
+        except Exception as e:
+            logger.warning(f"Error updating dashboard title: {e}")
 
     @Slot()
     def _on_all_tests_completed(self):
