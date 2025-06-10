@@ -576,10 +576,11 @@ class DeviceManagerWidget(QWidget):
         logger.warning(f"Platform detection failed for device {device_id} on port {port}")
         
         # Show error message to user
+        warning_text = "Unsupported device or device can't receive command normally, will automatically disconnect."
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Unsupported Device")
         msg_box.setText("Device Detection Failed")
-        msg_box.setInformativeText("Unsupported device, will automatically disconnect.")
+        msg_box.setInformativeText(warning_text)
         msg_box.setIcon(QMessageBox.Warning)
         
         # Apply dark theme to message box
@@ -588,7 +589,7 @@ class DeviceManagerWidget(QWidget):
         # Adjust the width of the text label in the message box
         from PySide6.QtWidgets import QLabel
         for label in msg_box.findChildren(QLabel):
-            if label.text() == "Unsupported device, will automatically disconnect.":
+            if label.text() == warning_text:
                 # Set the width of the text label and enable word wrap
                 label.setMinimumWidth(350)
                 label.setWordWrap(True)
