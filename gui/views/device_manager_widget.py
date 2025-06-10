@@ -29,6 +29,9 @@ class DeviceManagerWidget(QWidget):
         # Initialize the re-entry flag
         self._is_closing = False
         
+        # Initialize platform name storage
+        self.platform_name = None
+        
         # Initialize view model
         self.view_model = DeviceManagerViewModel(parent_widget=self)
         
@@ -242,19 +245,19 @@ class DeviceManagerWidget(QWidget):
                 else:
                     # Window is not visible, possibly closed but reference still exists
                     logger.info(f"Window for device {device_id} exists but is not visible, creating new window")
-            
+        
             if create_new_window:
-                # Create new window
-                controller = MainWindowController(device_id, self.view_model)
+                # Create new window with platform name
+                controller = MainWindowController(device_id, self.view_model, self.platform_name)
                 # Connect window closed signal
                 controller.window_closed.connect(self._on_device_window_closed)
                 self.device_windows[device_id] = controller
                 controller.show()
-                logger.info(f"Opened new main window for device: {device_id}")
+                logger.info(f"Opened new main window for device: {device_id} with platform: {self.platform_name}")
                 
                 # Update window close restriction state
                 self._update_close_restriction()
-            
+        
         except Exception as e:
             error_msg = f"Failed to open main window: {str(e)}"
             logger.error(error_msg, exc_info=True)
@@ -551,6 +554,9 @@ class DeviceManagerWidget(QWidget):
             platform_name: The platform name used for service initialization
         """
         logger.info(f"Services initialized with platform: {platform_name}")
+        
+        # Save platform name for later use
+        self.platform_name = platform_name
         
         # Update button states now that services are ready
         self._on_device_selection_changed()
