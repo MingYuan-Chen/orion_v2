@@ -213,13 +213,33 @@ class DeviceManagerWidget(QWidget):
             device = self._get_filtered_devices()[selected_row]
             
             if device['status'] != 'Connected':
-                QMessageBox.warning(self, "Warning", "Device is not connected. Please connect first.")
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Warning")
+                msg_box.setText("Device is not connected")
+                msg_box.setInformativeText("Device is not connected. Please connect first.")
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                
+                # apply dark style sheet
+                msg_box.setStyleSheet(self._get_dark_style_sheet())
+                
+                msg_box.exec()
                 return
             
             # Get device ID
             device_id = device.get('id', None)
             if not device_id:
-                QMessageBox.warning(self, "Warning", "Device ID is missing. Cannot open main window.")
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Warning")
+                msg_box.setText("Device ID is missing")
+                msg_box.setInformativeText("Device ID is missing. Cannot open main window.")
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                
+                # apply dark style sheet
+                msg_box.setStyleSheet(self._get_dark_style_sheet())
+                
+                msg_box.exec()
                 return
                 
             # Import MainWindowController and create a new instance for this device
@@ -526,7 +546,17 @@ class DeviceManagerWidget(QWidget):
             # The view will update through the _on_device_list_changed signal
         else:
             logger.error(f"Device disconnection failed: {device_id} - {message}")
-            QMessageBox.warning(self, "Disconnection Failed", message)
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Disconnection Failed")
+            msg_box.setText("Device Disconnection Failed")
+            msg_box.setInformativeText(message)
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            
+            # apply dark style sheet
+            msg_box.setStyleSheet(self._get_dark_style_sheet())
+            
+            msg_box.exec()
     
     @Slot(str, str, str)
     def _on_command_completed(self, device_id, command, response):
@@ -617,12 +647,18 @@ class DeviceManagerWidget(QWidget):
             active_devices = self._get_active_window_info()
             device_list = ", ".join(active_devices)
             
-            QMessageBox.warning(
-                self, 
-                "Cannot close Device Manager", 
-                f"Please close the main window of the following devices first:\n\n{device_list}\n\n"
-                "This ensures proper disconnection of the devices."
-            )
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Cannot close Device Manager")
+            msg_box.setText("Cannot close Device Manager")
+            msg_box.setInformativeText(f"Please close the main window of the following devices first:\n\n{device_list}\n\n"
+                                     "This ensures proper disconnection of the devices.")
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            
+            # apply dark style sheet
+            msg_box.setStyleSheet(self._get_dark_style_sheet())
+            
+            msg_box.exec()
             
             logger.info(f"Close event blocked due to active main windows: {device_list}")
             event.ignore()

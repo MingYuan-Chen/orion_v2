@@ -40,6 +40,9 @@ class TestManagerView(QObject):
         self.device_id = device_id
         self.hw_test_manager = hw_test_manager
         
+        # save the MainWindowController reference (set later)
+        self.main_window_controller = None
+        
         # test UI components reference
         self.test_container = None  # test container reference
         self.test_all_button = None  # test all button reference 
@@ -137,7 +140,21 @@ class TestManagerView(QObject):
     
     def start_test(self, test_id: str):
         """
-        Start a specific test
+        Start a specific test with pre-check if available
+        
+        Args:
+            test_id: Test ID to start
+        """
+        # if there is a MainWindowController reference, use the pre-check
+        if self.main_window_controller:
+            self.main_window_controller.execute_functionality_test_with_pre_check(test_id)
+        else:
+            # directly execute the test (backward compatibility)
+            self._start_test_directly(test_id)
+    
+    def _start_test_directly(self, test_id: str):
+        """
+        Directly start a specific test without pre-check
         
         Args:
             test_id: Test ID to start
@@ -169,7 +186,16 @@ class TestManagerView(QObject):
         logger.info(f"Starting {test_id} test for device {self.device_id}")
     
     def start_test_all(self):
-        """Start executing selected test modules in sequence"""
+        """Start executing selected test modules in sequence with pre-check if available"""
+        # if there is a MainWindowController reference, use the pre-check
+        if self.main_window_controller:
+            self.main_window_controller.execute_functionality_test_with_pre_check()
+        else:
+            # directly execute the test (backward compatibility)
+            self._start_test_all_directly()
+    
+    def _start_test_all_directly(self):
+        """Directly start executing selected test modules in sequence without pre-check"""
         # if the test sequence is already running, ignore this call
         if self.is_test_all_running:
             return
@@ -594,8 +620,8 @@ class TestManagerView(QObject):
         # get the next test ID
         test_id = self.test_sequence[self.current_test_index]
         
-        # start the test
-        self.start_test(test_id)
+        # start the test directly (already passed the pre-check)
+        self._start_test_directly(test_id)
 
     def _complete_test_all(self):
         """Complete Test All sequence"""

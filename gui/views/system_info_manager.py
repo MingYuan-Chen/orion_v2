@@ -83,9 +83,10 @@ class SystemInfoManagerView(QObject):
         """
         self.ui_components = components
         
+        # no longer connect the refresh button directly, let main_window.py handle the pre-check
         # Connect refresh button
-        if "refresh_button" in components and isinstance(components["refresh_button"], QPushButton):
-            components["refresh_button"].clicked.connect(self.refresh_system_info)
+        # if "refresh_button" in components and isinstance(components["refresh_button"], QPushButton):
+        #     components["refresh_button"].clicked.connect(self.refresh_system_info)
         
         # Set initializing state
         self.set_initializing_state()

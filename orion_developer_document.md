@@ -953,7 +953,7 @@ graph TD
    - 實現了更好的響應式布局，確保UI元素在窗口調整時保持合理的比例
    - 添加內容邊距設置，提升視覺體驗
 
-## 13. 用戶旅程優化
+## 14. 用戶旅程優化
 
 系統用戶旅程進行了優化，特別是從設備連接到執行自動診斷測試的流程：
 
@@ -1005,7 +1005,7 @@ sequenceDiagram
    - 增強的測試中斷和恢復機制，提高測試的可靠性
    - 支持在測試過程中取消或暫停測試
 
-## 14. 響應收集與報告生成
+## 15. 響應收集與報告生成
 
 新增了響應收集機制，以改進報告生成功能，確保測試報告包含完整信息：
 
@@ -1045,7 +1045,7 @@ graph TD
 
 透過這些改進，系統能夠生成更加完整和詳細的測試報告，幫助用戶更好地了解測試過程和結果，便於問題診斷和分析。
 
-## 15. 未來發展方向
+## 16. 未來發展方向
 
 基於當前的系統改進，以下是未來可能的發展方向：
 
@@ -1075,7 +1075,7 @@ graph TD
 
 這些發展方向將進一步提升系統的功能性、易用性和擴展性，滿足更多用戶的需求和場景。
 
-## 16. 測試資料記錄與報告導出流程
+## 17. 測試資料記錄與報告導出流程
 
 本章節詳細說明 Orion 系統中 functionality 測試和 auto diagnostic 測試的資料記錄機制以及最終報告導出的完整流程。
 
@@ -1505,3 +1505,444 @@ logger.info(f"Processing test with progress records: {test_id}, progress records
 ```
 
 透過這套完整的記錄與導出機制，Orion系統能夠生成詳細、準確的測試報告，為用戶提供全面的測試結果分析和問題診斷支援。
+
+## 13. 連接檢查機制
+
+為了提高系統的可靠性和用戶體驗，Orion系統新增了完整的連接檢查機制，確保在執行關鍵操作前設備連接狀態正常。該機制包含智能連接監控、前置檢查服務和登錄狀態檢測等功能。
+
+### 13.1 系統架構概述
+
+連接檢查機制由三個核心組件組成：
+
+```mermaid
+graph TD
+    A[SmartConnectionMonitor] --> B[ConnectionPreCheckService]
+    B --> C[MainWindow Operations]
+    A --> D[DeviceManagerViewModel]
+    
+    A1[智能連接監控] --> A
+    B1[前置檢查服務] --> B
+    C1[主要操作執行] --> C
+    
+    E[設備狀態檢測]
+    F[登錄狀態識別]
+    G[重試機制管理]
+    
+    A --> E
+    A --> F
+    A --> G
+```
+
+1. **SmartConnectionMonitor**：智能連接監控器，持續監控設備連接狀態
+2. **ConnectionPreCheckService**：前置檢查服務，在執行主要操作前進行連接驗證
+3. **設備狀態管理**：整合到DeviceManagerViewModel中，提供統一的設備狀態管理
+
+### 13.2 SmartConnectionMonitor 智能連接監控
+
+#### 13.2.1 核心功能
+
+SmartConnectionMonitor提供持續的設備連接監控，具有以下特點：
+
+```mermaid
+graph TD
+    A[SmartConnectionMonitor] --> B[健康檢查命令]
+    B --> C[響應驗證]
+    C --> D[登錄狀態檢測]
+    D --> E[設備狀態更新]
+    E --> F[信號發送]
+    
+    G[設備忙碌狀態管理]
+    H[唯一命令標識符]
+    I[精確信號過濾]
+    
+    A --> G
+    A --> H
+    A --> I
+```
+
+1. **零干擾監控**：
+   - 通過設備忙碌狀態管理，避免與正在執行的測試衝突
+   - 使用唯一命令標識符確保響應的準確匹配
+   - 精確的信號過濾機制，防止命令交錯
+
+2. **登錄狀態檢測**：
+   ```python
+   def _is_valid_monitor_response(self, expected_response: str, actual_response: str) -> bool:
+       """驗證監控命令的響應"""
+       # 檢查預期的唯一標識符是否在響應中
+       if expected_response in actual_response:
+           return True
+           
+       # 檢查登錄相關指示器（設備需要認證）
+       login_indicators = ["Password:", "Login incorrect", "gemini login:", "login:", "Username:"]
+       response_lower = actual_response.lower()
+       for login_indicator in login_indicators:
+           if login_indicator.lower() in response_lower:
+               logger.warning(f"Device requires authentication: {actual_response.strip()}")
+               return False
+       
+       return False
+   ```
+
+3. **智能重試機制**：
+   - 預設最大失敗次數為1，失敗後立即報告連接問題
+   - 移除複雜的重試邏輯，提供快速的失敗反饋
+   - 設備連接恢復時自動重置失敗計數器
+
+#### 13.2.2 設備狀態信號
+
+SmartConnectionMonitor提供以下關鍵信號：
+
+```python
+# 設備準備就緒信號
+device_ready_for_commands = Signal(str)  # device_id
+
+# 設備連接丟失信號  
+device_connection_lost = Signal(str, str)  # device_id, reason
+```
+
+### 13.3 ConnectionPreCheckService 前置檢查服務
+
+#### 13.3.1 工作流程
+
+ConnectionPreCheckService在執行主要操作前進行連接驗證：
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶
+    participant MW as MainWindow
+    participant PCS as ConnectionPreCheckService
+    participant SCM as SmartConnectionMonitor
+    participant Op as 目標操作
+    
+    User->>MW: 點擊操作按鈕
+    MW->>PCS: execute_with_pre_check()
+    PCS->>SCM: 啟動短暫連接監視
+    SCM->>SCM: 發送健康檢查命令
+    
+    alt 連接正常
+        SCM-->>PCS: 設備狀態正常
+        PCS->>SCM: 停止監視
+        PCS->>Op: 執行目標操作
+        Op-->>MW: 操作完成
+        MW-->>User: 顯示結果
+    else 連接失敗
+        SCM-->>PCS: 設備連接失敗
+        PCS->>SCM: 停止監視
+        PCS-->>MW: 前置檢查失敗
+        MW-->>User: 顯示錯誤訊息
+    end
+```
+
+#### 13.3.2 核心方法實現
+
+```python
+def execute_with_pre_check(self, device_id: str, operation_name: str, 
+                          operation_callback, on_success=None, on_failure=None, 
+                          timeout: int = 15):
+    """執行帶前置檢查的操作"""
+    
+    # 檢查是否已有待處理的操作
+    if device_id in self.pending_operations:
+        logger.warning(f"Device {device_id} already has a pending pre-check operation")
+        return False
+    
+    # 記錄操作資訊
+    self.pending_operations[device_id] = {
+        'operation_name': operation_name,
+        'operation_callback': operation_callback,
+        'on_success': on_success,
+        'on_failure': on_failure,
+        'timeout': timeout,
+        'start_time': time.time()
+    }
+    
+    # 啟動監視和超時處理
+    self._start_monitoring_if_needed(device_id)
+    self._setup_timeout_handler(device_id, timeout)
+    
+    return True
+```
+
+#### 13.3.3 錯誤處理機制
+
+前置檢查服務具有完善的錯誤處理機制：
+
+```python
+def _handle_check_failure(self, device_id: str, reason: str):
+    """處理檢查失敗"""
+    if device_id not in self.pending_operations:
+        return
+        
+    operation_info = self.pending_operations[device_id]
+    operation_name = operation_info['operation_name']
+    
+    logger.error(f"Pre-check failed for {operation_name} on device {device_id}: {reason}")
+    
+    # 停止監控
+    self._stop_monitoring_if_needed(device_id)
+    
+    # 發送失敗信號
+    self.pre_check_failed.emit(device_id, reason)
+    self.pre_check_completed.emit(device_id, False)
+    
+    # 調用失敗回調
+    if operation_info['on_failure']:
+        operation_info['on_failure'](reason)
+    
+    # 清理操作記錄
+    del self.pending_operations[device_id]
+```
+
+### 13.4 主要操作整合
+
+#### 13.4.1 系統資訊刷新
+
+系統資訊刷新操作完全整合了前置檢查機制：
+
+```python
+def _on_refresh_system_info(self):
+    """處理刷新按鈕點擊，帶前置連接檢查"""
+    # 檢查是否已經在更新中，避免重複執行
+    if hasattr(self, 'is_updating') and self.is_updating:
+        logger.debug("System info update already in progress, ignoring duplicate request")
+        return
+    
+    # 記錄當前標籤頁
+    if hasattr(self.window, 'tabWidget'):
+        self.current_tab_index = self.window.tabWidget.currentIndex()
+    
+    # 添加日誌記錄
+    self.log_manager.add_log_entry("INFO", f"Checking connection before refreshing system info for {self.device_id}...")
+    
+    # 使用前置檢查執行系統資訊刷新
+    success = self.connection_pre_check.execute_with_pre_check(
+        device_id=self.device_id,
+        operation_name="System Info Refresh",
+        operation_callback=self._execute_system_info_refresh,
+        on_success=self._on_system_info_pre_check_success,
+        on_failure=self._on_system_info_pre_check_failure,
+        timeout=12
+    )
+```
+
+#### 13.4.2 功能測試和自動診斷
+
+功能測試和自動診斷也整合了前置檢查：
+
+```python
+def execute_functionality_test_with_pre_check(self, test_id: str):
+    """執行帶前置檢查的功能測試"""
+    success = self.connection_pre_check.execute_with_pre_check(
+        device_id=self.device_id,
+        operation_name=f"Functionality Test: {test_id}",
+        operation_callback=lambda: self.test_manager.start_test(test_id),
+        timeout=15
+    )
+    
+    if not success:
+        self._show_pre_check_error("功能測試", "無法啟動前置檢查")
+
+def execute_auto_diagnostic_with_pre_check(self):
+    """執行帶前置檢查的自動診斷"""
+    success = self.connection_pre_check.execute_with_pre_check(
+        device_id=self.device_id,
+        operation_name="Auto Diagnostic",
+        operation_callback=lambda: self.auto_diagnostic_view.run_all_tests(),
+        timeout=15
+    )
+    
+    if not success:
+        self._show_pre_check_error("自動診斷", "無法啟動前置檢查")
+```
+
+### 13.5 UI整合和用戶體驗
+
+#### 13.5.1 防止並行執行
+
+系統添加了`is_updating`標誌來防止並行執行：
+
+```python
+def _on_refresh_system_info(self):
+    """處理刷新按鈕點擊，帶前置連接檢查"""
+    # 檢查是否已經在更新中，避免重複執行
+    if hasattr(self, 'is_updating') and self.is_updating:
+        logger.debug("System info update already in progress, ignoring duplicate request")
+        return
+    
+    # 設置更新狀態
+    self.is_updating = True
+    self.set_ui_controls_state_except_tabs(False)
+```
+
+#### 13.5.2 錯誤訊息顯示
+
+前置檢查失敗時顯示統一的黑底樣式錯誤訊息：
+
+```python
+def _on_system_info_pre_check_failure(self, reason: str):
+    """系統資訊刷新前置檢查失敗回調"""
+    self.log_manager.add_log_entry("ERROR", f"Connection check failed for system info refresh: {reason}")
+    
+    # 停止可能正在進行的系統資訊更新
+    if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
+        self.view_model.system_info_service.stop_update(self.device_id)
+    
+    # 恢復UI狀態
+    self.is_updating = False
+    self.set_ui_controls_state_except_tabs(True)
+    
+    # 顯示錯誤訊息
+    msg_box = QMessageBox(self.window)
+    msg_box.setWindowTitle("Connection Check Failed")
+    msg_box.setText("Device connection check failed before refreshing system info.")
+    msg_box.setDetailedText(f"Reason: {reason}")
+    msg_box.setIcon(QMessageBox.Warning)
+    msg_box.setStyleSheet(self._get_dark_message_box_style())
+    msg_box.exec()
+```
+
+### 13.6 系統資訊服務改進
+
+#### 13.6.1 停止更新功能
+
+SystemInfoService新增了停止更新的功能：
+
+```python
+def stop_update(self, device_id: str = None):
+    """
+    停止正在進行的系統資訊更新
+    
+    Args:
+        device_id: 要停止的設備ID，如果為None則停止當前更新
+    """
+    if device_id and device_id != self.current_device_id:
+        logger.debug(f"No active update for device {device_id}")
+        return
+        
+    if self.is_updating:
+        logger.info(f"Stopping system info update for device: {self.current_device_id}")
+        
+        # 清除待執行的命令
+        self.pending_commands.clear()
+        
+        # 重置更新狀態
+        self.is_updating = False
+        self.current_device_id = None
+        self.collected_info = {}
+        
+        logger.debug("System info update stopped successfully")
+    else:
+        logger.debug("No active system info update to stop")
+```
+
+#### 13.6.2 按鈕連接優化
+
+移除了SystemInfoManager中的直接按鈕連接，統一由MainWindow處理：
+
+```python
+# 不再直接連接刷新按鈕，讓main_window.py來處理前置檢查
+# Connect refresh button
+# if "refresh_button" in components and isinstance(components["refresh_button"], QPushButton):
+#     components["refresh_button"].clicked.connect(self.refresh_system_info)
+```
+
+### 13.7 DeviceManagerViewModel整合
+
+#### 13.7.1 監控器初始化
+
+SmartConnectionMonitor整合到DeviceManagerViewModel中：
+
+```python
+def _initialize_smart_connection_monitor(self):
+    """初始化智能連接監控器"""
+    if not self.smart_connection_monitor:
+        self.smart_connection_monitor = SmartConnectionMonitor()
+        
+        # 連接信號
+        self.smart_connection_monitor.device_ready_for_commands.connect(
+            self._on_device_ready_for_commands
+        )
+        self.smart_connection_monitor.device_connection_lost.connect(
+            self._on_device_connection_lost
+        )
+        
+        logger.info("Smart connection monitor initialized")
+
+def start_monitoring_device(self, device_id: str):
+    """開始監控指定設備"""
+    if self.smart_connection_monitor:
+        self.smart_connection_monitor.start_monitoring(device_id)
+        logger.info(f"Started monitoring device: {device_id}")
+
+def stop_monitoring_device(self, device_id: str):
+    """停止監控指定設備"""
+    if self.smart_connection_monitor:
+        self.smart_connection_monitor.stop_monitoring(device_id)
+        logger.info(f"Stopped monitoring device: {device_id}")
+```
+
+### 13.8 關鍵設計決策
+
+#### 13.8.1 為什麼選擇前置檢查模式？
+
+1. **用戶體驗優化**：避免用戶在設備未連接時等待操作超時
+2. **資源保護**：防止在設備不可用時啟動資源密集的操作
+3. **錯誤預防**：提前發現連接問題，提供明確的錯誤訊息
+
+#### 13.8.2 登錄狀態檢測的重要性
+
+1. **設備重啟場景**：設備重啟後通常需要重新登錄
+2. **自動識別**：系統能自動識別"Password:"、"Login incorrect"等登錄提示
+3. **快速失敗**：避免在需要登錄時無限等待
+
+#### 13.8.3 移除複雜重試機制
+
+1. **簡化邏輯**：移除複雜的重試和分段失敗處理
+2. **快速反饋**：失敗後立即報告，不進行多次重試
+3. **用戶控制**：讓用戶決定何時重新嘗試操作
+
+### 13.9 故障排除
+
+#### 13.9.1 常見問題
+
+1. **前置檢查超時**：
+   - 檢查設備是否真的連接
+   - 確認設備是否需要登錄
+   - 檢查網絡連接狀態
+
+2. **重複執行問題**：
+   - 確認`is_updating`標誌正確設置
+   - 檢查是否有多個地方觸發相同操作
+
+3. **監控器未啟動**：
+   - 確認設備連接後調用了`start_monitoring_device`
+   - 檢查SmartConnectionMonitor是否正確初始化
+
+#### 13.9.2 調試工具
+
+系統提供詳細的日誌記錄：
+
+```python
+# 前置檢查日誌
+logger.info(f"Pre-check successful for {operation_name} on device {device_id}")
+logger.error(f"Pre-check failed for {operation_name} on device {device_id}: {reason}")
+
+# 監控器日誌
+logger.warning(f"Device requires authentication: {actual_response.strip()}")
+logger.info(f"Started monitoring device: {device_id}")
+
+# 操作執行日誌
+logger.debug("System info update already in progress, ignoring duplicate request")
+logger.info(f"Stopping system info update for device: {self.current_device_id}")
+```
+
+### 13.10 未來改進方向
+
+1. **監控頻率優化**：根據設備類型和使用場景調整監控頻率
+2. **更多登錄狀態支持**：支持更多類型的登錄提示和認證方式
+3. **網絡連接監控**：擴展到TCP/IP和SSH連接的監控
+4. **批量設備監控**：優化多設備同時監控的性能
+5. **自動重連機制**：在檢測到連接恢復時自動重新建立連接
+
+通過這套完整的連接檢查機制，Orion系統大大提高了操作的可靠性和用戶體驗，確保所有關鍵操作都在設備連接正常的前提下執行。
