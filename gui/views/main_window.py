@@ -855,6 +855,7 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_charge", "Charge Test")
         test_container.add_test_group("functionality_eeprom", "EEPROM Test")
         test_container.add_test_group("functionality_emmc", "eMMC Test")
+        test_container.add_test_group("functionality_hdmi", "HDMI Test")
         test_container.add_test_group("functionality_lcd", "LCD Test")
         test_container.add_test_group("functionality_led", "LED Test")
         test_container.add_test_group("functionality_power_button", "Power Button Test")
