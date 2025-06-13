@@ -64,6 +64,11 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 timeout=5,
                 description="Remove evtlog",
             ),
+            # 01: hydra_fhd
+            # 00: hydra
+            # 10: gemini_fhd
+            # 11: gemini
+            # 01 + PIC=114: argo
             TestStep(
                 command=commands[4],
                 expected_response=expected_responses[4] if len(expected_responses) > 4 else None,

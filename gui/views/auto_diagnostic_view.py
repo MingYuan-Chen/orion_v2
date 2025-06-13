@@ -36,6 +36,9 @@ class AutoDiagnosticView(QObject):
         self.device_id = device_id
         self.hw_test_manager = hw_test_manager
         
+        # MainWindowController reference (set later)
+        self.main_window_controller = None
+        
         # UI components references
         self.main_widget = None
         self.diagnostic_container = None
@@ -203,7 +206,16 @@ class AutoDiagnosticView(QObject):
         self.current_diagnostics = list(diagnostic_tests.keys())
     
     def _on_run_all_tests(self):
-        """handle the run all tests button click"""
+        """handle the run all tests button click with pre-check if available"""
+        # if there is a MainWindowController reference, use pre-check
+        if self.main_window_controller:
+            self.main_window_controller.execute_auto_diagnostic_with_pre_check()
+        else:
+            # directly execute the diagnostic (backward compatibility)
+            self._run_all_tests_directly()
+    
+    def _run_all_tests_directly(self):
+        """Directly handle the run all tests button click without pre-check"""
         if self.is_running:
             return
             

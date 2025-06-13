@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any
 import time
 from core.models.device_manager_model import DeviceManagerModel
 from core.workers.serial_device_worker import SerialDeviceWorker
+from core.services.smart_connection_monitor import SmartConnectionMonitor
 from util.logger import logger
 
 
@@ -24,6 +25,10 @@ class DeviceManagerViewModel(QObject):
     # Service initialization signals
     services_initialization_completed = Signal(str)  # platform_name
     platform_detection_failed = Signal(str, str)  # device_id, port
+    
+    # Connection monitoring signals
+    device_ready_for_commands = Signal(str)  # device_id - device is ready for commands
+    device_connection_lost = Signal(str, str)  # device_id, reason - device connection lost
     
     def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd", parent_widget=None):
         super().__init__()
@@ -48,6 +53,9 @@ class DeviceManagerViewModel(QObject):
         self.system_info_service = None
         self.hardware_test_manager = None
         
+        # Initialize smart connection monitor (delayed initialization to avoid circular dependencies)
+        self.smart_monitor = None
+        
         logger.info(f"DeviceManagerViewModel initialized with default platform: {platform_name}")
         
     def _initialize_services(self, platform_name: str = None):
@@ -70,7 +78,13 @@ class DeviceManagerViewModel(QObject):
             from core.services.hardware_test_manager import HardwareTestManagerService
             self.hardware_test_manager = HardwareTestManagerService(self._serial_worker, platform_name=self.platform_name)
             
+            # Initialize smart connection monitor
+            self.smart_monitor = SmartConnectionMonitor(self._serial_worker)
+            self.smart_monitor.device_ready.connect(self.device_ready_for_commands.emit)
+            self.smart_monitor.device_not_ready.connect(self.device_connection_lost.emit)
+            
             logger.info(f"Services initialized successfully with platform: {self.platform_name}")
+            logger.info("Smart connection monitor initialized")
             
             # Emit signal to notify UI that services are ready
             self.services_initialization_completed.emit(self.platform_name)
@@ -197,9 +211,17 @@ class DeviceManagerViewModel(QObject):
                     logger.debug("System info service cleaned up")
                 
                 if hasattr(self, 'hardware_test_manager') and self.hardware_test_manager:
-                    # Clear service reference  
+                    # Clear service reference
                     self.hardware_test_manager = None
-                    logger.debug("Hardware test manager service cleaned up")
+                    logger.debug("Hardware test manager cleaned up")
+                    
+                if hasattr(self, 'smart_monitor') and self.smart_monitor:
+                    # Stop all monitoring activities
+                    for device_id in list(self.smart_monitor.monitoring_devices.keys()):
+                        self.smart_monitor.stop_monitoring(device_id)
+                    # Clear service reference
+                    self.smart_monitor = None
+                    logger.debug("Smart connection monitor cleaned up")
                     
             except Exception as e:
                 logger.error(f"Error cleaning up services: {e}")
@@ -542,7 +564,8 @@ class DeviceManagerViewModel(QObject):
             bool: True if all services are initialized, False otherwise
         """
         return (self.system_info_service is not None and 
-                self.hardware_test_manager is not None)
+                self.hardware_test_manager is not None and
+                self.smart_monitor is not None)
     
     def get_services_status(self) -> dict:
         """Get detailed status of service initialization
@@ -553,6 +576,67 @@ class DeviceManagerViewModel(QObject):
         return {
             'system_info_service': self.system_info_service is not None,
             'hardware_test_manager': self.hardware_test_manager is not None,
+            'smart_monitor': self.smart_monitor is not None,
             'all_initialized': self.are_services_initialized(),
             'platform_name': self.platform_name
         }
+        
+    # Connection monitoring methods
+    def start_device_monitoring(self, device_id: str, check_interval: int = 10000):
+        """Start smart monitoring for device connection status, especially for system restart detection
+        
+        Args:
+            device_id: device ID
+            check_interval: check interval (milliseconds), default 10 seconds to avoid frequent interference
+        """
+        if self.smart_monitor:
+            self.smart_monitor.start_monitoring(device_id, check_interval)
+            logger.info(f"Started smart monitoring for device {device_id} with {check_interval}ms interval")
+        else:
+            logger.warning("Smart monitor not initialized, cannot start monitoring")
+            
+    def stop_device_monitoring(self, device_id: str):
+        """Stop monitoring device connection status"""
+        if self.smart_monitor:
+            self.smart_monitor.stop_monitoring(device_id)
+            logger.info(f"Stopped smart monitoring for device {device_id}")
+        else:
+            logger.warning("Smart monitor not initialized, cannot stop monitoring")
+            
+    def set_device_busy(self, device_id: str, is_busy: bool):
+        """Set device busy status
+        When the device is executing tests or other important operations, pause monitoring
+        
+        Args:
+            device_id: device ID
+            is_busy: True=device busy, pause monitoring; False=device free, can monitor
+        """
+        if self.smart_monitor:
+            self.smart_monitor.set_device_busy(device_id, is_busy)
+            state = "busy" if is_busy else "free"
+            logger.debug(f"Device {device_id} marked as {state}")
+        else:
+            logger.warning("Smart monitor not initialized, cannot set device busy state")
+            
+    def check_device_ready_immediately(self, device_id: str):
+        """Immediately check if the device is ready to receive commands (trigger a single monitoring check)"""
+        if self.smart_monitor and device_id not in self.smart_monitor.get_busy_devices():
+            current_config = self.smart_monitor.monitoring_devices.get(device_id)
+            if current_config:
+                current_config['last_check_time'] = 0  # reset check time
+                self.smart_monitor._check_single_device(device_id)
+                logger.info(f"Triggered immediate health check for device {device_id}")
+        else:
+            logger.warning(f"Cannot perform immediate check for device {device_id} (monitor not ready or device busy)")
+            
+    def is_device_ready_for_commands(self, device_id: str) -> bool:
+        """Check if the device is ready to receive commands"""
+        if self.smart_monitor:
+            return self.smart_monitor.is_device_ready(device_id)
+        return False
+        
+    def get_device_connection_status(self, device_id: str) -> Dict:
+        """Get device connection status detailed information"""
+        if self.smart_monitor:
+            return self.smart_monitor.get_device_status(device_id)
+        return {'monitored': False, 'error': 'Smart monitor not initialized'}

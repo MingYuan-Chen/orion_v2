@@ -21,6 +21,7 @@ from gui.views.log_manager import LogManagerView
 from gui.views.auto_diagnostic_view import AutoDiagnosticView
 from gui.views.hw_sw_config_manager import HWSWConfigManager
 from gui.views.firmware_os_manager import FirmwareOSManager
+from core.services.connection_pre_check import ConnectionPreCheckService
 
 
 class DarkEditDialog(QDialog):
@@ -225,6 +226,9 @@ class MainWindowController(QObject):
         # create the log manager
         self.log_manager = LogManagerView(self.device_id)
         
+        # create the connection pre-check service
+        self.connection_pre_check = ConnectionPreCheckService(self.view_model)
+        
         # Initialize system info view
         self._init_system_info_view()
         
@@ -243,6 +247,10 @@ class MainWindowController(QObject):
         # Create the test manager view and auto diagnostic view
         self.test_manager = TestManagerView(self.device_id, self.view_model.hardware_test_manager)
         self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.view_model.hardware_test_manager)
+        
+        # set the reference to the test manager
+        self.test_manager.main_window_controller = self
+        self.auto_diagnostic_view.main_window_controller = self
         
         # Connect signals and slots
         self._connect_signals()
@@ -300,7 +308,18 @@ class MainWindowController(QObject):
         self.view_model.hardware_test_manager.test_started.connect(self._on_test_started)
 
         # trigger the update of the system info after the main window ui is loaded
-        QTimer.singleShot(100, self._on_refresh_system_info)
+        # use the connection pre-check to ensure the device connection is normal
+        QTimer.singleShot(100, self._on_initial_system_info_refresh)
+    
+    def _on_initial_system_info_refresh(self):
+        """initial system info refresh (after the main window is loaded)"""
+        # check if the update is already in progress, avoid duplicate execution
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System info update already in progress, skipping initial refresh")
+            return
+            
+        # use the connection pre-check to ensure the device connection is normal
+        self._on_refresh_system_info()
     
     def eventFilter(self, obj, event):
         """Filter window events to capture close event"""
@@ -937,17 +956,19 @@ class MainWindowController(QObject):
         self.system_info_manager.set_initializing_state()
 
     def _on_refresh_system_info(self):
-        """Handle refresh button click"""
+        """Handle refresh button click with pre-connection check"""
+        # check if the update is already in progress, avoid duplicate execution
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System info update already in progress, ignoring duplicate request")
+            return
+            
         # record the current tab, but do not force switch back, allow the user to freely switch
         if hasattr(self.window, 'tabWidget'):
             self.current_tab_index = self.window.tabWidget.currentIndex()
             logger.debug(f"Current tab index: {self.current_tab_index} (Dashboard)")
         
-        # set the updating status flag
-        self.is_updating = True
-        
         # add the log, but do not switch to the log tab
-        self.log_manager.add_log_entry("INFO", f"Refreshing system info for {self.device_id}...")
+        self.log_manager.add_log_entry("INFO", f"Checking connection before refreshing system info for {self.device_id}...")
         
         # position and show the waiting icon next to the refresh button
         if hasattr(self, 'waiting_spinner'):
@@ -957,8 +978,141 @@ class MainWindowController(QObject):
         # disable all controls, but keep the tab switch functionality available
         self.set_ui_controls_state_except_tabs(False)
         
+        # use the connection pre-check service to execute the system info refresh
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name="System Info Refresh",
+            operation_callback=self._execute_system_info_refresh,
+            on_success=self._on_system_info_pre_check_success,
+            on_failure=self._on_system_info_pre_check_failure,
+            check_timeout=12000  # 12 seconds timeout
+        )
+    
+    def _execute_system_info_refresh(self):
+        """execute the actual system info refresh operation"""
+        # set the updating status flag
+        self.is_updating = True
+        
         # execute the system info refresh
         self.system_info_manager.refresh_system_info()
+    
+    def _on_system_info_pre_check_success(self):
+        """system info refresh pre-check success callback"""
+        self.log_manager.add_log_entry("INFO", f"Connection verified, starting system info refresh for {self.device_id}")
+    
+    def _on_system_info_pre_check_failure(self, reason: str):
+        """system info refresh pre-check failure callback"""
+        self.log_manager.add_log_entry("ERROR", f"Connection check failed for system info refresh: {reason}")
+        
+        # stop the possible ongoing system info update
+        if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
+            self.view_model.system_info_service.stop_update(self.device_id)
+        
+        # restore the UI state
+        self.is_updating = False
+        self.set_ui_controls_state_except_tabs(True)
+        
+        # stop the waiting animation
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.stop()
+        
+        # show the error message
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText("Device connection/login failed, system info refresh is canceled.")
+        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # apply
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
+    
+    def execute_functionality_test_with_pre_check(self, test_id: str = None):
+        """execute the functionality test with pre-check"""
+        operation_name = f"Functionality Test ({test_id})" if test_id else "Functionality Test All"
+        
+        self.log_manager.add_log_entry("INFO", f"Checking connection before starting {operation_name.lower()}...")
+        
+        # use the connection pre-check service to execute the functionality test
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name=operation_name,
+            operation_callback=lambda: self._execute_functionality_test(test_id),
+            on_success=lambda: self._on_functionality_test_pre_check_success(operation_name),
+            on_failure=lambda reason: self._on_functionality_test_pre_check_failure(operation_name, reason),
+            check_timeout=12000  # 12 seconds timeout
+        )
+    
+    def _execute_functionality_test(self, test_id: str = None):
+        """execute the actual functionality test operation"""
+        if test_id:
+            # execute the single test
+            self.test_manager._start_test_directly(test_id)
+        else:
+            # execute all tests
+            self.test_manager._start_test_all_directly()
+    
+    def _on_functionality_test_pre_check_success(self, operation_name: str):
+        """functionality test pre-check success callback"""
+        self.log_manager.add_log_entry("INFO", f"Connection verified, starting {operation_name.lower()}")
+    
+    def _on_functionality_test_pre_check_failure(self, operation_name: str, reason: str):
+        """functionality test pre-check failure callback"""
+        self.log_manager.add_log_entry("ERROR", f"Connection check failed for {operation_name.lower()}: {reason}")
+        
+        # show the error message
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText(f"Device connection/login failed, {operation_name} is canceled.")
+        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # apply dark style sheet
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
+    
+    def execute_auto_diagnostic_with_pre_check(self):
+        """execute the auto diagnostic with pre-check"""
+        self.log_manager.add_log_entry("INFO", "Checking connection before starting auto diagnostic...")
+        
+        # use the connection pre-check service to execute the auto diagnostic
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name="Auto Diagnostic",
+            operation_callback=self._execute_auto_diagnostic,
+            on_success=self._on_auto_diagnostic_pre_check_success,
+            on_failure=self._on_auto_diagnostic_pre_check_failure,
+            check_timeout=12000  # 12 seconds timeout
+        )
+    
+    def _execute_auto_diagnostic(self):
+        """execute the actual auto diagnostic operation"""
+        self.auto_diagnostic_view._run_all_tests_directly()
+    
+    def _on_auto_diagnostic_pre_check_success(self):
+        """auto diagnostic pre-check success callback"""
+        self.log_manager.add_log_entry("INFO", "Connection verified, starting auto diagnostic")
+    
+    def _on_auto_diagnostic_pre_check_failure(self, reason: str):
+        """auto diagnostic pre-check failure callback"""
+        self.log_manager.add_log_entry("ERROR", f"Connection/Login check failed for auto diagnostic: {reason}")
+        
+        # show the error message
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Connection/Login Check Failed")
+        msg_box.setText("Device connection/login failed, auto diagnostic is canceled.")
+        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # apply dark style sheet
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
 
     def _on_edit_model_name(self):
         """handle the edit model name button click"""
@@ -1018,7 +1172,7 @@ class MainWindowController(QObject):
                 except Exception as e:
                     logger.warning(f"Unable to set Windows window properties: {e}")
             
-            logger.debug(f"Window properties set: {title}")
+            logger.debug(f"Window properties set: Main Window")
         except Exception as e:
             logger.warning(f"Error setting window properties: {e}")
     
@@ -1654,8 +1808,14 @@ class MainWindowController(QObject):
     
     def _update_dashboard(self):
         """Update dashboard information"""
-        # delegate to the system info manager to refresh the system info
-        self.system_info_manager.refresh_system_info()
+        # use the connection pre-check to ensure the device connection is normal, instead of direct refresh
+        # check if the update is already in progress, avoid duplicate execution
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System info update already in progress, skipping dashboard update")
+            return
+            
+        # use the connection pre-check to ensure the device connection is normal
+        self._on_refresh_system_info()
     
     def _process_logs_response(self, response):
         """Process logs response"""
@@ -1753,6 +1913,12 @@ class MainWindowController(QObject):
                 logger.debug("Cleaning up auto diagnostic view")
                 self.auto_diagnostic_view.cleanup()
                 self.auto_diagnostic_view = None
+            
+            # Clean up connection pre-check service
+            if hasattr(self, 'connection_pre_check') and self.connection_pre_check:
+                logger.debug("Cleaning up connection pre-check service")
+                self.connection_pre_check.cleanup()
+                self.connection_pre_check = None
             
             # Clean up the view model
             if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
@@ -1903,13 +2069,13 @@ class MainWindowController(QObject):
 
     def mark_command_as_logged(self, command):
         """
-        將命令標記為已記錄，避免重複記錄
+        mark the command as logged, avoid duplicate logging
         
         Args:
-            command: 命令字符串
+            command: command string
         """
         self.logged_commands.add(command)
-        # 设置一个定时器来清理过时的命令 (3分钟后)
+        # set a timer to clean up the outdated commands (3 minutes later)
         QTimer.singleShot(180000, lambda cmd=command: self.logged_commands.discard(cmd))
 
     @Slot(str)
@@ -1918,7 +2084,7 @@ class MainWindowController(QObject):
         logger.info(f"Test started: {test_id}, saving step template")
         
         try:
-            # 从hardware test manager获取当前active worker的步骤信息
+            # get the step information from the active worker of the hardware test manager
             if hasattr(self.view_model.hardware_test_manager, 'active_test_worker') and self.view_model.hardware_test_manager.active_test_worker:
                 worker = self.view_model.hardware_test_manager.active_test_worker
                 logger.info(f"Found active worker for {test_id}: {type(worker).__name__}")
@@ -1926,7 +2092,7 @@ class MainWindowController(QObject):
                 if hasattr(worker, 'steps') and worker.steps:
                     logger.info(f"Worker has {len(worker.steps)} steps")
                     
-                    # 保存步骤模板信息
+                    # save the step template information
                     step_templates = []
                     for i, step in enumerate(worker.steps):
                         step_template = {
@@ -1941,16 +2107,16 @@ class MainWindowController(QObject):
                         }
                         step_templates.append(step_template)
                         
-                        # 记录每个步骤的详细信息
+                        # record the detailed information of each step
                         logger.debug(f"Step {i}: {step_template['description']} (criteria: {step_template['criteria']}, manual: {step_template['manual_only']})")
                     
-                    # 确定测试类型
+                    # determine the test type
                     test_type = "functionality" if test_id.startswith("functionality_") else "diagnostic"
                     self.test_step_templates[test_type][test_id] = step_templates
                     
                     logger.info(f"Saved {len(step_templates)} step templates for {test_id}")
                     
-                    # 额外验证：检查有多少步骤有criteria
+                    # additional verification: check how many steps have criteria
                     steps_with_criteria = sum(1 for t in step_templates if t['criteria'])
                     logger.info(f"Steps with criteria: {steps_with_criteria}")
                     
@@ -1963,3 +2129,34 @@ class MainWindowController(QObject):
             logger.error(f"Error saving step template for {test_id}: {str(e)}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    def _get_dark_message_box_style(self):
+        """return the dark style sheet for the message box"""
+        return """
+            QMessageBox {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                background-color: transparent;
+            }
+            QMessageBox QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+                min-width: 60px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QMessageBox QPushButton:pressed {
+                background-color: #00559F;
+            }
+            QMessageBox QPushButton:default {
+                background-color: #0078D7;
+                border: 2px solid #1C97EA;
+            }
+        """

@@ -406,7 +406,17 @@ class DeviceConnectionDialog(QDialog):
         self.ui_widget.push_button_connect.setText("Connect")
         
         # Show timeout error dialog
-        QMessageBox.critical(self, "Connection Timeout", "Device connection timed out. Please check if the device is properly connected and try again.")
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Connection Timeout")
+        msg_box.setText("Connection Timeout")
+        msg_box.setInformativeText("Device connection timed out. Please check if the device is properly connected and try again.")
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # apply dark style sheet
+        msg_box.setStyleSheet(self._get_dark_style_sheet())
+        
+        msg_box.exec()
     
     def _on_disconnect_clicked(self):
         """Handle disconnect button click (cancel)"""
@@ -490,7 +500,17 @@ class DeviceConnectionDialog(QDialog):
             self.ui_widget.push_button_connect.setText("Connect")
             
             # Show error dialog
-            QMessageBox.critical(self, "Connection Error", error_msg)
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Connection Error")
+            msg_box.setText("SSH Connection Error")
+            msg_box.setInformativeText(error_msg)
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            
+            # apply dark style sheet
+            msg_box.setStyleSheet(self._get_dark_style_sheet())
+            
+            msg_box.exec()
     
     def _connect_tcpip(self):
         """Connect to TCP/IP device"""
@@ -537,7 +557,17 @@ class DeviceConnectionDialog(QDialog):
             self.ui_widget.push_button_connect.setText("Connect")
             
             # Show error dialog
-            QMessageBox.critical(self, "Connection Error", error_msg)
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Connection Error")
+            msg_box.setText("Connection Error")
+            msg_box.setInformativeText(error_msg)
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            
+            # apply dark style sheet
+            msg_box.setStyleSheet(self._get_dark_style_sheet())
+            
+            msg_box.exec()
 
     def set_view_model(self, view_model):
         """Set view model for device operations
@@ -611,7 +641,17 @@ class DeviceConnectionDialog(QDialog):
             logger.error(f"Failed to connect to device: {message}")
             
             # Show error dialog
-            QMessageBox.critical(self, "Connection Error", f"Failed to connect to device: {message}")
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Connection Error")
+            msg_box.setText("Device Connection Failed")
+            msg_box.setInformativeText(f"Failed to connect to device: {message}")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            
+            # apply dark style sheet
+            msg_box.setStyleSheet(self._get_dark_style_sheet())
+            
+            msg_box.exec()
 
     def _get_dark_style_sheet(self):
         """Return the dark style sheet"""

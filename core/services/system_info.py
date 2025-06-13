@@ -120,6 +120,32 @@ class SystemInfoService(QObject):
         
         return True
     
+    def stop_update(self, device_id: str = None):
+        """
+        Stop the ongoing system info update
+        
+        Args:
+            device_id: The device ID to stop, if None stops the current update
+        """
+        if device_id and device_id != self.current_device_id:
+            logger.debug(f"No active update for device {device_id}")
+            return
+            
+        if self.is_updating:
+            logger.info(f"Stopping system info update for device: {self.current_device_id}")
+            
+            # Clear the pending commands
+            self.pending_commands.clear()
+            
+            # Reset the update status
+            self.is_updating = False
+            self.current_device_id = None
+            self.collected_info = {}
+            
+            logger.debug("System info update stopped successfully")
+        else:
+            logger.debug("No active system info update to stop")
+    
     def _execute_next_command(self):
         """
         Execute the next command in the queue
