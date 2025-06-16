@@ -40,6 +40,20 @@ class SystemInfoService(QObject):
         # Add update flag
         self.is_updating = False
         
+        # Add retry mechanism attributes
+        self.retry_counts = {}  # Track retry count for each command
+        self.max_retries = 5    # Maximum number of retries per command
+        self.current_command_name = None
+        self.current_command_string = None
+        
+        # Define valid ranges for battery commands (after conversion)
+        self.valid_ranges = {
+            "relative_state": (0, 100),        # 0 ~ 100
+            "charging_voltage": (7.0, 9.0),    # 7 ~ 9 V
+            "charging_current": (1.0, 2.0),    # 1 ~ 2 A  
+            "temperature": (0.0, 70.0)         # 0 ~ 70 °C
+        }
+        
         # Connect command result signal
         self.serial_worker.command_result.connect(self._on_command_completed)
 
@@ -112,6 +126,11 @@ class SystemInfoService(QObject):
         # Set update flag to True
         self.is_updating = True
         
+        # Reset retry counters
+        self.retry_counts = {}
+        self.current_command_name = None
+        self.current_command_string = None
+        
         # Copy command list to execute sequentially
         self.pending_commands = list(self.commands.items())
         
@@ -142,6 +161,11 @@ class SystemInfoService(QObject):
             self.current_device_id = None
             self.collected_info = {}
             
+            # Clear retry states
+            self.retry_counts = {}
+            self.current_command_name = None
+            self.current_command_string = None
+            
             logger.debug("System info update stopped successfully")
         else:
             logger.debug("No active system info update to stop")
@@ -160,8 +184,16 @@ class SystemInfoService(QObject):
             self.is_updating = False
             return
         
-        # Get the next command to execute
-        command_name, command = self.pending_commands.pop(0)
+        # Get the next command to execute (or retry current command)
+        if self.current_command_name is None:
+            # Get new command from queue
+            command_name, command = self.pending_commands.pop(0)
+            self.current_command_name = command_name
+            self.current_command_string = command
+        else:
+            # Retry current command
+            command_name = self.current_command_name
+            command = self.current_command_string
         
         # Emit command executed signal before executing command
         self.command_executed.emit(self.current_device_id, command_name, command)
@@ -182,8 +214,76 @@ class SystemInfoService(QObject):
             self.serial_worker.send_command(self.current_device_id, command, timeout)
         except Exception as e:
             logger.error(f"Error sending command {command_name}: {str(e)}")
+            self._reset_current_command()
             self._execute_next_command()
     
+    def _reset_current_command(self):
+        """
+        Reset current command state to proceed to next command
+        """
+        self.current_command_name = None
+        self.current_command_string = None
+    
+    def _is_value_in_valid_range(self, command_name: str, value: Any) -> bool:
+        """
+        Check if parsed value is within valid range for the command
+        
+        Args:
+            command_name: Name of the command
+            value: Parsed value to check
+            
+        Returns:
+            True if value is within valid range, False otherwise
+        """
+        if command_name not in self.valid_ranges:
+            # Commands without defined ranges are always considered valid
+            return True
+            
+        if value is None:
+            return False
+            
+        try:
+            # Convert value to float for comparison
+            numeric_value = float(value)
+            min_val, max_val = self.valid_ranges[command_name]
+            is_valid = min_val <= numeric_value <= max_val
+            
+            if not is_valid:
+                logger.warning(f"Value {numeric_value} for {command_name} is outside valid range [{min_val}, {max_val}]")
+            
+            return is_valid
+        except (ValueError, TypeError):
+            logger.warning(f"Could not convert value {value} for {command_name} to numeric for range check")
+            return False
+    
+    def _should_retry_command(self, command_name: str) -> bool:
+        """
+        Check if command should be retried based on retry count
+        
+        Args:
+            command_name: Name of the command
+            
+        Returns:
+            True if command should be retried, False otherwise
+        """
+        current_retries = self.retry_counts.get(command_name, 0)
+        should_retry = current_retries < self.max_retries
+        
+        if not should_retry:
+            logger.warning(f"Command {command_name} has reached maximum retry limit ({self.max_retries})")
+        
+        return should_retry
+    
+    def _increment_retry_count(self, command_name: str):
+        """
+        Increment retry count for a command
+        
+        Args:
+            command_name: Name of the command
+        """
+        self.retry_counts[command_name] = self.retry_counts.get(command_name, 0) + 1
+        logger.info(f"Retrying command {command_name} - attempt {self.retry_counts[command_name]}/{self.max_retries}")
+
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
         """
@@ -237,8 +337,29 @@ class SystemInfoService(QObject):
                 
                 # Parse and store battery data
                 parsed_value = self._parse_battery_info(command_name, response)
-                if parsed_value is not None:
+                
+                # Check if parsed value is valid and within expected range
+                if parsed_value is not None and self._is_value_in_valid_range(command_name, parsed_value):
+                    # Value is valid, store it
                     self.collected_info["battery"][command_name] = parsed_value
+                    logger.debug(f"Valid value for {command_name}: {parsed_value}")
+                elif command_name in self.valid_ranges and self._should_retry_command(command_name):
+                    # Value is invalid and command should be retried
+                    self._increment_retry_count(command_name)
+                    logger.warning(f"Invalid value for {command_name}: {parsed_value}, retrying...")
+                    
+                    # Add delay before retry, especially for i2c commands
+                    if "i2ctransfer" in self.commands.get(command_name, ""):
+                        delay = 1000 if command_name == "relative_state" else 800
+                        QTimer.singleShot(delay, self._execute_next_command)
+                    else:
+                        self._execute_next_command()
+                    return  # Exit early to retry
+                else:
+                    # Store the value even if it's invalid (reached max retries or no range defined)
+                    self.collected_info["battery"][command_name] = parsed_value
+                    if command_name in self.valid_ranges:
+                        logger.error(f"Max retries reached for {command_name}, storing invalid value: {parsed_value}")
             elif command_name in ["uboot_version", "pic_firmware", "os_version"]:
                 # Handle firmware and OS information commands
                 if "firmware_os" not in self.collected_info:
@@ -252,6 +373,9 @@ class SystemInfoService(QObject):
                 self.collected_info[command_name] = response
         except Exception as e:
             logger.error(f"Error parsing response for {command_name}: {str(e)}")
+        
+        # Command completed successfully, reset current command state
+        self._reset_current_command()
         
         # Add delay before next command, especially for i2c commands
         if command_name and ("i2ctransfer" in self.commands.get(command_name, "") or 
@@ -568,6 +692,11 @@ class SystemInfoService(QObject):
         self.current_device_id = None
         self.collected_info = {}
         self.is_updating = False
+        
+        # Clear retry states
+        self.retry_counts = {}
+        self.current_command_name = None
+        self.current_command_string = None
         
         logger.info("System info service cleaned up")
     
