@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QIcon, QFont
 import os
 import sys
 import csv
+import re
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
@@ -1200,7 +1201,256 @@ class MainWindowController(QObject):
     def _on_all_tests_completed(self):
         """Handle the event of all tests completed"""
         self.log_manager.add_log_entry("INFO", "All functionality tests completed")
-    
+
+    def _convert_response_for_display(self, response, criteria, command, step_desc):
+        """
+        Convert response data to a more readable format for export
+        
+        Args:
+            response: Original response string
+            criteria: Test criteria
+            command: Executed command
+            step_desc: Step description
+            
+        Returns:
+            Converted response string that's more user-friendly
+        """
+        if not response or response.strip() == "":
+            return ""
+        
+        try:
+            response_str = str(response).strip()
+            
+            # Handle panel resolution - check before i2c check since it may contain hex values
+            if "resolution" in step_desc.lower():
+                return self._convert_resolution_response(response_str)
+            
+            # Handle panel ID conversion
+            if "panel id" in step_desc.lower():
+                return self._convert_panel_id_response(response_str)
+            
+            # Handle NOR flash size conversion
+            if "nor flash" in step_desc.lower() or "flash size" in step_desc.lower():
+                return self._convert_nor_flash_response(response_str)
+            
+            # Handle i2c transfer responses (hex values like "0x00 0x11")
+            # More specific check: command contains i2ctransfer OR response has structured hex format
+            if "i2ctransfer" in command.lower() or (
+                "0x" in response_str and 
+                not any(keyword in response_str.lower() for keyword in ["input device", "vendor", "product", "version"])
+            ):
+                return self._convert_i2c_response(response_str, step_desc)
+            
+            # Handle eMMC size conversion
+            if "emmc" in step_desc.lower() or "storage" in step_desc.lower() or "size" in command.lower():
+                return self._convert_storage_response(response_str)
+            
+            # Handle version information
+            if "version" in step_desc.lower() and "u-boot" in step_desc.lower():
+                return self._convert_uboot_version_response(response_str)
+            
+            # Clean up response text
+            return self._clean_response_text(response_str)
+            
+        except Exception as e:
+            logger.warning(f"Error converting response: {str(e)}")
+            return response_str
+
+    def _convert_i2c_response(self, response, step_desc):
+        """Convert i2c hex response to readable format"""
+        try:
+            # Extract hex values from response
+            hex_values = []
+            lines = response.split('\n')
+            
+            for line in lines:
+                if '0x' in line:
+                    line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                    hex_values.extend(line_hex)
+            
+            if not hex_values:
+                return response
+            
+            # Only filter out status bytes if they appear at the first position
+            data_hex = hex_values.copy()
+            if len(data_hex) > 0 and data_hex[0] in ['0x02', '0x00']:
+                data_hex = data_hex[1:]
+            
+            # Calculate combined value
+            if len(data_hex) >= 2:
+                high_byte = int(data_hex[-2], 16)
+                low_byte = int(data_hex[-1], 16)
+                combined_value = (high_byte << 8) + low_byte
+            elif len(data_hex) == 1:
+                combined_value = int(data_hex[0], 16)
+            else:
+                combined_value = int(hex_values[-1], 16)
+            
+            # Apply unit conversions based on step description
+            if "voltage" in step_desc.lower():
+                return f"{combined_value} = {round(combined_value/1000, 2)}V"
+            elif "current" in step_desc.lower():
+                return f"{combined_value} = {round(combined_value/1000, 2)}A"
+            elif "temperature" in step_desc.lower():
+                temp_celsius = round(combined_value/10 - 273.15, 2)
+                return f"{combined_value} = {temp_celsius}°C"
+            elif "capacity" in step_desc.lower() or "state" in step_desc.lower():
+                return f"{combined_value} = {combined_value}mAh"
+            elif "firmware" in step_desc.lower():
+                return f"{combined_value} = v{combined_value}"
+            else:
+                return f"{combined_value} (decimal from hex: {' '.join(data_hex)})"
+                
+        except Exception as e:
+            logger.warning(f"Error converting i2c response: {e}")
+            return response
+
+    def _convert_storage_response(self, response):
+        """Convert storage size response to readable format"""
+        try:
+            lines = response.strip().split('\n')
+            for line in lines:
+                if line.strip().isdigit():
+                    sectors = int(line.strip())
+                    bytes_total = sectors * 512
+                    gb_total = bytes_total / (1024 ** 3)
+                    return f"{sectors} sectors = {gb_total:.2f}GB ({bytes_total:,} bytes)"
+            return response
+        except Exception as e:
+            logger.warning(f"Error converting storage response: {e}")
+            return response
+
+    def _convert_resolution_response(self, response):
+        """Convert panel resolution response to readable format"""
+        try:
+            lines = response.split("\n")
+            current_axis = None
+            x_resolution = None
+            y_resolution = None
+            
+            for line in lines:
+                line = line.strip()
+                
+                if "Event code 0 (ABS_X)" in line:
+                    current_axis = "X"
+                elif "Event code 1 (ABS_Y)" in line:
+                    current_axis = "Y"
+                elif line.startswith("Event code") and ("ABS_X" not in line and "ABS_Y" not in line):
+                    current_axis = None
+                
+                if line.startswith("Max") and current_axis:
+                    try:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            max_value = parts[1].strip()
+                            actual_resolution = str(int(max_value) + 1)
+                            
+                            if current_axis == "X":
+                                x_resolution = actual_resolution
+                            elif current_axis == "Y":
+                                y_resolution = actual_resolution
+                    except (IndexError, ValueError):
+                        continue
+            
+            if x_resolution and y_resolution:
+                return f"Touch Resolution: {x_resolution}x{y_resolution} pixels"
+            
+            return response
+        except Exception as e:
+            logger.warning(f"Error converting resolution response: {e}")
+            return response
+
+    def _convert_panel_id_response(self, response):
+        """Convert panel ID response to readable format with platform name"""
+        try:
+            panel_id = response.strip()
+            
+            # Panel ID to platform mapping based on panel_id_resolution_worker.py
+            panel_id_mapping = {
+                "01": "hydra_fhd (Note: argo's panel ID is same as hydra_fhd, use pic version to identify argo)",
+                "00": "hydra", 
+                "10": "gemini_fhd",
+                "11": "gemini"
+            }
+            
+            if panel_id in panel_id_mapping:
+                platform_name = panel_id_mapping[panel_id]
+                return f"{panel_id} {platform_name}"
+            else:
+                # Unknown panel ID, return as is
+                return panel_id
+                
+        except Exception as e:
+            logger.warning(f"Error converting panel ID response: {e}")
+            return response
+
+    def _convert_nor_flash_response(self, response):
+        """Convert NOR flash size response to readable format"""
+        try:
+            # Extract hex size value from mtd response
+            # Format: mtd0: 04000000 00020000 "MX29GL512G"
+            lines = response.strip().split('\n')
+            
+            for line in lines:
+                if 'mtd0:' in line:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        # Get the first hex value after "mtd0:"
+                        hex_size = parts[1].strip()
+                        
+                        # Convert hex to decimal bytes
+                        size_bytes = int(hex_size, 16)
+                        
+                        # Convert to MB
+                        size_mb = size_bytes / (1024 * 1024)
+                        
+                        return f"{hex_size} = {size_mb:.0f}MB ({size_bytes:,} bytes)"
+            
+            return response
+        except Exception as e:
+            logger.warning(f"Error converting NOR flash response: {e}")
+            return response
+
+    def _convert_uboot_version_response(self, response):
+        """Convert U-Boot version response to readable format"""
+        try:
+            pattern = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
+            match = re.search(pattern, response)
+            
+            if match:
+                full_version = match.group(1).strip()
+                return f"U-Boot version: {full_version}"
+            
+            return response
+        except Exception as e:
+            logger.warning(f"Error converting U-Boot version response: {e}")
+            return response
+
+    def _clean_response_text(self, response):
+        """Clean up response text by removing command echoes and prompts"""
+        try:
+            cleaned_lines = []
+            lines = response.split('\n')
+            
+            for line in lines:
+                line_stripped = line.strip()
+                if not line_stripped:
+                    continue
+                    
+                # Skip command echoes and prompts
+                if any(skip_str in line_stripped for skip_str in [
+                    "i2ctransfer", "grep", "uname", "free", "cat", "strings",
+                    "root@", "#", "$", ">"
+                ]):
+                    continue
+                
+                cleaned_lines.append(line_stripped)
+            
+            return '\n'.join(cleaned_lines) if cleaned_lines else response
+        except Exception as e:
+            logger.warning(f"Error cleaning response text: {e}")
+            return response
+
     def _export_results(self):
         """Export test results to a CSV file"""
         try:
@@ -1249,7 +1499,7 @@ class MainWindowController(QObject):
                 writer = csv.writer(csvfile)
                 
                 # write the title row
-                writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Timestamp", "Duration (sec)"])
+                writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
                 # write the functionality test results
                 # first process the tests with progress records
@@ -1382,20 +1632,10 @@ class MainWindowController(QObject):
                                 # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
-                                # try to get the actual timestamp and duration from the progress records
-                                for record in records:
-                                    if isinstance(record, dict) and record.get('current_step') == template_index + 1:
-                                        timestamp = record.get('timestamp', timestamp)
-                                        # Try to get duration from progress record
-                                        if 'duration' in record:
-                                            step_time = record.get('duration', step_time)
-                                        elif 'time' in record:
-                                            step_time = record.get('time', step_time)
-                                        break
-                                
-                                # As a fallback, use overall test time if step time is still default
-                                if step_time == "--:--:--" and overall_test_time != "--:--:--":
-                                    step_time = overall_test_time
+                                # Convert response for better readability
+                                response_converted = self._convert_response_for_display(
+                                    step_response, step_criteria, step_command, step_desc
+                                )
                                 
                                 # create the data row
                                 row_data = [
@@ -1405,6 +1645,7 @@ class MainWindowController(QObject):
                                     step_message,               # result
                                     step_command,               # command
                                     step_response,              # response
+                                    response_converted,         # response_converted
                                     timestamp,                  # timestamp
                                     step_time                   # duration
                                 ]
@@ -1534,26 +1775,22 @@ class MainWindowController(QObject):
                                 if isinstance(step_message, str) and "skip" in step_message.lower():
                                     step_message = "SKIPPED"
 
-                                # Try to get duration from progress record if not available
-                                if step_time == "--:--:--":
-                                    if 'duration' in record:
-                                        step_time = record.get('duration', step_time)
-                                    elif 'time' in record:
-                                        step_time = record.get('time', step_time)
-                                    # As a fallback, use overall test time if available
-                                    elif overall_test_time != "--:--:--":
-                                        step_time = overall_test_time
+                                # Convert response for better readability
+                                response_converted = self._convert_response_for_display(
+                                    step_response, step_criteria, step_command, step_desc
+                                )
 
-                                # create the data row
+                                # create the data row of the diagnostic step
                                 row_data = [
-                                    test_id,                                       # module
-                                    step_desc,                                     # step
-                                    step_criteria,                                 # criteria
-                                    step_message,                                  # result
-                                    step_command,                                  # command
-                                    step_response,                                 # response
-                                    record.get('timestamp', '--:--:--'),           # timestamp
-                                    step_time                                      # duration
+                                    test_id,                # module
+                                    step_desc,              # step
+                                    step_criteria,          # criteria
+                                    step_message,           # result
+                                    step_command,           # command
+                                    step_response,          # response
+                                    response_converted,     # response_converted
+                                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                                    step_time               # time
                                 ]
 
                                 writer.writerow(row_data)
@@ -1639,6 +1876,11 @@ class MainWindowController(QObject):
                                 # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 
+                                # Convert response for better readability
+                                response_converted = self._convert_response_for_display(
+                                    step_response, step_criteria, step_command, step_desc
+                                )
+                                
                                 # create the data row
                                 row_data = [
                                     test_id,                    # module
@@ -1647,6 +1889,7 @@ class MainWindowController(QObject):
                                     step_message,               # result
                                     step_command,               # command
                                     step_response,              # response
+                                    response_converted,         # response_converted
                                     timestamp,                  # timestamp
                                     step_time                   # duration
                                 ]
@@ -1730,6 +1973,11 @@ class MainWindowController(QObject):
                             logger.debug(f"Skipping diagnostic {test_id} - no message or validation results")
                             continue
                         
+                        # Convert response for better readability (empty in this case)
+                        response_converted = self._convert_response_for_display(
+                            "", "", "", "Diagnostic Test"
+                        )
+                        
                         # create the data row of the diagnostic result
                         row_data = [
                             test_id,                # module
@@ -1738,6 +1986,7 @@ class MainWindowController(QObject):
                             f"{status}: {message}", # result
                             "",                     # command
                             "",                     # response
+                            response_converted,     # response_converted
                             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
                             time_str                # time
                         ]
