@@ -114,7 +114,7 @@ class SmartConnectionMonitor(QObject):
         # Generate a unique monitoring command to avoid conflicts with other commands
         timestamp = int(time.time() * 1000)
         unique_ping_command = f"{self.monitor_command_prefix}{timestamp}"
-        monitor_command = f"echo '{unique_ping_command}'"
+        monitor_command = f"root"
         
         logger.debug(f"Smart health check for device {device_id}: {monitor_command}")
         
@@ -124,18 +124,15 @@ class SmartConnectionMonitor(QObject):
     def _on_command_result(self, device_id: str, command: str, response: str):
         """Process command results, only process the monitor's own commands"""
         # Only process the monitor's own commands
-        if not command.startswith("echo '" + self.monitor_command_prefix):
+        if command != "root":
             return
             
         monitor_config = self.monitoring_devices.get(device_id)
         if not monitor_config:
             return
-            
-        # Extract the expected response content
-        expected_response = command.replace("echo '", "").replace("'", "")
         
         # Check if the response is valid
-        is_success = self._is_valid_monitor_response(expected_response, response)
+        is_success = self._is_valid_monitor_response(response)
         
         if is_success:
             # Device response successful
@@ -171,11 +168,8 @@ class SmartConnectionMonitor(QObject):
             self.device_not_ready.emit(device_id, reason)
             self.connection_status_changed.emit(device_id, False)
                     
-    def _is_valid_monitor_response(self, expected_response: str, actual_response: str) -> bool:
+    def _is_valid_monitor_response(self, actual_response: str) -> bool:
         """Verify the response of the monitoring command"""
-        # Check if the expected unique identifier is in the response
-        if expected_response in actual_response:
-            return True
             
         # Check for login-related indicators (device needs authentication)
         login_indicators = ["Password:", "Login incorrect", "gemini login:", "login:", "Username:"]
@@ -186,12 +180,12 @@ class SmartConnectionMonitor(QObject):
                 return False
             
         # Check for obvious error indicators
-        error_indicators = ["Error:", "command not found", "No such file", "Permission denied"]
+        error_indicators = ["Error:", "No such file", "Permission denied"]
         for error in error_indicators:
             if error.lower() in response_lower:
                 return False
                 
-        return False
+        return True
         
     def get_device_status(self, device_id: str) -> Dict:
         """Get device status information"""

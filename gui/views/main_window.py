@@ -1020,8 +1020,8 @@ class MainWindowController(QObject):
         # show the error message
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("Connection Check Failed")
-        msg_box.setText("Device connection/login failed, system info refresh is canceled.")
-        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setText("Device connection failed, system info refresh is canceled.")
+        msg_box.setInformativeText(f"Ensure the device is connected, back up existing test content, then close the main window and return to Device Manager to reconnect the device.")
         msg_box.setIcon(QMessageBox.Warning)
         msg_box.setStandardButtons(QMessageBox.Ok)
         
@@ -1066,8 +1066,8 @@ class MainWindowController(QObject):
         # show the error message
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("Connection Check Failed")
-        msg_box.setText(f"Device connection/login failed, {operation_name} is canceled.")
-        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setText(f"Device connection failed, {operation_name} is canceled.")
+        msg_box.setInformativeText(f"Ensure the device is connected, back up existing test content, then close the main window and return to Device Manager to reconnect the device.")
         msg_box.setIcon(QMessageBox.Warning)
         msg_box.setStandardButtons(QMessageBox.Ok)
         
@@ -1106,7 +1106,7 @@ class MainWindowController(QObject):
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("Connection/Login Check Failed")
         msg_box.setText("Device connection/login failed, auto diagnostic is canceled.")
-        msg_box.setInformativeText(f"Please check if device is connected or system is logged in correctly.")
+        msg_box.setInformativeText(f"Ensure the device is connected, back up existing test content, then close the main window and return to Device Manager to reconnect the device.")
         msg_box.setIcon(QMessageBox.Warning)
         msg_box.setStandardButtons(QMessageBox.Ok)
         
