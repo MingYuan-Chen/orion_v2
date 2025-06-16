@@ -136,6 +136,16 @@
       "reboot", "root"
     ]
   },
+  "functionality_hdmi": {
+    "commands": [
+      "echo 0 > /sys/class/graphics/fb2/blank",
+      "",
+      "gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
+      "gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
+      "",
+      "pkill -f gst-launch"
+    ]
+  },
   "functionality_camera": {
     "commands": [
       "reboot",
