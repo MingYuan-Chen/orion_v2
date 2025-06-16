@@ -22,10 +22,11 @@ class HdmiWorker(BaseTestWorker):
         Returns:
             HDMI test steps list
         """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         return [
             # Step 1: Enable HDMI display
             TestStep(
-                command="echo 0 > /sys/class/graphics/fb2/blank",
+                command=commands[0],
                 timeout=5,
                 description="Enable HDMI display",
             ),
@@ -65,7 +66,7 @@ class HdmiWorker(BaseTestWorker):
             
             # Step 7: Start video playback with dual display
             TestStep(
-                command="",
+                command=commands[1],
                 timeout=5,
                 description="Check required conditions",
                 pre_condition="Please ensure:\n1. HDMI cable is connected\n2. External display is powered on\n3. Display shows desktop or signal\n4. Only one USB drive has 'demo.mp4' file\n (unexpected errors may occur if both USB drives have the file)",
@@ -74,14 +75,14 @@ class HdmiWorker(BaseTestWorker):
 
             # Step 7: Start video playback with dual display
             TestStep(
-                command='gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink="overlaysink display-master=true display-slave=true" &',
+                command=commands[2],
                 timeout=10,
                 description="Start HDMI video playback in sda1",
                 max_retries=1,
                 retry_delay=1000
             ),
             TestStep(
-                command='gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink="overlaysink display-master=true display-slave=true" &',
+                command=commands[3],
                 timeout=10,
                 description="Start HDMI video playback in sdb1",
                 max_retries=1,
@@ -89,7 +90,7 @@ class HdmiWorker(BaseTestWorker):
             ),
 
             TestStep(
-                command="",
+                command=commands[4],
                 timeout=5,
                 description="Check video playback on both displays",
                 post_check="Can you see the video playing on both displays?\n- LCD display shows video\n- HDMI display shows video\n- Video quality is good\n- Audio is synchronized",
@@ -99,7 +100,7 @@ class HdmiWorker(BaseTestWorker):
             
             # Step 11: Stop video playback
             TestStep(
-                command="pkill -f gst-launch",
+                command=commands[5],
                 timeout=10,
                 description="Stop video playback",
             )
