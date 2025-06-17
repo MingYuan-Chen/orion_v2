@@ -1198,8 +1198,13 @@ class MainWindowController(QObject):
             logger.warning(f"Error updating dashboard title: {e}")
 
     @Slot()
+    def _on_all_diagnostics_completed(self):
+        """handle the event of all diagnostics completed"""
+        self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
+
+    @Slot()
     def _on_all_tests_completed(self):
-        """Handle the event of all tests completed"""
+        """Handle the event of all functionality tests completed"""
         self.log_manager.add_log_entry("INFO", "All functionality tests completed")
 
     def _convert_response_for_display(self, response, criteria, command, step_desc):
@@ -1221,6 +1226,18 @@ class MainWindowController(QObject):
         try:
             response_str = str(response).strip()
             
+            # Handle throughput speed conversion for USB and eMMC tests
+            if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower():
+                return self._convert_throughput_response(response_str, step_desc)
+            
+            # Handle backlight brightness and power conversion
+            if "brightness" in command.lower() or "bl_power" in command.lower():
+                return self._convert_backlight_response(response_str, command)
+            
+            # Handle power button event conversion
+            if "button event" in step_desc.lower() and "key_power" in response_str.lower():
+                return self._convert_power_button_response(response_str)
+            
             # Handle panel resolution - check before i2c check since it may contain hex values
             if "resolution" in step_desc.lower():
                 return self._convert_resolution_response(response_str)
@@ -1233,13 +1250,21 @@ class MainWindowController(QObject):
             if "nor flash" in step_desc.lower() or "flash size" in step_desc.lower():
                 return self._convert_nor_flash_response(response_str)
             
+            # Handle LED status conversion
+            if "led" in step_desc.lower() and "status" in step_desc.lower():
+                return self._convert_led_status_response(response_str, step_desc)
+            
+            # Handle DC value conversion
+            if "gpio133" in command.lower():
+                return self._convert_dc_value_response(response_str, step_desc)
+            
             # Handle i2c transfer responses (hex values like "0x00 0x11")
             # More specific check: command contains i2ctransfer OR response has structured hex format
             if "i2ctransfer" in command.lower() or (
                 "0x" in response_str and 
                 not any(keyword in response_str.lower() for keyword in ["input device", "vendor", "product", "version"])
             ):
-                return self._convert_i2c_response(response_str, step_desc)
+                return self._convert_i2c_response(response_str, command)
             
             # Handle eMMC size conversion
             if "emmc" in step_desc.lower() or "storage" in step_desc.lower() or "size" in command.lower():
@@ -1256,7 +1281,7 @@ class MainWindowController(QObject):
             logger.warning(f"Error converting response: {str(e)}")
             return response_str
 
-    def _convert_i2c_response(self, response, step_desc):
+    def _convert_i2c_response(self, response, command):
         """Convert i2c hex response to readable format"""
         try:
             # Extract hex values from response
@@ -1287,16 +1312,18 @@ class MainWindowController(QObject):
                 combined_value = int(hex_values[-1], 16)
             
             # Apply unit conversions based on step description
-            if "voltage" in step_desc.lower():
+            if "0x51 0x00 0x19" in command.lower():
                 return f"{combined_value} = {round(combined_value/1000, 2)}V"
-            elif "current" in step_desc.lower():
+            elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower():
                 return f"{combined_value} = {round(combined_value/1000, 2)}A"
-            elif "temperature" in step_desc.lower():
+            elif "0x51 0x00 0x08" in command.lower():
                 temp_celsius = round(combined_value/10 - 273.15, 2)
-                return f"{combined_value} = {temp_celsius}°C"
-            elif "capacity" in step_desc.lower() or "state" in step_desc.lower():
+                return f"{combined_value} = {temp_celsius}C"
+            elif "0x51 0x00 0x18" in command.lower():
                 return f"{combined_value} = {combined_value}mAh"
-            elif "firmware" in step_desc.lower():
+            elif "0x51 0x00 0x0d" in command.lower():
+                return f"{combined_value} = {combined_value}%"
+            elif "0x21 0x00 0x10" in command.lower():
                 return f"{combined_value} = v{combined_value}"
             else:
                 return f"{combined_value} (decimal from hex: {' '.join(data_hex)})"
@@ -1318,6 +1345,118 @@ class MainWindowController(QObject):
             return response
         except Exception as e:
             logger.warning(f"Error converting storage response: {e}")
+            return response
+
+    def _convert_power_button_response(self, response):
+        """Convert power button event response to readable format"""
+        try:
+            import re
+            
+            # Look for power button events in the response
+            # Pattern matches: type 1 (EV_KEY), code 116 (KEY_POWER), value X
+            power_events = []
+            
+            # Split response into lines and process each line
+            lines = response.split('\n')
+            
+            for line in lines:
+                # Match power button events
+                power_match = re.search(r'type 1 \(EV_KEY\), code 116 \(KEY_POWER\), value (\d)', line)
+                if power_match:
+                    value = power_match.group(1)
+                    if value == "1":
+                        power_events.append("type 1 (EV_KEY), code 116 (KEY_POWER), value 1: Pressed")
+                    elif value == "0":
+                        power_events.append("type 1 (EV_KEY), code 116 (KEY_POWER), value 0: Released")
+            
+            # If we found power button events, return them
+            if power_events:
+                # Join all events with newlines
+                events_summary = '\n'.join(power_events)
+                return f"Power button events detected:\n{events_summary}"
+            
+            # If no power button events found, return original response
+            return response
+            
+        except Exception as e:
+            logger.warning(f"Error converting power button response: {e}")
+            return response
+    
+    def _convert_throughput_response(self, response, step_desc):
+        """Convert throughput test response to extract read/write speed"""
+        try:
+            import re
+            
+            # Look for speed information in the response
+            # Pattern matches formats like: "62.2 MB/s", "258 MB/s", "91.8 MB/s"
+            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            speed_matches = re.findall(speed_pattern, response)
+            
+            if not speed_matches:
+                return response
+            
+            # Get the last speed value (usually the final transfer speed)
+            final_speed = speed_matches[-1]
+            
+            # Determine if this is a read or write operation based on step description
+            operation_type = "Unknown"
+            if "write" in step_desc.lower():
+                operation_type = "Write"
+            elif "read" in step_desc.lower():
+                operation_type = "Read"
+            
+            # Determine device type
+            device_type = "Unknown"
+            if "emmc_throughput" in step_desc.lower():
+                device_type = "eMMC"
+            elif "usb_throughput" in step_desc.lower():
+                device_type = "USB"
+            
+            # Return formatted speed information
+            return f"{device_type} {operation_type} Speed: {final_speed} MB/s"
+            
+        except Exception as e:
+            logger.warning(f"Error converting throughput response: {e}")
+            return response
+
+    def _convert_backlight_response(self, response, command):
+        """Convert backlight brightness and power response to readable format"""
+        try:
+            # Clean up the response to get the numeric value
+            response_value = response.strip()
+            
+            # Handle brightness conversion
+            if "brightness" in command.lower():
+                # Convert brightness level (0-7) to percentage
+                brightness_mapping = {
+                    "0": "0%",
+                    "1": "20%", 
+                    "2": "30%",
+                    "3": "40%",
+                    "4": "50%",
+                    "5": "60%",
+                    "6": "80%",
+                    "7": "100%"
+                }
+                
+                if response_value in brightness_mapping:
+                    return f"{response_value} = {brightness_mapping[response_value]}"
+                else:
+                    return f"{response_value} (Unknown brightness level)"
+            
+            # Handle bl_power conversion
+            elif "bl_power" in command.lower():
+                if response_value == "0":
+                    return f"{response_value} = screen on"
+                elif response_value == "1":
+                    return f"{response_value} = screen off"
+                else:
+                    return f"{response_value} (Unknown power state)"
+            
+            return response
+            
+        except Exception as e:
+            logger.warning(f"Error converting backlight response: {e}")
             return response
 
     def _convert_resolution_response(self, response):
@@ -1409,6 +1548,75 @@ class MainWindowController(QObject):
             return response
         except Exception as e:
             logger.warning(f"Error converting NOR flash response: {e}")
+            return response
+
+    def _convert_led_status_response(self, response, step_desc):
+        """Convert LED status response to readable format"""
+        try:
+            # LED status mapping from led_worker.py
+            LED_STATUS_MAP = {
+                0: "Off", 8: "Off", 16: "Off", 24: "Off",
+                1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
+                2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
+                3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
+                4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
+                5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
+                6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
+                7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+            }
+            
+            # Extract hex values from response like i2c responses
+            hex_values = []
+            lines = response.split('\n')
+            
+            for line in lines:
+                if '0x' in line:
+                    line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                    hex_values.extend(line_hex)
+            
+            if not hex_values:
+                return response
+            
+            # Only filter out status bytes if they appear at the first position
+            data_hex = hex_values.copy()
+            if len(data_hex) > 0 and data_hex[0] in ['0x02', '0x00']:
+                data_hex = data_hex[1:]
+            
+            # Get the LED status value (typically the last hex value)
+            if data_hex:
+                led_status_value = int(data_hex[-1], 16)
+            else:
+                led_status_value = int(hex_values[-1], 16)
+            
+            # Look up LED status
+            if led_status_value in LED_STATUS_MAP:
+                led_status_text = LED_STATUS_MAP[led_status_value]
+                return f"{led_status_value} = {led_status_text}"
+            else:
+                return f"{led_status_value} = Unknown LED Status"
+                
+        except Exception as e:
+            logger.warning(f"Error converting LED status response: {e}")
+            return response
+
+    def _convert_dc_value_response(self, response, step_desc):
+        """Convert DC value response to readable power status"""
+        try:
+            # DC value mapping
+            DC_VALUE_MAP = {
+                1: "Power On",
+                0: "Power Off"
+            }
+            
+            dc_value = int(response.strip())
+            if dc_value in DC_VALUE_MAP:
+                dc_status_text = DC_VALUE_MAP[dc_value]
+                return f"{dc_value} = {dc_status_text}"
+            else:
+                return response
+                
+        except Exception as e:
+            logger.warning(f"Error converting DC value response: {e}")
             return response
 
     def _convert_uboot_version_response(self, response):
@@ -2267,6 +2475,11 @@ class MainWindowController(QObject):
         """handle the event of all diagnostics completed"""
         self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
 
+    @Slot()
+    def _on_all_tests_completed(self):
+        """Handle the event of all functionality tests completed"""
+        self.log_manager.add_log_entry("INFO", "All functionality tests completed")
+
     def _on_tab_changed(self, index):
         """Handle tab change event"""
         # only save the current tab index when not updating
@@ -2410,3 +2623,5 @@ class MainWindowController(QObject):
                 border: 2px solid #1C97EA;
             }
         """
+
+    

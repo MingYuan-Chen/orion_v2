@@ -37,7 +37,7 @@ class PowerButtonWorker(BaseTestWorker):
                 validation_func=self._validate_evtlog,
                 pre_condition="Please press the power button then release it then click 'Confirm and Continue' button",
                 timeout=5,
-                description="Check evtlog",
+                description="Check button event",
                 criteria="Power button event triggered",
                 max_retries=1,
                 retry_delay=500
