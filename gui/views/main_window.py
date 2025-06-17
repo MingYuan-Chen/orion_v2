@@ -1710,8 +1710,481 @@ class MainWindowController(QObject):
             logger.warning(f"Error cleaning response text: {e}")
             return response
 
+    def _export_diagnostic_results(self, writer, diagnostic_results, exported_test_steps):
+        """Export diagnostic test results in a standardized format"""
+        data_exported = False
+        
+        # Sort diagnostic results by test_id for consistent ordering
+        sorted_diagnostic_tests = sorted(diagnostic_results.items())
+        
+        for test_id, result_data in sorted_diagnostic_tests:
+            try:
+                # get the step templates of the diagnostic test
+                step_templates = self.test_step_templates.get("diagnostic", {}).get(test_id, [])
+                logger.info(f"Processing diagnostic test: {test_id}, step templates: {len(step_templates)}")
+                
+                # get the step data of the diagnostic test
+                test_steps = result_data.get("steps", [])
+                
+                # if there are step templates, export all steps with criteria based on the step templates
+                if step_templates:
+                    logger.info(f"Using step templates to export diagnostic {test_id}")
+                    
+                    for template_index, template in enumerate(step_templates):
+                        try:
+                            # export only the steps with criteria
+                            step_criteria = template.get('criteria', '')
+                            if not step_criteria:
+                                logger.debug(f"Skipping diagnostic template step {template_index} for {test_id} - no criteria")
+                                continue
+                            
+                            # get the basic step information
+                            step_desc = template.get('description', 'Diagnostic Test')
+                            step_command = template.get('command', '')
+                            
+                            # initialize the result variables
+                            step_message = "NOT_EXECUTED"
+                            step_response = ""
+                            step_time = "--:--:--"
+                            
+                            # try to get the execution result from test_steps
+                            for step in test_steps:
+                                if step.get('index') == template_index:
+                                    step_message = step.get('message', 'NOT_EXECUTED')
+                                    step_response = step.get('response', '')
+                                    step_time = step.get('time', '--:--:--')
+                                    if step.get('command'):
+                                        step_command = step.get('command', step_command)
+                                    break
+                            
+                            # Skip NOT_EXECUTED items
+                            if step_message == "NOT_EXECUTED":
+                                logger.debug(f"Skipping NOT_EXECUTED diagnostic step: {step_desc}")
+                                continue
+                            
+                            # Skip duplicate steps
+                            template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
+                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                            
+                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                logger.debug(f"Skipping duplicate diagnostic step: {step_desc} (template={template_index})")
+                                continue
+                            exported_test_steps.add(template_signature)
+                            exported_test_steps.add(execution_signature)
+                            
+                            # process the response text, filter out the useless information
+                            step_response = self._clean_response_text(step_response)
+                            
+                            # process the skipped steps
+                            if isinstance(step_message, str) and "skip" in step_message.lower():
+                                step_message = "SKIPPED"
+                            
+                            # Convert response for better readability
+                            response_converted = self._convert_response_for_display(
+                                step_response, step_criteria, step_command, step_desc
+                            )
+                            
+                            # get the timestamp
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            # create the data row
+                            row_data = [
+                                test_id,                    # module
+                                step_desc,                  # step
+                                step_criteria,              # criteria
+                                step_message,               # result
+                                step_command,               # command
+                                step_response,              # response
+                                response_converted,         # response_converted
+                                timestamp,                  # timestamp
+                                step_time                   # duration
+                            ]
+                            
+                            writer.writerow(row_data)
+                            data_exported = True
+                            logger.debug(f"Exported diagnostic step from template: {step_desc} (result: {step_message})")
+                            
+                        except Exception as ex:
+                            logger.warning(f"Error processing diagnostic template step {template_index}: {str(ex)}")
+                            continue
+                
+                # if there are no step templates, use the original logic
+                elif test_steps:
+                    for step in test_steps:
+                        step_desc = step.get("description", "Diagnostic Test")
+                        step_message = step.get("message", "")
+                        step_command = step.get("command", "")
+                        step_response = step.get("response", "")
+                        step_time = step.get("time", "--:--:--")
+                        step_criteria = step.get("criteria", "")
+                        
+                        # Skip steps with empty criteria - diagnostic tests must have criteria to be valid
+                        if not step_criteria:
+                            logger.debug(f"Skipping diagnostic step {step.get('index', -1)} for {test_id} - no criteria")
+                            continue
+                        
+                        # process the response text
+                        step_response = self._clean_response_text(step_response)
+                        
+                        if isinstance(step_message, str) and "skip" in step_message.lower():
+                            step_message = "SKIPPED"
+
+                        # Convert response for better readability
+                        response_converted = self._convert_response_for_display(
+                            step_response, step_criteria, step_command, step_desc
+                        )
+
+                        # create the data row of the diagnostic step
+                        row_data = [
+                            test_id,                # module
+                            step_desc,              # step
+                            step_criteria,          # criteria
+                            step_message,           # result
+                            step_command,           # command
+                            step_response,          # response
+                            response_converted,     # response_converted
+                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                            step_time               # time
+                        ]
+                        
+                        writer.writerow(row_data)
+                        data_exported = True
+                        logger.debug(f"Exported diagnostic step: {step_desc} (result: {step_message})")
+                else:
+                    # if there is no step data, use the basic information
+                    status = result_data.get("status", "")
+                    time_str = result_data.get("time", "--:--:--")
+                    details = result_data.get("details", {})
+                    if not isinstance(details, dict):
+                        details = {}
+                        
+                    message = details.get("message", "")
+                    
+                    # Skip this entry if there are no criteria or validation results
+                    if not message or message.strip() == "":
+                        logger.debug(f"Skipping diagnostic {test_id} - no message or validation results")
+                        continue
+                    
+                    # Convert response for better readability (empty in this case)
+                    response_converted = self._convert_response_for_display(
+                        "", "", "", "Diagnostic Test"
+                    )
+                    
+                    # create the data row of the diagnostic result
+                    row_data = [
+                        test_id,                # module
+                        "Diagnostic Test",      # step
+                        "",                     # criteria
+                        f"{status}: {message}", # result
+                        "",                     # command
+                        "",                     # response
+                        response_converted,     # response_converted
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                        time_str                # time
+                    ]
+                    
+                    writer.writerow(row_data)
+                    data_exported = True
+                    logger.debug(f"Exported diagnostic basic info: {test_id} (status: {status})")
+            except Exception as ex:
+                logger.warning(f"Error processing diagnostic result for {test_id}: {str(ex)}")
+                continue
+        
+        return data_exported
+
+    def _export_functionality_results_sorted(self, writer, test_results, test_progress_records, exported_test_steps):
+        """Export functionality test results in sorted order"""
+        data_exported = False
+        
+        # Combine all functionality test IDs and sort them
+        all_functionality_tests = set()
+        all_functionality_tests.update(test_results.keys())
+        all_functionality_tests.update(test_progress_records.keys())
+        
+        # Sort test IDs for consistent ordering
+        sorted_functionality_tests = sorted(all_functionality_tests)
+        
+        for test_id in sorted_functionality_tests:
+            try:
+                # Skip diagnostic tests (they should be handled separately)
+                if test_id.startswith("diagnostic_"):
+                    continue
+                
+                # Get test data
+                records = test_progress_records.get(test_id, [])
+                
+                # determine the test type
+                test_type = "functionality"
+                step_templates = self.test_step_templates.get(test_type, {}).get(test_id, [])
+                logger.info(f"Processing functionality test: {test_id}, progress records: {len(records)}, step templates: {len(step_templates)}")
+                
+                # get the step details of the test
+                test_steps = []
+                overall_test_time = "--:--:--"
+                if test_id in test_results:
+                    test_steps = test_results[test_id].get("steps", [])
+                    overall_test_time = test_results[test_id].get("time", "--:--:--")
+                
+                # try to get the step details and execution status from the test worker
+                worker_steps = []
+                worker = None
+                if hasattr(self.view_model.hardware_test_manager, 'test_workers'):
+                    worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
+                    if worker and hasattr(worker, 'steps'):
+                        worker_steps = worker.steps
+                
+                # if there are step templates, export all steps with criteria based on the step templates
+                if step_templates:
+                    logger.info(f"Using step templates to export {len(step_templates)} steps for {test_id}")
+                    
+                    for template_index, template in enumerate(step_templates):
+                        try:
+                            # export only the steps with criteria
+                            step_criteria = template.get('criteria', '')
+                            if not step_criteria:
+                                logger.debug(f"Skipping template step {template_index} for {test_id} - no criteria")
+                                continue
+                            
+                            # get the basic step information
+                            step_desc = template.get('description', '')
+                            step_command = template.get('command', '')
+                            is_manual_step = template.get('manual_only', False)
+                            
+                            # initialize the result variables
+                            step_message = "NOT_EXECUTED"
+                            step_response = ""
+                            step_time = "--:--:--"
+                            
+                            # try to get more detailed information from test_steps
+                            matching_step = None
+                            
+                            # First try exact index matching
+                            for step in test_steps:
+                                if step.get('index') == template_index:
+                                    step_test_desc = step.get('description', '')
+                                    if step_test_desc == step_desc:
+                                        matching_step = step
+                                        break
+                            
+                            # If no exact match found, try description-based matching for camera tests
+                            if not matching_step and test_id == "functionality_camera":
+                                for step in test_steps:
+                                    step_test_desc = step.get('description', '')
+                                    if step_test_desc == step_desc:
+                                        matching_step = step
+                                        break
+                            
+                            if matching_step:
+                                test_step_message = matching_step.get('message', '')
+                                
+                                if test_step_message and test_step_message != "No command specified":
+                                    step_message = test_step_message
+                                elif test_step_message == "No command specified" and is_manual_step:
+                                    if worker and template_index < len(worker_steps):
+                                        worker_step = worker_steps[template_index]
+                                        if hasattr(worker_step, 'passed') and worker_step.passed is not None:
+                                            step_message = "PASS" if worker_step.passed else "FAIL"
+                                
+                                if matching_step.get('response'):
+                                    step_response = matching_step.get('response', step_response)
+                                if matching_step.get('command'):
+                                    step_command = matching_step.get('command', step_command)
+                                
+                                # Get step time
+                                step_time_from_match = matching_step.get('time')
+                                if step_time_from_match and step_time_from_match != "--:--:--":
+                                    step_time = step_time_from_match
+                                else:
+                                    # Try to calculate time from start_time and end_time
+                                    start_time = matching_step.get('start_time')
+                                    end_time = matching_step.get('end_time')
+                                    if start_time and end_time:
+                                        try:
+                                            if isinstance(start_time, str):
+                                                start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                            if isinstance(end_time, str):
+                                                end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                                            
+                                            duration = end_time - start_time
+                                            step_time = f"{duration.total_seconds():.2f}s"
+                                        except Exception as e:
+                                            logger.warning(f"Error calculating step time for {template_index}: {e}")
+                                            step_time = "--:--:--"
+                            
+                            # if no suitable result is found in test_steps, then get it from the worker
+                            if step_message == "NOT_EXECUTED" and worker and template_index < len(worker_steps):
+                                worker_step = worker_steps[template_index]
+                                if hasattr(worker_step, 'passed') and worker_step.passed is not None:
+                                    step_message = "PASS" if worker_step.passed else "FAIL"
+                                    if is_manual_step:
+                                        step_response = f"Manual interaction step - {step_message} (verified by user)"
+                            
+                            # Skip NOT_EXECUTED items
+                            if step_message == "NOT_EXECUTED":
+                                logger.debug(f"Skipping NOT_EXECUTED step: {step_desc}")
+                                continue
+                            
+                            # For camera tests, only export steps that actually have matching execution results
+                            if test_id == "functionality_camera" and not matching_step:
+                                logger.debug(f"Skipping camera step without execution match: {step_desc}")
+                                continue
+                            
+                            # Skip duplicate steps
+                            template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
+                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                            
+                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                logger.debug(f"Skipping duplicate step: {step_desc} (template={template_index})")
+                                continue
+                            exported_test_steps.add(template_signature)
+                            exported_test_steps.add(execution_signature)
+                            
+                            # process the response text
+                            step_response = self._clean_response_text(step_response)
+                            
+                            # process the skipped steps
+                            if isinstance(step_message, str) and "skip" in step_message.lower():
+                                step_message = "SKIPPED"
+                            
+                            # Convert response for better readability
+                            response_converted = self._convert_response_for_display(
+                                step_response, step_criteria, step_command, step_desc
+                            )
+                            
+                            # get the timestamp
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            # create the data row
+                            row_data = [
+                                test_id,                    # module
+                                step_desc,                  # step
+                                step_criteria,              # criteria
+                                step_message,               # result
+                                step_command,               # command
+                                step_response,              # response
+                                response_converted,         # response_converted
+                                timestamp,                  # timestamp
+                                step_time                   # duration
+                            ]
+                            
+                            writer.writerow(row_data)
+                            data_exported = True
+                            logger.debug(f"Exported functionality step from template: {step_desc} (result: {step_message})")
+                            
+                        except Exception as ex:
+                            logger.warning(f"Error processing functionality template step {template_index}: {str(ex)}")
+                            continue
+                
+                # if there are no step templates, fall back to progress records
+                elif records:
+                    for record in records:
+                        try:
+                            # ensure record is a dictionary and has current_step
+                            if not isinstance(record, dict) or 'current_step' not in record:
+                                continue
+                                
+                            # find the corresponding step information
+                            current_step = record['current_step'] - 1  # convert to 0-based index
+                            if current_step < 0:
+                                continue
+                            
+                            # get the step status, message and time from the test results
+                            step_desc = ""
+                            step_message = ""
+                            step_command = ""
+                            step_response = ""
+                            step_time = "--:--:--"
+                            step_criteria = ""
+                            
+                            # get the step information from the test results
+                            for step in test_steps:
+                                if step.get('index') == current_step:
+                                    step_message = step.get('message', '')
+                                    step_desc = step.get('description', '')
+                                    step_criteria = step.get('criteria', '')
+                                    step_command = step.get('command', '')
+                                    step_response = step.get('response', '')
+                                    
+                                    # Get step time
+                                    step_time_from_step = step.get('time')
+                                    if step_time_from_step and step_time_from_step != "--:--:--":
+                                        step_time = step_time_from_step
+                                    else:
+                                        # Try to calculate time from start_time and end_time
+                                        start_time = step.get('start_time')
+                                        end_time = step.get('end_time')
+                                        if start_time and end_time:
+                                            try:
+                                                if isinstance(start_time, str):
+                                                    start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                                if isinstance(end_time, str):
+                                                    end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                                                
+                                                duration = end_time - start_time
+                                                step_time = f"{duration.total_seconds():.2f}s"
+                                            except Exception as e:
+                                                logger.warning(f"Error calculating step time from progress records: {e}")
+                                                step_time = "--:--:--"
+                                    break
+                            
+                            # Skip steps with empty criteria
+                            if not step_criteria:
+                                logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
+                                continue
+                            
+                            # Skip NOT_EXECUTED items
+                            if step_message == "NOT_EXECUTED":
+                                logger.debug(f"Skipping NOT_EXECUTED step from progress records: {step_desc}")
+                                continue
+                            
+                            # Skip duplicate steps
+                            template_signature = f"{test_id}_{current_step}_{step_desc}_{step_command}"
+                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                            
+                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                logger.debug(f"Skipping duplicate step from progress records: {step_desc} (step={current_step})")
+                                continue
+                            exported_test_steps.add(template_signature)
+                            exported_test_steps.add(execution_signature)
+                            
+                            # process the response text
+                            step_response = self._clean_response_text(step_response)
+                            
+                            if isinstance(step_message, str) and "skip" in step_message.lower():
+                                step_message = "SKIPPED"
+
+                            # Convert response for better readability
+                            response_converted = self._convert_response_for_display(
+                                step_response, step_criteria, step_command, step_desc
+                            )
+
+                            # create the data row
+                            row_data = [
+                                test_id,                # module
+                                step_desc,              # step
+                                step_criteria,          # criteria
+                                step_message,           # result
+                                step_command,           # command
+                                step_response,          # response
+                                response_converted,     # response_converted
+                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
+                                step_time               # time
+                            ]
+
+                            writer.writerow(row_data)
+                            data_exported = True
+                            logger.debug(f"Exported functionality step from progress records: {step_desc}")
+                        except Exception as ex:
+                            logger.warning(f"Error processing functionality test record: {str(ex)}")
+                            continue
+            except Exception as ex:
+                logger.warning(f"Error processing functionality test {test_id}: {str(ex)}")
+                continue
+        
+        return data_exported
+
     def _export_results(self):
-        """Export test results to a CSV file"""
+        """Export test results to a CSV file with optimized ordering"""
         try:
             # set the flag to prevent repeated execution
             if hasattr(self, '_export_in_progress') and self._export_in_progress:
@@ -1760,621 +2233,20 @@ class MainWindowController(QObject):
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
-                # write the functionality test results
-                # first process the tests with progress records
-                processed_tests = set()
-                exported_test_steps = set()  # Track exported steps to avoid duplicates
-                for test_id, records in test_progress_records.items():
-                    processed_tests.add(test_id)
-                    
-                    # determine the test type: if the test_id starts with diagnostic_, then get the step templates from diagnostic
-                    test_type = "diagnostic" if test_id.startswith("diagnostic_") else "functionality"
-                    step_templates = self.test_step_templates.get(test_type, {}).get(test_id, [])
-                    logger.info(f"Processing test with progress records: {test_id}, progress records: {len(records)}, step templates: {len(step_templates)} (from {test_type})")
-                    
-                    # get the step details of the test
-                    test_steps = []
-                    overall_test_time = "--:--:--"
-                    if test_id in test_results:
-                        test_steps = test_results[test_id].get("steps", [])
-                        # Try to get overall test time from functionality results
-                        overall_test_time = test_results[test_id].get("time", "--:--:--")
-                    elif test_id in diagnostic_results:
-                        test_steps = diagnostic_results[test_id].get("steps", [])
-                        overall_test_time = diagnostic_results[test_id].get("time", "--:--:--")
-                    
-                    # try to get the step details and execution status from the test worker
-                    worker_steps = []
-                    worker = None
-                    if hasattr(self.view_model.hardware_test_manager, 'test_workers'):
-                        worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
-                        if worker and hasattr(worker, 'steps'):
-                            worker_steps = worker.steps
-                    
-                    # if there are step templates, export all steps with criteria based on the step templates
-                    if step_templates:
-                        logger.info(f"Using step templates to export {len(step_templates)} steps for {test_id}")
-                        
-                        for template_index, template in enumerate(step_templates):
-                            try:
-                                # export only the steps with criteria
-                                step_criteria = template.get('criteria', '')
-                                if not step_criteria:
-                                    logger.debug(f"Skipping template step {template_index} for {test_id} - no criteria")
-                                    continue
-                                
-                                # get the basic step information
-                                step_desc = template.get('description', '')
-                                step_command = template.get('command', '')
-                                is_manual_step = template.get('manual_only', False)
-                                
-                                # initialize the result variables
-                                step_message = "NOT_EXECUTED"
-                                step_response = ""
-                                step_time = "--:--:--"
-                                
-                                # try to get more detailed information from test_steps
-                                # Use exact matching for better accuracy, especially for camera tests
-                                matching_step = None
-                                
-                                # First try exact index matching (works for most cases)
-                                for step in test_steps:
-                                    if step.get('index') == template_index:
-                                        step_test_desc = step.get('description', '')
-                                        # Ensure the descriptions also match to avoid cross-contamination
-                                        if step_test_desc == step_desc:
-                                            matching_step = step
-                                            logger.debug(f"Exact match: template {template_index} ('{step_desc}') with test_step {step.get('index')} ('{step_test_desc}')")
-                                            break
-                                
-                                # If no exact match found, try description-based matching (for camera tests with ignore issues)
-                                if not matching_step and test_id == "functionality_camera":
-                                    for step in test_steps:
-                                        step_test_desc = step.get('description', '')
-                                        # Strict description matching to avoid mixing different camera types
-                                        if step_test_desc == step_desc:
-                                            matching_step = step
-                                            logger.debug(f"Description match: template {template_index} ('{step_desc}') with test_step {step.get('index')} ('{step_test_desc}')")
-                                            break
-                                
-                                if matching_step:
-                                    # use the information from test_steps (these are the ones recorded during actual execution)
-                                    test_step_message = matching_step.get('message', '')
-                                    logger.debug(f"Found test_step for template {template_index}: message='{test_step_message}', response='{matching_step.get('response', '')[:50]}...'")
-                                    
-                                    if test_step_message and test_step_message != "No command specified":
-                                        step_message = test_step_message
-                                        logger.debug(f"Using test_step message for {template_index}: '{step_message}'")
-                                    elif test_step_message == "No command specified" and is_manual_step:
-                                        # for manual steps, if it is "No command specified", check if there is an actual PASS/FAIL result
-                                        # get the more accurate status from the worker
-                                        if worker and template_index < len(worker_steps):
-                                            worker_step = worker_steps[template_index]
-                                            if hasattr(worker_step, 'passed') and worker_step.passed is not None:
-                                                step_message = "PASS" if worker_step.passed else "FAIL"
-                                                logger.debug(f"Using worker status for manual step {template_index}: '{step_message}'")
-                                    
-                                    if matching_step.get('response'):
-                                        step_response = matching_step.get('response', step_response)
-                                    if matching_step.get('command'):
-                                        step_command = matching_step.get('command', step_command)
-                                    
-                                    # Get step time with better fallback logic
-                                    step_time_from_match = matching_step.get('time')
-                                    logger.debug(f"Template {template_index} - step_time_from_match: '{step_time_from_match}', type: {type(step_time_from_match)}")
-                                    if step_time_from_match and step_time_from_match != "--:--:--":
-                                        step_time = step_time_from_match
-                                        logger.debug(f"Using step time from matching_step for {template_index}: '{step_time}'")
-                                    else:
-                                        # Try to calculate time from start_time and end_time if available
-                                        start_time = matching_step.get('start_time')
-                                        end_time = matching_step.get('end_time')
-                                        if start_time and end_time:
-                                            try:
-                                                if isinstance(start_time, str):
-                                                    start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                                                if isinstance(end_time, str):
-                                                    end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                                                
-                                                duration = end_time - start_time
-                                                step_time = f"{duration.total_seconds():.2f}s"
-                                                logger.debug(f"Calculated step time for {template_index}: '{step_time}' (from start/end times)")
-                                            except Exception as e:
-                                                logger.warning(f"Error calculating step time for {template_index}: {e}")
-                                                step_time = "--:--:--"
-                                        else:
-                                            logger.debug(f"No valid time data found for step {template_index}, using default: '--:--:--'")
-                                
-                                # if no suitable result is found in test_steps, then get it from the worker
-                                if step_message == "NOT_EXECUTED" and worker and template_index < len(worker_steps):
-                                    worker_step = worker_steps[template_index]
-                                    if hasattr(worker_step, 'passed') and worker_step.passed is not None:
-                                        step_message = "PASS" if worker_step.passed else "FAIL"
-                                        if is_manual_step:
-                                            step_response = f"Manual interaction step - {step_message} (verified by user)"
-                                        logger.debug(f"Using worker as fallback for step {template_index}: '{step_message}'")
-                                
-                                # if it is still "No command specified" but this is a manual step and there is a worker result, then use the worker result
-                                if step_message == "No command specified" and is_manual_step and worker and template_index < len(worker_steps):
-                                    worker_step = worker_steps[template_index]
-                                    if hasattr(worker_step, 'passed') and worker_step.passed is not None:
-                                        step_message = "PASS" if worker_step.passed else "FAIL"
-                                        step_response = f"Manual interaction step - {step_message} (verified by user)"
-                                        logger.debug(f"Overriding 'No command specified' for manual step {template_index}: '{step_message}'")
-                                
-                                # process the response text, filter out the useless information
-                                final_response = ""
-                                if isinstance(step_response, str):
-                                    # for manual_only steps, keep the original response
-                                    is_manual_step = template.get('manual_only', False)
-                                    if is_manual_step:
-                                        final_response = step_response
-                                    else:
-                                        # for non-manual steps, filter the response
-                                        for line in step_response.split("\n"):
-                                            line_stripped = line.strip()
-                                            if not line_stripped:
-                                                continue
-                                            # filter out the obvious command lines and control information
-                                            if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
-                                                continue
-                                            # filter out the obvious command prompt lines
-                                            # check if the line is a command prompt line (usually starts with #, $, or >)
-                                            if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
-                                                line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
-                                                continue
-                                            # filter out the empty command prompt lines (only contains prompt characters and spaces)
-                                            if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
-                                                continue
-                                            final_response += line + "\n"
-                                
-                                step_response = final_response.strip()
-                                
-                                # process the skipped steps
-                                if isinstance(step_message, str) and "skip" in step_message.lower():
-                                    step_message = "SKIPPED"
-                                
-                                # get the timestamp
-                                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                
-                                # Skip NOT_EXECUTED items
-                                if step_message == "NOT_EXECUTED":
-                                    logger.debug(f"Skipping NOT_EXECUTED step: {step_desc}")
-                                    continue
-                                
-                                # For camera tests, only export steps that actually have matching execution results
-                                if test_id == "functionality_camera" and not matching_step:
-                                    logger.debug(f"Skipping camera step without execution match: {step_desc}")
-                                    continue
-                                
-                                # Skip duplicate steps (especially important for camera tests)
-                                # Use both template signature and execution signature to prevent duplicates
-                                template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
-                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                                
-                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                    logger.debug(f"Skipping duplicate step: {step_desc} (template={template_index})")
-                                    continue
-                                exported_test_steps.add(template_signature)
-                                exported_test_steps.add(execution_signature)
-                                
-                                # Convert response for better readability
-                                response_converted = self._convert_response_for_display(
-                                    step_response, step_criteria, step_command, step_desc
-                                )
-                                
-                                # create the data row
-                                row_data = [
-                                    test_id,                    # module
-                                    step_desc,                  # step
-                                    step_criteria,              # criteria
-                                    step_message,               # result
-                                    step_command,               # command
-                                    step_response,              # response
-                                    response_converted,         # response_converted
-                                    timestamp,                  # timestamp
-                                    step_time                   # duration
-                                ]
-                                
-                                writer.writerow(row_data)
-                                data_exported = True
-                                logger.debug(f"Exported step from template: {step_desc} (result: {step_message})")
-                                logger.info(f"Step {template_index} final export: '{step_desc}' -> Result: '{step_message}', Response: '{step_response[:50]}...'")
-                                
-                            except Exception as ex:
-                                logger.warning(f"Error processing template step {template_index}: {str(ex)}")
-                                continue
-                    
-                    else:
-                        logger.info(f"No step templates found for {test_id}, using progress records only")
-                        
-                        # if there are no step templates, fall back to the original logic
-                        for record in records:
-                            try:
-                                # ensure record is a dictionary and has current_step
-                                if not isinstance(record, dict) or 'current_step' not in record:
-                                    continue
-                                    
-                                # find the corresponding step information
-                                current_step = record['current_step'] - 1  # convert to 0-based index
-                                if current_step < 0:
-                                    continue
-                                
-                                # get the step status, message and time from the test results
-                                step_desc = ""
-                                step_message = ""
-                                step_command = ""
-                                step_response = ""
-                                step_time = "--:--:--"  # default time
-                                step_criteria = ""
-                                
-                                # initialize the test_step variable
-                                test_step = None
-                                
-                                # get the step information from the test results
-                                for step in test_steps:
-                                    if step.get('index') == current_step:
-                                        step_message = step.get('message', '')
-                                        step_desc = step.get('description', '')
-                                        step_criteria = step.get('criteria', '')
-                                        step_command = step.get('command', '')
-                                        step_response = step.get('response', '')
-                                        
-                                        # Get step time with better fallback logic
-                                        step_time_from_step = step.get('time')
-                                        if step_time_from_step and step_time_from_step != "--:--:--":
-                                            step_time = step_time_from_step
-                                        else:
-                                            # Try to calculate time from start_time and end_time if available
-                                            start_time = step.get('start_time')
-                                            end_time = step.get('end_time')
-                                            if start_time and end_time:
-                                                try:
-                                                    if isinstance(start_time, str):
-                                                        start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                                                    if isinstance(end_time, str):
-                                                        end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                                                    
-                                                    duration = end_time - start_time
-                                                    step_time = f"{duration.total_seconds():.2f}s"
-                                                except Exception as e:
-                                                    logger.warning(f"Error calculating step time from progress records: {e}")
-                                                    step_time = "--:--:--"
-                                            else:
-                                                step_time = "--:--:--"
-                                        break
-                                
-                                # try to get the step description from the test worker
-                                if worker and hasattr(worker, 'steps') and len(worker.steps) > current_step:
-                                    test_step = worker.steps[current_step]
-                                    # get the step description
-                                    if hasattr(test_step, 'description'):
-                                        step_desc = test_step.description
-                                    
-                                    # only get the command when the test results do not have command
-                                    if not step_command and hasattr(test_step, 'command'):
-                                        step_command = test_step.command
-                                    
-                                    # only get the response when the test results do not have response
-                                    if not step_response:
-                                        # use the response property first, if not, use the result property
-                                        if hasattr(test_step, 'response') and test_step.response:
-                                            step_response = test_step.response
-                                        elif hasattr(test_step, 'result') and test_step.result:
-                                            step_response = test_step.result
-                                            
-                                    # get criteria if not set
-                                    if not step_criteria and hasattr(test_step, 'criteria'):
-                                        step_criteria = test_step.criteria
-                                    
-                                    # for manual_only steps, set the message and response based on the actual execution result
-                                    if hasattr(test_step, 'manual_only') and test_step.manual_only:
-                                        # set the message based on the passed status
-                                        if hasattr(test_step, 'passed') and test_step.passed is not None:
-                                            step_message = "PASS" if test_step.passed else "FAIL"
-                                            if test_step.passed:
-                                                step_response = "Manual interaction step - PASS (verified by user)"
-                                            else:
-                                                step_response = "Manual interaction step - FAIL (verified by user)"
-                                        else:
-                                            step_message = "NOT_EXECUTED"
-                                            step_response = "Manual interaction step - no command executed"
-                                
-                                # Skip steps with empty criteria
-                                if not step_criteria:
-                                    logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
-                                    continue
-                                
-                                # process the "No command specified" case - for manual steps, if there is an execution result, use it
-                                if step_message == "No command specified" and test_step:
-                                    if hasattr(test_step, 'manual_only') and test_step.manual_only:
-                                        if hasattr(test_step, 'passed') and test_step.passed is not None:
-                                            step_message = "PASS" if test_step.passed else "FAIL"
-                                        else:
-                                            step_message = "NOT_EXECUTED"
-                                
-                                # process the response text
-                                final_response = ""
-                                if isinstance(step_response, str):
-                                    # for manual_only steps, keep the original response
-                                    is_manual_step = template.get('manual_only', False)
-                                    if is_manual_step:
-                                        final_response = step_response
-                                    else:
-                                        # for non-manual steps, filter the response
-                                        for line in step_response.split("\n"):
-                                            line_stripped = line.strip()
-                                            if not line_stripped:
-                                                continue
-                                            # filter out the obvious command lines and control information
-                                            if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
-                                                continue
-                                            # filter out the obvious command prompt lines
-                                            # check if the line is a command prompt line (usually starts with #, $, or >)
-                                            if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
-                                                line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
-                                                continue
-                                            # filter out the empty command prompt lines (only contains prompt characters and spaces)
-                                            if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
-                                                continue
-                                            final_response += line + "\n"
-                                
-                                step_response = final_response
-                                if isinstance(step_message, str) and "skip" in step_message.lower():
-                                    step_message = "SKIPPED"
-
-                                # Skip NOT_EXECUTED items
-                                if step_message == "NOT_EXECUTED":
-                                    logger.debug(f"Skipping NOT_EXECUTED step from progress records: {step_desc}")
-                                    continue
-                                
-                                # Skip duplicate steps
-                                template_signature = f"{test_id}_{current_step}_{step_desc}_{step_command}"
-                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                                
-                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                    logger.debug(f"Skipping duplicate step from progress records: {step_desc} (step={current_step})")
-                                    continue
-                                exported_test_steps.add(template_signature)
-                                exported_test_steps.add(execution_signature)
-                                
-                                # Convert response for better readability
-                                response_converted = self._convert_response_for_display(
-                                    step_response, step_criteria, step_command, step_desc
-                                )
-
-                                # create the data row of the diagnostic step
-                                row_data = [
-                                    test_id,                # module
-                                    step_desc,              # step
-                                    step_criteria,          # criteria
-                                    step_message,           # result
-                                    step_command,           # command
-                                    step_response,          # response
-                                    response_converted,     # response_converted
-                                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                                    step_time               # time
-                                ]
-
-                                writer.writerow(row_data)
-                                data_exported = True
-                                logger.debug(f"Exported step from progress records: {step_desc}")
-                            except Exception as ex:
-                                logger.warning(f"Error processing test record: {str(ex)}")
-                                continue
+                # Track exported steps to avoid duplicates
+                exported_test_steps = set()
                 
-                # process the tests without progress records but with step templates - skip this part, only export the executed tests
-                # comment out this part of the code, because the user only wants to export the executed modules
+                # STEP 1: Export Auto Diagnostic results first (if any)
+                logger.info("Step 1: Exporting Auto Diagnostic results...")
+                diagnostic_exported = self._export_diagnostic_results(writer, diagnostic_results, exported_test_steps)
+                if diagnostic_exported:
+                    data_exported = True
                 
-                # if the step templates are empty, try to get the step information directly from test_workers - also skip this part
-                # comment out this part of the code, because the user only wants to export the executed modules
-            
-            # write the diagnostic test results
-            for test_id, result_data in diagnostic_results.items():
-                try:
-                    # get the step templates of the diagnostic test
-                    step_templates = self.test_step_templates.get("diagnostic", {}).get(test_id, [])
-                    logger.info(f"Processing diagnostic test: {test_id}, step templates: {len(step_templates)}")
-                    
-                    # get the step data of the diagnostic test
-                    test_steps = result_data.get("steps", [])
-                    
-                    # if there are step templates, export all steps with criteria based on the step templates
-                    if step_templates:
-                        logger.info(f"Using step templates to export diagnostic {test_id}")
-                        
-                        for template_index, template in enumerate(step_templates):
-                            try:
-                                # export only the steps with criteria
-                                step_criteria = template.get('criteria', '')
-                                if not step_criteria:
-                                    logger.debug(f"Skipping diagnostic template step {template_index} for {test_id} - no criteria")
-                                    continue
-                                
-                                # get the basic step information
-                                step_desc = template.get('description', 'Diagnostic Test')
-                                step_command = template.get('command', '')
-                                
-                                # initialize the result variables
-                                step_message = "NOT_EXECUTED"
-                                step_response = ""
-                                step_time = "--:--:--"
-                                
-                                # try to get the execution result from test_steps
-                                for step in test_steps:
-                                    if step.get('index') == template_index:
-                                        step_message = step.get('message', 'NOT_EXECUTED')
-                                        step_response = step.get('response', '')
-                                        step_time = step.get('time', '--:--:--')
-                                        if step.get('command'):
-                                            step_command = step.get('command', step_command)
-                                        break
-                                
-                                # process the response text, filter out the useless information
-                                final_response = ""
-                                if isinstance(step_response, str):
-                                    for line in step_response.split("\n"):
-                                        line_stripped = line.strip()
-                                        if not line_stripped:
-                                            continue
-                                        # filter out the obvious command lines and control information
-                                        if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
-                                            continue
-                                        # filter out the obvious command prompt lines
-                                        # check if the line is a command prompt line (usually starts with #, $, or >)
-                                        if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
-                                            line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
-                                            continue
-                                        # filter out the empty command prompt lines (only contains prompt characters and spaces)
-                                        if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
-                                            continue
-                                        final_response += line + "\n"
-                                
-                                step_response = final_response.strip()
-                                
-                                # process the skipped steps
-                                if isinstance(step_message, str) and "skip" in step_message.lower():
-                                    step_message = "SKIPPED"
-                                
-                                # get the timestamp
-                                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                
-                                # Skip NOT_EXECUTED items
-                                if step_message == "NOT_EXECUTED":
-                                    logger.debug(f"Skipping NOT_EXECUTED diagnostic step: {step_desc}")
-                                    continue
-                                
-                                # Skip duplicate steps
-                                template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
-                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                                
-                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                    logger.debug(f"Skipping duplicate diagnostic step: {step_desc} (template={template_index})")
-                                    continue
-                                exported_test_steps.add(template_signature)
-                                exported_test_steps.add(execution_signature)
-                                
-                                # Convert response for better readability
-                                response_converted = self._convert_response_for_display(
-                                    step_response, step_criteria, step_command, step_desc
-                                )
-                                
-                                # create the data row
-                                row_data = [
-                                    test_id,                    # module
-                                    step_desc,                  # step
-                                    step_criteria,              # criteria
-                                    step_message,               # result
-                                    step_command,               # command
-                                    step_response,              # response
-                                    response_converted,         # response_converted
-                                    timestamp,                  # timestamp
-                                    step_time                   # duration
-                                ]
-                                
-                                writer.writerow(row_data)
-                                data_exported = True
-                                logger.debug(f"Exported diagnostic step from template: {step_desc} (result: {step_message})")
-                                
-                            except Exception as ex:
-                                logger.warning(f"Error processing diagnostic template step {template_index}: {str(ex)}")
-                                continue
-                    
-                    # if there are no step templates, use the original logic
-                    elif test_steps:
-                        for step in test_steps:
-                            step_desc = step.get("description", "Diagnostic Test")
-                            step_message = step.get("message", "")
-                            step_command = step.get("command", "")
-                            step_response = step.get("response", "")
-                            step_time = step.get("time", "--:--:--")
-                            step_criteria = step.get("criteria", "")
-                            
-                            # Skip steps with empty criteria - diagnostic tests must have criteria to be valid
-                            if not step_criteria:
-                                logger.debug(f"Skipping diagnostic step {step.get('index', -1)} for {test_id} - no criteria")
-                                continue
-                            
-                            # process the response text
-                            final_response = ""
-                            if isinstance(step_response, str):
-                                for line in step_response.split("\n"):
-                                    line_stripped = line.strip()
-                                    if not line_stripped:
-                                        continue
-                                    # filter out the obvious command lines and control information
-                                    if any(filter_str in line_stripped for filter_str in ["i2ctransfer", "grep", "............"]):
-                                        continue
-                                    # filter out the obvious command prompt lines
-                                    # check if the line is a command prompt line (usually starts with #, $, or >)
-                                    if (line_stripped.startswith("#") or line_stripped.startswith("$") or line_stripped.startswith(">") or
-                                        line_stripped.endswith("#") or line_stripped.endswith("$") or line_stripped.endswith(">")):
-                                        continue
-                                    # filter out the empty command prompt lines (only contains prompt characters and spaces)
-                                    if line_stripped in ["#", "$", ">", "# ", "$ ", "> "]:
-                                        continue
-                                    final_response += line + "\n"
-                            else:
-                                final_response = str(step_response)
-                            
-                            step_response = final_response
-                            if isinstance(step_message, str) and "skip" in step_message.lower():
-                                step_message = "SKIPPED"
-
-                            # create the data row of the diagnostic step
-                            row_data = [
-                                test_id,                # module
-                                step_desc,              # step
-                                step_criteria,          # criteria
-                                step_message,           # result
-                                step_command,           # command
-                                step_response,          # response
-                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                                step_time               # time
-                            ]
-                            
-                            writer.writerow(row_data)
-                            data_exported = True
-                            logger.debug(f"Exported diagnostic step: {step_desc} (result: {step_message})")
-                    else:
-                        # if there is no step data, use the basic information
-                        status = result_data.get("status", "")
-                        time_str = result_data.get("time", "--:--:--")
-                        details = result_data.get("details", {})
-                        if not isinstance(details, dict):
-                            details = {}
-                            
-                        message = details.get("message", "")
-                        
-                        # Skip this entry if there are no criteria or validation results
-                        if not message or message.strip() == "":
-                            logger.debug(f"Skipping diagnostic {test_id} - no message or validation results")
-                            continue
-                        
-                        # Convert response for better readability (empty in this case)
-                        response_converted = self._convert_response_for_display(
-                            "", "", "", "Diagnostic Test"
-                        )
-                        
-                        # create the data row of the diagnostic result
-                        row_data = [
-                            test_id,                # module
-                            "Diagnostic Test",      # step
-                            "",                     # criteria
-                            f"{status}: {message}", # result
-                            "",                     # command
-                            "",                     # response
-                            response_converted,     # response_converted
-                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                            time_str                # time
-                        ]
-                        
-                        writer.writerow(row_data)
-                        data_exported = True
-                        logger.debug(f"Exported diagnostic basic info: {test_id} (status: {status})")
-                except Exception as ex:
-                    logger.warning(f"Error processing diagnostic result for {test_id}: {str(ex)}")
-                    continue
+                # STEP 2: Export Functionality Test results in sorted order
+                logger.info("Step 2: Exporting Functionality Test results...")
+                functionality_exported = self._export_functionality_results_sorted(writer, test_results, test_progress_records, exported_test_steps)
+                if functionality_exported:
+                    data_exported = True
             
             if data_exported:
                 logger.info(f"Test results exported to: {file_path}")
