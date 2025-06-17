@@ -1043,7 +1043,7 @@ class MainWindowController(QObject):
             operation_name=operation_name,
             operation_callback=lambda: self._execute_functionality_test(test_id),
             on_success=lambda: self._on_functionality_test_pre_check_success(operation_name),
-            on_failure=lambda reason: self._on_functionality_test_pre_check_failure(operation_name, reason),
+            on_failure=lambda reason: self._on_functionality_test_pre_check_failure(operation_name, reason, test_id),
             check_timeout=12000  # 12 seconds timeout
         )
     
@@ -1060,9 +1060,18 @@ class MainWindowController(QObject):
         """functionality test pre-check success callback"""
         self.log_manager.add_log_entry("INFO", f"Connection verified, starting {operation_name.lower()}")
     
-    def _on_functionality_test_pre_check_failure(self, operation_name: str, reason: str):
+    def _on_functionality_test_pre_check_failure(self, operation_name: str, reason: str, test_id: str = None):
         """functionality test pre-check failure callback"""
         self.log_manager.add_log_entry("ERROR", f"Connection check failed for {operation_name.lower()}: {reason}")
+        
+        # Reset test manager button state since pre-check failed
+        if hasattr(self, 'test_manager') and self.test_manager:
+            if test_id:
+                # Reset individual test button state
+                self.test_manager.test_container.set_test_state(test_id, "not_started")
+            else:
+                # Reset Test All button state
+                self.test_manager._reset_test_all_button_state()
         
         # show the error message
         msg_box = QMessageBox(self.window)
@@ -1102,6 +1111,13 @@ class MainWindowController(QObject):
     def _on_auto_diagnostic_pre_check_failure(self, reason: str):
         """auto diagnostic pre-check failure callback"""
         self.log_manager.add_log_entry("ERROR", f"Connection/Login check failed for auto diagnostic: {reason}")
+        
+        # Reset auto diagnostic button state since pre-check failed
+        if hasattr(self, 'auto_diagnostic_view') and self.auto_diagnostic_view:
+            self.auto_diagnostic_view.is_running = False
+            if self.auto_diagnostic_view.run_all_button:
+                self.auto_diagnostic_view.run_all_button.setText("Run All Tests")
+                self.auto_diagnostic_view.run_all_button.setEnabled(True)
         
         # show the error message
         msg_box = QMessageBox(self.window)
