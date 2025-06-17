@@ -1238,6 +1238,10 @@ class MainWindowController(QObject):
             if "button event" in step_desc.lower() and "key_power" in response_str.lower():
                 return self._convert_power_button_response(response_str)
             
+            # Handle camera GPIO value conversion
+            if "validate gpio value" in step_desc.lower():
+                return self._convert_camera_gpio_response(response_str)
+            
             # Handle panel resolution - check before i2c check since it may contain hex values
             if "resolution" in step_desc.lower():
                 return self._convert_resolution_response(response_str)
@@ -1634,6 +1638,37 @@ class MainWindowController(QObject):
             logger.warning(f"Error converting U-Boot version response: {e}")
             return response
 
+    def _convert_camera_gpio_response(self, response):
+        """Convert camera GPIO value response to camera model string"""
+        try:
+            # Parse GPIO value using the same logic as _parse_gpio_value
+            lines = response.strip().split("\n")
+            values = [line.strip() for line in lines if line.strip()]
+            values.reverse()
+            gpio_value_str = "".join(values)
+            
+            # Camera model mapping based on GPIO values
+            camera_models = {
+                "1001": "LVDS Titanium",
+                "1110": "Scorpius", 
+                "1101": "MIPI_VGA",
+                "1011": "MIPI_720",
+                "1010": "LVDS Smart cable",
+                "0001": "Jig A",
+                "0010": "Jig B"
+            }
+            
+            # Look up the camera model
+            if gpio_value_str in camera_models:
+                camera_model = camera_models[gpio_value_str]
+                return f"{gpio_value_str} = {camera_model}"
+            else:
+                return f"{gpio_value_str} (Unknown camera model)"
+            
+        except Exception as e:
+            logger.warning(f"Error converting camera GPIO response: {e}")
+            return response
+    
     def _clean_response_text(self, response):
         """Clean up response text by removing command echoes and prompts"""
         try:
@@ -1712,6 +1747,7 @@ class MainWindowController(QObject):
                 # write the functionality test results
                 # first process the tests with progress records
                 processed_tests = set()
+                exported_test_steps = set()  # Track exported steps to avoid duplicates
                 for test_id, records in test_progress_records.items():
                     processed_tests.add(test_id)
                     
@@ -1762,31 +1798,76 @@ class MainWindowController(QObject):
                                 step_time = "--:--:--"
                                 
                                 # try to get more detailed information from test_steps
+                                # Use exact matching for better accuracy, especially for camera tests
+                                matching_step = None
+                                
+                                # First try exact index matching (works for most cases)
                                 for step in test_steps:
                                     if step.get('index') == template_index:
-                                        # use the information from test_steps (these are the ones recorded during actual execution)
-                                        test_step_message = step.get('message', '')
-                                        logger.debug(f"Found test_step for {template_index}: message='{test_step_message}', response='{step.get('response', '')[:50]}...'")
-                                        
-                                        if test_step_message and test_step_message != "No command specified":
-                                            step_message = test_step_message
-                                            logger.debug(f"Using test_step message for {template_index}: '{step_message}'")
-                                        elif test_step_message == "No command specified" and is_manual_step:
-                                            # for manual steps, if it is "No command specified", check if there is an actual PASS/FAIL result
-                                            # get the more accurate status from the worker
-                                            if worker and template_index < len(worker_steps):
-                                                worker_step = worker_steps[template_index]
-                                                if hasattr(worker_step, 'passed') and worker_step.passed is not None:
-                                                    step_message = "PASS" if worker_step.passed else "FAIL"
-                                                    logger.debug(f"Using worker status for manual step {template_index}: '{step_message}'")
-                                        
-                                        if step.get('response'):
-                                            step_response = step.get('response', step_response)
-                                        if step.get('command'):
-                                            step_command = step.get('command', step_command)
-                                        if step.get('time'):
-                                            step_time = step.get('time', step_time)
-                                        break
+                                        step_test_desc = step.get('description', '')
+                                        # Ensure the descriptions also match to avoid cross-contamination
+                                        if step_test_desc == step_desc:
+                                            matching_step = step
+                                            logger.debug(f"Exact match: template {template_index} ('{step_desc}') with test_step {step.get('index')} ('{step_test_desc}')")
+                                            break
+                                
+                                # If no exact match found, try description-based matching (for camera tests with ignore issues)
+                                if not matching_step and test_id == "functionality_camera":
+                                    for step in test_steps:
+                                        step_test_desc = step.get('description', '')
+                                        # Strict description matching to avoid mixing different camera types
+                                        if step_test_desc == step_desc:
+                                            matching_step = step
+                                            logger.debug(f"Description match: template {template_index} ('{step_desc}') with test_step {step.get('index')} ('{step_test_desc}')")
+                                            break
+                                
+                                if matching_step:
+                                    # use the information from test_steps (these are the ones recorded during actual execution)
+                                    test_step_message = matching_step.get('message', '')
+                                    logger.debug(f"Found test_step for template {template_index}: message='{test_step_message}', response='{matching_step.get('response', '')[:50]}...'")
+                                    
+                                    if test_step_message and test_step_message != "No command specified":
+                                        step_message = test_step_message
+                                        logger.debug(f"Using test_step message for {template_index}: '{step_message}'")
+                                    elif test_step_message == "No command specified" and is_manual_step:
+                                        # for manual steps, if it is "No command specified", check if there is an actual PASS/FAIL result
+                                        # get the more accurate status from the worker
+                                        if worker and template_index < len(worker_steps):
+                                            worker_step = worker_steps[template_index]
+                                            if hasattr(worker_step, 'passed') and worker_step.passed is not None:
+                                                step_message = "PASS" if worker_step.passed else "FAIL"
+                                                logger.debug(f"Using worker status for manual step {template_index}: '{step_message}'")
+                                    
+                                    if matching_step.get('response'):
+                                        step_response = matching_step.get('response', step_response)
+                                    if matching_step.get('command'):
+                                        step_command = matching_step.get('command', step_command)
+                                    
+                                    # Get step time with better fallback logic
+                                    step_time_from_match = matching_step.get('time')
+                                    logger.debug(f"Template {template_index} - step_time_from_match: '{step_time_from_match}', type: {type(step_time_from_match)}")
+                                    if step_time_from_match and step_time_from_match != "--:--:--":
+                                        step_time = step_time_from_match
+                                        logger.debug(f"Using step time from matching_step for {template_index}: '{step_time}'")
+                                    else:
+                                        # Try to calculate time from start_time and end_time if available
+                                        start_time = matching_step.get('start_time')
+                                        end_time = matching_step.get('end_time')
+                                        if start_time and end_time:
+                                            try:
+                                                if isinstance(start_time, str):
+                                                    start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                                if isinstance(end_time, str):
+                                                    end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                                                
+                                                duration = end_time - start_time
+                                                step_time = f"{duration.total_seconds():.2f}s"
+                                                logger.debug(f"Calculated step time for {template_index}: '{step_time}' (from start/end times)")
+                                            except Exception as e:
+                                                logger.warning(f"Error calculating step time for {template_index}: {e}")
+                                                step_time = "--:--:--"
+                                        else:
+                                            logger.debug(f"No valid time data found for step {template_index}, using default: '--:--:--'")
                                 
                                 # if no suitable result is found in test_steps, then get it from the worker
                                 if step_message == "NOT_EXECUTED" and worker and template_index < len(worker_steps):
@@ -1839,6 +1920,27 @@ class MainWindowController(QObject):
                                 
                                 # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                # Skip NOT_EXECUTED items
+                                if step_message == "NOT_EXECUTED":
+                                    logger.debug(f"Skipping NOT_EXECUTED step: {step_desc}")
+                                    continue
+                                
+                                # For camera tests, only export steps that actually have matching execution results
+                                if test_id == "functionality_camera" and not matching_step:
+                                    logger.debug(f"Skipping camera step without execution match: {step_desc}")
+                                    continue
+                                
+                                # Skip duplicate steps (especially important for camera tests)
+                                # Use both template signature and execution signature to prevent duplicates
+                                template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
+                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                                
+                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                    logger.debug(f"Skipping duplicate step: {step_desc} (template={template_index})")
+                                    continue
+                                exported_test_steps.add(template_signature)
+                                exported_test_steps.add(execution_signature)
                                 
                                 # Convert response for better readability
                                 response_converted = self._convert_response_for_display(
@@ -1901,7 +2003,29 @@ class MainWindowController(QObject):
                                         step_criteria = step.get('criteria', '')
                                         step_command = step.get('command', '')
                                         step_response = step.get('response', '')
-                                        step_time = step.get('time', '--:--:--')
+                                        
+                                        # Get step time with better fallback logic
+                                        step_time_from_step = step.get('time')
+                                        if step_time_from_step and step_time_from_step != "--:--:--":
+                                            step_time = step_time_from_step
+                                        else:
+                                            # Try to calculate time from start_time and end_time if available
+                                            start_time = step.get('start_time')
+                                            end_time = step.get('end_time')
+                                            if start_time and end_time:
+                                                try:
+                                                    if isinstance(start_time, str):
+                                                        start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                                    if isinstance(end_time, str):
+                                                        end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                                                    
+                                                    duration = end_time - start_time
+                                                    step_time = f"{duration.total_seconds():.2f}s"
+                                                except Exception as e:
+                                                    logger.warning(f"Error calculating step time from progress records: {e}")
+                                                    step_time = "--:--:--"
+                                            else:
+                                                step_time = "--:--:--"
                                         break
                                 
                                 # try to get the step description from the test worker
@@ -1983,6 +2107,21 @@ class MainWindowController(QObject):
                                 if isinstance(step_message, str) and "skip" in step_message.lower():
                                     step_message = "SKIPPED"
 
+                                # Skip NOT_EXECUTED items
+                                if step_message == "NOT_EXECUTED":
+                                    logger.debug(f"Skipping NOT_EXECUTED step from progress records: {step_desc}")
+                                    continue
+                                
+                                # Skip duplicate steps
+                                template_signature = f"{test_id}_{current_step}_{step_desc}_{step_command}"
+                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                                
+                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                    logger.debug(f"Skipping duplicate step from progress records: {step_desc} (step={current_step})")
+                                    continue
+                                exported_test_steps.add(template_signature)
+                                exported_test_steps.add(execution_signature)
+                                
                                 # Convert response for better readability
                                 response_converted = self._convert_response_for_display(
                                     step_response, step_criteria, step_command, step_desc
@@ -2083,6 +2222,21 @@ class MainWindowController(QObject):
                                 
                                 # get the timestamp
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                # Skip NOT_EXECUTED items
+                                if step_message == "NOT_EXECUTED":
+                                    logger.debug(f"Skipping NOT_EXECUTED diagnostic step: {step_desc}")
+                                    continue
+                                
+                                # Skip duplicate steps
+                                template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
+                                execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                                
+                                if template_signature in exported_test_steps or execution_signature in exported_test_steps:
+                                    logger.debug(f"Skipping duplicate diagnostic step: {step_desc} (template={template_index})")
+                                    continue
+                                exported_test_steps.add(template_signature)
+                                exported_test_steps.add(execution_signature)
                                 
                                 # Convert response for better readability
                                 response_converted = self._convert_response_for_display(
@@ -2469,17 +2623,6 @@ class MainWindowController(QObject):
         if hasattr(self, 'auto_diagnostic_view'):
             self.auto_diagnostic_view.set_buttons_enabled(enabled)
 
-
-    @Slot()
-    def _on_all_diagnostics_completed(self):
-        """handle the event of all diagnostics completed"""
-        self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
-
-    @Slot()
-    def _on_all_tests_completed(self):
-        """Handle the event of all functionality tests completed"""
-        self.log_manager.add_log_entry("INFO", "All functionality tests completed")
-
     def _on_tab_changed(self, index):
         """Handle tab change event"""
         # only save the current tab index when not updating
@@ -2623,5 +2766,7 @@ class MainWindowController(QObject):
                 border: 2px solid #1C97EA;
             }
         """
+
+    
 
     
