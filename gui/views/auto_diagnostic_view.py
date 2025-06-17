@@ -207,6 +207,17 @@ class AutoDiagnosticView(QObject):
     
     def _on_run_all_tests(self):
         """handle the run all tests button click with pre-check if available"""
+        # Immediately change button state for better user experience
+        if self.is_running:
+            return
+            
+        self.is_running = True
+        self.run_all_button.setText("Running...")
+        self.run_all_button.setEnabled(False)
+        
+        # Reset all diagnostic items status
+        self.diagnostic_container.reset_all_items()
+        
         # if there is a MainWindowController reference, use pre-check
         if self.main_window_controller:
             self.main_window_controller.execute_auto_diagnostic_with_pre_check()
@@ -216,17 +227,8 @@ class AutoDiagnosticView(QObject):
     
     def _run_all_tests_directly(self):
         """Directly handle the run all tests button click without pre-check"""
-        if self.is_running:
-            return
-            
-        self.is_running = True
-        self.run_all_button.setText("Running...")
-        self.run_all_button.setEnabled(False)
-        
-        # reset all the diagnostic items status
-        self.diagnostic_container.reset_all_items()
-        
-        # start running the test sequence
+        # Button state should already be changed in _on_run_all_tests()
+        # Just start the test sequence
         self._run_diagnostic_sequence()
         
         logger.info("Starting auto diagnostic sequence")

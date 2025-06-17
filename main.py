@@ -20,10 +20,10 @@ def main():
         
         # Set application name
         app.setApplicationName("VT Hydra")
-        app.setApplicationDisplayName("System Monitor v1.3 20250610")
+        app.setApplicationDisplayName("System Monitor v1.4 20250617")
         app.setOrganizationName("Orion")
         app.setOrganizationDomain("orion.com")
-        app.setApplicationVersion("1.3.0.0")
+        app.setApplicationVersion("1.4.1.0")
         
         # use high DPI scaling
         app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)

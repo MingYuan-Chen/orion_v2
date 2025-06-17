@@ -145,6 +145,9 @@ class TestManagerView(QObject):
         Args:
             test_id: Test ID to start
         """
+        # Immediately change button state for better user experience
+        self.test_container.set_test_state(test_id, "running", "Checking...")
+        
         # if there is a MainWindowController reference, use the pre-check
         if self.main_window_controller:
             self.main_window_controller.execute_functionality_test_with_pre_check(test_id)
@@ -187,6 +190,19 @@ class TestManagerView(QObject):
     
     def start_test_all(self):
         """Start executing selected test modules in sequence with pre-check if available"""
+        # Immediately change button state for better user experience
+        if self.is_test_all_running:
+            return
+        
+        # Disable the test all button and change text immediately
+        if self.test_all_button:
+            self.test_all_button.setEnabled(False)
+            self.test_all_button.setText("Running...")
+        
+        # Show abort button
+        if self.abort_button:
+            self.abort_button.setVisible(True)
+        
         # if there is a MainWindowController reference, use the pre-check
         if self.main_window_controller:
             self.main_window_controller.execute_functionality_test_with_pre_check()
@@ -196,10 +212,8 @@ class TestManagerView(QObject):
     
     def _start_test_all_directly(self):
         """Directly start executing selected test modules in sequence without pre-check"""
-        # if the test sequence is already running, ignore this call
-        if self.is_test_all_running:
-            return
-            
+        # Button state should already be changed in start_test_all()
+        
         # create the test selection dialog - always use the original test sequence
         test_mapping = {test_id: test_id.replace("functionality_", "").capitalize() for test_id in self.original_test_sequence}
         dialog = TestSelectionDialog(test_mapping, self.parent_widget)
@@ -207,12 +221,16 @@ class TestManagerView(QObject):
         # show the dialog and wait for user selection
         if dialog.exec() != QDialog.Accepted:
             logger.info("Test sequence selection cancelled")
+            # Reset button state since user cancelled
+            self._reset_test_all_button_state()
             return
             
         # get the user selected test sequence
         selected_tests = dialog.get_selected_tests()
         if not selected_tests:
             logger.warning("No tests selected")
+            # Reset button state since no tests selected
+            self._reset_test_all_button_state()
             return
             
         # update the test sequence with the selected tests
@@ -226,11 +244,6 @@ class TestManagerView(QObject):
         # reset the test sequence
         self.current_test_index = -1
         self.is_test_all_running = True
-        
-        # disable the test all button
-        if self.test_all_button:
-            self.test_all_button.setEnabled(False)
-            self.test_all_button.setText("Running...")
         
         # start the first test
         self._execute_next_test()
@@ -246,17 +259,10 @@ class TestManagerView(QObject):
         self.stop_current_test()
         
         # Reset test sequence state
-        self.is_test_all_running = False
         self.current_test_index = -1
         
-        # Enable the test all button
-        if self.test_all_button:
-            self.test_all_button.setEnabled(True)
-            self.test_all_button.setText("Test All")
-        
-        # Hide abort button
-        if self.abort_button:
-            self.abort_button.setVisible(False)
+        # Reset button state
+        self._reset_test_all_button_state()
     
     def stop_current_test(self):
         """Stop the currently running test"""
@@ -673,19 +679,25 @@ class TestManagerView(QObject):
         # start the test directly (already passed the pre-check)
         self._start_test_directly(test_id)
 
-    def _complete_test_all(self):
-        """Complete Test All sequence"""
+    def _reset_test_all_button_state(self):
+        """Reset Test All button to its initial state"""
         self.is_test_all_running = False
-        self.current_test_index = -1
         
         # enable the test all button
         if self.test_all_button:
             self.test_all_button.setEnabled(True)
             self.test_all_button.setText("Test All")
         
-        # Hide abort button when all tests are completed
+        # Hide abort button
         if self.abort_button:
             self.abort_button.setVisible(False)
+
+    def _complete_test_all(self):
+        """Complete Test All sequence"""
+        self.current_test_index = -1
+        
+        # Reset button state
+        self._reset_test_all_button_state()
         
         # record the completion
         logger.info("Test All sequence completed")
