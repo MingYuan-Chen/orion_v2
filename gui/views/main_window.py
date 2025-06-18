@@ -277,6 +277,9 @@ class MainWindowController(QObject):
         self.window.button_edit_battery_model.clicked.connect(self._on_edit_battery_model)
         self.window.button_edit_battery_serial.clicked.connect(self._on_edit_battery_serial)
         
+        # Connect stability test buttons
+        self.window.pushButton_battery_monitor.clicked.connect(self._on_battery_monitor_clicked)
+        
         # connect the tab changed signal
         if hasattr(self.window, 'tabWidget'):
             self.window.tabWidget.currentChanged.connect(self._on_tab_changed)
@@ -1167,6 +1170,36 @@ class MainWindowController(QObject):
         """handle the edit battery serial number button click"""
         if self.system_info_manager.edit_battery_serial():
             self.log_manager.add_log_entry("INFO", "Battery serial number updated")
+
+    def _on_battery_monitor_clicked(self):
+        """Handle Battery Monitor button click"""
+        logger.info("Battery Monitor button clicked")
+        
+        # Add log entry
+        self.log_manager.add_log_entry("INFO", "Battery Monitor started")
+        
+        # Show information dialog about Battery Monitor functionality
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Battery Monitor")
+        msg_box.setText("Battery Monitor功能")
+        msg_box.setInformativeText(
+            "Battery Monitor 將執行以下功能：\n\n"
+            "• 監控電池電壓、電流和溫度\n"
+            "• 記錄電池性能數據\n"
+            "• 分析電池穩定性\n"
+            "• 生成電池健康報告\n\n"
+            "功能正在開發中，敬請期待！"
+        )
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # Apply dark theme style
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
+        
+        # Log completion
+        self.log_manager.add_log_entry("INFO", "Battery Monitor dialog displayed")
 
     def _set_window_properties(self):
         """Set window properties, ensure it is recognized as part of the main application"""
