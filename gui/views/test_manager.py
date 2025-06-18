@@ -263,6 +263,11 @@ class TestManagerView(QObject):
         
         # Reset button state
         self._reset_test_all_button_state()
+        
+        # Notify MainWindowController about test abortion
+        if self.main_window_controller:
+            test_type = "Functionality Test All" if self.is_test_all_running else "Individual Functionality Test"
+            self.main_window_controller._on_test_execution_aborted(test_type, "User aborted test")
     
     def stop_current_test(self):
         """Stop the currently running test"""
@@ -345,6 +350,10 @@ class TestManagerView(QObject):
         # Hide abort button if not running a test sequence
         if self.abort_button and not self.is_test_all_running:
             self.abort_button.setVisible(False)
+        
+        # Notify MainWindowController about individual test completion if not part of Test All
+        if self.main_window_controller and not self.is_test_all_running:
+            self.main_window_controller._on_individual_test_completed(test_id, "Functionality")
         
         # record the test completed
         if success:

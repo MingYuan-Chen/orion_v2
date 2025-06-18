@@ -144,6 +144,9 @@ class MainWindowController(QObject):
         # Add update status flag
         self.is_updating = False
         
+        # Add test running status flag
+        self.is_test_running = False
+        
         # add current tab index
         self.current_tab_index = -1
         
@@ -1049,6 +1052,10 @@ class MainWindowController(QObject):
     
     def _execute_functionality_test(self, test_id: str = None):
         """execute the actual functionality test operation"""
+        # Disable UI controls when functionality test starts
+        test_name = f"Functionality Test ({test_id})" if test_id else "Functionality Test All"
+        self._on_test_execution_started(test_name)
+        
         if test_id:
             # execute the single test
             self.test_manager._start_test_directly(test_id)
@@ -1063,6 +1070,9 @@ class MainWindowController(QObject):
     def _on_functionality_test_pre_check_failure(self, operation_name: str, reason: str, test_id: str = None):
         """functionality test pre-check failure callback"""
         self.log_manager.add_log_entry("ERROR", f"Connection check failed for {operation_name.lower()}: {reason}")
+        
+        # Restore UI state since pre-check failed
+        self._on_test_execution_aborted(operation_name, f"Pre-check failed: {reason}")
         
         # Reset test manager button state since pre-check failed
         if hasattr(self, 'test_manager') and self.test_manager:
@@ -1102,6 +1112,9 @@ class MainWindowController(QObject):
     
     def _execute_auto_diagnostic(self):
         """execute the actual auto diagnostic operation"""
+        # Disable UI controls when auto diagnostic starts
+        self._on_test_execution_started("Auto Diagnostic")
+        
         self.auto_diagnostic_view._run_all_tests_directly()
     
     def _on_auto_diagnostic_pre_check_success(self):
@@ -1111,6 +1124,9 @@ class MainWindowController(QObject):
     def _on_auto_diagnostic_pre_check_failure(self, reason: str):
         """auto diagnostic pre-check failure callback"""
         self.log_manager.add_log_entry("ERROR", f"Connection/Login check failed for auto diagnostic: {reason}")
+        
+        # Restore UI state since pre-check failed
+        self._on_test_execution_aborted("Auto Diagnostic", f"Pre-check failed: {reason}")
         
         # Reset auto diagnostic button state since pre-check failed
         if hasattr(self, 'auto_diagnostic_view') and self.auto_diagnostic_view:
@@ -1217,11 +1233,17 @@ class MainWindowController(QObject):
     def _on_all_diagnostics_completed(self):
         """handle the event of all diagnostics completed"""
         self.log_manager.add_log_entry("INFO", "All diagnostic tests completed")
+        
+        # Restore UI controls after diagnostic tests complete
+        self._on_test_execution_completed("Auto Diagnostic")
 
     @Slot()
     def _on_all_tests_completed(self):
         """Handle the event of all functionality tests completed"""
         self.log_manager.add_log_entry("INFO", "All functionality tests completed")
+        
+        # Restore UI controls after functionality tests complete
+        self._on_test_execution_completed("Functionality Test All")
 
     def _convert_response_for_display(self, response, criteria, command, step_desc):
         """
@@ -2655,6 +2677,106 @@ class MainWindowController(QObject):
             }
         """
 
-    
+    def _on_test_execution_started(self, test_type=""):
+        """
+        Handle UI state when test execution starts
+        
+        Args:
+            test_type: Type of test being started (for logging)
+        """
+        logger.info(f"Test execution started: {test_type}")
+        
+        # Set test running flag
+        self.is_test_running = True
+        
+        # Disable all UI controls except tabs and abort buttons
+        exclude_widgets = []
+        if hasattr(self.window, 'tabWidget'):
+            exclude_widgets.append(self.window.tabWidget)
+        
+        # Keep abort buttons enabled
+        if hasattr(self.window, 'button_abort_test'):
+            exclude_widgets.append(self.window.button_abort_test)
+        
+        # Disable all other controls including refresh button
+        self.set_ui_controls_state(False, exclude_widgets)
+        
+        # Keep the refresh button specifically disabled during tests
+        if hasattr(self.window, 'pushButton_refresh'):
+            self.window.pushButton_refresh.setEnabled(False)
+        
+        # Add log entry
+        self.log_manager.add_log_entry("INFO", f"Test execution started - UI controls disabled")
+
+    def _on_test_execution_completed(self, test_type=""):
+        """
+        Handle UI state when test execution completes
+        
+        Args:
+            test_type: Type of test that completed (for logging)
+        """
+        logger.info(f"Test execution completed: {test_type}")
+        
+        # Clear test running flag
+        self.is_test_running = False
+        
+        # Re-enable all UI controls
+        self.set_ui_controls_state(True)
+        
+        # Add log entry
+        self.log_manager.add_log_entry("INFO", f"Test execution completed - UI controls re-enabled")
+
+    def _on_test_execution_aborted(self, test_type="", reason=""):
+        """
+        Handle UI state when test execution is aborted or fails
+        
+        Args:
+            test_type: Type of test that was aborted (for logging)
+            reason: Reason for abortion (for logging)
+        """
+        logger.info(f"Test execution aborted: {test_type} - {reason}")
+        
+        # Clear test running flag
+        self.is_test_running = False
+        
+        # Re-enable all UI controls
+        self.set_ui_controls_state(True)
+        
+        # Add log entry
+        if reason:
+            self.log_manager.add_log_entry("WARNING", f"Test execution aborted: {test_type} - {reason}")
+        else:
+            self.log_manager.add_log_entry("WARNING", f"Test execution aborted: {test_type}")
+
+    def _on_individual_test_completed(self, test_id: str, test_type=""):
+        """
+        Handle UI state when an individual test completes (not part of a test sequence)
+        
+        Args:
+            test_id: Test ID that completed
+            test_type: Type of test (for logging)
+        """
+        # Only restore UI if this is an individual test (not part of Test All sequence)
+        if hasattr(self, 'test_manager') and self.test_manager:
+            # Check if Test All is currently running
+            if not self.test_manager.is_test_all_running:
+                logger.info(f"Individual test completed: {test_id} - restoring UI controls")
+                
+                # Clear test running flag
+                self.is_test_running = False
+                
+                # Re-enable all UI controls
+                self.set_ui_controls_state(True)
+                
+                # Add log entry
+                self.log_manager.add_log_entry("INFO", f"Individual {test_type} test completed - UI controls re-enabled")
+            else:
+                logger.debug(f"Test {test_id} completed as part of Test All sequence - keeping UI disabled")
+        else:
+            # Fallback: restore UI if we can't determine test sequence status
+            logger.info(f"Test {test_id} completed - restoring UI controls (fallback)")
+            self.is_test_running = False
+            self.set_ui_controls_state(True)
+            self.log_manager.add_log_entry("INFO", f"{test_type} test completed - UI controls re-enabled")
 
     

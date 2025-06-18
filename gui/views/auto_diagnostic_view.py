@@ -293,10 +293,23 @@ class AutoDiagnosticView(QObject):
             logger.info(f"Test {test_id} execution started")
         except Exception as e:
             logger.error(f"Error executing test {test_id}: {str(e)}")
+            
+            # Mark this test as failed due to execution error
+            self.diagnostic_container.update_item_status(test_id, "FAIL", "Execution Error")
+            self.local_diagnostic_results[test_id] = {
+                "status": "FAIL",
+                "time": "--:--:--",
+                "details": {"message": f"Execution error: {str(e)}"},
+                "steps": []
+            }
+            
             # if the error occurs when executing the test, try to continue with the next test
             if hasattr(self, 'pending_tests') and self.pending_tests:
                 next_test = self.pending_tests.pop(0)
                 self._start_test(next_test)
+            else:
+                # No more tests to run, complete the diagnostic sequence
+                self._complete_all_diagnostics()
     
     def _on_export_report(self):
         """handle the export report button click"""
