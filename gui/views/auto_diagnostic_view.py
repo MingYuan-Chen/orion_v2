@@ -4,7 +4,7 @@ Responsible for managing diagnostic test execution and UI updates
 """
 
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSizePolicy, QMessageBox
 from typing import Dict, List, Any, Optional
 import datetime
 
@@ -206,11 +206,17 @@ class AutoDiagnosticView(QObject):
         self.current_diagnostics = list(diagnostic_tests.keys())
     
     def _on_run_all_tests(self):
-        """handle the run all tests button click with pre-check if available"""
-        # Immediately change button state for better user experience
+        """handle the run all tests button click with confirmation dialog"""
+        # Check if already running
         if self.is_running:
             return
+        
+        # Show confirmation dialog before starting tests
+        if not self._show_auto_diagnostic_confirmation():
+            # User cancelled, don't start the tests
+            return
             
+        # User confirmed, proceed with tests
         self.is_running = True
         self.run_all_button.setText("Running...")
         self.run_all_button.setEnabled(False)
@@ -224,6 +230,86 @@ class AutoDiagnosticView(QObject):
         else:
             # directly execute the diagnostic (backward compatibility)
             self._run_all_tests_directly()
+    
+    def _show_auto_diagnostic_confirmation(self):
+        """
+        Show confirmation dialog for Auto Diagnostic execution
+        
+        Returns:
+            bool: True if user confirmed (Run), False if cancelled
+        """
+        # Create the confirmation message box
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("Auto Diagnostic Confirmation")
+        msg_box.setIcon(QMessageBox.Warning)
+        
+        # Set the main text
+        msg_box.setText("Are you ready to start Auto Diagnostic?")
+        
+        # Set the detailed warning messages
+        warning_text = (
+            "Please confirm the following before proceeding:\n\n"
+            "1. Auto Diagnostic requires an external server connection; "
+            "please ensure the machine has network connectivity.\n\n"
+            "2. Auto Diagnostic will check external modules; "
+            "please confirm that the Bluetooth and Wi-Fi modules are properly connected."
+        )
+        msg_box.setInformativeText(warning_text)
+        
+        # Add Run and Cancel buttons
+        run_button = msg_box.addButton("Run", QMessageBox.AcceptRole)
+        cancel_button = msg_box.addButton("Cancel", QMessageBox.RejectRole)
+        
+        # Set Cancel as the default button for safety
+        msg_box.setDefaultButton(cancel_button)
+        
+        # Apply dark theme style
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        # Show the dialog and get user choice
+        msg_box.exec()
+        clicked_button = msg_box.clickedButton()
+        
+        # Return True if user clicked Run, False if cancelled
+        is_confirmed = (clicked_button == run_button)
+        
+        if is_confirmed:
+            logger.info("User confirmed Auto Diagnostic execution")
+        else:
+            logger.info("User cancelled Auto Diagnostic execution")
+            
+        return is_confirmed
+    
+    def _get_dark_message_box_style(self):
+        """Return dark theme style sheet for message box"""
+        return """
+            QMessageBox {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                background-color: transparent;
+            }
+            QMessageBox QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+                min-width: 60px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QMessageBox QPushButton:pressed {
+                background-color: #00559F;
+            }
+            QMessageBox QPushButton:default {
+                background-color: #0078D7;
+                border: 2px solid #1C97EA;
+            }
+        """
     
     def _run_all_tests_directly(self):
         """Directly handle the run all tests button click without pre-check"""
