@@ -44,7 +44,7 @@ class BatteryMonitorManager(QObject):
         
         # Monitoring state
         self.is_monitoring = False
-        self.monitoring_interval = 5000  # 5 seconds default
+        self.monitoring_interval = 3000  # 3 seconds default (optimized for better user experience)
         self.monitoring_timer = QTimer()
         self.monitoring_timer.timeout.connect(self._on_monitoring_timer)
         
@@ -123,12 +123,17 @@ class BatteryMonitorManager(QObject):
         
         logger.info(f"Starting battery monitoring for device: {self.device_id}")
         
-        # Start initial data collection
+        # Update state first
+        self.is_monitoring = True
+        self._set_monitoring_ui_state(True)
+        
+        # Start timer for consistent intervals
+        self.monitoring_timer.start(self.monitoring_interval)
+        
+        # Start initial data collection immediately
         success = self.battery_service.start_battery_monitoring(self.device_id)
         
         if success:
-            self.is_monitoring = True
-            self._set_monitoring_ui_state(True)
             self.monitoring_started.emit()
             
             # Add system log
@@ -136,6 +141,10 @@ class BatteryMonitorManager(QObject):
                 self.main_controller.add_system_log("INFO", "Battery monitoring started")
         else:
             logger.error("Failed to start battery monitoring")
+            # Rollback on failure
+            self.is_monitoring = False
+            self._set_monitoring_ui_state(False)
+            self.monitoring_timer.stop()
         
         return success
     
@@ -362,6 +371,13 @@ class BatteryMonitorManager(QObject):
         """Handle monitoring timer timeout"""
         if self.is_monitoring:
             logger.debug("Battery monitoring timer triggered")
+            
+            # Check if battery service is currently processing a request
+            # to avoid overlapping requests
+            if hasattr(self.battery_service, '_is_processing') and self.battery_service._is_processing:
+                logger.debug("Battery service is processing, skipping this timer trigger")
+                return
+                
             self.battery_service.start_battery_monitoring(self.device_id)
     
     @Slot(str, dict)
@@ -421,9 +437,7 @@ class BatteryMonitorManager(QObject):
         # Update status
         self._update_status_display(f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         
-        # If monitoring is active, start timer for next reading
-        if self.is_monitoring and not self.monitoring_timer.isActive():
-            self.monitoring_timer.start(self.monitoring_interval)
+        # Note: Timer is now running at fixed intervals, no need to restart it here
     
     @Slot(str, str)
     def _on_battery_info_error(self, device_id: str, error_message: str):
@@ -445,9 +459,7 @@ class BatteryMonitorManager(QObject):
         # Emit error signal
         self.monitoring_error.emit(error_message)
         
-        # If monitoring is active, try again after interval
-        if self.is_monitoring:
-            self.monitoring_timer.start(self.monitoring_interval)
+        # Note: Timer continues running at fixed intervals, will retry on next trigger
     
     @Slot(str, str, str)
     def _on_battery_command_executed(self, device_id: str, command_name: str, command: str):

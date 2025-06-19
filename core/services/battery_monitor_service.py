@@ -17,55 +17,98 @@ class BatteryMonitorService(QObject):
     battery_info_received = Signal(str, dict)  # device_id, battery_info
     battery_info_error = Signal(str, str)      # device_id, error_message
     battery_command_executed = Signal(str, str, str)  # device_id, command_name, command
-    
+    LED_STATUS_MAP = {
+        0: "Off", 8: "Off", 16: "Off", 24: "Off",
+        1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
+        2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
+        3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
+        4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
+        5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
+        6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
+        7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+    }
+    INTERRUPT_STATUS_MAP = {
+        0: "Normal",
+        1: "No Battery",
+        2: "Timeout",
+        8: "Over Temperature - Charge",
+        16: "Over Current - Charge",
+        24: "Over Current & Temperature - Charge",
+        32: "Over Temperature - Discharge",
+        64: "Over Current - Discharge",
+        96: "Over Current & Temperature - Discharge",
+    }
+
     def __init__(self, serial_worker, platform_name="hydra"):
         """
-        Initialize battery monitor service
+        Initialize Battery Monitor Service
         
         Args:
-            serial_worker: Serial device worker for command execution
-            platform_name: Platform name for command set, default is "hydra"
+            serial_worker: Serial worker instance for device communication
+            platform_name: Platform name to load appropriate commands
         """
         super().__init__()
-        self.serial_worker = serial_worker
         
+        self.serial_worker = serial_worker
+        self.platform_name = platform_name
+        
+        # Battery monitoring state
+        self.current_device_id = None
+        self.is_monitoring = False
+        self._is_processing = False  # Track if currently processing commands
+        self.collected_battery_info = {}
+        self.pending_commands = []
+        
+        # Current command state for retry mechanism
+        self.current_command_name = None
+        self.current_command_string = None
+        self.retry_counts = {}  # Track retry counts per command
+        
+        # Load battery commands for the platform
+        self._load_battery_commands(platform_name)
+        
+        # Define command priority (order of execution)
+        self.command_priority = [
+            "relative_state",
+            "voltage",
+            "current",
+            "temperature",
+            "led_status",
+            "interrupt_status",
+            "dc_status"
+        ]
+        
+        # Connect to serial worker signals if available
+        if self.serial_worker:
+            self.serial_worker.command_result.connect(self._on_command_completed)
+        
+        logger.info(f"Battery Monitor Service initialized for platform: {platform_name}")
+    
+    def _load_battery_commands(self, platform_name):
+        """
+        Load battery-related commands from platform command set
+        
+        Args:
+            platform_name: Platform name
+        """
         # Initialize platform command set
         self.platform_command_set = PlatformCommandSet(platform_name=platform_name)
         
         # Get battery-related commands only
         self.battery_commands = self._get_battery_commands()
         
-        self.pending_commands = []
-        self.current_device_id = None
-        self.collected_battery_info = {}
-        self.is_monitoring = False
-        
         # Add retry mechanism attributes
-        self.retry_counts = {}  # Track retry count for each command
         self.max_retries = 3    # Maximum number of retries per command
-        self.current_command_name = None
-        self.current_command_string = None
         
         # Define valid ranges for battery values (after conversion)
         self.valid_ranges = {
-            "relative_state": (0, 100),
-            "voltage": (0.0, 50.0),
-            "current": (-4.0, 4.0),
-            "temperature": (0.0, 100.0)
+            "relative_state": (0, 100),     # Battery percentage
+            "voltage": (0.0, 10.0),         # Battery voltage (V)
+            "current": (-4.0, 4.0),         # Battery current (A)
+            "temperature": (0.0, 100.0),    # Battery temperature (°C)
+            "led_status": (0, 31),          # Battery LED status
+            "interrupt_status": (0, 98)     # Battery interrupt status
         }
-        
-        # Battery command priority (order of execution)
-        self.command_priority = [
-            "relative_state",       # Battery percentage
-            "voltage",              # Battery voltage (V)
-            "current",              # Battery current (A)
-            "temperature"          # Temperature
-        ]
-        
-        # Connect command result signal
-        self.serial_worker.command_result.connect(self._on_command_completed)
-        
-        logger.info("Battery Monitor Service initialized")
     
     def _get_battery_commands(self):
         """
@@ -132,6 +175,7 @@ class BatteryMonitorService(QObject):
         
         # Set monitoring flag to True
         self.is_monitoring = True
+        self._is_processing = True  # Mark as processing
         
         # Reset retry counters
         self.retry_counts = {}
@@ -175,6 +219,7 @@ class BatteryMonitorService(QObject):
             
             # Reset the monitoring status
             self.is_monitoring = False
+            self._is_processing = False  # Clear processing flag
             self.current_device_id = None
             self.collected_battery_info = {}
             
@@ -233,6 +278,7 @@ class BatteryMonitorService(QObject):
         
         # Temporarily set monitoring flag for command execution
         self.is_monitoring = True
+        self._is_processing = True  # Mark as processing
         
         # Start executing the first command
         self._execute_next_command()
@@ -257,6 +303,7 @@ class BatteryMonitorService(QObject):
             
             # Reset monitoring flag
             self.is_monitoring = False
+            self._is_processing = False  # Clear processing flag
             return
         
         # Get the next command to execute (or retry current command)
@@ -276,7 +323,7 @@ class BatteryMonitorService(QObject):
         
         # Add a small delay between commands to avoid register conflicts
         import time
-        time.sleep(0.2)  # 200ms delay between battery commands
+        time.sleep(0.05)  # 50ms delay between battery commands (optimized from 200ms)
         
         # Execute command
         self.serial_worker.send_command(self.current_device_id, command, timeout=10)
@@ -302,6 +349,11 @@ class BatteryMonitorService(QObject):
         
         if value is None:
             return False
+        
+        if command_name == "interrupt_status":
+            return value in self.INTERRUPT_STATUS_MAP.keys()
+        elif command_name == "led_status":
+            return value in self.LED_STATUS_MAP.keys()
         
         try:
             min_val, max_val = self.valid_ranges[command_name]
@@ -386,6 +438,10 @@ class BatteryMonitorService(QObject):
         # Validate the parsed value
         if is_valid:
             # Valid result, store it
+            if command_name == "led_status":
+                parsed_value = self.LED_STATUS_MAP[parsed_value]
+            elif command_name == "interrupt_status":
+                parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
             self.collected_battery_info[command_name] = parsed_value
             logger.info(f"Battery {command_name}: {parsed_value}")
             
@@ -476,39 +532,8 @@ class BatteryMonitorService(QObject):
                     elif command_name == "temperature":
                         return round(float(value/10)-273.15, 2)  # Convert to Celsius
                     elif command_name == "led_status":
-                        self.LED_STATUS_MAP = {
-                            0: "Off", 8: "Off", 16: "Off", 24: "Off",
-                            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
-                            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
-                            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
-                            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
-                            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
-                            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
-                            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
-                        }
-                        if value in self.LED_STATUS_MAP.keys():
-                            return self.LED_STATUS_MAP[value]
-                        else:
-                            return value
+                        return value
                     elif command_name == "interrupt_status":
-                        self.INTERRUPT_STATUS_MAP = {
-                            0: "Normal",
-                            1: "No Battery",
-                            2: "Timeout",
-                            8: "Over Temperature - Charge",
-                            16: "Over Current - Charge",
-                            24: "Over Current & Temperature - Charge",
-                            26: "Timeout & Over Current & Temperature - Charge",
-                            32: "Over Temperature - Discharge",
-                            64: "Over Current - Discharge",
-                            96: "Over Current & Temperature - Discharge",
-                            98: "Timeout & Over Current & Temperature - Discharge"
-                        }
-                        if value in self.INTERRUPT_STATUS_MAP.keys():
-                            return self.INTERRUPT_STATUS_MAP[value]
-                        else:
-                            return value
-                    else:
                         return value
                     
                 except Exception as e:
