@@ -82,7 +82,10 @@ class BatteryMonitorService(QObject):
             "relative_state",       # Battery state of charge (%)
             "voltage",              # Battery voltage (V)
             "current",              # Battery current (A)
-            "temperature"          # Battery temperature (°C)
+            "temperature",          # Battery temperature (°C)
+            "led_status",           # Battery LED status
+            "interrupt_status",     # Battery interrupt status
+            "dc_status"             # Battery DC status
         ]
         
         battery_commands = {}
@@ -420,7 +423,7 @@ class BatteryMonitorService(QObject):
         """
         try:
             # Process i2ctransfer command results for battery commands
-            if command_name in ["relative_state", "voltage", "current", "temperature"]:
+            if command_name in ["relative_state", "voltage", "current", "temperature", "led_status", "interrupt_status"]:
                 try:
                     # Enhanced parsing for i2c responses
                     lines = response.strip().split('\n')
@@ -472,19 +475,54 @@ class BatteryMonitorService(QObject):
                         return round(float(value/1000), 2)  # Convert to amperes
                     elif command_name == "temperature":
                         return round(float(value/10)-273.15, 2)  # Convert to Celsius
+                    elif command_name == "led_status":
+                        self.LED_STATUS_MAP = {
+                            0: "Off", 8: "Off", 16: "Off", 24: "Off",
+                            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
+                            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
+                            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
+                            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
+                            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
+                            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
+                            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+                        }
+                        if value in self.LED_STATUS_MAP.keys():
+                            return self.LED_STATUS_MAP[value]
+                        else:
+                            return value
+                    elif command_name == "interrupt_status":
+                        self.INTERRUPT_STATUS_MAP = {
+                            0: "Normal",
+                            1: "No Battery",
+                            2: "Timeout",
+                            8: "Over Temperature - Charge",
+                            16: "Over Current - Charge",
+                            24: "Over Current & Temperature - Charge",
+                            26: "Timeout & Over Current & Temperature - Charge",
+                            32: "Over Temperature - Discharge",
+                            64: "Over Current - Discharge",
+                            96: "Over Current & Temperature - Discharge",
+                            98: "Timeout & Over Current & Temperature - Discharge"
+                        }
+                        if value in self.INTERRUPT_STATUS_MAP.keys():
+                            return self.INTERRUPT_STATUS_MAP[value]
+                        else:
+                            return value
                     else:
                         return value
                     
                 except Exception as e:
                     logger.error(f"Failed to parse battery command {command_name}: {e}")
                     return None
-            
+            elif command_name == "dc_status":
+                return "Charging" if "1" in response else "Discharging"
             # If it's not a known battery command, return None
             return None
             
         except Exception as e:
             logger.error(f"Error in battery response parsing for {command_name}: {str(e)}")
             return None
+        
     
     def get_battery_commands(self) -> Dict[str, str]:
         """
