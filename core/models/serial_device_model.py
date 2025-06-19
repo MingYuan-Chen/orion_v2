@@ -175,16 +175,16 @@ class SerialDeviceModel(DeviceModel):
             is_i2c_command = "i2ctransfer" in command
             is_eeprog_command = "eeprog" in command
             is_md5_command = "md5sum" in command
-            is_simple_command = command.strip() in ["sync", "ls", "pwd", "whoami"]
+            is_simple_command = command.strip() in ["sync", "ls", "pwd", "whoami", "root", "cat", "echo", "reboot"]
             
             # Conservative buffer clearing - only when necessary
             if is_i2c_command:
-                # i2c commands need more careful buffer management
-                for _ in range(3):
+                # i2c commands need more careful buffer management (optimized)
+                for _ in range(1):  # Reduced from 3 to 1 iteration for better performance
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
-                    time.sleep(0.1)
-                time.sleep(0.8)  # Allow i2c device to settle
+                    time.sleep(0.005)  # Reduced from 0.01 to 0.005
+                time.sleep(0.005)  # Allow i2c device to settle (reduced from 0.01)
             elif is_eeprog_command:
                 # EEPROM operations need careful preparation
                 for _ in range(2):
@@ -210,20 +210,20 @@ class SerialDeviceModel(DeviceModel):
                 no_data_timeout = 10.0  # Patient waiting for EEPROM completion
                 check_interval = 0.5  # Slower checking for EEPROM
             elif is_i2c_command:
-                initial_wait = 1.5
+                initial_wait = 0.005  # Reduced from 0.01 for faster response
                 max_wait_time = max(timeout, 20)
                 no_data_timeout = 8.0
-                check_interval = 0.3
+                check_interval = 0.01
             elif is_md5_command:
                 initial_wait = 0.3
                 max_wait_time = max(timeout, 12)
                 no_data_timeout = 4.0
                 check_interval = 0.2
             elif is_simple_command:
-                initial_wait = 0.1
+                initial_wait = 0.05
                 max_wait_time = max(timeout, 6)
                 no_data_timeout = 2.0
-                check_interval = 0.1
+                check_interval = 0.05
             else:
                 initial_wait = 0.3
                 max_wait_time = max(timeout, 10)
@@ -264,7 +264,7 @@ class SerialDeviceModel(DeviceModel):
                                     final_chunk = self.device.read(self.device.in_waiting).decode('utf-8', errors='ignore')
                                     response += final_chunk
                             elif is_i2c_command:
-                                time.sleep(1.0)
+                                time.sleep(0.01)
                                 if self.device.in_waiting > 0:
                                     final_chunk = self.device.read(self.device.in_waiting).decode('utf-8', errors='ignore')
                                     response += final_chunk
@@ -308,7 +308,7 @@ class SerialDeviceModel(DeviceModel):
                 self.device.reset_input_buffer()
                 self.device.reset_output_buffer()
             elif is_i2c_command:
-                time.sleep(0.8)
+                time.sleep(0.005)  # Reduced from 0.01 for faster cleanup
                 self.device.reset_input_buffer()
                 self.device.reset_output_buffer()
 

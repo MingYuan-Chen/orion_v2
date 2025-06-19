@@ -227,9 +227,9 @@ class BatteryMonitorWidget(QWidget):
         
         self.ui_components["interval_combo"] = QComboBox()
         self.ui_components["interval_combo"].addItems([
-            "1 second", "2 seconds", "5 seconds", "10 seconds", "30 seconds"
+            "1 second", "2 seconds", "3 seconds", "5 seconds", "10 seconds", "30 seconds"
         ])
-        self.ui_components["interval_combo"].setCurrentText("5 seconds")
+        self.ui_components["interval_combo"].setCurrentText("3 seconds")
         self.ui_components["interval_combo"].setStyleSheet("""
             QComboBox {
                 background-color: #252526;
@@ -325,7 +325,7 @@ class BatteryMonitorWidget(QWidget):
         self.battery_manager.set_ui_components(ui_mapping)
         
         # Set default monitoring interval
-        self._on_interval_changed("5 seconds")
+        self._on_interval_changed("3 seconds")
     
     def _on_refresh_once(self):
         """Handle refresh once button click"""
@@ -353,12 +353,13 @@ class BatteryMonitorWidget(QWidget):
         interval_map = {
             "1 second": 1000,
             "2 seconds": 2000,
+            "3 seconds": 3000,
             "5 seconds": 5000,
             "10 seconds": 10000,
             "30 seconds": 30000
         }
         
-        interval_ms = interval_map.get(interval_text, 5000)
+        interval_ms = interval_map.get(interval_text, 3000)  # Default to 3 seconds
         self.refresh_interval = interval_ms
         
         # Update battery manager interval
