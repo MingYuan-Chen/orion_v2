@@ -135,7 +135,7 @@ class SystemInfoService(QObject):
         
         # Copy command list to execute sequentially, excluding battery monitor specific commands
         # voltage and current commands are reserved for battery monitor service only
-        battery_monitor_commands = {"voltage", "current"}
+        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status"}
         self.pending_commands = [(name, cmd) for name, cmd in self.commands.items() 
                                 if name not in battery_monitor_commands]
         

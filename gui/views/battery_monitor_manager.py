@@ -294,34 +294,18 @@ class BatteryMonitorManager(QObject):
             voltage = battery_data.get("voltage")
             if voltage is not None and "voltage_label" in self.ui_components:
                 self.ui_components["voltage_label"].setText(f"{voltage:.2f} V")
-                # Set color based on voltage level
-                if voltage < 7.5:
-                    self.ui_components["voltage_label"].setStyleSheet("color: #FF6B6B;")  # Red
-                elif voltage > 8.5:
-                    self.ui_components["voltage_label"].setStyleSheet("color: #FFE66D;")  # Yellow
-                else:
-                    self.ui_components["voltage_label"].setStyleSheet("color: #4ECDC4;")  # Green
                 logger.debug(f"Updated voltage display: {voltage:.2f} V")
             elif "voltage_label" in self.ui_components:
                 self.ui_components["voltage_label"].setText("-- V")
-                self.ui_components["voltage_label"].setStyleSheet("color: #888888;")
                 logger.debug("No voltage data available, showing placeholder")
             
             # Update current - check both possible keys
             current = battery_data.get("current")
             if current is not None and "current_label" in self.ui_components:
                 self.ui_components["current_label"].setText(f"{current:.2f} A")
-                # Set color based on current level
-                if current > 2.5:
-                    self.ui_components["current_label"].setStyleSheet("color: #FF6B6B;")  # Red
-                elif current < 0.5:
-                    self.ui_components["current_label"].setStyleSheet("color: #FFE66D;")  # Yellow
-                else:
-                    self.ui_components["current_label"].setStyleSheet("color: #4ECDC4;")  # Green
                 logger.debug(f"Updated current display: {current:.2f} A")
             elif "current_label" in self.ui_components:
                 self.ui_components["current_label"].setText("-- A")
-                self.ui_components["current_label"].setStyleSheet("color: #888888;")
                 logger.debug("No current data available, showing placeholder")
             
             # Update temperature
@@ -329,29 +313,14 @@ class BatteryMonitorManager(QObject):
                 temperature = battery_data["temperature"]
                 if temperature is not None:
                     self.ui_components["temperature_label"].setText(f"{temperature:.1f} °C")
-                    # Set color based on temperature
-                    if temperature > 50:
-                        self.ui_components["temperature_label"].setStyleSheet("color: #FF6B6B;")  # Red
-                    elif temperature > 40:
-                        self.ui_components["temperature_label"].setStyleSheet("color: #FFE66D;")  # Yellow
-                    else:
-                        self.ui_components["temperature_label"].setStyleSheet("color: #4ECDC4;")  # Green
                 else:
                     self.ui_components["temperature_label"].setText("-- °C")
-                    self.ui_components["temperature_label"].setStyleSheet("color: #888888;")
             
             # Update battery level
             if "relative_state" in battery_data and "battery_level_label" in self.ui_components:
                 level = battery_data["relative_state"]
                 if level is not None:
                     self.ui_components["battery_level_label"].setText(f"{level}%")
-                    # Set color based on battery level
-                    if level < 20:
-                        self.ui_components["battery_level_label"].setStyleSheet("color: #FF6B6B;")  # Red
-                    elif level < 50:
-                        self.ui_components["battery_level_label"].setStyleSheet("color: #FFE66D;")  # Yellow
-                    else:
-                        self.ui_components["battery_level_label"].setStyleSheet("color: #4ECDC4;")  # Green
                     
                     # Update progress bar if available
                     if "progress_bar" in self.ui_components:
@@ -359,11 +328,32 @@ class BatteryMonitorManager(QObject):
                         progress_bar.setValue(level)
                 else:
                     self.ui_components["battery_level_label"].setText("--%")
-                    self.ui_components["battery_level_label"].setStyleSheet("color: #888888;")
                     if "progress_bar" in self.ui_components:
                         self.ui_components["progress_bar"].setValue(0)
             
-
+            # Update LED status
+            if "led_status" in battery_data and "led_status_label" in self.ui_components:
+                led_status = battery_data["led_status"]
+                if led_status is not None:
+                    self.ui_components["led_status_label"].setText(str(led_status))
+                else:
+                    self.ui_components["led_status_label"].setText("--")
+            
+            # Update interrupt status
+            if "interrupt_status" in battery_data and "interrupt_status_label" in self.ui_components:
+                interrupt_status = battery_data["interrupt_status"]
+                if interrupt_status is not None:
+                    self.ui_components["interrupt_status_label"].setText(str(interrupt_status))
+                else:
+                    self.ui_components["interrupt_status_label"].setText("--")
+            
+            # Update DC status
+            if "dc_status" in battery_data and "dc_status_label" in self.ui_components:
+                dc_status = battery_data["dc_status"]
+                if dc_status is not None:
+                    self.ui_components["dc_status_label"].setText(str(dc_status))
+                else:
+                    self.ui_components["dc_status_label"].setText("--")
             
         except Exception as e:
             logger.error(f"Error updating battery display: {str(e)}")
