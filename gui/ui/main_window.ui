@@ -1118,11 +1118,11 @@ QScrollArea QScrollBar::sub-line:vertical {
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_stability_test">
-       <attribute name="title">
-        <string>Stability Test</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_stability_test">
+           <widget class="QWidget" name="tab_battery_monitor">
+      <attribute name="title">
+       <string>Battery Monitor</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_battery_monitor">
         <property name="spacing">
          <number>10</number>
         </property>
@@ -1139,31 +1139,153 @@ QScrollArea QScrollBar::sub-line:vertical {
          <number>10</number>
         </property>
         <item>
-         <widget class="QLabel" name="label_stability_test_title">
-          <property name="font">
-           <font>
-            <pointsize>12</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Stability Test</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QGroupBox" name="groupBox_battery_monitor">
           <property name="title">
-           <string>Battery Monitor</string>
+           <string></string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_battery_monitor">
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_battery_monitor">
+            <widget class="QFrame" name="frame_battery_data">
+             <property name="frameShape">
+              <enum>QFrame::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Raised</enum>
+             </property>
+             <property name="styleSheet">
+              <string>QFrame {
+    background-color: #252526;
+    border: 1px solid #333333;
+    border-radius: 5px;
+    padding: 8px;
+}</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_battery_data">
+              <property name="spacing">
+               <number>8</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_battery_level_title">
+                <property name="text">
+                 <string>Battery Level:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLabel" name="label_battery_level_value">
+                <property name="text">
+                 <string>--%</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #4ECDC4;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QProgressBar" name="progressBar_battery_level">
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="styleSheet">
+                 <string>QProgressBar {
+    border: 1px solid #555555;
+    border-radius: 3px;
+    text-align: center;
+    background-color: #1E1E1E;
+}
+QProgressBar::chunk {
+    background-color: #4ECDC4;
+    border-radius: 2px;
+}</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_voltage_title">
+                <property name="text">
+                 <string>Voltage:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="label_voltage_value">
+                <property name="text">
+                 <string>-- V</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #4ECDC4;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_current_title">
+                <property name="text">
+                 <string>Current:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="label_current_value">
+                <property name="text">
+                 <string>-- A</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #4ECDC4;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_temperature_title">
+                <property name="text">
+                 <string>Temperature:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QLabel" name="label_temperature_value">
+                <property name="text">
+                 <string>-- °C</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #4ECDC4;</string>
+                </property>
+               </widget>
+              </item>
+
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_battery_controls">
              <item>
-              <widget class="QLabel" name="label_battery_monitor_desc">
+              <widget class="QLabel" name="label_status_title">
                <property name="text">
-                <string>Monitor battery performance and stability over time</string>
+                <string>Status:</string>
+               </property>
+               <property name="styleSheet">
+                <string>color: #CCCCCC; font-weight: bold;</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_battery_status">
+               <property name="text">
+                <string>Ready</string>
+               </property>
+               <property name="styleSheet">
+                <string>color: #CCCCCC;</string>
                </property>
               </widget>
              </item>
@@ -1181,6 +1303,31 @@ QScrollArea QScrollBar::sub-line:vertical {
               </spacer>
              </item>
              <item>
+              <widget class="QPushButton" name="pushButton_battery_refresh">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Refresh Once</string>
+               </property>
+               <property name="styleSheet">
+                <string>QPushButton {
+    background-color: #0078D7;
+    color: white;
+    border: none;
+    padding: 6px 15px;
+    border-radius: 3px;
+}
+QPushButton:hover {
+    background-color: #1C97EA;
+}</string>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QPushButton" name="pushButton_battery_monitor">
                <property name="minimumSize">
                 <size>
@@ -1189,7 +1336,19 @@ QScrollArea QScrollBar::sub-line:vertical {
                 </size>
                </property>
                <property name="text">
-                <string>Battery Monitor</string>
+                <string>Start Monitoring</string>
+               </property>
+               <property name="styleSheet">
+                <string>QPushButton {
+    background-color: #0078D7;
+    color: white;
+    border: none;
+    padding: 6px 15px;
+    border-radius: 3px;
+}
+QPushButton:hover {
+    background-color: #1C97EA;
+}</string>
                </property>
               </widget>
              </item>
@@ -1199,7 +1358,7 @@ QScrollArea QScrollBar::sub-line:vertical {
          </widget>
         </item>
         <item>
-         <spacer name="verticalSpacer_stability_test">
+         <spacer name="verticalSpacer_battery_monitor">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
