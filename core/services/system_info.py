@@ -51,6 +51,8 @@ class SystemInfoService(QObject):
             "relative_state": (0, 100),        # 0 ~ 100
             "charging_voltage": (7.0, 9.0),    # 7 ~ 9 V
             "charging_current": (1.0, 2.0),    # 1 ~ 2 A  
+            "voltage": (0.0, 9.0),            # 0 ~ 50 V
+            "current": (-4.0, 4.0),            # -4 ~ 4 A
             "temperature": (0.0, 70.0)         # 0 ~ 70 °C
         }
         
@@ -131,8 +133,14 @@ class SystemInfoService(QObject):
         self.current_command_name = None
         self.current_command_string = None
         
-        # Copy command list to execute sequentially
-        self.pending_commands = list(self.commands.items())
+        # Copy command list to execute sequentially, excluding battery monitor specific commands
+        # voltage and current commands are reserved for battery monitor service only
+        battery_monitor_commands = {"voltage", "current"}
+        self.pending_commands = [(name, cmd) for name, cmd in self.commands.items() 
+                                if name not in battery_monitor_commands]
+        
+        logger.debug(f"System info will execute {len(self.pending_commands)} commands "
+                    f"(excluded {len(battery_monitor_commands)} battery monitor commands)")
         
         # Start executing the first command
         self._execute_next_command()
@@ -316,10 +324,6 @@ class SystemInfoService(QObject):
                 self._execute_next_command()
             return
         
-        # Record response (仅在调试级别记录，避免产生大量日志)
-        logger.debug(f"Received response for {command_name}")
-        logger.debug(f"Response: {response}")
-        
         # Process response
         try:
             # Parse response and store in collected info
@@ -330,7 +334,7 @@ class SystemInfoService(QObject):
             elif command_name == "disk_usage":
                 self.collected_info["storage"] = self._parse_disk_info(response)
             elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
-                                 "charging_current", "temperature", "cycle_count", "led_status", "dc_status"]:
+                                 "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "dc_status"]:
                 # Use battery info parsing function to handle battery related commands
                 if "battery" not in self.collected_info:
                     self.collected_info["battery"] = {}
@@ -538,7 +542,7 @@ class SystemInfoService(QObject):
             
             # Process i2ctransfer command results
             if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
-                               "charging_current", "temperature", "cycle_count", "led_status"]:
+                               "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
                 try:
                     # Enhanced parsing for i2c responses with better error handling
                     # Look for hex values more robustly
@@ -557,6 +561,10 @@ class SystemInfoService(QObject):
                                 current_command_context = "charging_voltage"
                             elif command_name == "charging_current" and "0x14" in line:
                                 current_command_context = "charging_current"
+                            elif command_name == "voltage" and "0x09" in line:
+                                current_command_context = "voltage"
+                            elif command_name == "current" and "0x0a" in line:
+                                current_command_context = "current"
                             elif command_name == "temperature" and "0x08" in line:
                                 current_command_context = "temperature"
                             elif command_name == "pic_firmware" and "0x10" in line:
@@ -649,6 +657,12 @@ class SystemInfoService(QObject):
                             # Convert voltage to volts (V)
                             parsed_value = round(float(value/1000), 2)
                         elif command_name == "charging_current":
+                            # Convert current to amperes (A)
+                            parsed_value = round(float(value/1000), 2)
+                        elif command_name == "voltage":
+                            # Convert voltage to volts (V)
+                            parsed_value = round(float(value/1000), 2)
+                        elif command_name == "current":
                             # Convert current to amperes (A)
                             parsed_value = round(float(value/1000), 2)
                         elif command_name == "temperature":

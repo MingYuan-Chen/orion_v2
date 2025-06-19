@@ -280,6 +280,14 @@ class MainWindowController(QObject):
         # Connect stability test buttons
         self.window.pushButton_battery_monitor.clicked.connect(self._on_battery_monitor_clicked)
         
+        # Initialize embedded battery monitor early to ensure refresh button works
+        try:
+            self._init_embedded_battery_monitor()
+            logger.info("Embedded battery monitor initialized during startup")
+        except Exception as e:
+            logger.warning(f"Failed to initialize embedded battery monitor during startup: {str(e)}")
+            # Don't raise the exception here, let it be handled when user clicks the button
+        
         # connect the tab changed signal
         if hasattr(self.window, 'tabWidget'):
             self.window.tabWidget.currentChanged.connect(self._on_tab_changed)
@@ -1176,30 +1184,106 @@ class MainWindowController(QObject):
         logger.info("Battery Monitor button clicked")
         
         # Add log entry
-        self.log_manager.add_log_entry("INFO", "Battery Monitor started")
+        self.log_manager.add_log_entry("INFO", "Battery Monitor button clicked")
         
-        # Show information dialog about Battery Monitor functionality
-        msg_box = QMessageBox(self.window)
-        msg_box.setWindowTitle("Battery Monitor")
-        msg_box.setText("Battery Monitor功能")
-        msg_box.setInformativeText(
-            "Battery Monitor 將執行以下功能：\n\n"
-            "• 監控電池電壓、電流和溫度\n"
-            "• 記錄電池性能數據\n"
-            "• 分析電池穩定性\n"
-            "• 生成電池健康報告\n\n"
-            "功能正在開發中，敬請期待！"
-        )
-        msg_box.setIcon(QMessageBox.Information)
-        msg_box.setStandardButtons(QMessageBox.Ok)
-        
-        # Apply dark theme style
-        msg_box.setStyleSheet(self._get_dark_message_box_style())
-        
-        msg_box.exec()
-        
-        # Log completion
-        self.log_manager.add_log_entry("INFO", "Battery Monitor dialog displayed")
+        try:
+            # Initialize embedded battery monitor if not already done
+            if not hasattr(self, 'battery_monitor_manager') or self.battery_monitor_manager is None:
+                logger.info("Battery monitor not initialized, initializing now...")
+                self._init_embedded_battery_monitor()
+            
+            # Toggle monitoring
+            if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+                if self.battery_monitor_manager.is_monitoring:
+                    self.battery_monitor_manager.stop_monitoring()
+                else:
+                    self.battery_monitor_manager.start_monitoring()
+            else:
+                logger.error("Battery monitor manager not available after initialization")
+            
+        except Exception as e:
+            logger.error(f"Failed to start Battery Monitor: {str(e)}")
+            self.log_manager.add_log_entry("ERROR", f"Battery Monitor failed: {str(e)}")
+            
+            # Show error message
+            msg_box = QMessageBox(self.window)
+            msg_box.setWindowTitle("Battery Monitor Error")
+            msg_box.setText("Battery Monitor 無法啟動")
+            msg_box.setInformativeText(f"錯誤訊息：{str(e)}")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            msg_box.setStyleSheet(self._get_dark_message_box_style())
+            msg_box.exec()
+    
+    def _init_embedded_battery_monitor(self):
+        """Initialize embedded battery monitor in Stability Test tab"""
+        try:
+            # Get serial worker from view model
+            serial_worker = None
+            if hasattr(self.view_model, '_serial_worker') and self.view_model._serial_worker:
+                serial_worker = self.view_model._serial_worker
+            
+            if serial_worker is None:
+                raise Exception("Serial worker not available")
+            
+            # Get platform name
+            platform_name = getattr(self.view_model, 'platform_name', 'argo')
+            
+            # Import required classes
+            from core.services.battery_monitor_service import BatteryMonitorService
+            from gui.views.battery_monitor_manager import BatteryMonitorManager
+            
+            # Create battery monitor service
+            self.battery_service = BatteryMonitorService(serial_worker, platform_name)
+            
+            # Create battery monitor manager
+            self.battery_monitor_manager = BatteryMonitorManager(self.device_id, self.battery_service)
+            
+            # Map UI components from main window
+            ui_mapping = {
+                "monitor_button": self.window.pushButton_battery_monitor,
+                "refresh_button": self.window.pushButton_battery_refresh,
+                "status_label": self.window.label_battery_status,
+                "voltage_label": self.window.label_voltage_value,
+                "current_label": self.window.label_current_value,
+                "temperature_label": self.window.label_temperature_value,
+                "battery_level_label": self.window.label_battery_level_value,
+                "progress_bar": self.window.progressBar_battery_level
+            }
+            
+            self.battery_monitor_manager.set_ui_components(ui_mapping)
+            
+            # Connect signals
+            self.battery_monitor_manager.monitoring_started.connect(self._on_embedded_monitoring_started)
+            self.battery_monitor_manager.monitoring_completed.connect(self._on_embedded_monitoring_completed)
+            self.battery_monitor_manager.monitoring_error.connect(self._on_embedded_monitoring_error)
+            
+            # Don't perform initial refresh to avoid state conflicts
+            # User can click "Refresh Once" button if needed
+            
+            logger.info("Embedded battery monitor initialized")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize embedded battery monitor: {str(e)}")
+            raise
+    
+    def _on_embedded_monitoring_started(self):
+        """Handle embedded monitoring started"""
+        logger.info("Embedded battery monitoring started")
+        self.window.pushButton_battery_monitor.setText("Stop Monitoring")
+        self.log_manager.add_log_entry("INFO", "Battery monitoring started")
+    
+    def _on_embedded_monitoring_completed(self):
+        """Handle embedded monitoring completed"""
+        logger.info("Embedded battery monitoring completed")
+        self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.log_manager.add_log_entry("INFO", "Battery monitoring stopped")
+    
+    def _on_embedded_monitoring_error(self, error_message: str):
+        """Handle embedded monitoring error"""
+        logger.error(f"Embedded battery monitoring error: {error_message}")
+        self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.log_manager.add_log_entry("ERROR", f"Battery Monitor error: {error_message}")
 
     def _set_window_properties(self):
         """Set window properties, ensure it is recognized as part of the main application"""
@@ -2474,6 +2558,23 @@ class MainWindowController(QObject):
                 logger.debug("Cleaning up connection pre-check service")
                 self.connection_pre_check.cleanup()
                 self.connection_pre_check = None
+            
+            # Clean up embedded battery monitor
+            if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+                logger.debug("Cleaning up battery monitor manager")
+                try:
+                    self.battery_monitor_manager.cleanup()
+                except Exception:
+                    pass
+                self.battery_monitor_manager = None
+            
+            if hasattr(self, 'battery_service') and self.battery_service:
+                logger.debug("Cleaning up battery service")
+                try:
+                    self.battery_service.cleanup()
+                except Exception:
+                    pass
+                self.battery_service = None
             
             # Clean up the view model
             if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):

@@ -287,15 +287,25 @@ class SystemInfoManagerView(QObject):
                 if "charge_progress" in self.ui_components:
                     self.ui_components["charge_progress"].setValue(int(percentage))
             
-            # Charging voltage
-            if "charging_voltage" in battery_info and "voltage" in self.ui_components:
-                voltage = battery_info["charging_voltage"]
-                self.ui_components["voltage"].setText(f"{voltage} V")
+            # Voltage (prefer charging_voltage, fallback to voltage)
+            voltage_value = None
+            if "charging_voltage" in battery_info:
+                voltage_value = battery_info["charging_voltage"]
+            elif "voltage" in battery_info:
+                voltage_value = battery_info["voltage"]
             
-            # Charging current
-            if "charging_current" in battery_info and "current" in self.ui_components:
-                current = battery_info["charging_current"]
-                self.ui_components["current"].setText(f"{current} A")
+            if voltage_value is not None and "voltage" in self.ui_components:
+                self.ui_components["voltage"].setText(f"{voltage_value} V")
+            
+            # Current (prefer charging_current, fallback to current)
+            current_value = None
+            if "charging_current" in battery_info:
+                current_value = battery_info["charging_current"]
+            elif "current" in battery_info:
+                current_value = battery_info["current"]
+            
+            if current_value is not None and "current" in self.ui_components:
+                self.ui_components["current"].setText(f"{current_value} A")
             
             # Battery temperature
             if "temperature" in battery_info and "temperature" in self.ui_components:
