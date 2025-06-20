@@ -14,9 +14,8 @@ from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer, Signal, Slot
-from PySide6.QtGui import QFont
 
 from util.logger import logger
 
@@ -45,8 +44,7 @@ class BatteryChartWidget(QWidget):
         self.show_current = True
         self.show_temperature = True
         
-        # Setup UI
-        self._setup_ui()
+        # Setup chart
         self._setup_chart()
         
         # Update timer
@@ -56,79 +54,15 @@ class BatteryChartWidget(QWidget):
         
         logger.info("Battery Chart Widget initialized")
     
-    def _setup_ui(self):
-        """Setup the user interface"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
-        
-        # Controls layout
-        controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(15)
-        
-        # Chart visibility checkboxes
-        self.checkbox_battery = QCheckBox("Battery %")
-        self.checkbox_battery.setChecked(True)
-        self.checkbox_battery.setStyleSheet(self._get_checkbox_style("#4ECDC4"))
-        self.checkbox_battery.toggled.connect(self._on_battery_toggled)
-        
-        self.checkbox_voltage = QCheckBox("Voltage (V)")
-        self.checkbox_voltage.setChecked(True)
-        self.checkbox_voltage.setStyleSheet(self._get_checkbox_style("#FF6B6B"))
-        self.checkbox_voltage.toggled.connect(self._on_voltage_toggled)
-        
-        self.checkbox_current = QCheckBox("Current (A)")
-        self.checkbox_current.setChecked(True)
-        self.checkbox_current.setStyleSheet(self._get_checkbox_style("#4DABF7"))
-        self.checkbox_current.toggled.connect(self._on_current_toggled)
-        
-        self.checkbox_temperature = QCheckBox("Temperature (°C)")
-        self.checkbox_temperature.setChecked(True)
-        self.checkbox_temperature.setStyleSheet(self._get_checkbox_style("#69DB7C"))
-        self.checkbox_temperature.toggled.connect(self._on_temperature_toggled)
-        
-        controls_layout.addWidget(self.checkbox_battery)
-        controls_layout.addWidget(self.checkbox_voltage)
-        controls_layout.addWidget(self.checkbox_current)
-        controls_layout.addWidget(self.checkbox_temperature)
-        controls_layout.addStretch()
-        
-        layout.addLayout(controls_layout)
-        
-        # Chart canvas will be added in _setup_chart
-        
-    def _get_checkbox_style(self, color: str) -> str:
-        """Get checkbox style with custom color"""
-        return f"""
-            QCheckBox {{
-                color: #FFFFFF;
-                font-size: 11px;
-                spacing: 5px;
-            }}
-            QCheckBox::indicator {{
-                width: 14px;
-                height: 14px;
-            }}
-            QCheckBox::indicator:unchecked {{
-                border: 2px solid #555555;
-                background-color: #2B2B2B;
-                border-radius: 3px;
-            }}
-            QCheckBox::indicator:checked {{
-                border: 2px solid {color};
-                background-color: {color};
-                border-radius: 3px;
-            }}
-            QCheckBox::indicator:checked:hover {{
-                background-color: {color};
-                opacity: 0.8;
-            }}
-        """
-    
     def _setup_chart(self):
         """Setup matplotlib chart"""
         # Set matplotlib style for dark theme
         plt.style.use('dark_background')
+        
+        # Create layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         # Create figure and canvas
         self.figure = Figure(figsize=(12, 6), dpi=100, facecolor='#252526')
@@ -136,7 +70,7 @@ class BatteryChartWidget(QWidget):
         self.canvas.setStyleSheet("background-color: #252526;")
         
         # Add canvas to layout
-        self.layout().addWidget(self.canvas)
+        layout.addWidget(self.canvas)
         
         # Create single subplot with multiple Y-axes
         self.ax_main = self.figure.add_subplot(1, 1, 1)
@@ -203,7 +137,7 @@ class BatteryChartWidget(QWidget):
         self.ax_current.tick_params(axis='y', labelcolor='#4DABF7', labelsize=8)
         self.ax_current.spines['right'].set_color('#4DABF7')
         
-        # Temperature axis (further offset right) - initial range, will be dynamically adjusted
+        # Temperature axis (offset right) - initial range, will be dynamically adjusted
         self.ax_temperature.set_ylim(0, 60)
         self.ax_temperature.set_ylabel('Temperature (°C)', color='#69DB7C', fontsize=9, fontweight='bold')
         self.ax_temperature.tick_params(axis='y', labelcolor='#69DB7C', labelsize=8)
