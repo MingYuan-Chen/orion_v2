@@ -109,8 +109,8 @@ class BatteryMonitorService(QObject):
         # Define valid ranges for battery values (after conversion)
         self.valid_ranges = {
             "relative_state": (0, 100),     # Battery percentage
-            "voltage": (0.0, 10.0),         # Battery voltage (V)
-            "current": (-4.0, 4.0),         # Battery current (A)
+            "voltage": (0.0, 15.0),         # Battery voltage (V)
+            "current": (-5.0, 5.0),         # Battery current (A)
             "temperature": (0.0, 100.0),    # Battery temperature (°C)
             "led_status": (0, 31),          # Battery LED status
             "interrupt_status": (0, 98)     # Battery interrupt status

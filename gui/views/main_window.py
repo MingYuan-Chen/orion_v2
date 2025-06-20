@@ -1239,6 +1239,9 @@ class MainWindowController(QObject):
             # Create battery monitor manager
             self.battery_monitor_manager = BatteryMonitorManager(self.device_id, self.battery_service)
             
+            # Initialize battery chart widget
+            self._init_battery_chart()
+            
             # Map UI components from main window
             ui_mapping = {
                 "monitor_button": self.window.pushButton_battery_monitor,
@@ -1257,6 +1260,10 @@ class MainWindowController(QObject):
             
             self.battery_monitor_manager.set_ui_components(ui_mapping)
             
+            # Set chart widget reference
+            if hasattr(self, 'battery_chart_widget') and self.battery_chart_widget:
+                self.battery_monitor_manager.set_chart_widget(self.battery_chart_widget)
+            
             # Connect signals
             self.battery_monitor_manager.monitoring_started.connect(self._on_embedded_monitoring_started)
             self.battery_monitor_manager.monitoring_completed.connect(self._on_embedded_monitoring_completed)
@@ -1270,6 +1277,26 @@ class MainWindowController(QObject):
         except Exception as e:
             logger.error(f"Failed to initialize embedded battery monitor: {str(e)}")
             raise
+    
+    def _init_battery_chart(self):
+        """Initialize battery chart widget"""
+        try:
+            from gui.widgets.battery_chart_widget import BatteryChartWidget
+            
+            # Create chart widget
+            self.battery_chart_widget = BatteryChartWidget()
+            
+            # Add chart widget to the container in UI
+            chart_container = self.window.widget_battery_chart_container
+            chart_layout = chart_container.layout()
+            chart_layout.addWidget(self.battery_chart_widget)
+            
+            logger.info("Battery chart widget initialized")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize battery chart widget: {str(e)}")
+            # Don't raise exception, chart is optional feature
+            self.battery_chart_widget = None
     
     def _on_embedded_monitoring_started(self):
         """Handle embedded monitoring started"""
@@ -2579,6 +2606,15 @@ class MainWindowController(QObject):
                 except Exception:
                     pass
                 self.battery_service = None
+            
+            # Clean up battery chart widget
+            if hasattr(self, 'battery_chart_widget') and self.battery_chart_widget:
+                logger.debug("Cleaning up battery chart widget")
+                try:
+                    self.battery_chart_widget.cleanup()
+                except Exception:
+                    pass
+                self.battery_chart_widget = None
             
             # Clean up the view model
             if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):
