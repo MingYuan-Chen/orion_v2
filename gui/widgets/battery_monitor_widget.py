@@ -188,14 +188,14 @@ class BatteryMonitorWidget(QWidget):
         """)
         data_layout.addWidget(self.ui_components["progress_bar"], 0, 2)
         
-        # Voltage
-        data_layout.addWidget(QLabel("Voltage:"), 1, 0)
+        # Charging Voltage
+        data_layout.addWidget(QLabel("Charging Voltage:"), 1, 0)
         self.ui_components["voltage_label"] = QLabel("-- V")
         self.ui_components["voltage_label"].setStyleSheet("color: #4ECDC4; font-weight: bold;")
         data_layout.addWidget(self.ui_components["voltage_label"], 1, 1)
         
-        # Current
-        data_layout.addWidget(QLabel("Current:"), 2, 0)
+        # Charging Current
+        data_layout.addWidget(QLabel("Charging Current:"), 2, 0)
         self.ui_components["current_label"] = QLabel("-- A")
         self.ui_components["current_label"].setStyleSheet("color: #4ECDC4; font-weight: bold;")
         data_layout.addWidget(self.ui_components["current_label"], 2, 1)

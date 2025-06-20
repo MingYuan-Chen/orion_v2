@@ -41,13 +41,7 @@ class HWSWConfigManager(QObject):
                 "serial_number": "HYFHD24160599",
                 "note": ""
             },
-            {
-                "id": "power_board", 
-                "component": "Power Board",
-                "part_number": "PWR-X1C-90W",
-                "serial_number": "PB7384723",
-                "note": ""
-            },
+
             {
                 "id": "edp_board",
                 "component": "eDP Board", 
@@ -88,10 +82,10 @@ class HWSWConfigManager(QObject):
         header.setSectionResizeMode(2, QHeaderView.Stretch)          # Serial Number column
         header.setSectionResizeMode(3, QHeaderView.Stretch)          # Note column
         
-        # Set table height to display all 6 components
+        # Set table height to display all 5 components
         header_height = 35  # Header row height
         row_height = 50     # Row height
-        total_rows = 6      # Total 6 components
+        total_rows = 5      # Total 5 components
         table_height = header_height + (total_rows * row_height) + 10  # Additional margin
         
         # Set table fixed height to display all components
