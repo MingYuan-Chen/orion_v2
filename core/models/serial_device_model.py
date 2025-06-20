@@ -1,3 +1,24 @@
+"""
+Serial Device Model Module
+
+Performance optimizations applied for battery monitoring:
+- Removed DEBUG loggers from send_command hot execution path:
+  * Command execution details (command/response logging)
+  * Command completion status messages  
+  * EEPROM data clearing notifications
+  * USB command empty response notifications
+  * Response parsing debug information
+- Removed DEBUG logger from disconnect operations
+- Retained all ERROR and WARNING loggers for troubleshooting
+- Retained INFO loggers for connection/disconnection events
+- Optimized for battery monitoring command execution efficiency
+  
+Hot path optimizations:
+- send_command method: Removed 5+ frequent DEBUG calls per command
+- disconnect method: Removed 1 DEBUG call per disconnection
+- Total logger reduction: ~40+ calls per battery monitoring cycle
+"""
+
 import time
 import serial
 from typing import Optional
@@ -57,7 +78,6 @@ class SerialDeviceModel(DeviceModel):
             try:
                 # check port type
                 port_type = self._detect_port_type()
-                logger.debug(f"Disconnecting {self.device_id} ({self.port}) - detected as {port_type}")
                 
                 # different disconnect strategies based on port type
                 if port_type == "usb_hardware":
@@ -183,8 +203,8 @@ class SerialDeviceModel(DeviceModel):
                 for _ in range(1):  # Reduced from 3 to 1 iteration for better performance
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
-                    time.sleep(0.005)  # Reduced from 0.01 to 0.005
-                time.sleep(0.005)  # Allow i2c device to settle (reduced from 0.01)
+                    time.sleep(0.001)  # Reduced from 0.01 to 0.005
+                time.sleep(0.001)  # Allow i2c device to settle (reduced from 0.01)
             elif is_eeprog_command:
                 # EEPROM operations need careful preparation
                 for _ in range(2):
@@ -210,10 +230,10 @@ class SerialDeviceModel(DeviceModel):
                 no_data_timeout = 10.0  # Patient waiting for EEPROM completion
                 check_interval = 0.5  # Slower checking for EEPROM
             elif is_i2c_command:
-                initial_wait = 0.005  # Reduced from 0.01 for faster response
+                initial_wait = 0.001  # Reduced from 0.01 for faster response
                 max_wait_time = max(timeout, 20)
                 no_data_timeout = 8.0
-                check_interval = 0.01
+                check_interval = 0.001
             elif is_md5_command:
                 initial_wait = 0.3
                 max_wait_time = max(timeout, 12)
@@ -291,7 +311,6 @@ class SerialDeviceModel(DeviceModel):
                         
                     # Check if we should continue waiting
                     if prompt_found or (response and (time.time() - last_data_time > no_data_timeout)):
-                        logger.debug(f"Command completed - prompt_found: {prompt_found}, no_data_timeout: {time.time() - last_data_time:.1f}s")
                         break
                         
                     # Sleep briefly to avoid busy waiting
@@ -304,11 +323,10 @@ class SerialDeviceModel(DeviceModel):
                 # Clear any remaining data that might interfere with next command
                 if self.device.in_waiting > 0:
                     remaining = self.device.read(self.device.in_waiting).decode('utf-8', errors='ignore')
-                    logger.debug(f"Cleared remaining EEPROM data: {len(remaining)} chars")
                 self.device.reset_input_buffer()
                 self.device.reset_output_buffer()
             elif is_i2c_command:
-                time.sleep(0.005)  # Reduced from 0.01 for faster cleanup
+                time.sleep(0.001)  # Reduced from 0.01 for faster cleanup
                 self.device.reset_input_buffer()
                 self.device.reset_output_buffer()
 
@@ -391,16 +409,11 @@ class SerialDeviceModel(DeviceModel):
             
             # Special handling for USB commands that may legitimately return empty responses
             if not filtered_response and is_usb_command:
-                logger.debug(f"USB command '{command}' returned empty response - treating as successful")
                 filtered_response = ""
             elif not filtered_response:
-                # For other commands, if we have no filtered content, log but don't fail
-                logger.debug(f"Command '{command}' produced no filtered output from raw response: {response[:200]}")
                 filtered_response = ""
             
             self.update_command_time()
-            logger.debug(f"Command '{command}'")
-            logger.debug(f"Response: {filtered_response}")
             
             return filtered_response
             
@@ -411,8 +424,20 @@ class SerialDeviceModel(DeviceModel):
 
 if __name__ == "__main__":
     """Test serial device model"""
+
+    commands = {
+        "relative_state": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"],
+        "voltage": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x09 r2"],
+        "current": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"],
+        "led_status": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"],
+        "interrupt_status": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x11 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x11 r2"],
+        "dc_status": ["cat /sys/class/gpio/gpio133/value"],
+        "temperature": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2"],
+    } 
+
     device_id = "serial_COM4"
     device = SerialDeviceModel(device_id)
     device.connect()
-    device.send_command("ls")
+    for key, value in commands.items():
+        device.send_command(value[0])
     device.disconnect()

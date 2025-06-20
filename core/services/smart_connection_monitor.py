@@ -29,14 +29,14 @@ class SmartConnectionMonitor(QObject):
         # Monitor command identifier
         self.monitor_command_prefix = "CONNECTION_MONITOR_"
         
-    def start_monitoring(self, device_id: str, check_interval: int = 10000, 
+    def start_monitoring(self, device_id: str, check_interval: int = 500, 
                         max_failures: int = 1):
         """
         Start monitoring device connection status
         
         Args:
             device_id: device ID
-            check_interval: check interval (milliseconds), default 10 seconds to avoid frequent interference
+            check_interval: check interval (milliseconds), default 6 seconds to avoid frequent interference
             max_failures: maximum failure count (default 1, report error after one failure)
         """
         # Use a longer check interval to reduce interference with other operations
@@ -56,7 +56,7 @@ class SmartConnectionMonitor(QObject):
         # If this is the first device being monitored, start the timer
         if len(self.monitoring_devices) == 1:
             # Use a shorter timer interval to check, but the actual check frequency is controlled by the device configuration
-            self.check_timer.setInterval(5000)  # check every 5 seconds to see if monitoring needs to be performed
+            self.check_timer.setInterval(500)  # check every 3 seconds to see if monitoring needs to be performed
             self.check_timer.start()
             
     def stop_monitoring(self, device_id: str):
@@ -119,7 +119,7 @@ class SmartConnectionMonitor(QObject):
         logger.debug(f"Smart health check for device {device_id}: {monitor_command}")
         
         # Send the monitoring command, using a shorter timeout
-        self.serial_worker.send_command(device_id, monitor_command, 3)
+        self.serial_worker.send_command(device_id, monitor_command, 2)
         
     def _on_command_result(self, device_id: str, command: str, response: str):
         """Process command results, only process the monitor's own commands"""

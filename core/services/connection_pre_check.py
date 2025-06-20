@@ -30,7 +30,7 @@ class ConnectionPreCheckService(QObject):
         super().__init__()
         self.device_manager_vm = device_manager_vm
         self.pending_operations = {}  # device_id -> operation_info
-        self.check_timeout = 15000  # 15 seconds timeout
+        self.check_timeout = 5000  # 8 seconds timeout
         
         # Connect to the smart connection monitor signal
         if hasattr(self.device_manager_vm, 'device_ready_for_commands'):
@@ -42,7 +42,7 @@ class ConnectionPreCheckService(QObject):
                               operation_callback: Callable, 
                               on_success: Optional[Callable] = None,
                               on_failure: Optional[Callable] = None,
-                              check_timeout: int = 15000):
+                              check_timeout: int = 5000):
         """
         Execute the operation with pre-check
         
@@ -97,7 +97,7 @@ class ConnectionPreCheckService(QObject):
             self.device_manager_vm.check_device_ready_immediately(device_id)
             
             # Check the result after a brief delay
-            QTimer.singleShot(2000, lambda: self._verify_device_status(device_id))
+            QTimer.singleShot(500, lambda: self._verify_device_status(device_id))
             
         except Exception as e:
             logger.error(f"Error during immediate status check for {device_id}: {e}")
@@ -113,7 +113,7 @@ class ConnectionPreCheckService(QObject):
                 self._handle_check_success(device_id)
             else:
                 # Wait longer for the monitor to complete the check
-                QTimer.singleShot(3000, lambda: self._final_status_check(device_id))
+                QTimer.singleShot(500, lambda: self._final_status_check(device_id))
                 
         except Exception as e:
             logger.error(f"Error verifying device status for {device_id}: {e}")
@@ -141,7 +141,7 @@ class ConnectionPreCheckService(QObject):
         """Start device monitoring"""
         try:
             # Use a shorter check interval for quick monitoring
-            self.device_manager_vm.start_device_monitoring(device_id, check_interval=3000)
+            self.device_manager_vm.start_device_monitoring(device_id, check_interval=500)
             logger.debug(f"Connection monitoring started for device {device_id}")
             
         except Exception as e:
