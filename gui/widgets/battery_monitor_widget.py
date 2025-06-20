@@ -4,7 +4,7 @@ A standalone window for real-time battery monitoring
 """
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
                               QLabel, QPushButton, QProgressBar, QFrame, 
-                              QGroupBox, QSpacerItem, QSizePolicy, QComboBox)
+                              QGroupBox, QSpacerItem, QSizePolicy, QComboBox, QCheckBox)
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont, QPixmap, QIcon
 from typing import Dict, Any, Optional
@@ -62,7 +62,7 @@ class BatteryMonitorWidget(QWidget):
         """Setup the user interface"""
         # Set window properties
         self.setWindowTitle(f"Battery Monitor - {self.device_id}")
-        self.setFixedSize(450, 500)
+        self.setFixedSize(450, 520)
         self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint)
         
         # Apply dark theme
@@ -295,6 +295,41 @@ class BatteryMonitorWidget(QWidget):
         
         layout.addLayout(button_layout)
         
+        # Checkbox layout (separate row for better visibility)
+        checkbox_layout = QHBoxLayout()
+        
+        # Log as File checkbox
+        self.ui_components["log_as_file_checkbox"] = QCheckBox("Log as File")
+        self.ui_components["log_as_file_checkbox"].setStyleSheet("""
+            QCheckBox {
+                color: #FFFFFF;
+                font-size: 12px;
+                spacing: 5px;
+                margin: 5px 0px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #555555;
+                background-color: #2B2B2B;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #0078D7;
+                background-color: #0078D7;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked:hover {
+                background-color: #1C97EA;
+            }
+        """)
+        checkbox_layout.addWidget(self.ui_components["log_as_file_checkbox"])
+        checkbox_layout.addStretch()  # Add stretch to left-align the checkbox
+        
+        layout.addLayout(checkbox_layout)
+        
         return group
     
     def _setup_connections(self):
@@ -319,7 +354,8 @@ class BatteryMonitorWidget(QWidget):
             "current_label": self.ui_components["current_label"],
             "temperature_label": self.ui_components["temperature_label"],
             "battery_level_label": self.ui_components["battery_level_value"],
-            "progress_bar": self.ui_components["progress_bar"]
+            "progress_bar": self.ui_components["progress_bar"],
+            "log_as_file_checkbox": self.ui_components["log_as_file_checkbox"]
         }
         
         self.battery_manager.set_ui_components(ui_mapping)

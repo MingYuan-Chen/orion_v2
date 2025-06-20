@@ -1,4 +1,4 @@
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QTimer
 from typing import Dict, List, Optional, Any
 import time
 from core.models.device_manager_model import DeviceManagerModel
@@ -38,8 +38,14 @@ class DeviceManagerViewModel(QObject):
         self.platform_name = platform_name
         self.parent_widget = parent_widget  # Store parent widget for message boxes
         
-        # Platform detection tracking - stores detection results for each device
-        self.platform_detection_status = {}  # device_id: {command_results: {}, completed_commands: set(), detected_platform: str}
+        # Initialize platform detection status
+        self.platform_detection_status = {}
+        
+        # Add PIC command retry configuration
+        self.pic_command_retry_config = {
+            'max_retries': 5,  # Maximum retry attempts
+            'retry_delay': 1.0  # Delay between retries in seconds
+        }
         
         # Create device worker thread
         self._serial_worker = SerialDeviceWorker(self.device_manager)
@@ -288,7 +294,8 @@ class DeviceManagerViewModel(QObject):
                 'completed_commands': set(),
                 'detected_platform': None,
                 'panel_id_response': '',  # Store panel_id response for panel_id=01 cases
-                'status': 'checking_connection'  # 'checking_connection' -> 'detecting_platform' -> 'completed'
+                'status': 'checking_connection',  # 'checking_connection' -> 'detecting_platform' -> 'completed'
+                'pic_retry_count': 0  # Track PIC command retry attempts
             }
 
             # First, send the root command to check if device is responsive
@@ -392,21 +399,31 @@ class DeviceManagerViewModel(QObject):
             
             elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
                 logger.info(f"Received PIC version response from {device_id}: {response}")
-                # Check if this is an error response first
-                response_lower = response.strip().lower()
-                if "error" in response_lower or "no response" in response_lower:
-                    logger.warning(f"Invalid PIC version response: '{response}', platform detection failed")
+                
+                # Validate PIC response format
+                if not self._is_valid_pic_response(response):
+                    logger.warning(f"Invalid PIC version response format from {device_id}: '{response}'")
+                    # Retry the PIC command
+                    self._retry_pic_command(device_id)
+                    # Don't process this as a completed command yet
+                    self.command_result.emit(device_id, command, response)
+                    return
+                
+                # Valid PIC response received
+                pic_version = self._get_pic_version_from_response(response)
+                logger.info(f"Valid PIC version received from {device_id}: {pic_version}")
+                
+                # Check if we have panel_id = 01 that needs PIC version check
+                panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
+                if "01" in panel_id_response.strip().lower():
+                    detected_platform = self._detect_platform_from_panel_id_01(panel_id_response, response)
+                    logger.info(f"Detected platform from panel_id=01 + PIC version for device {device_id}: {detected_platform}")
                 else:
-                    # Check if we have panel_id = 01 that needs PIC version check
-                    panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
-                    if "01" in panel_id_response.strip().lower():
-                        detected_platform = self._detect_platform_from_panel_id_01(panel_id_response, response)
-                        logger.info(f"Detected platform from panel_id=01 + PIC version for device {device_id}: {detected_platform}")
-                    else:
-                        # Legacy logic for direct PIC version detection (if panel_id was not 01)
-                        if '0x72' in response:
-                            detected_platform = "argo"
-                            logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
+                    # Legacy logic for direct PIC version detection (if panel_id was not 01)
+                    if '0x72' in response:
+                        detected_platform = "argo"
+                        logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
+                
                 is_platform_detection_command = True
         
         # Handle platform detection command completion
@@ -445,31 +462,8 @@ class DeviceManagerViewModel(QObject):
                         self.platform_detection_status[device_id]['detected_platform'] = final_platform
                         logger.info(f"Final platform determination for panel_id=01 device {device_id}: {final_platform}")
                 
-                if not final_platform:
-                    # If no platform was detected from any command, emit platform detection failed signal
-                    logger.warning(f"No platform detected from commands for device {device_id}")
-                    
-                    # Get device port information
-                    device_port = self.connected_devices.get(device_id, {}).get('port', 'Unknown')
-                    
-                    # Emit platform detection failed signal
-                    self.platform_detection_failed.emit(device_id, device_port)
-                    
-                    # Clean up detection status for this device
-                    del self.platform_detection_status[device_id]
-                    return
-                
-                # Initialize services if this is the first connected device or if services are not initialized
-                if self.system_info_service is None or self.hardware_test_manager is None:
-                    # Update platform name and initialize services
-                    self.platform_name = final_platform
-                    self._initialize_services()
-                    logger.info(f"Services initialized with detected platform: {final_platform}")
-                else:
-                    logger.debug(f"Services already initialized, skipping for device {device_id}")
-                
-                # Clean up detection status for this device
-                del self.platform_detection_status[device_id]
+                # Use the new completion method
+                self._complete_platform_detection(device_id)
         
         # Always emit the command result signal for other components
         self.command_result.emit(device_id, command, response)
@@ -534,7 +528,158 @@ class DeviceManagerViewModel(QObject):
         else:
             logger.info(f"Detected hydra_fhd platform: panel_id=01 + PIC version does not contain 0x72")
             return "hydra_fhd"
+    
+    def _is_valid_pic_response(self, response: str) -> bool:
+        """Validate if PIC version response is in expected format
         
+        Args:
+            response: Raw response from PIC version command
+            
+        Returns:
+            bool: True if response matches expected format, False otherwise
+        """
+        # Remove whitespace and normalize response
+        clean_response = response.strip()
+        
+        # Check for error responses
+        response_lower = clean_response.lower()
+        if "error" in response_lower or "no response" in response_lower or not clean_response:
+            return False
+        
+        # Expected valid PIC version patterns:
+        # v100: 0x02 0x00 0x64
+        # v110: 0x02 0x00 0x6d  
+        # v114: 0x02 0x00 0x72
+        valid_patterns = [
+            '0x00 0x64',  # v100
+            '0x00 0x6e',  # v110
+            '0x00 0x72'   # v114
+        ]
+        
+        # Check if response contains any valid pattern
+        for pattern in valid_patterns:
+            if pattern in clean_response:
+                logger.debug(f"Valid PIC response pattern found: {pattern}")
+                return True
+        
+        logger.debug(f"Invalid PIC response format: '{clean_response}'")
+        return False
+    
+    def _get_pic_version_from_response(self, response: str) -> Optional[str]:
+        """Extract PIC version string from response
+        
+        Args:
+            response: Raw response from PIC version command
+            
+        Returns:
+            Optional[str]: Version string (v100, v110, v114) or None if not found
+        """
+        clean_response = response.strip()
+        
+        if '0x00 0x64' in clean_response:
+            return 'v100'
+        elif '0x00 0x6d' in clean_response:
+            return 'v110'
+        elif '0x00 0x72' in clean_response:
+            return 'v114'
+        else:
+            return None
+    
+    def _retry_pic_command(self, device_id: str):
+        """Retry PIC version command for platform detection with delay
+        
+        Args:
+            device_id: Device ID to retry command for
+        """
+        if device_id not in self.platform_detection_status:
+            logger.error(f"Cannot retry PIC command: device {device_id} not in platform detection status")
+            return
+        
+        # Get current retry count
+        retry_count = self.platform_detection_status[device_id].get('pic_retry_count', 0)
+        max_retries = self.pic_command_retry_config['max_retries']
+        
+        if retry_count >= max_retries:
+            logger.error(f"PIC command retry limit reached for device {device_id} ({retry_count}/{max_retries})")
+            # Use default platform detection logic
+            panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
+            if "01" in panel_id_response.strip().lower():
+                # Default to hydra_fhd for panel_id = 01 when PIC command fails
+                logger.warning(f"Defaulting to hydra_fhd for device {device_id} due to PIC command failure")
+                self.platform_detection_status[device_id]['detected_platform'] = 'hydra_fhd'
+                self._complete_platform_detection(device_id)
+            return
+        
+        # Increment retry count
+        self.platform_detection_status[device_id]['pic_retry_count'] = retry_count + 1
+        
+        logger.info(f"Retrying PIC command for device {device_id} (attempt {retry_count + 1}/{max_retries}) in {self.pic_command_retry_config['retry_delay']} seconds")
+        
+        # Use QTimer to delay the retry
+        retry_timer = QTimer()
+        retry_timer.timeout.connect(lambda: self._execute_pic_retry(device_id, retry_timer))
+        retry_timer.setSingleShot(True)
+        retry_timer.start(int(self.pic_command_retry_config['retry_delay'] * 1000))  # Convert to milliseconds
+    
+    def _execute_pic_retry(self, device_id: str, timer: QTimer):
+        """Execute the actual PIC command retry
+        
+        Args:
+            device_id: Device ID to retry command for
+            timer: Timer object to clean up
+        """
+        # Clean up timer
+        timer.deleteLater()
+        
+        # Check if device is still in detection status
+        if device_id not in self.platform_detection_status:
+            logger.warning(f"Device {device_id} no longer in platform detection status, skipping retry")
+            return
+        
+        logger.info(f"Executing PIC command retry for device {device_id}")
+        
+        # Send PIC command again
+        pic_command = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+        self._serial_worker.send_command(device_id, pic_command, 10)
+    
+    def _complete_platform_detection(self, device_id: str):
+        """Complete platform detection process for a device
+        
+        Args:
+            device_id: Device ID to complete detection for
+        """
+        if device_id not in self.platform_detection_status:
+            return
+        
+        final_platform = self.platform_detection_status[device_id].get('detected_platform')
+        
+        if not final_platform:
+            logger.warning(f"No platform detected from commands for device {device_id}")
+            
+            # Get device port information
+            device_port = self.connected_devices.get(device_id, {}).get('port', 'Unknown')
+            
+            # Emit platform detection failed signal
+            self.platform_detection_failed.emit(device_id, device_port)
+            
+            # Clean up detection status for this device
+            del self.platform_detection_status[device_id]
+            return
+        
+        logger.info(f"Platform detection completed for device {device_id}: {final_platform}")
+        
+        # Initialize services if this is the first connected device or if services are not initialized
+        if self.system_info_service is None or self.hardware_test_manager is None:
+            # Update platform name and initialize services
+            self.platform_name = final_platform
+            self._initialize_services()
+            logger.info(f"Services initialized with detected platform: {final_platform}")
+        else:
+            logger.debug(f"Services already initialized, skipping for device {device_id}")
+        
+        # Clean up detection status for this device
+        del self.platform_detection_status[device_id]
+    
     def connect_serial_device(self, device_id: str, port: str, baudrate: int = 115200, timeout: int = 3):
         """Connect serial device"""
         logger.info(f"Request to connect device {device_id} to port {port}")
