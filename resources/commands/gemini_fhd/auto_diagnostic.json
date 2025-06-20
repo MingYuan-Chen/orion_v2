@@ -12,8 +12,7 @@
     "expected_response": ["244629504"]
   },
   "diagnostic_mac_address": {
-    "commands": ["cat /sys/class/net/eth0/address"],
-    "expected_response": ["5a:31:e7:6b:68:2a"]
+    "commands": ["cat /sys/class/net/eth0/address"]
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],

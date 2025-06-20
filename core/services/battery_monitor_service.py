@@ -1,9 +1,15 @@
 """
-Battery Monitor Service Module
-Specialized service for monitoring battery-related information
+Battery Monitor Service
+
+Performance optimizations applied:
+- Reduced command delay from 50ms to 20ms between commands
+- Optimized command execution order (dc_status first for speed)  
+- Removed non-essential DEBUG and INFO loggers from hot execution paths
+- Retained critical WARNING and ERROR loggers for troubleshooting
 """
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import json
+import time
 from typing import Dict, Any, Optional, List
 from util.logger import logger
 from core.models.platform_command_set import PlatformCommandSet, CommandType
@@ -69,13 +75,13 @@ class BatteryMonitorService(QObject):
         
         # Define command priority (order of execution)
         self.command_priority = [
+            "dc_status",
             "relative_state",
             "voltage",
             "current",
             "temperature",
             "led_status",
-            "interrupt_status",
-            "dc_status"
+            "interrupt_status"
         ]
         
         # Connect to serial worker signals if available
@@ -227,10 +233,6 @@ class BatteryMonitorService(QObject):
             self.retry_counts = {}
             self.current_command_name = None
             self.current_command_string = None
-            
-            logger.debug("Battery monitoring stopped successfully")
-        else:
-            logger.debug("No active battery monitoring to stop")
     
     def get_battery_info_once(self, device_id: str) -> bool:
         """
@@ -298,7 +300,6 @@ class BatteryMonitorService(QObject):
             # Check if this was a single reading operation
             is_single_reading = getattr(self, '_single_reading_mode', False)
             if is_single_reading:
-                logger.debug("Single reading completed, resetting monitoring state")
                 self._single_reading_mode = False
             
             # Reset monitoring flag
@@ -319,11 +320,8 @@ class BatteryMonitorService(QObject):
         
         # Emit command executed signal before executing command
         self.battery_command_executed.emit(self.current_device_id, command_name, command)
-        logger.debug(f"Executing battery command: [{self.current_device_id}] {command_name} - {command}")
         
-        # Add a small delay between commands to avoid register conflicts
-        import time
-        time.sleep(0.05)  # 50ms delay between battery commands (optimized from 200ms)
+        time.sleep(0.02)  # 50ms delay between battery commands (optimized from 200ms)
         
         # Execute command
         self.serial_worker.send_command(self.current_device_id, command, timeout=10)
@@ -359,18 +357,15 @@ class BatteryMonitorService(QObject):
             min_val, max_val = self.valid_ranges[command_name]
             if isinstance(value, (int, float)):
                 is_in_range = min_val <= value <= max_val
-                logger.debug(f"Range check for {command_name}: {value} in [{min_val}, {max_val}] = {is_in_range}")
                 return is_in_range
             elif isinstance(value, str) and command_name == "pic_firmware":
                 # For firmware version strings like "v258"
                 if value.startswith("v"):
                     version_num = int(value[1:])
                     is_in_range = min_val <= version_num <= max_val
-                    logger.debug(f"Range check for {command_name}: {version_num} in [{min_val}, {max_val}] = {is_in_range}")
                     return is_in_range
                 return True
         except (ValueError, TypeError) as e:
-            logger.debug(f"Range check error for {command_name}: {e}")
             pass
         
         return False
@@ -400,7 +395,6 @@ class BatteryMonitorService(QObject):
         if command_name not in self.retry_counts:
             self.retry_counts[command_name] = 0
         self.retry_counts[command_name] += 1
-        logger.debug(f"Retry count for {command_name}: {self.retry_counts[command_name]}")
     
     @Slot(str, str, str)
     def _on_command_completed(self, device_id: str, command: str, response: str):
@@ -425,15 +419,10 @@ class BatteryMonitorService(QObject):
             logger.warning("Received command completion but no current command set")
             return
         
-        logger.debug(f"Processing battery command result: {command_name}")
-        
         # Parse the response based on command type
         parsed_value = self._parse_battery_response(command_name, response)
         
-        # Add debug logging for validation
-        logger.debug(f"Parsed value for {command_name}: {parsed_value}")
         is_valid = parsed_value is not None and self._is_value_in_valid_range(command_name, parsed_value)
-        logger.debug(f"Value validation for {command_name}: {is_valid}")
         
         # Validate the parsed value
         if is_valid:
@@ -443,7 +432,6 @@ class BatteryMonitorService(QObject):
             elif command_name == "interrupt_status":
                 parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
             self.collected_battery_info[command_name] = parsed_value
-            logger.info(f"Battery {command_name}: {parsed_value}")
             
             # Reset current command and continue to next
             self._reset_current_command()
@@ -503,17 +491,14 @@ class BatteryMonitorService(QObject):
                         high_byte = int(hex_values[1], 16)  # Second hex value
                         low_byte = int(hex_values[2], 16)   # Third hex value
                         value = (high_byte << 8) + low_byte
-                        logger.debug(f"Parsed {command_name}: {hex_values} -> data bytes: {hex_values[1]} {hex_values[2]} = {value}")
                     elif len(hex_values) == 2:
                         # Two values: use both as data (high byte + low byte)
                         high_byte = int(hex_values[0], 16)
                         low_byte = int(hex_values[1], 16)
                         value = (high_byte << 8) + low_byte
-                        logger.debug(f"Parsed {command_name}: {hex_values} -> {high_byte:02x}{low_byte:02x} = {value}")
                     elif len(hex_values) == 1:
                         # Single value
                         value = int(hex_values[0], 16)
-                        logger.debug(f"Parsed {command_name}: {hex_values} -> {value}")
                     else:
                         logger.warning(f"No valid hex values found in response for {command_name}: {response}")
                         return None
