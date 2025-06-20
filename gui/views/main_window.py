@@ -1293,12 +1293,53 @@ class MainWindowController(QObject):
             chart_layout = chart_container.layout()
             chart_layout.addWidget(self.battery_chart_widget)
             
+            # Connect UI controls to chart widget
+            self._connect_chart_controls()
+            
             logger.info("Battery chart widget initialized")
             
         except Exception as e:
             logger.error(f"Failed to initialize battery chart widget: {str(e)}")
             # Don't raise exception, chart is optional feature
             self.battery_chart_widget = None
+    
+    def _connect_chart_controls(self):
+        """Connect chart control UI elements to chart widget functionality"""
+        try:
+            if not self.battery_chart_widget:
+                return
+            
+            # Connect checkboxes to chart visibility toggles
+            if hasattr(self.window, 'checkBox_show_battery'):
+                self.window.checkBox_show_battery.toggled.connect(
+                    self.battery_chart_widget._on_battery_toggled
+                )
+            
+            if hasattr(self.window, 'checkBox_show_voltage'):
+                self.window.checkBox_show_voltage.toggled.connect(
+                    self.battery_chart_widget._on_voltage_toggled
+                )
+            
+            if hasattr(self.window, 'checkBox_show_current'):
+                self.window.checkBox_show_current.toggled.connect(
+                    self.battery_chart_widget._on_current_toggled
+                )
+            
+            if hasattr(self.window, 'checkBox_show_temperature'):
+                self.window.checkBox_show_temperature.toggled.connect(
+                    self.battery_chart_widget._on_temperature_toggled
+                )
+            
+            # Connect clear button to clear data function
+            if hasattr(self.window, 'pushButton_clear_chart'):
+                self.window.pushButton_clear_chart.clicked.connect(
+                    self.battery_chart_widget.clear_data
+                )
+            
+            logger.info("Chart controls connected successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to connect chart controls: {str(e)}")
     
     def _on_embedded_monitoring_started(self):
         """Handle embedded monitoring started"""

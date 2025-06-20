@@ -1516,6 +1516,193 @@ QCheckBox::indicator:checked:hover {
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_battery_chart">
            <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_chart_controls">
+             <item>
+              <widget class="QCheckBox" name="checkBox_show_battery">
+               <property name="text">
+                <string>Battery %</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="styleSheet">
+                <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #4ECDC4;
+    background-color: #4ECDC4;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #4ECDC4;
+    opacity: 0.8;
+}</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="checkBox_show_voltage">
+               <property name="text">
+                <string>Voltage (V)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="styleSheet">
+                <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #FF6B6B;
+    background-color: #FF6B6B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #FF6B6B;
+    opacity: 0.8;
+}</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="checkBox_show_current">
+               <property name="text">
+                <string>Current (A)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="styleSheet">
+                <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #4DABF7;
+    background-color: #4DABF7;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #4DABF7;
+    opacity: 0.8;
+}</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="checkBox_show_temperature">
+               <property name="text">
+                <string>Temperature (°C)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="styleSheet">
+                <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #69DB7C;
+    background-color: #69DB7C;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #69DB7C;
+    opacity: 0.8;
+}</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_chart_controls">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_clear_chart">
+               <property name="text">
+                <string>Clear Chart</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>0</height>
+                </size>
+               </property>
+                               <property name="styleSheet">
+                 <string>QPushButton {
+     background-color: #007ACC;
+     color: white;
+     border: none;
+     border-radius: 5px;
+     padding: 5px 10px;
+     font-size: 11px;
+     font-weight: bold;
+ }
+ QPushButton:hover {
+     background-color: #005A9E;
+ }
+ QPushButton:pressed {
+     background-color: #004578;
+ }</string>
+                </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QWidget" name="widget_battery_chart_container">
              <property name="styleSheet">
               <string>QWidget {
