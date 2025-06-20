@@ -513,7 +513,12 @@ class BatteryMonitorService(QObject):
                             return None
                         return round(float(value/1000), 2)  # Convert to volts
                     elif command_name == "current":
-                        return round(float(value/1000), 2)  # Convert to amperes
+                        # Handle signed 16-bit value: range -32768 to 32767
+                        if value > 32767:
+                            signed_value = value - 65536  # Convert to signed
+                        else:
+                            signed_value = value
+                        return round(float(signed_value/1000), 2)  # Convert to amperes
                     elif command_name == "temperature":
                         return round(float(value/10)-273.15, 2)  # Convert to Celsius
                     elif command_name == "led_status":

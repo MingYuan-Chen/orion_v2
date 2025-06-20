@@ -16,6 +16,7 @@ class EmmcSizeWorker(BaseTestWorker):
         self.expected_emmc_size_mapping = {
             "hydra_fhd": [125250306048, 116.64],
             "hydra": [125069950976, 116.48],
+            "gemini_fhd": [125069950976, 116.48],  # Same as gemini
             "gemini": [125069950976, 116.48],
             "argo": [125069950976, 116.48]
         }
@@ -30,13 +31,18 @@ class EmmcSizeWorker(BaseTestWorker):
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
+        # Get expected eMMC size for the platform, with fallback
+        expected_emmc_size = self.expected_emmc_size_mapping.get(self.platform_name, [125069950976, 116.48])
+        if self.platform_name not in self.expected_emmc_size_mapping:
+            logger.warning(f"Unknown platform '{self.platform_name}' for eMMC size test, using default value")
+        
         return [
             TestStep(
                 command=commands[0], 
                 expected_response=expected_responses[0] if expected_responses else None, # get sector size * 512 = expected bytes: 125250306048 = 116.65GB
                 timeout=5, 
                 description="Check emmc size",
-                criteria=f"The emmc size is {self.expected_emmc_size_mapping[self.platform_name][0]} bytes({self.expected_emmc_size_mapping[self.platform_name][1]}GB)",
+                criteria=f"The emmc size is {expected_emmc_size[0]} bytes({expected_emmc_size[1]}GB)",
                 # fhd hydra: 244629504 = 125250306048 bytes= 116.64GB
                 # hydra:     244277248 = 125069950976 bytes= 116.48GB
                 # gemini:    244277248 = 125069950976 bytes= 116.48GB

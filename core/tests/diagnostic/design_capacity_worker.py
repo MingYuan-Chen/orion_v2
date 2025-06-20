@@ -16,6 +16,7 @@ class DesignCapacityWorker(BaseTestWorker):
         self.expected_design_capacity_mapping = {
             "hydra_fhd": 3350,
             "hydra": 3350,
+            "gemini_fhd": 3350,  # Same as gemini
             "gemini": 3350,
             "argo": 3250
         }
@@ -30,6 +31,11 @@ class DesignCapacityWorker(BaseTestWorker):
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
+        # Get expected design capacity for the platform, with fallback
+        expected_design_capacity = self.expected_design_capacity_mapping.get(self.platform_name, 3350)
+        if self.platform_name not in self.expected_design_capacity_mapping:
+            logger.warning(f"Unknown platform '{self.platform_name}' for design capacity test, using default value 3350")
+        
         return [
             TestStep(
                 command=commands[0], 
@@ -40,7 +46,7 @@ class DesignCapacityWorker(BaseTestWorker):
                 # Gemini: 0x0d 0x16 = 3350
                 timeout=5, 
                 description="Check Design Capacity",
-                criteria=f"The design capacity is {self.expected_design_capacity_mapping[self.platform_name]} mAh",
+                criteria=f"The design capacity is {expected_design_capacity} mAh",
                 max_retries=3,
                 retry_delay=500
             )
