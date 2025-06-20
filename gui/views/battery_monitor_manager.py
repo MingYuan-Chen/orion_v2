@@ -38,6 +38,7 @@ class BatteryMonitorManager(QObject):
         # UI components references (set by main controller)
         self.ui_components = {}
         self.main_controller = None
+        self.chart_widget = None  # Reference to chart widget
         
         # Battery data storage
         self.current_battery_data = {}
@@ -122,6 +123,10 @@ class BatteryMonitorManager(QObject):
     def set_main_controller(self, controller):
         """Set reference to main controller"""
         self.main_controller = controller
+    
+    def set_chart_widget(self, chart_widget):
+        """Set reference to chart widget"""
+        self.chart_widget = chart_widget
     
     def start_monitoring(self) -> bool:
         """
@@ -458,6 +463,10 @@ class BatteryMonitorManager(QObject):
         
         # Update UI display
         self._update_battery_display(battery_info)
+        
+        # Update chart if available
+        if self.chart_widget:
+            self.chart_widget.add_data_point(battery_info)
         
         # Log to CSV if enabled
         self._log_battery_data_to_csv(battery_info)
