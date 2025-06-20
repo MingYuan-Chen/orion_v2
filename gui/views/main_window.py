@@ -557,8 +557,8 @@ class MainWindowController(QObject):
         if hasattr(self, 'waiting_spinner'):
             self.waiting_spinner.stop()
         
-        # enable all UI controls
-        self.set_ui_controls_state(True)
+        # Use the unified test execution completion mechanism
+        self._on_test_execution_completed("System Info Refresh")
         
         # add the completed log
         self.log_manager.add_log_entry("INFO", "System info update completed")
@@ -572,8 +572,8 @@ class MainWindowController(QObject):
         if hasattr(self, 'waiting_spinner'):
             self.waiting_spinner.stop()
         
-        # enable all UI controls
-        self.set_ui_controls_state(True)
+        # Use the unified test execution abort mechanism
+        self._on_test_execution_aborted("System Info Refresh", f"Error: {error_message}")
         
         # add the error log
         self.log_manager.add_log_entry("ERROR", f"System info update error: {error_message}")
@@ -991,9 +991,6 @@ class MainWindowController(QObject):
             self.waiting_spinner.position_next_to(self.window.pushButton_refresh)
             self.waiting_spinner.start()
         
-        # disable all controls, but keep the tab switch functionality available
-        self.set_ui_controls_state_except_tabs(False)
-        
         # use the connection pre-check service to execute the system info refresh
         self.connection_pre_check.execute_with_pre_check(
             device_id=self.device_id,
@@ -1006,6 +1003,9 @@ class MainWindowController(QObject):
     
     def _execute_system_info_refresh(self):
         """execute the actual system info refresh operation"""
+        # Use the unified test execution mechanism
+        self._on_test_execution_started("System Info Refresh")
+        
         # set the updating status flag
         self.is_updating = True
         
@@ -1024,9 +1024,11 @@ class MainWindowController(QObject):
         if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
             self.view_model.system_info_service.stop_update(self.device_id)
         
-        # restore the UI state
+        # Use the unified test execution abort mechanism
+        self._on_test_execution_aborted("System Info Refresh", f"Pre-check failed: {reason}")
+        
+        # restore the UI state (additional cleanup)
         self.is_updating = False
-        self.set_ui_controls_state_except_tabs(True)
         
         # stop the waiting animation
         if hasattr(self, 'waiting_spinner'):
@@ -1301,18 +1303,30 @@ class MainWindowController(QObject):
     def _on_embedded_monitoring_started(self):
         """Handle embedded monitoring started"""
         logger.info("Embedded battery monitoring started")
+        
+        # Add Battery Monitor to the mutual exclusion mechanism
+        self._on_test_execution_started("Battery Monitor")
+        
         self.window.pushButton_battery_monitor.setText("Stop Monitoring")
         self.log_manager.add_log_entry("INFO", "Battery monitoring started")
     
     def _on_embedded_monitoring_completed(self):
         """Handle embedded monitoring completed"""
         logger.info("Embedded battery monitoring completed")
+        
+        # Remove Battery Monitor from the mutual exclusion mechanism
+        self._on_test_execution_completed("Battery Monitor")
+        
         self.window.pushButton_battery_monitor.setText("Start Monitoring")
         self.log_manager.add_log_entry("INFO", "Battery monitoring stopped")
     
     def _on_embedded_monitoring_error(self, error_message: str):
         """Handle embedded monitoring error"""
         logger.error(f"Embedded battery monitoring error: {error_message}")
+        
+        # Remove Battery Monitor from the mutual exclusion mechanism on error
+        self._on_test_execution_aborted("Battery Monitor", f"Error: {error_message}")
+        
         self.window.pushButton_battery_monitor.setText("Start Monitoring")
         self.log_manager.add_log_entry("ERROR", f"Battery Monitor error: {error_message}")
 
@@ -2872,12 +2886,16 @@ class MainWindowController(QObject):
         if hasattr(self.window, 'button_abort_test'):
             exclude_widgets.append(self.window.button_abort_test)
         
-        # Disable all other controls including refresh button
-        self.set_ui_controls_state(False, exclude_widgets)
+        # If Battery Monitor is starting, keep the battery monitor button enabled so user can stop it
+        if test_type == "Battery Monitor" and hasattr(self.window, 'pushButton_battery_monitor'):
+            exclude_widgets.append(self.window.pushButton_battery_monitor)
         
-        # Keep the refresh button specifically disabled during tests
-        if hasattr(self.window, 'pushButton_refresh'):
-            self.window.pushButton_refresh.setEnabled(False)
+        # If System Info Refresh is starting, keep the refresh button enabled for potential re-trigger
+        if test_type == "System Info Refresh" and hasattr(self.window, 'pushButton_refresh'):
+            exclude_widgets.append(self.window.pushButton_refresh)
+        
+        # Disable all other controls
+        self.set_ui_controls_state(False, exclude_widgets)
         
         # Add log entry
         self.log_manager.add_log_entry("INFO", f"Test execution started - UI controls disabled")
