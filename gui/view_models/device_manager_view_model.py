@@ -287,6 +287,7 @@ class DeviceManagerViewModel(QObject):
                 'command_results': {},
                 'completed_commands': set(),
                 'detected_platform': None,
+                'panel_id_response': '',  # Store panel_id response for panel_id=01 cases
                 'status': 'checking_connection'  # 'checking_connection' -> 'detecting_platform' -> 'completed'
             }
 
@@ -376,7 +377,17 @@ class DeviceManagerViewModel(QObject):
             if command == "cat /proc/panel_id":
                 logger.info(f"Received platform detection response from {device_id}: {response}")
                 detected_platform = self._detect_platform_from_panel_id(response)
-                logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
+                if detected_platform:
+                    logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
+                else:
+                    # Check if this is panel_id = 01 (needs PIC version check)
+                    panel_id = response.strip().lower()
+                    if "01" in panel_id:
+                        logger.info(f"panel_id = 01 detected for device {device_id}, waiting for PIC version to determine argo vs hydra_fhd")
+                        # Store panel_id response for later use
+                        self.platform_detection_status[device_id]['panel_id_response'] = response
+                    else:
+                        logger.warning(f"Unable to detect platform from panel_id for device {device_id}: {response}")
                 is_platform_detection_command = True
             
             elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
@@ -386,10 +397,16 @@ class DeviceManagerViewModel(QObject):
                 if "error" in response_lower or "no response" in response_lower:
                     logger.warning(f"Invalid PIC version response: '{response}', platform detection failed")
                 else:
-                    # Determine platform based on PIC version response
-                    if '0x72' in response:
-                        detected_platform = "argo"
-                        logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
+                    # Check if we have panel_id = 01 that needs PIC version check
+                    panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
+                    if "01" in panel_id_response.strip().lower():
+                        detected_platform = self._detect_platform_from_panel_id_01(panel_id_response, response)
+                        logger.info(f"Detected platform from panel_id=01 + PIC version for device {device_id}: {detected_platform}")
+                    else:
+                        # Legacy logic for direct PIC version detection (if panel_id was not 01)
+                        if '0x72' in response:
+                            detected_platform = "argo"
+                            logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
                 is_platform_detection_command = True
         
         # Handle platform detection command completion
@@ -414,6 +431,20 @@ class DeviceManagerViewModel(QObject):
                 
                 # Get the final detected platform
                 final_platform = self.platform_detection_status[device_id]['detected_platform']
+                
+                # Special handling for panel_id = 01 cases
+                panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
+                if "01" in panel_id_response.strip().lower() and not final_platform:
+                    # For panel_id = 01, we need both commands to complete and final platform to be determined
+                    pic_version_response = self.platform_detection_status[device_id]['command_results'].get(
+                        "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 
+                        ""
+                    )
+                    if pic_version_response:
+                        final_platform = self._detect_platform_from_panel_id_01(panel_id_response, pic_version_response)
+                        self.platform_detection_status[device_id]['detected_platform'] = final_platform
+                        logger.info(f"Final platform determination for panel_id=01 device {device_id}: {final_platform}")
+                
                 if not final_platform:
                     # If no platform was detected from any command, emit platform detection failed signal
                     logger.warning(f"No platform detected from commands for device {device_id}")
@@ -450,7 +481,7 @@ class DeviceManagerViewModel(QObject):
             panel_id_response: Response from 'cat /proc/panel_id' command
             
         Returns:
-            Optional[str]: Detected platform name, or None if detection failed
+            Optional[str]: Detected platform name, or None if detection failed or needs PIC version check
         """
         # Remove whitespace and convert to lowercase for comparison
         response = panel_id_response.strip().lower()
@@ -464,7 +495,9 @@ class DeviceManagerViewModel(QObject):
         
         # Platform detection logic based on panel_id
         if "01" in response:
-            return "hydra_fhd"
+            # panel_id = 01 needs PIC version check to distinguish between argo and hydra_fhd
+            logger.debug("panel_id = 01 detected, need PIC version check to distinguish argo vs hydra_fhd")
+            return None  # Return None to indicate need for PIC version check
         elif "00" in response:
             return "hydra"
         elif "10" in response:
@@ -475,6 +508,32 @@ class DeviceManagerViewModel(QObject):
             # Unknown but valid response - log for debugging
             logger.warning(f"Unknown panel_id response: '{panel_id_response}', platform detection failed")
             return None
+    
+    def _detect_platform_from_panel_id_01(self, panel_id_response: str, pic_version_response: str) -> Optional[str]:
+        """Detect platform when panel_id = 01 using PIC version
+        
+        Args:
+            panel_id_response: Response from 'cat /proc/panel_id' command
+            pic_version_response: Response from PIC version command
+            
+        Returns:
+            Optional[str]: Detected platform name (argo or hydra_fhd), or None if detection failed
+        """
+        logger.debug(f"Analyzing panel_id=01 with PIC version: '{pic_version_response}'")
+        
+        # Check if PIC version response is valid
+        pic_response_lower = pic_version_response.strip().lower()
+        if "error" in pic_response_lower or "no response" in pic_response_lower:
+            logger.warning(f"Invalid PIC version response for panel_id=01: '{pic_version_response}', defaulting to hydra_fhd")
+            return "hydra_fhd"
+        
+        # Check for argo signature (0x72 in PIC version)
+        if '0x72' in pic_version_response:
+            logger.info(f"Detected argo platform: panel_id=01 + PIC version contains 0x72")
+            return "argo"
+        else:
+            logger.info(f"Detected hydra_fhd platform: panel_id=01 + PIC version does not contain 0x72")
+            return "hydra_fhd"
         
     def connect_serial_device(self, device_id: str, port: str, baudrate: int = 115200, timeout: int = 3):
         """Connect serial device"""
