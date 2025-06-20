@@ -1463,6 +1463,41 @@ QPushButton:hover {
                </property>
               </widget>
              </item>
+             <item>
+              <widget class="QCheckBox" name="checkBox_log_as_file">
+               <property name="text">
+                <string>Log as File</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="styleSheet">
+                <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 12px;
+    spacing: 5px;
+    margin: 5px 10px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #0078D7;
+    background-color: #0078D7;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #1C97EA;
+}</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
           </layout>

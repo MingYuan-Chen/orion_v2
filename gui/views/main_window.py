@@ -1251,7 +1251,8 @@ class MainWindowController(QObject):
                 "progress_bar": self.window.progressBar_battery_level,
                 "led_status_label": self.window.label_led_status_value,
                 "interrupt_status_label": self.window.label_interrupt_status_value,
-                "dc_status_label": self.window.label_dc_status_value
+                "dc_status_label": self.window.label_dc_status_value,
+                "log_as_file_checkbox": self.window.checkBox_log_as_file
             }
             
             self.battery_monitor_manager.set_ui_components(ui_mapping)

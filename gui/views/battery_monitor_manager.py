@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QMessageBox, QProgressBar, QLabel, QPushButton
 from typing import Dict, Any, Optional
 from util.logger import logger
 import datetime
+import csv
+import os
 
 
 class BatteryMonitorManager(QObject):
@@ -47,6 +49,23 @@ class BatteryMonitorManager(QObject):
         self.monitoring_interval = 3000  # 3 seconds default (optimized for better user experience)
         self.monitoring_timer = QTimer()
         self.monitoring_timer.timeout.connect(self._on_monitoring_timer)
+        
+        # CSV logging state
+        self.csv_logging_enabled = False
+        self.csv_file_path = None
+        self.csv_writer = None
+        self.csv_file = None
+        
+        # CSV data cache for handling empty values
+        self.csv_data_cache = {
+            "relative_state": "",
+            "voltage": "",
+            "current": "",
+            "temperature": "",
+            "led_status": "",
+            "interrupt_status": "",
+            "dc_status": ""
+        }
         
         # Connect battery service signals
         self._connect_signals()
@@ -123,6 +142,9 @@ class BatteryMonitorManager(QObject):
         
         logger.info(f"Starting battery monitoring for device: {self.device_id}")
         
+        # Check if CSV logging is enabled
+        self._check_and_setup_csv_logging()
+        
         # Update state first
         self.is_monitoring = True
         self._set_monitoring_ui_state(True)
@@ -168,6 +190,9 @@ class BatteryMonitorManager(QObject):
         
         # Update UI state
         self._set_monitoring_ui_state(False)
+        
+        # Close CSV file if logging was enabled
+        self._close_csv_logging()
         
         # Add system log
         if self.main_controller:
@@ -434,6 +459,9 @@ class BatteryMonitorManager(QObject):
         # Update UI display
         self._update_battery_display(battery_info)
         
+        # Log to CSV if enabled
+        self._log_battery_data_to_csv(battery_info)
+        
         # Update status
         self._update_status_display(f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         
@@ -529,4 +557,143 @@ class BatteryMonitorManager(QObject):
         self.current_battery_data = {}
         self.battery_history = []
         
-        logger.info("Battery Monitor Manager cleaned up") 
+        # Clear CSV data cache
+        self.csv_data_cache = {
+            "relative_state": "",
+            "voltage": "",
+            "current": "",
+            "temperature": "",
+            "led_status": "",
+            "interrupt_status": "",
+            "dc_status": ""
+        }
+        
+        logger.info("Battery Monitor Manager cleaned up")
+    
+    def _check_and_setup_csv_logging(self):
+        """Check if CSV logging checkbox is checked and setup CSV file"""
+        if "log_as_file_checkbox" in self.ui_components:
+            checkbox = self.ui_components["log_as_file_checkbox"]
+            if checkbox.isChecked():
+                self._setup_csv_logging()
+                logger.info("CSV logging enabled for battery monitoring")
+            else:
+                self.csv_logging_enabled = False
+                logger.info("CSV logging disabled for battery monitoring")
+        else:
+            self.csv_logging_enabled = False
+            logger.debug("No CSV logging checkbox found")
+    
+    def _setup_csv_logging(self):
+        """Setup CSV file for battery data logging"""
+        try:
+            # Generate timestamp-based filename
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Save directly in the root directory
+            self.csv_file_path = f"battery_monitor_{self.device_id}_{timestamp}.csv"
+            
+            # Open CSV file and create writer
+            self.csv_file = open(self.csv_file_path, 'w', newline='', encoding='utf-8')
+            self.csv_writer = csv.writer(self.csv_file)
+            
+            # Write CSV header
+            header = [
+                'Timestamp',
+                'Relative State (%)',
+                'Voltage (V)',
+                'Current (A)',
+                'Temperature (°C)',
+                'LED Status',
+                'Interrupt Status',
+                'DC Status'
+            ]
+            self.csv_writer.writerow(header)
+            self.csv_file.flush()
+            
+            self.csv_logging_enabled = True
+            logger.info(f"CSV logging setup complete: {self.csv_file_path}")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup CSV logging: {str(e)}")
+            self.csv_logging_enabled = False
+            self._close_csv_logging()
+    
+    def _close_csv_logging(self):
+        """Close CSV file and cleanup"""
+        if self.csv_file:
+            try:
+                self.csv_file.close()
+                logger.info(f"CSV file closed: {self.csv_file_path}")
+            except Exception as e:
+                logger.error(f"Error closing CSV file: {str(e)}")
+            finally:
+                self.csv_file = None
+                self.csv_writer = None
+                self.csv_file_path = None
+                self.csv_logging_enabled = False
+                
+                # Clear CSV data cache when closing
+                self.csv_data_cache = {
+                    "relative_state": "",
+                    "voltage": "",
+                    "current": "",
+                    "temperature": "",
+                    "led_status": "",
+                    "interrupt_status": "",
+                    "dc_status": ""
+                }
+    
+    def _log_battery_data_to_csv(self, battery_data: Dict[str, Any]):
+        """Log battery data to CSV file with caching for empty values"""
+        if not self.csv_logging_enabled or not self.csv_writer:
+            return
+        
+        try:
+            # Get current timestamp
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Extract data and use cache for empty values
+            data_fields = ["relative_state", "voltage", "current", "temperature", 
+                          "led_status", "interrupt_status", "dc_status"]
+            
+            processed_data = {}
+            
+            for field in data_fields:
+                current_value = battery_data.get(field, "")
+                
+                # Check if current value is valid (not None, not empty string, and not just whitespace)
+                # Note: 0, 0.0, False are valid values, so we need to check specifically for None and empty strings
+                if current_value is not None and str(current_value).strip() != "":
+                    # Valid value: update cache and use current value
+                    self.csv_data_cache[field] = str(current_value).strip()
+                    processed_data[field] = self.csv_data_cache[field]
+                    logger.debug(f"Updated cache for {field}: {self.csv_data_cache[field]}")
+                else:
+                    # Empty or invalid value: use cached value
+                    processed_data[field] = self.csv_data_cache[field]
+                    if self.csv_data_cache[field]:
+                        logger.debug(f"Using cached value for {field}: {self.csv_data_cache[field]}")
+                    else:
+                        logger.debug(f"No cached value available for {field}, using empty string")
+            
+            # Write data row
+            row = [
+                timestamp,
+                processed_data["relative_state"],
+                processed_data["voltage"],
+                processed_data["current"],
+                processed_data["temperature"],
+                processed_data["led_status"],
+                processed_data["interrupt_status"],
+                processed_data["dc_status"]
+            ]
+            
+            self.csv_writer.writerow(row)
+            self.csv_file.flush()  # Ensure data is written immediately
+            
+            logger.debug(f"Battery data logged to CSV: {timestamp}")
+            
+        except Exception as e:
+            logger.error(f"Error logging battery data to CSV: {str(e)}")
+            # Disable CSV logging on error to prevent spam
+            self.csv_logging_enabled = False 
