@@ -1946,3 +1946,515 @@ logger.info(f"Stopping system info update for device: {self.current_device_id}")
 5. **自動重連機制**：在檢測到連接恢復時自動重新建立連接
 
 通過這套完整的連接檢查機制，Orion系統大大提高了操作的可靠性和用戶體驗，確保所有關鍵操作都在設備連接正常的前提下執行。
+
+## 18. Battery Monitor 電池監控系統
+
+Battery Monitor 是 Orion 系統中的重要功能模組，提供即時電池狀態監控、數據記錄和視覺化展示。該系統整合了數據收集、CSV 記錄、即時圖表顯示和互斥機制管理等功能，為用戶提供全面的電池監控解決方案。
+
+### 18.1 系統架構概述
+
+Battery Monitor 系統採用分層架構設計，包含服務層、管理層、視圖層和 UI 組件層：
+
+```mermaid
+graph TD
+    A[BatteryMonitorService] --> B[BatteryMonitorManager]
+    B --> C[BatteryMonitorWidget]
+    B --> D[BatteryChartWidget]
+    B --> E[CSV 記錄功能]
+    
+    F[MainWindowController] --> B
+    F --> G[互斥機制管理]
+    
+    H[SerialDeviceWorker] --> A
+    A --> I[電池數據收集]
+    
+    J[UI 控制組件]
+    C --> J
+    D --> J
+    
+    K[檔案系統]
+    E --> K
+```
+
+#### 18.1.1 核心組件
+
+1. **BatteryMonitorService** (`core/services/battery_monitor_service.py`)
+   - 電池監控的核心服務層
+   - 負責與硬體設備通訊，收集電池數據
+   - 提供電池狀態查詢和監控控制介面
+
+2. **BatteryMonitorManager** (`gui/views/battery_monitor_manager.py`)
+   - 電池監控的管理層
+   - 協調服務層和視圖層的互動
+   - 管理 CSV 記錄功能和數據暫存機制
+
+3. **BatteryMonitorWidget** (`gui/widgets/battery_monitor_widget.py`)
+   - 電池監控的 UI 組件
+   - 顯示電池狀態信息和控制按鈕
+   - 處理用戶互動事件
+
+4. **BatteryChartWidget** (`gui/widgets/battery_chart_widget.py`)
+   - 即時圖表顯示組件
+   - 提供多參數即時曲線圖
+   - 支持圖表控制和數據清除功能
+
+### 18.2 工作流程詳解
+
+#### 18.2.1 監控啟動流程
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶
+    participant MW as MainWindowController
+    participant BM as BatteryMonitorManager
+    participant BS as BatteryMonitorService
+    participant BC as BatteryChartWidget
+    participant Device as 硬體設備
+    
+    User->>MW: 點擊 Start Monitoring
+    MW->>MW: _on_test_execution_started("Battery Monitor")
+    MW->>BM: start_monitoring()
+    BM->>BM: _check_and_setup_csv_logging()
+    BM->>BS: start_monitoring(device_id)
+    BS->>Device: 發送電池監控命令
+    
+    loop 監控循環 (每3秒)
+        Device-->>BS: 返回電池數據
+        BS-->>BM: battery_info_received 信號
+        BM->>BM: _on_battery_info_received()
+        BM->>BM: _log_battery_data_to_csv()
+        BM->>BC: add_data_point()
+        BC->>BC: _update_chart()
+        BM-->>MW: 更新 UI 顯示
+    end
+```
+
+#### 18.2.2 監控停止流程
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶
+    participant MW as MainWindowController
+    participant BM as BatteryMonitorManager
+    participant BS as BatteryMonitorService
+    participant CSV as CSV 文件
+    
+    User->>MW: 點擊 Stop Monitoring
+    MW->>BM: stop_monitoring()
+    BM->>BS: stop_monitoring(device_id)
+    BS-->>BM: monitoring_stopped 信號
+    BM->>BM: _close_csv_logging()
+    BM->>CSV: 關閉並保存 CSV 文件
+    BM-->>MW: monitoring_completed 信號
+    MW->>MW: _on_test_execution_completed("Battery Monitor")
+    MW->>MW: 恢復其他按鈕狀態
+```
+
+### 18.3 CSV 記錄功能
+
+#### 18.3.1 功能特色
+
+Battery Monitor 提供完整的 CSV 數據記錄功能：
+
+1. **自動檔案命名**：
+   ```python
+   # 檔案命名格式：battery_monitor_{device_id}_{timestamp}.csv
+   timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+   filename = f"battery_monitor_{device_id}_{timestamp}.csv"
+   ```
+
+2. **智能數據暫存機制**：
+   ```python
+   self.csv_data_cache = {
+       "relative_state": "",
+       "voltage": "",
+       "current": "",
+       "temperature": "",
+       "led_status": "",
+       "interrupt_status": "",
+       "dc_status": ""
+   }
+   ```
+
+3. **數據完整性保證**：
+   - 當前數據有效時，更新暫存並記錄當前值
+   - 當前數據無效時，使用暫存的上一次有效值
+   - 特殊處理 0.0 等邊界值情況
+
+#### 18.3.2 CSV 記錄邏輯
+
+```mermaid
+graph TD
+    A[接收電池數據] --> B[檢查 Log as File 狀態]
+    B -->|已勾選| C[處理數據字段]
+    B -->|未勾選| Z[跳過記錄]
+    
+    C --> D[檢查字段有效性]
+    D -->|有效| E[更新暫存並使用當前值]
+    D -->|無效| F[使用暫存的上一次有效值]
+    
+    E --> G[寫入 CSV 行]
+    F --> G
+    G --> H[即時刷新文件]
+    H --> I[記錄完成]
+```
+
+#### 18.3.3 數據欄位定義
+
+CSV 文件包含以下欄位：
+
+| 欄位名稱 | 說明 | 單位 | 範例值 |
+|---------|------|------|--------|
+| Timestamp | 記錄時間戳 | - | 2025-01-20 14:30:25 |
+| Relative State (%) | 電池電量百分比 | % | 85.5 |
+| Voltage (V) | 電池電壓 | V | 3.85 |
+| Current (A) | 電池電流 | A | -0.25 |
+| Temperature (°C) | 電池溫度 | °C | 28.5 |
+| LED Status | LED 狀態 | - | ON |
+| Interrupt Status | 中斷狀態 | - | NORMAL |
+| DC Status | DC 狀態 | - | CONNECTED |
+
+### 18.4 即時圖表系統
+
+#### 18.4.1 圖表架構
+
+BatteryChartWidget 提供類似 Windows Performance Monitor 的即時更新曲線圖：
+
+```mermaid
+graph TD
+    A[BatteryChartWidget] --> B[matplotlib 圖表引擎]
+    B --> C[多軸圖表系統]
+    
+    C --> D[主軸 - Battery %]
+    C --> E[副軸1 - Voltage]
+    C --> F[副軸2 - Current]
+    C --> G[副軸3 - Temperature]
+    
+    H[數據緩衝區] --> I[deque 結構]
+    I --> J[最多100個數據點]
+    
+    K[控制面板] --> L[顯示開關]
+    K --> M[Clear Button]
+    
+    A --> H
+    A --> K
+```
+
+#### 18.4.2 圖表特色
+
+1. **多參數同時顯示**：
+   - 電池百分比（主軸，青色）
+   - 電壓（副軸，紅色）
+   - 電流（副軸，藍色）
+   - 溫度（副軸，綠色）
+
+2. **動態軸範圍調整**：
+   ```python
+   def _update_y_axis_limits(self):
+       """動態更新 Y 軸範圍"""
+       default_ranges = {
+           'battery': (0, 100, 5),      # min, max, margin
+           'voltage': (0, 12, 1),       # min, max, margin  
+           'current': (-2, 3, 0.5),     # min, max, margin
+           'temperature': (0, 60, 5)    # min, max, margin
+       }
+       
+       # 根據實際數據動態調整範圍
+       if self.show_battery and self.battery_percentage:
+           data_min = min(self.battery_percentage)
+           data_max = max(self.battery_percentage)
+           # 計算合適的 Y 軸範圍...
+   ```
+
+3. **即時控制功能**：
+   - 四個 checkbox 控制各參數的顯示/隱藏
+   - Clear Chart 按鈕重置所有歷史數據
+   - 圖例動態更新，只顯示可見的參數
+
+#### 18.4.3 UI 控制整合
+
+圖表控制 UI 在 `main_window.ui` 中定義，通過 `main_window.py` 連接到圖表功能：
+
+```python
+def _connect_chart_controls(self):
+    """連接圖表控制 UI 元素到圖表功能"""
+    # 連接 checkbox 到圖表顯示控制
+    if hasattr(self.window, 'checkBox_show_battery'):
+        self.window.checkBox_show_battery.toggled.connect(
+            self.battery_chart_widget._on_battery_toggled
+        )
+    
+    # 連接 Clear button 到數據清除功能
+    if hasattr(self.window, 'pushButton_clear_chart'):
+        self.window.pushButton_clear_chart.clicked.connect(
+            self.battery_chart_widget.clear_data
+        )
+```
+
+### 18.5 互斥機制整合
+
+#### 18.5.1 設計原理
+
+Battery Monitor 整合到系統的互斥機制中，確保與其他操作不會同時執行：
+
+```mermaid
+graph TD
+    A[Battery Monitor 開始] --> B[_on_test_execution_started]
+    B --> C[禁用其他按鈕]
+    C --> D[保持 Battery Monitor 按鈕可用]
+    
+    E[其他操作開始] --> F[禁用 Battery Monitor 按鈕]
+    
+    G[Battery Monitor 停止] --> H[_on_test_execution_completed]
+    H --> I[恢復所有按鈕狀態]
+```
+
+#### 18.5.2 實現細節
+
+```python
+def _on_embedded_monitoring_started(self):
+    """處理嵌入式監控開始"""
+    # 加入互斥機制
+    self._on_test_execution_started("Battery Monitor")
+    
+    # 更新按鈕文字
+    self.window.pushButton_battery_monitor.setText("Stop Monitoring")
+    self.log_manager.add_log_entry("INFO", "Battery monitoring started")
+
+def _on_embedded_monitoring_completed(self):
+    """處理嵌入式監控完成"""
+    # 移出互斥機制
+    self._on_test_execution_completed("Battery Monitor")
+    
+    # 恢復按鈕文字
+    self.window.pushButton_battery_monitor.setText("Start Monitoring")
+    self.log_manager.add_log_entry("INFO", "Battery monitoring stopped")
+```
+
+#### 18.5.3 特殊處理邏輯
+
+在互斥機制中，Battery Monitor 按鈕需要特殊處理：
+
+```python
+def _on_test_execution_started(self, test_type=""):
+    """處理測試執行開始"""
+    # 如果是 Battery Monitor 開始，保持其按鈕可用
+    if test_type == "Battery Monitor":
+        exclude_widgets.append(self.window.pushButton_battery_monitor)
+    
+    # 如果是 System Info Refresh 開始，保持 refresh 按鈕可用
+    if test_type == "System Info Refresh":
+        exclude_widgets.append(self.window.pushButton_refresh)
+    
+    # 設置 UI 控制狀態
+    self.set_ui_controls_state(False, exclude_widgets)
+```
+
+### 18.6 錯誤處理與異常管理
+
+#### 18.6.1 CSV 記錄錯誤處理
+
+```python
+def _log_battery_data_to_csv(self, battery_data):
+    """記錄電池數據到 CSV，包含完整錯誤處理"""
+    if not self.csv_logging_enabled or not self.csv_writer:
+        return
+    
+    try:
+        # 數據處理和寫入邏輯...
+        self.csv_writer.writerow(row_data)
+        self.csv_file.flush()  # 即時刷新
+        
+    except Exception as e:
+        logger.error(f"Error writing battery data to CSV: {str(e)}")
+        # 發生錯誤時自動禁用 CSV 記錄
+        self._close_csv_logging()
+        self.csv_logging_enabled = False
+```
+
+#### 18.6.2 圖表更新錯誤處理
+
+```python
+def _update_chart(self):
+    """更新圖表顯示，包含異常處理"""
+    if len(self.timestamps) < 2:
+        return
+    
+    try:
+        # 圖表更新邏輯...
+        self.canvas.draw()
+        
+    except Exception as e:
+        logger.error(f"Error updating battery chart: {str(e)}")
+        # 圖表更新失敗不影響數據收集
+```
+
+#### 18.6.3 監控服務異常處理
+
+```python
+def _on_embedded_monitoring_error(self, error_message: str):
+    """處理嵌入式監控錯誤"""
+    logger.error(f"Embedded battery monitoring error: {error_message}")
+    
+    # 從互斥機制中移除
+    self._on_test_execution_aborted("Battery Monitor", f"Error: {error_message}")
+    
+    # 恢復 UI 狀態
+    self.window.pushButton_battery_monitor.setText("Start Monitoring")
+    self.log_manager.add_log_entry("ERROR", f"Battery Monitor error: {error_message}")
+```
+
+### 18.7 性能優化與資源管理
+
+#### 18.7.1 數據緩衝區管理
+
+```python
+# 使用 deque 提供高效的數據管理
+self.max_data_points = 100  # 保持最近100個數據點
+self.timestamps = deque(maxlen=self.max_data_points)
+self.battery_percentage = deque(maxlen=self.max_data_points)
+# ... 其他數據緩衝區
+```
+
+#### 18.7.2 圖表更新頻率控制
+
+```python
+# 圖表更新計時器設置
+self.update_timer = QTimer()
+self.update_timer.timeout.connect(self._update_chart)
+self.update_timer.start(1000)  # 每秒更新一次圖表
+```
+
+#### 18.7.3 資源清理機制
+
+```python
+def cleanup(self):
+    """清理資源"""
+    # 停止更新計時器
+    if hasattr(self, 'update_timer'):
+        self.update_timer.stop()
+    
+    # 關閉 CSV 文件
+    self._close_csv_logging()
+    
+    # 清除圖表數據
+    self.clear_data()
+    
+    logger.info("Battery Monitor resources cleaned up")
+```
+
+### 18.8 配置與自定義
+
+#### 18.8.1 監控參數配置
+
+```python
+# 監控頻率設置（在 BatteryMonitorService 中）
+MONITORING_INTERVAL = 3  # 秒
+
+# 圖表數據點數量
+MAX_DATA_POINTS = 100
+
+# CSV 刷新頻率
+CSV_FLUSH_ENABLED = True
+```
+
+#### 18.8.2 圖表外觀自定義
+
+```python
+# 圖表顏色主題
+CHART_COLORS = {
+    'battery': '#4ECDC4',      # 青色
+    'voltage': '#FF6B6B',      # 紅色
+    'current': '#4DABF7',      # 藍色
+    'temperature': '#69DB7C'   # 綠色
+}
+
+# 圖表樣式設置
+plt.style.use('dark_background')  # 深色主題
+```
+
+### 18.9 擴展性設計
+
+#### 18.9.1 新增監控參數
+
+要添加新的監控參數，需要修改以下組件：
+
+1. **BatteryMonitorService**：添加新參數的數據收集邏輯
+2. **BatteryMonitorManager**：更新 CSV 記錄和數據處理
+3. **BatteryChartWidget**：添加新的圖表軸和顯示邏輯
+4. **UI 文件**：添加對應的控制 checkbox
+
+#### 18.9.2 支援多設備監控
+
+系統設計支援未來的多設備監控擴展：
+
+```python
+# 設備 ID 作為關鍵參數傳遞
+def start_monitoring(self, device_id: str):
+    """開始監控指定設備"""
+    
+def _setup_csv_logging(self, device_id: str):
+    """為指定設備設置 CSV 記錄"""
+    filename = f"battery_monitor_{device_id}_{timestamp}.csv"
+```
+
+### 18.10 故障排除指南
+
+#### 18.10.1 常見問題
+
+1. **CSV 文件無法創建**：
+   - 檢查文件權限和磁碟空間
+   - 確認檔案路徑是否正確
+   - 查看錯誤日誌中的詳細信息
+
+2. **圖表不更新**：
+   - 檢查數據是否正常接收
+   - 確認圖表更新計時器是否啟動
+   - 查看是否有 matplotlib 相關錯誤
+
+3. **監控無法啟動**：
+   - 檢查設備連接狀態
+   - 確認是否有其他操作正在執行（互斥機制）
+   - 查看 BatteryMonitorService 的日誌
+
+#### 18.10.2 調試工具
+
+系統提供詳細的日誌記錄來協助調試：
+
+```python
+# 監控狀態日誌
+logger.info("Battery monitoring started")
+logger.info("Battery monitoring stopped")
+
+# CSV 記錄日誌
+logger.info(f"CSV logging started: {self.csv_file_path}")
+logger.error(f"Error writing battery data to CSV: {str(e)}")
+
+# 圖表更新日誌
+logger.debug(f"Added chart data point: Battery={battery_pct}%")
+logger.error(f"Error updating battery chart: {str(e)}")
+```
+
+### 18.11 未來發展方向
+
+1. **歷史數據分析**：
+   - 添加歷史 CSV 文件的讀取和分析功能
+   - 提供電池健康度趨勢分析
+
+2. **告警機制**：
+   - 設置電池狀態異常的告警閾值
+   - 支援電子郵件或系統通知
+
+3. **數據導出格式擴展**：
+   - 支援 JSON、XML 等其他數據格式
+   - 提供數據導出的 API 介面
+
+4. **遠程監控支援**：
+   - 支援透過網絡進行遠程電池監控
+   - 提供 Web 介面的監控儀表板
+
+5. **多設備並行監控**：
+   - 同時監控多個設備的電池狀態
+   - 提供設備間的電池狀態比較功能
+
+Battery Monitor 系統通過其完整的架構設計、豐富的功能特色和良好的擴展性，為 Orion 系統提供了專業級的電池監控解決方案，滿足了從基本監控到高級分析的各種需求。
