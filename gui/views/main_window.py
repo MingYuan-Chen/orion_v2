@@ -1336,6 +1336,12 @@ class MainWindowController(QObject):
                     self.battery_chart_widget.clear_data
                 )
             
+            # Connect save button to save chart function
+            if hasattr(self.window, 'pushButton_save_chart'):
+                self.window.pushButton_save_chart.clicked.connect(
+                    self._on_save_chart_clicked
+                )
+            
             logger.info("Chart controls connected successfully")
             
         except Exception as e:
@@ -1370,6 +1376,67 @@ class MainWindowController(QObject):
         
         self.window.pushButton_battery_monitor.setText("Start Monitoring")
         self.log_manager.add_log_entry("ERROR", f"Battery Monitor error: {error_message}")
+    
+    def _on_save_chart_clicked(self):
+        """Handle Save Chart button click"""
+        logger.info("Save Chart button clicked")
+        
+        try:
+            # Check if chart widget is available
+            if not hasattr(self, 'battery_chart_widget') or self.battery_chart_widget is None:
+                logger.warning("Battery chart widget not available")
+                self.log_manager.add_log_entry("WARNING", "Battery chart widget not available")
+                
+                # Show warning message
+                msg_box = QMessageBox(self.window)
+                msg_box.setWindowTitle("Can't save chart")
+                msg_box.setText("Battery chart not initialized")
+                msg_box.setInformativeText("Please start battery monitoring first, generate chart data, then save the chart.")
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.setStyleSheet(self._get_dark_message_box_style())
+                msg_box.exec()
+                return
+            
+            # Check if there's any data to save
+            if len(self.battery_chart_widget.timestamps) == 0:
+                logger.warning("No chart data to save")
+                self.log_manager.add_log_entry("WARNING", "No chart data to save")
+                
+                # Show warning message
+                msg_box = QMessageBox(self.window)
+                msg_box.setWindowTitle("No data to save")
+                msg_box.setText("No chart data to save")
+                msg_box.setInformativeText("Please start battery monitoring first, generate chart data, then save the chart.")
+                msg_box.setIcon(QMessageBox.Information)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.setStyleSheet(self._get_dark_message_box_style())
+                msg_box.exec()
+                return
+            
+            # Save chart with dialog
+            saved_path = self.battery_chart_widget.save_chart_with_dialog()
+            
+            if saved_path:
+                self.log_manager.add_log_entry("INFO", f"Battery chart saved to: {saved_path}")
+                logger.info(f"Battery chart saved successfully: {saved_path}")
+            else:
+                logger.info("Chart save cancelled by user or failed")
+                
+        except Exception as e:
+            error_msg = f"Failed to save battery chart: {str(e)}"
+            logger.error(error_msg)
+            self.log_manager.add_log_entry("ERROR", error_msg)
+            
+            # Show error message
+            msg_box = QMessageBox(self.window)
+            msg_box.setWindowTitle("Save failed")
+            msg_box.setText("Error saving battery chart")
+            msg_box.setInformativeText(str(e))
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            msg_box.setStyleSheet(self._get_dark_message_box_style())
+            msg_box.exec()
 
     def _set_window_properties(self):
         """Set window properties, ensure it is recognized as part of the main application"""

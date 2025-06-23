@@ -362,6 +362,103 @@ class BatteryChartWidget(QWidget):
         self.canvas.draw()
         logger.info("Battery chart data cleared")
     
+    def save_chart(self, file_path=None):
+        """
+        Save current chart as PNG file
+        
+        Args:
+            file_path: Optional file path to save. If None, will use a default timestamp-based name
+        
+        Returns:
+            str: The file path where the chart was saved, or None if save failed
+        """
+        try:
+            from datetime import datetime
+            import os
+            from PySide6.QtWidgets import QFileDialog, QMessageBox
+            
+            # Generate default filename if not provided
+            if not file_path:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_path = f"battery_chart_{timestamp}.png"
+            
+            # Ensure the chart is up to date
+            self._update_chart()
+            
+            # Save the figure
+            self.figure.savefig(
+                file_path,
+                dpi=300,  # High DPI for better quality
+                bbox_inches='tight',  # Remove extra whitespace
+                facecolor=self.figure.get_facecolor(),  # Maintain dark background
+                edgecolor='none',
+                format='png'
+            )
+            
+            logger.info(f"Battery chart saved to: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Failed to save battery chart: {str(e)}")
+            return None
+    
+    def save_chart_with_dialog(self):
+        """Show file dialog and save chart"""
+        try:
+            from datetime import datetime
+            from PySide6.QtWidgets import QFileDialog, QMessageBox
+            
+            # Generate default filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_filename = f"battery_chart_{timestamp}.png"
+            
+            # Show save dialog
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Battery Chart",
+                default_filename,
+                "PNG Files (*.png);;All Files (*)"
+            )
+            
+            if file_path:
+                # Save the chart
+                saved_path = self.save_chart(file_path)
+                
+                if saved_path:
+                    # Show success message
+                    QMessageBox.information(
+                        self,
+                        "Save success",
+                        f"Battery chart saved to:\n{saved_path}",
+                        QMessageBox.Ok
+                    )
+                    return saved_path
+                else:
+                    # Show error message
+                    QMessageBox.critical(
+                        self,
+                        "Save failed",
+                        "Cannot save battery chart, please check the file path and permissions.",
+                        QMessageBox.Ok
+                    )
+                    return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in save chart dialog: {str(e)}")
+            # Show error message
+            try:
+                QMessageBox.critical(
+                    self,
+                    "Save failed",
+                    f"Error saving battery chart:\n{str(e)}",
+                    QMessageBox.Ok
+                )
+            except:
+                pass
+            return None
+    
     def cleanup(self):
         """Cleanup resources"""
         if hasattr(self, 'update_timer'):
