@@ -1206,7 +1206,7 @@ QProgressBar::chunk {
               <item row="1" column="0">
                <widget class="QLabel" name="label_voltage_title">
                 <property name="text">
-                 <string>Charging Voltage:</string>
+                 <string>Voltage:</string>
                 </property>
                 <property name="styleSheet">
                  <string>color: #CCCCCC; font-weight: bold;</string>
@@ -1226,7 +1226,7 @@ QProgressBar::chunk {
               <item row="2" column="0">
                <widget class="QLabel" name="label_current_title">
                 <property name="text">
-                 <string>Charging Current:</string>
+                 <string>Current:</string>
                 </property>
                 <property name="styleSheet">
                  <string>color: #CCCCCC; font-weight: bold;</string>
@@ -1669,6 +1669,36 @@ QCheckBox::indicator:checked:hover {
                 </size>
                </property>
               </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_save_chart">
+               <property name="text">
+                <string>Save Chart</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="styleSheet">
+                <string>QPushButton {
+    background-color: #28A745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #218838;
+}
+QPushButton:pressed {
+    background-color: #1E7E34;
+}</string>
+               </property>
+              </widget>
              </item>
              <item>
               <widget class="QPushButton" name="pushButton_clear_chart">
