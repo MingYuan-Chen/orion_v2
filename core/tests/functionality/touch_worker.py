@@ -125,18 +125,6 @@ class TouchWorker(BaseTestWorker):
                 pre_condition="Please click the quit button",
                 post_check="Is the touch test tool closed?",
                 manual_only=True
-            ),
-
-            # reset the device after testing completed ======================================================
-            TestStep(
-                command=commands[13],
-                post_check="Is the device rebooted to the login screen?",
-                timeout=5,
-                description="reboot the device",
-            ),
-            TestStep(
-                command=commands[14],
-                description="login as root",
             )
         ]
 

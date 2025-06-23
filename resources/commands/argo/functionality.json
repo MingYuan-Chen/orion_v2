@@ -132,8 +132,7 @@
     "commands": [
       "/run/media/sda1/TouchTestQt", "/run/media/sdb1/TouchTestQt", "",
       "ts_test_mt -j 2 -v",
-      "", "", "", "", "", "", "", "", "",
-      "reboot", "root"
+      "", "", "", "", "", "", "", "", ""
     ]
   },
   "functionality_hdmi": {
