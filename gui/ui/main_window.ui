@@ -340,15 +340,15 @@ QScrollArea QScrollBar::sub-line:vertical {
               <property name="minimumSize">
                <size>
                 <width>850</width>
-                <height>280</height>
+                <height>350</height>
                </size>
               </property>
               <property name="maximumSize">
                 <size>
                  <width>4096</width>
-                 <height>280</height>
+                 <height>350</height>
                 </size>
-               </property>
+              </property>
           <property name="title">
            <string>System Overview</string>
           </property>
@@ -366,13 +366,13 @@ QScrollArea QScrollBar::sub-line:vertical {
                <property name="minimumSize">
                 <size>
                  <width>410</width>
-                 <height>240</height>
+                 <height>350</height>
                 </size>
                </property>
                <property name="maximumSize">
                 <size>
                  <width>2048</width>
-                 <height>240</height>
+                 <height>350</height>
                 </size>
                </property>
                <property name="frameShape">
@@ -537,13 +537,13 @@ QScrollArea QScrollBar::sub-line:vertical {
                <property name="minimumSize">
                 <size>
                  <width>410</width>
-                 <height>240</height>
+                 <height>350</height>
                 </size>
                </property>
                <property name="maximumSize">
                 <size>
                  <width>2048</width>
-                 <height>240</height>
+                 <height>350</height>
                 </size>
                </property>
                <property name="frameShape">
@@ -561,8 +561,17 @@ QScrollArea QScrollBar::sub-line:vertical {
                   <property name="labelAlignment">
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
+                  <property name="horizontalSpacing">
+                   <number>0</number>
+                  </property>
                   <item row="0" column="0">
                    <widget class="QLabel" name="label_battery_model">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>Battery Model</string>
                     </property>
@@ -579,6 +588,19 @@ QScrollArea QScrollBar::sub-line:vertical {
                        <string>panel-value</string>
                       </property>
                      </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_battery_model">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
                     </item>
                     <item>
                      <widget class="QPushButton" name="button_edit_battery_model">
@@ -600,6 +622,12 @@ QScrollArea QScrollBar::sub-line:vertical {
                   </item>
                   <item row="1" column="0">
                    <widget class="QLabel" name="label_battery_serial">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>Serial Number</string>
                     </property>
@@ -616,6 +644,19 @@ QScrollArea QScrollBar::sub-line:vertical {
                        <string>panel-value</string>
                       </property>
                      </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_battery_serial">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
                     </item>
                     <item>
                      <widget class="QPushButton" name="button_edit_battery_serial">
@@ -636,41 +677,19 @@ QScrollArea QScrollBar::sub-line:vertical {
                    </layout>
                   </item>
                   <item row="2" column="0">
-                   <widget class="QLabel" name="label_charge">
-                    <property name="text">
-                     <string>State of Charge</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="1">
-                   <layout class="QHBoxLayout" name="horizontalLayout_2">
-                    <item>
-                     <widget class="QProgressBar" name="progressBar_charge">
-                      <property name="value">
-                       <number>78</number>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QLabel" name="value_charge">
-                      <property name="text">
-                       <string>78%</string>
-                      </property>
-                      <property name="class" stdset="0">
-                       <string>panel-value</string>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </item>
-                  <item row="3" column="0">
                    <widget class="QLabel" name="label_voltage">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>Charging Voltage</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="1">
+                  <item row="2" column="1">
                    <widget class="QLabel" name="value_voltage">
                     <property name="text">
                      <string>12.4 V</string>
@@ -680,8 +699,32 @@ QScrollArea QScrollBar::sub-line:vertical {
                     </property>
                    </widget>
                   </item>
+                  <item row="3" column="0" colspan="2">
+                   <widget class="QLabel" name="desc_voltage">
+                    <property name="text">
+                     <string>The voltage supplied by a charger or power source to the battery during the charging process. It's typically slightly higher than the battery's design voltage.</string>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>8</pointsize>
+                     </font>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">color: #AAAAAA; margin-left: 10px; margin-bottom: 5px;</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
                   <item row="4" column="0">
                    <widget class="QLabel" name="label_current">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
                     <property name="text">
                      <string>Charging Current</string>
                     </property>
@@ -697,20 +740,103 @@ QScrollArea QScrollBar::sub-line:vertical {
                     </property>
                    </widget>
                   </item>
-                  <item row="5" column="0">
-                   <widget class="QLabel" name="label_temperature">
+                  <item row="5" column="0" colspan="2">
+                   <widget class="QLabel" name="desc_current">
                     <property name="text">
-                     <string>Temperature</string>
+                     <string>The rate at which electrical current flows into the battery during the charging process, usually measured in mA or A.</string>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>8</pointsize>
+                     </font>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">color: #AAAAAA; margin-left: 10px; margin-bottom: 5px;</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
                     </property>
                    </widget>
                   </item>
-                  <item row="5" column="1">
-                   <widget class="QLabel" name="value_temperature">
+                  <item row="6" column="0">
+                   <widget class="QLabel" name="label_design_voltage">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
                     <property name="text">
-                     <string>38°C</string>
+                     <string>Design Voltage</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="6" column="1">
+                   <widget class="QLabel" name="value_design_voltage">
+                    <property name="text">
+                     <string>7.4 V</string>
                     </property>
                     <property name="class" stdset="0">
                      <string>panel-value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="7" column="0" colspan="2">
+                   <widget class="QLabel" name="desc_design_voltage">
+                    <property name="text">
+                     <string>The nominal or rated voltage of a battery, determined by the manufacturer as its standard operating voltage.</string>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>8</pointsize>
+                     </font>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">color: #AAAAAA; margin-left: 10px; margin-bottom: 5px;</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="8" column="0">
+                   <widget class="QLabel" name="label_design_capacity">
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="text">
+                     <string>Design Capacity</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="8" column="1">
+                   <widget class="QLabel" name="value_design_capacity">
+                    <property name="text">
+                     <string>3350 mAh</string>
+                    </property>
+                    <property name="class" stdset="0">
+                     <string>panel-value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="9" column="0" colspan="2">
+                   <widget class="QLabel" name="desc_design_capacity">
+                    <property name="text">
+                     <string>The maximum amount of electrical charge (typically in mAh or Ah) a battery is designed to hold and deliver when fully charged.</string>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>8</pointsize>
+                     </font>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">color: #AAAAAA; margin-left: 10px; margin-bottom: 5px;</string>
+                    </property>
+                    <property name="wordWrap">
+                     <bool>true</bool>
                     </property>
                    </widget>
                   </item>

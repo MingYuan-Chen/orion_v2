@@ -74,11 +74,10 @@ class SystemInfoManagerView(QObject):
                     # Battery info
                     "battery_model": QLabel,
                     "battery_serial": QLabel,
-                    "charge_progress": QProgressBar,
-                    "charge": QLabel,
                     "voltage": QLabel,
                     "current": QLabel,
-                    "temperature": QLabel,
+                    "design_voltage": QLabel,
+                    "design_capacity": QLabel,
                 }
         """
         self.ui_components = components
@@ -110,16 +109,14 @@ class SystemInfoManagerView(QObject):
             self.ui_components["battery_model"].setText("...")
         if "battery_serial" in self.ui_components:
             self.ui_components["battery_serial"].setText("...")
-        if "charge_progress" in self.ui_components:
-            self.ui_components["charge_progress"].setValue(0)
-        if "charge" in self.ui_components:
-            self.ui_components["charge"].setText("...")
         if "voltage" in self.ui_components:
             self.ui_components["voltage"].setText("...")
         if "current" in self.ui_components:
             self.ui_components["current"].setText("...")
-        if "temperature" in self.ui_components:
-            self.ui_components["temperature"].setText("...")
+        if "design_voltage" in self.ui_components:
+            self.ui_components["design_voltage"].setText("...")
+        if "design_capacity" in self.ui_components:
+            self.ui_components["design_capacity"].setText("...")
     
     def refresh_system_info(self):
         """Refresh system information"""
@@ -278,15 +275,6 @@ class SystemInfoManagerView(QObject):
             battery_info = system_info["battery"]
             logger.debug(f"Updating battery info: {battery_info}")
             
-            # Battery charge percentage
-            if "relative_state" in battery_info and "charge" in self.ui_components:
-                percentage = battery_info["relative_state"]
-                self.ui_components["charge"].setText(f"{percentage}%")
-                
-                # Update progress bar if available
-                if "charge_progress" in self.ui_components:
-                    self.ui_components["charge_progress"].setValue(int(percentage))
-            
             # Voltage (prefer charging_voltage, fallback to voltage)
             voltage_value = None
             if "charging_voltage" in battery_info:
@@ -307,10 +295,15 @@ class SystemInfoManagerView(QObject):
             if current_value is not None and "current" in self.ui_components:
                 self.ui_components["current"].setText(f"{current_value} A")
             
-            # Battery temperature
-            if "temperature" in battery_info and "temperature" in self.ui_components:
-                temperature = battery_info["temperature"]
-                self.ui_components["temperature"].setText(f"{temperature} °C")
+            # Design voltage
+            if "design_voltage" in battery_info and "design_voltage" in self.ui_components:
+                design_voltage = battery_info["design_voltage"]
+                self.ui_components["design_voltage"].setText(f"{design_voltage} V")
+            
+            # Design capacity
+            if "design_capacity" in battery_info and "design_capacity" in self.ui_components:
+                design_capacity = battery_info["design_capacity"]
+                self.ui_components["design_capacity"].setText(f"{design_capacity} mAh")
     
     def update_model_name(self, name: str):
         """
