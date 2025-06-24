@@ -363,11 +363,10 @@ class MainWindowController(QObject):
             # Battery info
             "battery_model": self.window.value_battery_model,
             "battery_serial": self.window.value_battery_serial,
-            "charge_progress": self.window.progressBar_charge,
-            "charge": self.window.value_charge,
             "voltage": self.window.value_voltage,
             "current": self.window.value_current,
-            "temperature": self.window.value_temperature,
+            "design_voltage": self.window.value_design_voltage,
+            "design_capacity": self.window.value_design_capacity,
         }
         
         # set the ui components
@@ -421,9 +420,9 @@ class MainWindowController(QObject):
                 # Just configure the fixed heights for existing components
                 system_overview = self.window.groupBox_system_overview
                 if system_overview:
-                    system_overview.setMinimumHeight(280)
-                    system_overview.setMaximumHeight(280)
-                    logger.debug("Set System Overview fixed height: 280px")
+                    system_overview.setMinimumHeight(380)
+                    system_overview.setMaximumHeight(380)
+                    logger.debug("Set System Overview fixed height: 380px")
                 
                 # Find and configure HW Components
                 hw_components = self.window.tableWidget_hw_sw_config
@@ -492,9 +491,9 @@ class MainWindowController(QObject):
             # Set fixed heights for groups
             system_overview = self.window.groupBox_system_overview
             if system_overview:
-                system_overview.setMinimumHeight(280)
-                system_overview.setMaximumHeight(280)
-                logger.debug("Set System Overview fixed height: 280px")
+                system_overview.setMinimumHeight(580)
+                system_overview.setMaximumHeight(580)
+                logger.debug("Set System Overview fixed height: 580px")
             
             # Add a vertical spacer at the bottom to handle extra space
             spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)

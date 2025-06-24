@@ -90,7 +90,9 @@ class SystemInfoService(QObject):
             "charging_current": (1.0, 2.0),    # 1 ~ 2 A  
             "voltage": (0.0, 9.0),            # 0 ~ 50 V
             "current": (-4.0, 4.0),            # -4 ~ 4 A
-            "temperature": (0.0, 70.0)         # 0 ~ 70 °C
+            "temperature": (0.0, 70.0),        # 0 ~ 70 °C
+            "design_voltage": (6.0, 12.0),     # 6 ~ 12 V
+            "design_capacity": (2000, 5000)    # 2000 ~ 5000 mAh
         }
         
         # Connect command result signal
@@ -172,7 +174,7 @@ class SystemInfoService(QObject):
         
         # Copy command list to execute sequentially, excluding battery monitor specific commands
         # voltage and current commands are reserved for battery monitor service only
-        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status"}
+        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status", "relative_state", "temperature"}
         
         # Optimize command execution order to minimize hardware switching delays
         # Group commands by device type to reduce MTD/i2c transitions
@@ -392,7 +394,7 @@ class SystemInfoService(QObject):
                 self.collected_info["memory"] = self._parse_memory_info(response)
             elif command_name == "disk_usage":
                 self.collected_info["storage"] = self._parse_disk_info(response)
-            elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
+            elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity",
                                  "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "dc_status"]:
                 # Use battery info parsing function to handle battery related commands
                 if "battery" not in self.collected_info:
@@ -613,7 +615,7 @@ class SystemInfoService(QObject):
                     return None
             
             # Process i2ctransfer command results
-            if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
+            if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity",
                                "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
                 try:
                     # Enhanced parsing for i2c responses with better error handling
@@ -641,6 +643,10 @@ class SystemInfoService(QObject):
                                 current_command_context = "temperature"
                             elif command_name == "pic_firmware" and "0x10" in line:
                                 current_command_context = "pic_firmware"
+                            elif command_name == "design_voltage" and "0x19" in line:
+                                current_command_context = "design_voltage"
+                            elif command_name == "design_capacity" and "0x18" in line:
+                                current_command_context = "design_capacity"
                             continue
                             
                         # Look for hex values in the line
@@ -731,6 +737,12 @@ class SystemInfoService(QObject):
                         elif command_name == "charging_current":
                             # Convert current to amperes (A)
                             parsed_value = round(float(value/1000), 2)
+                        elif command_name == "design_voltage":
+                            # Convert voltage to volts (V)
+                            parsed_value = round(float(value/1000), 2)
+                        elif command_name == "design_capacity":
+                            # Convert capacity to mAh
+                            parsed_value = value
                         elif command_name == "voltage":
                             # Convert voltage to volts (V)
                             parsed_value = round(float(value/1000), 2)
