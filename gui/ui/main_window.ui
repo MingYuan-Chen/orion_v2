@@ -1283,15 +1283,42 @@ QScrollArea QScrollBar::sub-line:vertical {
     background-color: #252526;
     border: 1px solid #333333;
     border-radius: 5px;
-    padding: 8px;
+    padding: 10px 5px 5px 5px;
 }</string>
              </property>
-             <layout class="QGridLayout" name="gridLayout_battery_data">
+                          <layout class="QGridLayout" name="gridLayout_battery_data">
+              <property name="leftMargin">
+               <number>5</number>
+              </property>
+              <property name="topMargin">
+               <number>5</number>
+              </property>
+              <property name="rightMargin">
+               <number>5</number>
+              </property>
+              <property name="bottomMargin">
+               <number>5</number>
+              </property>
               <property name="spacing">
-               <number>8</number>
+               <number>2</number>
+              </property>
+              <property name="columnStretch">
+               <string>0,0,0,0,0,1</string>
               </property>
               <item row="0" column="0">
                <widget class="QLabel" name="label_battery_level_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Battery Level:</string>
                 </property>
@@ -1302,6 +1329,18 @@ QScrollArea QScrollBar::sub-line:vertical {
               </item>
               <item row="0" column="1">
                <widget class="QLabel" name="label_battery_level_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>--%</string>
                 </property>
@@ -1310,7 +1349,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                 </property>
                </widget>
               </item>
-              <item row="0" column="2">
+              <item row="0" column="2" colspan="4">
                <widget class="QProgressBar" name="progressBar_battery_level">
                 <property name="value">
                  <number>0</number>
@@ -1331,6 +1370,18 @@ QProgressBar::chunk {
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="label_voltage_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Voltage:</string>
                 </property>
@@ -1341,6 +1392,18 @@ QProgressBar::chunk {
               </item>
               <item row="1" column="1">
                <widget class="QLabel" name="label_voltage_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>-- V</string>
                 </property>
@@ -1351,6 +1414,18 @@ QProgressBar::chunk {
               </item>
               <item row="2" column="0">
                <widget class="QLabel" name="label_current_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Current:</string>
                 </property>
@@ -1361,6 +1436,18 @@ QProgressBar::chunk {
               </item>
               <item row="2" column="1">
                <widget class="QLabel" name="label_current_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>-- A</string>
                 </property>
@@ -1371,6 +1458,18 @@ QProgressBar::chunk {
               </item>
               <item row="3" column="0">
                <widget class="QLabel" name="label_temperature_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Temperature:</string>
                 </property>
@@ -1381,6 +1480,18 @@ QProgressBar::chunk {
               </item>
               <item row="3" column="1">
                <widget class="QLabel" name="label_temperature_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>-- °C</string>
                 </property>
@@ -1390,116 +1501,226 @@ QProgressBar::chunk {
                </widget>
               </item>
               <item row="1" column="2">
-               <layout class="QHBoxLayout" name="horizontalLayout_dc_status">
-                <item>
-                 <widget class="QLabel" name="label_dc_status_title">
-                  <property name="text">
-                   <string>DC Status:</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: #CCCCCC; font-weight: bold;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_dc_status_value">
-                  <property name="text">
-                   <string>--</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: white;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_dc_status">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
+               <widget class="QLabel" name="label_dc_status_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>120</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>DC Status:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="3">
+               <widget class="QLabel" name="label_dc_status_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>--</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: white;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="4">
+               <widget class="QLabel" name="label_cpu_usage_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>120</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>CPU Usage:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="5">
+               <widget class="QLabel" name="label_cpu_usage_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>--%</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: white;</string>
+                </property>
+               </widget>
               </item>
               <item row="2" column="2">
-               <layout class="QHBoxLayout" name="horizontalLayout_led_status">
-                <item>
-                 <widget class="QLabel" name="label_led_status_title">
-                  <property name="text">
-                   <string>LED Status:</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: #CCCCCC; font-weight: bold;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_led_status_value">
-                  <property name="text">
-                   <string>--</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: white;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_led_status">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
+               <widget class="QLabel" name="label_led_status_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>120</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>LED Status:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="3">
+               <widget class="QLabel" name="label_led_status_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>--</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: white;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="4">
+               <widget class="QLabel" name="label_memory_usage_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>120</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Memory Usage:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="5">
+               <widget class="QLabel" name="label_memory_usage_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>90</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>90</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>--%</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: white;</string>
+                </property>
+               </widget>
               </item>
               <item row="3" column="2">
-               <layout class="QHBoxLayout" name="horizontalLayout_interrupt_status">
-                <item>
-                 <widget class="QLabel" name="label_interrupt_status_title">
-                  <property name="text">
-                   <string>Interrupt Status:</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: #CCCCCC; font-weight: bold;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_interrupt_status_value">
-                  <property name="text">
-                   <string>--</string>
-                  </property>
-                  <property name="styleSheet">
-                   <string>color: white;</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_interrupt_status">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
+               <widget class="QLabel" name="label_interrupt_status_title">
+                <property name="minimumSize">
+                 <size>
+                  <width>120</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>120</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Interrupt Status:</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: #CCCCCC; font-weight: bold;</string>
+                </property>
+               </widget>
               </item>
+              <item row="3" column="3"  colspan="3">
+               <widget class="QLabel" name="label_interrupt_status_value">
+                <property name="minimumSize">
+                 <size>
+                  <width>70</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>320</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>--</string>
+                </property>
+                <property name="styleSheet">
+                 <string>color: white;</string>
+                </property>
+               </widget>
+              </item>
+
 
              </layout>
             </widget>
@@ -1533,7 +1754,7 @@ QProgressBar::chunk {
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
+                 <width>10</width>
                  <height>20</height>
                 </size>
                </property>

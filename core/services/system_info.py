@@ -174,7 +174,7 @@ class SystemInfoService(QObject):
         
         # Copy command list to execute sequentially, excluding battery monitor specific commands
         # voltage and current commands are reserved for battery monitor service only
-        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status", "relative_state", "temperature"}
+        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status", "relative_state", "temperature", "top_info"}
         
         # Optimize command execution order to minimize hardware switching delays
         # Group commands by device type to reduce MTD/i2c transitions

@@ -2,6 +2,7 @@
   "os_version": ["uname -a"],
   "cpu_info": ["grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \\t]*//'"],
   "memory_info": ["free -h | grep 'Mem:'"],
+  "top_info": ["top -b -n 1 | head -n 5"],
   "disk_usage": ["cat /sys/block/mmcblk2/size"],
   "uboot_version": ["strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\\.'"],
   "relative_state": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"],

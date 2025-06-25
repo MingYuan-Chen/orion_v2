@@ -206,7 +206,17 @@ class BatteryMonitorWidget(QWidget):
         self.ui_components["temperature_label"].setStyleSheet("color: #4ECDC4; font-weight: bold;")
         data_layout.addWidget(self.ui_components["temperature_label"], 3, 1)
         
-
+        # CPU Usage
+        data_layout.addWidget(QLabel("CPU Usage:"), 4, 0)
+        self.ui_components["cpu_usage_label"] = QLabel("--%")
+        self.ui_components["cpu_usage_label"].setStyleSheet("color: #4ECDC4; font-weight: bold;")
+        data_layout.addWidget(self.ui_components["cpu_usage_label"], 4, 1)
+        
+        # Memory Usage
+        data_layout.addWidget(QLabel("Memory Usage:"), 5, 0)
+        self.ui_components["memory_usage_label"] = QLabel("--%")
+        self.ui_components["memory_usage_label"].setStyleSheet("color: #4ECDC4; font-weight: bold;")
+        data_layout.addWidget(self.ui_components["memory_usage_label"], 5, 1)
         
         # Set column stretch
         data_layout.setColumnStretch(2, 1)

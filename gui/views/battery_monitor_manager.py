@@ -65,7 +65,9 @@ class BatteryMonitorManager(QObject):
             "temperature": "",
             "led_status": "",
             "interrupt_status": "",
-            "dc_status": ""
+            "dc_status": "",
+            "cpu_usage": "",
+            "memory_usage": ""
         }
         
         # Connect battery service signals
@@ -394,6 +396,26 @@ class BatteryMonitorManager(QObject):
                 else:
                     self.ui_components["dc_status_label"].setText("--")
             
+            # Update CPU usage
+            if "cpu_usage" in battery_data and "cpu_usage_label" in self.ui_components:
+                cpu_usage = battery_data["cpu_usage"]
+                if cpu_usage is not None:
+                    self.ui_components["cpu_usage_label"].setText(f"{cpu_usage:.1f}%")
+                    logger.debug(f"Updated CPU usage display: {cpu_usage:.1f}%")
+                else:
+                    self.ui_components["cpu_usage_label"].setText("--%")
+                    logger.debug("No CPU usage data available, showing placeholder")
+            
+            # Update Memory usage
+            if "memory_usage" in battery_data and "memory_usage_label" in self.ui_components:
+                memory_usage = battery_data["memory_usage"]
+                if memory_usage is not None:
+                    self.ui_components["memory_usage_label"].setText(f"{memory_usage:.1f}%")
+                    logger.debug(f"Updated Memory usage display: {memory_usage:.1f}%")
+                else:
+                    self.ui_components["memory_usage_label"].setText("--%")
+                    logger.debug("No memory usage data available, showing placeholder")
+            
         except Exception as e:
             logger.error(f"Error updating battery display: {str(e)}")
     
@@ -574,7 +596,9 @@ class BatteryMonitorManager(QObject):
             "temperature": "",
             "led_status": "",
             "interrupt_status": "",
-            "dc_status": ""
+            "dc_status": "",
+            "cpu_usage": "",
+            "memory_usage": ""
         }
         
         logger.info("Battery Monitor Manager cleaned up")
@@ -614,7 +638,9 @@ class BatteryMonitorManager(QObject):
                 'Temperature (°C)',
                 'LED Status',
                 'Interrupt Status',
-                'DC Status'
+                'DC Status',
+                'CPU Usage (%)',
+                'Memory Usage (%)'
             ]
             self.csv_writer.writerow(header)
             self.csv_file.flush()
@@ -649,7 +675,9 @@ class BatteryMonitorManager(QObject):
                     "temperature": "",
                     "led_status": "",
                     "interrupt_status": "",
-                    "dc_status": ""
+                    "dc_status": "",
+                    "cpu_usage": "",
+                    "memory_usage": ""
                 }
     
     def _log_battery_data_to_csv(self, battery_data: Dict[str, Any]):
@@ -663,7 +691,7 @@ class BatteryMonitorManager(QObject):
             
             # Extract data and use cache for empty values
             data_fields = ["relative_state", "voltage", "current", "temperature", 
-                          "led_status", "interrupt_status", "dc_status"]
+                          "led_status", "interrupt_status", "dc_status", "cpu_usage", "memory_usage"]
             
             processed_data = {}
             
@@ -694,7 +722,9 @@ class BatteryMonitorManager(QObject):
                 processed_data["temperature"],
                 processed_data["led_status"],
                 processed_data["interrupt_status"],
-                processed_data["dc_status"]
+                processed_data["dc_status"],
+                processed_data["cpu_usage"],
+                processed_data["memory_usage"]
             ]
             
             self.csv_writer.writerow(row)
