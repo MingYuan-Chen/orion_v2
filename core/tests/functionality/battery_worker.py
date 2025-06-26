@@ -24,6 +24,36 @@ class BatteryWorker(BaseTestWorker):
             6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
             7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
         }
+
+        self.INTERRUPT_STATUS_MAP = {
+            0: "Normal",
+            1: "No Battery",
+            2: "Timeout",
+            8: "Over Temperature - Charge",
+            16: "Over Current - Charge",
+            24: "Over Current & Temperature - Charge",
+            32: "Over Temperature - Discharge",
+            64: "Over Current - Discharge",
+            96: "Over Current & Temperature - Discharge",
+        }
+
+        self.BATTERY_STATUS_MAP = {
+            128: "Charging",
+            192: "Discharging",
+            160: "Full Charged",
+            224: "Full Charged",
+            32770: "Initializing",
+            32896: "Over Charged",
+            16512: "Terminate Charge",
+            16544: "Full Charged, Terminate Charge",
+            20608: "Over Temperature, Terminate Charge",
+            20672: "Over Temperature, Terminate Charge",
+            4224: "Over Temperature - Charge",
+            4288: "Over Temperature - Discharge",
+            704: "Remaining Capacity Alarm",
+            448: "Remaining Time Alarm",
+        }
+
         self.current_dc = None
         self.current_led = None
         self.current_temperature = None
@@ -41,11 +71,10 @@ class BatteryWorker(BaseTestWorker):
         return [
             TestStep(
                 command=commands[0], 
-                validation_func=self._validate_dc_status,
+                validation_func=self._validate_battery_status,
                 timeout=5, 
-                description="Validate dc status",
-                pre_condition="Ensure the DUT is plugged in and the ambient temperature is at room level.",
-                criteria="Can read the dc value",
+                description="Validate battery status",
+                criteria="Can read the battery status",
                 max_retries=1,
                 retry_delay=500
                 
@@ -100,25 +129,44 @@ class BatteryWorker(BaseTestWorker):
             Parsed battery information value
         """
         try:
-            value = response
-            
-            # Special processing for dc_status
-            if command_name == "dc_status":
-                try:
-                    value = int(response.strip().split("\n")[0])
-                    logger.debug(f"Parsed {command_name}: {value}")
-                    return value
-                except Exception as e:
-                    logger.error(f"Failed to parse {command_name}: {e}")
-                    return None
-            
+            value = None
+
             # Process i2ctransfer command results
-            if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", 
+            if command_name in ["capacity", "battery_status", "relative_state", "charging_voltage", 
                                "charging_current", "temperature", "cycle_count", "led_status"]:
                 try:
-                    # Extract hexadecimal value part
-                    value = response.split("r2\n")[1].split("root")[0].split("\n")[1].replace(" 0x", "")
-                    value = int(value, 16)
+                    lines = response.strip().split('\n')
+                    hex_values = []
+                    
+                    for line in lines:
+                        # Skip command echo lines
+                        if 'i2ctransfer' in line or 'sleep' in line or 'root@' in line:
+                            continue
+                            
+                        # Look for hex values in the line
+                        if '0x' in line:
+                            line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                            if line_hex:
+                                hex_values.extend(line_hex)
+                    
+                    # Extract the correct hex values for battery commands
+                    # Typical i2c response format: 0x02 0xHH 0xLL (status + high byte + low byte)
+                    if len(hex_values) >= 3:
+                        # Skip the first byte (status byte 0x02) and use the next 2 bytes as data
+                        high_byte = int(hex_values[1], 16)  # Second hex value
+                        low_byte = int(hex_values[2], 16)   # Third hex value
+                        value = (high_byte << 8) + low_byte
+                    elif len(hex_values) == 2:
+                        # Two values: use both as data (high byte + low byte)
+                        high_byte = int(hex_values[0], 16)
+                        low_byte = int(hex_values[1], 16)
+                        value = (high_byte << 8) + low_byte
+                    elif len(hex_values) == 1:
+                        # Single value
+                        value = int(hex_values[0], 16)
+                    else:
+                        logger.warning(f"No valid hex values found in response for {command_name}: {response}")
+                        return None
                     
                     # Convert format according to different types
                     if command_name == "capacity":
@@ -138,7 +186,7 @@ class BatteryWorker(BaseTestWorker):
                         parsed_value = round(float(value/1000), 2)
                     elif command_name == "temperature":
                         # Convert temperature to Celsius (°C)
-                        parsed_value = round(float(value/10)-273.15, 2)
+                        parsed_value = round(float(value/10)-273.2, 1)
                     elif command_name == "cycle_count":
                         # Return cycle count value directly
                         parsed_value = value
@@ -162,9 +210,9 @@ class BatteryWorker(BaseTestWorker):
             logger.error(f"Error in battery info parsing for {command_name}: {str(e)}")
             return None
     
-    def _validate_dc_status(self, response: str) -> Tuple[bool, str]:
+    def _validate_battery_status(self, response: str) -> Tuple[bool, str]:
         """
-        Validate dc status
+        Validate battery status
         
         Args:
             response: Device response string
@@ -173,18 +221,14 @@ class BatteryWorker(BaseTestWorker):
             (success flag, message) tuple
         """
         try:
-            value = self._parse_battery_info("dc_status", response)
+            value = self._parse_battery_info("battery_status", response)
             if type(value) != int:
-                return False, f"Unexpected dc status: {value}"
+                return False, f"Unexpected battery status: {value}"
             
-            if value not in [0, 1]:
-                return False, f"Unexpected dc status: {value}"
-            
-            self.current_dc = value
-            return True, f"DC status: {value} {'discharging' if value == 0 else 'charging'}"
+            return True, f"Battery status: {self.BATTERY_STATUS_MAP[value]}"
         except Exception as e:
-            logger.error(f"exception in dc status: {e}")
-            return False, f"exception in dc status: {e}"
+            logger.error(f"exception in battery status: {e}")
+            return False, f"exception in battery status: {e}"
 
     def _validate_battery_state(self, response: str) -> Tuple[bool, str]:
         """
@@ -251,25 +295,6 @@ class BatteryWorker(BaseTestWorker):
             
             if value not in self.LED_STATUS_MAP:
                 return False, f"Unexpected led status: {value}"
-            
-            # NOTE: in this case, only check the led status is in the range of 0 ~ 31
-            # if self.current_dc == 0:
-            #     if self.current_battery_state > 10 and self.current_battery_state <= 100:
-            #         if value not in [0, 16]:
-            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-            #     else:
-            #         if value not in [12, 28]:
-            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-            # else:
-            #     if self.current_battery_state == 100:
-            #         if value not in [2, 18]:
-            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-            #     elif self.current_battery_state > 10 and self.current_battery_state <= 99:
-            #         if value not in [1, 17]:
-            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
-            #     else:
-            #         if value not in [12, 28]:
-            #             return False, f"Unexpected led status: {self.LED_STATUS_MAP[value]}"
 
             self.current_led = value
             return True, f"LED status: {self.LED_STATUS_MAP[value]}"
@@ -291,9 +316,6 @@ class BatteryWorker(BaseTestWorker):
             value = self._parse_battery_info("charging_current", response)
             if type(value) != float:
                 return False, f"Unexpected current: {value}"
-            
-            # if value < 1.5 or value > 2.5:
-            #     return False, f"Unreasonable current: {value}"
             
             return True, f"Current: {value}"
         except Exception as e:

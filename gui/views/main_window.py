@@ -752,8 +752,8 @@ class MainWindowController(QObject):
             "diagnostic_memory_size": "Check Memory Size",
             "diagnostic_nor_flash_size": "Check NOR Flash Size",
             "diagnostic_pic_version": "Check PIC Version",
-            "diagnostic_sync_time": "Check Sync Time",
             "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
+            "diagnostic_sync_time": "Check Sync Time",
             "diagnostic_design_capacity": "Check Design Capacity",
             "diagnostic_design_voltage": "Check Design Voltage",
             "diagnostic_uboot_version": "Check U-Boot Version",
@@ -1568,6 +1568,9 @@ class MainWindowController(QObject):
             if "led" in step_desc.lower() and "status" in step_desc.lower():
                 return self._convert_led_status_response(response_str, step_desc)
             
+            if "battery status" in step_desc.lower():
+                return self._convert_battery_status_response(response_str, step_desc)
+            
             # Handle DC value conversion
             if "gpio133" in command.lower():
                 return self._convert_dc_value_response(response_str, step_desc)
@@ -1913,6 +1916,68 @@ class MainWindowController(QObject):
             logger.warning(f"Error converting LED status response: {e}")
             return response
 
+    def _convert_battery_status_response(self, response, step_desc):
+        """Convert battery status response to readable format"""
+        try:
+            # LED status mapping from led_worker.py
+            BATTERY_STATUS_MAP = {
+                128: "Charging",
+                192: "Discharging",
+                160: "Full Charged",
+                224: "Full Charged",
+                32770: "Initializing",
+                32896: "Over Charged",
+                16512: "Terminate Charge",
+                16544: "Full Charged, Terminate Charge",
+                20608: "Over Temperature, Terminate Charge",
+                20672: "Over Temperature, Terminate Charge",
+                4224: "Over Temperature - Charge",
+                4288: "Over Temperature - Discharge",
+                704: "Remaining Capacity Alarm",
+                448: "Remaining Time Alarm",
+            }
+            
+            lines = response.strip().split('\n')
+            hex_values = []
+            
+            for line in lines:
+                # Skip command echo lines
+                if 'i2ctransfer' in line or 'sleep' in line or 'root@' in line:
+                    continue
+                    
+                # Look for hex values in the line
+                if '0x' in line:
+                    line_hex = [x.strip() for x in line.split() if x.startswith('0x')]
+                    if line_hex:
+                        hex_values.extend(line_hex)
+            
+            # Extract the correct hex values for battery commands
+            # Typical i2c response format: 0x02 0xHH 0xLL (status + high byte + low byte)
+            if len(hex_values) >= 3:
+                # Skip the first byte (status byte 0x02) and use the next 2 bytes as data
+                high_byte = int(hex_values[1], 16)  # Second hex value
+                low_byte = int(hex_values[2], 16)   # Third hex value
+                value = (high_byte << 8) + low_byte
+            elif len(hex_values) == 2:
+                # Two values: use both as data (high byte + low byte)
+                high_byte = int(hex_values[0], 16)
+                low_byte = int(hex_values[1], 16)
+                value = (high_byte << 8) + low_byte
+            elif len(hex_values) == 1:
+                # Single value
+                value = int(hex_values[0], 16)
+            
+            # Look up LED status
+            if value in BATTERY_STATUS_MAP:
+                battery_status_text = BATTERY_STATUS_MAP[value]
+                return f"{value} = {battery_status_text}"
+            else:
+                return f"{value} = Unknown Battery Status"
+                
+        except Exception as e:
+            logger.warning(f"Error converting LED status response: {e}")
+            return response
+    
     def _convert_dc_value_response(self, response, step_desc):
         """Convert DC value response to readable power status"""
         try:
@@ -2506,16 +2571,16 @@ class MainWindowController(QObject):
             diagnostic_results = self.unified_test_results.get("diagnostic", {})
             
             # Debug: Display the step template storage status
-            logger.info(f"Export debug - Step templates stored:")
-            for test_type, templates in self.test_step_templates.items():
-                logger.info(f"  {test_type}: {list(templates.keys())}")
-                for test_id, step_list in templates.items():
-                    logger.info(f"    {test_id}: {len(step_list)} steps")
+            # logger.info(f"Export debug - Step templates stored:")
+            # for test_type, templates in self.test_step_templates.items():
+            #     logger.info(f"  {test_type}: {list(templates.keys())}")
+            #     for test_id, step_list in templates.items():
+            #         logger.info(f"    {test_id}: {len(step_list)} steps")
             
             # Debug: Display the progress record status
-            logger.info(f"Export debug - Progress records:")
-            for test_type, progress in self.unified_test_progress.items():
-                logger.info(f"  {test_type}: {list(progress.keys())}")
+            # logger.info(f"Export debug - Progress records:")
+            # for test_type, progress in self.unified_test_progress.items():
+            #     logger.info(f"  {test_type}: {list(progress.keys())}")
             
             # check if there is data to export
             data_exported = False
