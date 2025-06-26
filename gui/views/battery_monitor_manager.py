@@ -120,6 +120,30 @@ class BatteryMonitorManager(QObject):
         else:
             logger.warning("No refresh_button found in UI components")
         
+        # Connect interval spinbox if provided
+        if "interval_spinbox" in components:
+            interval_spinbox = components["interval_spinbox"]
+            
+            # Disconnect any existing connections first
+            try:
+                interval_spinbox.valueChanged.disconnect()
+                logger.debug("Disconnected existing interval spinbox connections")
+            except:
+                pass  # No existing connections
+            
+            # Connect to interval change method
+            interval_spinbox.valueChanged.connect(self._on_interval_changed)
+            
+            # Set initial value from current monitoring interval (convert ms to seconds)
+            initial_seconds = self.monitoring_interval // 1000
+            interval_spinbox.setValue(initial_seconds)
+            
+            logger.info(f"Interval spinbox connected: {interval_spinbox}")
+            logger.info(f"Initial value set to: {initial_seconds} seconds")
+            
+        else:
+            logger.warning("No interval_spinbox found in UI components")
+        
         logger.debug("Battery Monitor UI components set")
     
     def set_main_controller(self, controller):
@@ -258,10 +282,10 @@ class BatteryMonitorManager(QObject):
         Set monitoring interval in milliseconds
         
         Args:
-            interval_ms: Interval in milliseconds (minimum 1000ms)
+            interval_ms: Interval in milliseconds (minimum 3000ms)
         """
-        if interval_ms < 1000:
-            interval_ms = 1000  # Minimum 1 second
+        if interval_ms < 3000:
+            interval_ms = 3000  # Minimum 3 seconds
         
         self.monitoring_interval = interval_ms
         
@@ -269,6 +293,16 @@ class BatteryMonitorManager(QObject):
             self.monitoring_timer.setInterval(interval_ms)
         
         logger.debug(f"Battery monitoring interval set to {interval_ms}ms")
+    
+    def _on_interval_changed(self, value):
+        """
+        Handle interval spinbox value change
+        
+        Args:
+            value: New interval value in seconds
+        """
+        interval_ms = value * 1000  # Convert seconds to milliseconds
+        self.set_monitoring_interval(interval_ms)
     
     def _set_monitoring_ui_state(self, monitoring: bool):
         """

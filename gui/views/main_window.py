@@ -532,7 +532,7 @@ class MainWindowController(QObject):
             f"Firmware & OS updated - {field_name}: {new_value}"
         )
         logger.info(f"Firmware & OS updated: {field_name} = {new_value}")
-    
+
     def _add_system_log_without_tab_switch(self, level, message):
         """Add system log without switching tabs"""
         # record the current tab
@@ -1247,6 +1247,7 @@ class MainWindowController(QObject):
             ui_mapping = {
                 "monitor_button": self.window.pushButton_battery_monitor,
                 "refresh_button": self.window.pushButton_battery_refresh,
+                "interval_spinbox": self.window.spinBox_monitor_interval,
                 "status_label": self.window.label_battery_status,
                 "voltage_label": self.window.label_voltage_value,
                 "current_label": self.window.label_current_value,
@@ -2523,6 +2524,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
+                writer.writerow(["Tool Version", "v1.5_20250626"])
+                writer.writerow(["Config Version", "v1.0_20250626"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 

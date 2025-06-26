@@ -52,6 +52,7 @@ class BatteryMonitorService(QObject):
         192: "Discharging",
         160: "Full Charged",
         224: "Full Charged, Discharging",
+        32770: "Initializing",
         32896: "Over Charged",
         16512: "Terminate Charge",
         16544: "Full Charged, Terminate Charge",
@@ -400,12 +401,9 @@ class BatteryMonitorService(QObject):
         if value is None:
             return False
         
-        if command_name == "interrupt_status":
-            return value in self.INTERRUPT_STATUS_MAP.keys()
-        elif command_name == "led_status":
+        if command_name == "led_status":
             return value in self.LED_STATUS_MAP.keys()
-        elif command_name == "battery_status":
-            return value in self.BATTERY_STATUS_MAP.keys()
+        
         
         try:
             min_val, max_val = self.valid_ranges[command_name]
