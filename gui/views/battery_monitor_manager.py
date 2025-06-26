@@ -65,7 +65,7 @@ class BatteryMonitorManager(QObject):
             "temperature": "",
             "led_status": "",
             "interrupt_status": "",
-            "dc_status": "",
+            "battery_status": "",
             "cpu_usage": "",
             "memory_usage": ""
         }
@@ -376,9 +376,48 @@ class BatteryMonitorManager(QObject):
             if "led_status" in battery_data and "led_status_label" in self.ui_components:
                 led_status = battery_data["led_status"]
                 if led_status is not None:
+                    led_status_str = str(led_status).lower()
                     self.ui_components["led_status_label"].setText(str(led_status))
+                    
+                    # Set color based on LED status string (matching actual LED colors)
+                    # Check for specific colors first, then add blinking decoration if needed
+                    color_style = ""
+                    if "off" in led_status_str:
+                        # Gray for Off state
+                        color_style = "color: #888888; font-weight: bold;"
+                    elif "blue" in led_status_str:
+                        # Blue for Blue LED states
+                        color_style = "color: #2196F3; font-weight: bold;"
+                    elif "green" in led_status_str:
+                        # Green for Green LED states
+                        color_style = "color: #4CAF50; font-weight: bold;"
+                    elif "cyan" in led_status_str:
+                        # Cyan for Cyan LED states
+                        color_style = "color: #00BCD4; font-weight: bold;"
+                    elif "red" in led_status_str:
+                        # Red for Red LED states
+                        color_style = "color: #F44336; font-weight: bold;"
+                    elif "fuchsia" in led_status_str or "magenta" in led_status_str:
+                        # Fuchsia/Magenta for Fuchsia LED states
+                        color_style = "color: #E91E63; font-weight: bold;"
+                    elif "orange" in led_status_str:
+                        # Orange for Orange LED states
+                        color_style = "color: #FF9800; font-weight: bold;"
+                    elif "white" in led_status_str:
+                        # White for White LED states
+                        color_style = "color: #FFFFFF; font-weight: bold;"
+                    else:
+                        # Default white for unknown states
+                        color_style = "color: white;"
+                    
+                    # Add blinking decoration if it's a blinking state
+                    if "blinking" in led_status_str:
+                        color_style += " text-decoration: underline;"
+                    
+                    self.ui_components["led_status_label"].setStyleSheet(color_style)
                 else:
                     self.ui_components["led_status_label"].setText("--")
+                    self.ui_components["led_status_label"].setStyleSheet("color: #888888;")
             
             # Update interrupt status
             if "interrupt_status" in battery_data and "interrupt_status_label" in self.ui_components:
@@ -388,13 +427,38 @@ class BatteryMonitorManager(QObject):
                 else:
                     self.ui_components["interrupt_status_label"].setText("--")
             
-            # Update DC status
-            if "dc_status" in battery_data and "dc_status_label" in self.ui_components:
-                dc_status = battery_data["dc_status"]
-                if dc_status is not None:
-                    self.ui_components["dc_status_label"].setText(str(dc_status))
+            # Update Battery status
+            if "battery_status" in battery_data and "battery_status_label" in self.ui_components:
+                battery_status = battery_data["battery_status"]
+                if battery_status is not None:
+                    battery_status_str = str(battery_status).lower()
+                    self.ui_components["battery_status_label"].setText(str(battery_status))
+                    
+                    # Set color based on Battery status string
+                    if "charging" in battery_status_str:
+                        # Green for Charging states
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #4CAF50; font-weight: bold;")
+                    elif "discharging" in battery_status_str:
+                        # Red for Discharging state
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #F44336; font-weight: bold;")
+                    elif "full charged" in battery_status_str:
+                        # Blue for Full Charged state
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #2196F3; font-weight: bold;")
+                    elif "over" in battery_status_str:
+                        # Orange for Over states (Over Charged, Over Temperature, etc.)
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #FF9800; font-weight: bold;")
+                    elif "alarm" in battery_status_str:
+                        # Yellow for Alarm states
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #FFC107; font-weight: bold;")
+                    elif "terminate" in battery_status_str:
+                        # Purple for Terminate Charge
+                        self.ui_components["battery_status_label"].setStyleSheet("color: #9C27B0; font-weight: bold;")
+                    else:
+                        # Default white for unknown states
+                        self.ui_components["battery_status_label"].setStyleSheet("color: white;")
                 else:
-                    self.ui_components["dc_status_label"].setText("--")
+                    self.ui_components["battery_status_label"].setText("--")
+                    self.ui_components["battery_status_label"].setStyleSheet("color: #888888;")
             
             # Update CPU usage
             if "cpu_usage" in battery_data and "cpu_usage_label" in self.ui_components:
@@ -512,6 +576,56 @@ class BatteryMonitorManager(QObject):
         
         logger.error(f"Battery info error: {error_message}")
         
+        # Check if device is disconnected and monitoring is active
+        if "No response received from device" in error_message and self.is_monitoring:
+            logger.warning("Device disconnected during monitoring, stopping battery monitoring")
+            
+            # Stop monitoring automatically
+            self.stop_monitoring()
+            
+            # Show message box to inform user about device disconnection
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+            msg_box.setWindowTitle("Device Disconnected")
+            msg_box.setText("Device disconnected, battery monitoring stopped automatically.")
+            msg_box.setInformativeText("Please check device connection status.")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            
+            # Apply dark theme style to message box
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #2b2b2b;
+                    color: white;
+                    border: 1px solid #555555;
+                }
+                QMessageBox QLabel {
+                    color: white;
+                    background-color: transparent;
+                }
+                QMessageBox QPushButton {
+                    background-color: #0078D7;
+                    color: white;
+                    border: none;
+                    padding: 6px 15px;
+                    border-radius: 3px;
+                    min-width: 70px;
+                }
+                QMessageBox QPushButton:hover {
+                    background-color: #1C97EA;
+                }
+                QMessageBox QPushButton:pressed {
+                    background-color: #005A9E;
+                }
+            """)
+            
+            msg_box.exec()
+            
+            # Add system log
+            if self.main_controller:
+                self.main_controller.add_system_log("WARNING", "Device disconnected, battery monitoring stopped automatically")
+            
+            return
+        
         # Update status display
         self._update_status_display(f"Error: {error_message}")
         
@@ -596,7 +710,7 @@ class BatteryMonitorManager(QObject):
             "temperature": "",
             "led_status": "",
             "interrupt_status": "",
-            "dc_status": "",
+            "battery_status": "",
             "cpu_usage": "",
             "memory_usage": ""
         }
@@ -638,7 +752,7 @@ class BatteryMonitorManager(QObject):
                 'Temperature (°C)',
                 'LED Status',
                 'Interrupt Status',
-                'DC Status',
+                'Battery Status',
                 'CPU Usage (%)',
                 'Memory Usage (%)'
             ]
@@ -675,7 +789,7 @@ class BatteryMonitorManager(QObject):
                     "temperature": "",
                     "led_status": "",
                     "interrupt_status": "",
-                    "dc_status": "",
+                    "battery_status": "",
                     "cpu_usage": "",
                     "memory_usage": ""
                 }
@@ -691,7 +805,7 @@ class BatteryMonitorManager(QObject):
             
             # Extract data and use cache for empty values
             data_fields = ["relative_state", "voltage", "current", "temperature", 
-                          "led_status", "interrupt_status", "dc_status", "cpu_usage", "memory_usage"]
+                          "led_status", "interrupt_status", "battery_status", "cpu_usage", "memory_usage"]
             
             processed_data = {}
             
@@ -722,7 +836,7 @@ class BatteryMonitorManager(QObject):
                 processed_data["temperature"],
                 processed_data["led_status"],
                 processed_data["interrupt_status"],
-                processed_data["dc_status"],
+                processed_data["battery_status"],
                 processed_data["cpu_usage"],
                 processed_data["memory_usage"]
             ]

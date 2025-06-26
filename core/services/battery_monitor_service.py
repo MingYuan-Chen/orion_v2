@@ -34,6 +34,7 @@ class BatteryMonitorService(QObject):
         6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
         7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
     }
+
     INTERRUPT_STATUS_MAP = {
         0: "Normal",
         1: "No Battery",
@@ -44,6 +45,22 @@ class BatteryMonitorService(QObject):
         32: "Over Temperature - Discharge",
         64: "Over Current - Discharge",
         96: "Over Current & Temperature - Discharge",
+    }
+
+    BATTERY_STATUS_MAP = {
+        128: "Charging",
+        192: "Discharging",
+        160: "Full Charged",
+        224: "Full Charged, Discharging",
+        32896: "Over Charged",
+        16512: "Terminate Charge",
+        16544: "Full Charged, Terminate Charge",
+        20608: "Over Temperature, Terminate Charge",
+        20672: "Over Temperature, Terminate Charge",
+        4224: "Over Temperature - Charge",
+        4288: "Over Temperature - Discharge",
+        704: "Remaining Capacity Alarm",
+        448: "Remaining Time Alarm",
     }
 
     def __init__(self, serial_worker, platform_name="hydra"):
@@ -76,7 +93,7 @@ class BatteryMonitorService(QObject):
         
         # Define command priority (order of execution)
         self.command_priority = [
-            "dc_status",
+            "battery_status",
             "top_info",
             "relative_state",
             "voltage",
@@ -138,7 +155,7 @@ class BatteryMonitorService(QObject):
             "temperature",          # Battery temperature (°C)
             "led_status",           # Battery LED status
             "interrupt_status",     # Battery interrupt status
-            "dc_status",            # Battery DC status
+            "battery_status",       # Battery status
             "top_info"              # Top info
         ]
         
@@ -387,6 +404,8 @@ class BatteryMonitorService(QObject):
             return value in self.INTERRUPT_STATUS_MAP.keys()
         elif command_name == "led_status":
             return value in self.LED_STATUS_MAP.keys()
+        elif command_name == "battery_status":
+            return value in self.BATTERY_STATUS_MAP.keys()
         
         try:
             min_val, max_val = self.valid_ranges[command_name]
@@ -466,7 +485,18 @@ class BatteryMonitorService(QObject):
                 parsed_value = self.LED_STATUS_MAP[parsed_value]
                 self.collected_battery_info[command_name] = parsed_value
             elif command_name == "interrupt_status":
-                parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
+                if parsed_value in self.INTERRUPT_STATUS_MAP.keys():
+                    parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
+                else:
+                    logger.warning(f"Interrupt status: {parsed_value}")
+                    parsed_value = "Unknown"
+                self.collected_battery_info[command_name] = parsed_value
+            elif command_name == "battery_status":
+                if parsed_value in self.BATTERY_STATUS_MAP.keys():
+                    parsed_value = self.BATTERY_STATUS_MAP[parsed_value]
+                else:
+                    logger.warning(f"Battery status: {parsed_value}")
+                    parsed_value = "Unknown"
                 self.collected_battery_info[command_name] = parsed_value
             elif command_name == "top_info":
                 # For top_info, store individual cpu_usage and memory_usage values
@@ -508,8 +538,15 @@ class BatteryMonitorService(QObject):
             Parsed battery value or None if parsing failed
         """
         try:
+            # Check for device disconnection errors first
+            if "No response received from device" in response or "ClearCommError failed" in response:
+                logger.error(f"Device disconnection detected in response for {command_name}: {response}")
+                # Emit error signal for device disconnection
+                self.battery_info_error.emit(self.current_device_id, response)
+                return None
+            
             # Process i2ctransfer command results for battery commands
-            if command_name in ["relative_state", "voltage", "current", "temperature", "led_status", "interrupt_status"]:
+            if command_name in ["relative_state", "voltage", "current", "temperature", "led_status", "interrupt_status", "battery_status"]:
                 try:
                     # Enhanced parsing for i2c responses
                     lines = response.strip().split('\n')
@@ -567,13 +604,19 @@ class BatteryMonitorService(QObject):
                         return value
                     elif command_name == "interrupt_status":
                         return value
+                    elif command_name == "battery_status":
+                        return value
                     
                 except Exception as e:
                     logger.error(f"Failed to parse battery command {command_name}: {e}")
                     return None
-            elif command_name == "dc_status":
-                return "Charging" if "1" in response else "Discharging"
+                
             elif command_name == "top_info":
+                # Check for device disconnection in top_info response
+                if "No response received from device" in response or "ClearCommError failed" in response:
+                    logger.error(f"Device disconnection detected in top_info response: {response}")
+                    self.battery_info_error.emit(self.current_device_id, response)
+                    return None
                 # Parse top command output for CPU and memory usage
                 return self._parse_top_info_response(response)
             # If it's not a known battery command, return None

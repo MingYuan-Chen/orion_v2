@@ -174,7 +174,7 @@ class SystemInfoService(QObject):
         
         # Copy command list to execute sequentially, excluding battery monitor specific commands
         # voltage and current commands are reserved for battery monitor service only
-        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "dc_status", "relative_state", "temperature", "top_info"}
+        battery_monitor_commands = {"voltage", "current", "led_status", "interrupt_status", "battery_status", "relative_state", "temperature", "top_info"}
         
         # Optimize command execution order to minimize hardware switching delays
         # Group commands by device type to reduce MTD/i2c transitions
@@ -394,8 +394,8 @@ class SystemInfoService(QObject):
                 self.collected_info["memory"] = self._parse_memory_info(response)
             elif command_name == "disk_usage":
                 self.collected_info["storage"] = self._parse_disk_info(response)
-            elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity",
-                                 "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "dc_status"]:
+            elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity", "battery_status",
+                                 "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
                 # Use battery info parsing function to handle battery related commands
                 if "battery" not in self.collected_info:
                     self.collected_info["battery"] = {}
@@ -603,20 +603,10 @@ class SystemInfoService(QObject):
         """
         try:
             value = response
-            
-            # Special processing for dc_status
-            if command_name == "dc_status":
-                try:
-                    value = int(response.strip().split("\n")[0])
-                    # Removed debug logger for performance: Parsed dc_status value
-                    return value
-                except Exception as e:
-                    logger.error(f"Failed to parse {command_name}: {e}")
-                    return None
-            
+
             # Process i2ctransfer command results
             if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity",
-                               "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
+                               "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "battery_status"]:
                 try:
                     # Enhanced parsing for i2c responses with better error handling
                     # Look for hex values more robustly
@@ -647,6 +637,8 @@ class SystemInfoService(QObject):
                                 current_command_context = "design_voltage"
                             elif command_name == "design_capacity" and "0x18" in line:
                                 current_command_context = "design_capacity"
+                            elif command_name == "battery_status" and "0x16" in line:
+                                current_command_context = "battery_status"
                             continue
                             
                         # Look for hex values in the line
@@ -751,12 +743,15 @@ class SystemInfoService(QObject):
                             parsed_value = round(float(value/1000), 2)
                         elif command_name == "temperature":
                             # Convert temperature to Celsius (°C)
-                            parsed_value = round(float(value/10)-273.15, 2)
+                            parsed_value = round(float(value/10)-273.2, 1)
                         elif command_name == "cycle_count":
                             # Return cycle count value directly
                             parsed_value = value
                         elif command_name == "led_status":
                             # Return LED status value directly
+                            parsed_value = value
+                        elif command_name == "battery_status":
+                            # Return battery status value directly
                             parsed_value = value
                         else:
                             parsed_value = value

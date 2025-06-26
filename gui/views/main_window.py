@@ -1255,7 +1255,7 @@ class MainWindowController(QObject):
                 "progress_bar": self.window.progressBar_battery_level,
                 "led_status_label": self.window.label_led_status_value,
                 "interrupt_status_label": self.window.label_interrupt_status_value,
-                "dc_status_label": self.window.label_dc_status_value,
+                "battery_status_label": self.window.label_dc_status_value,
                 "cpu_usage_label": self.window.label_cpu_usage_value,
                 "memory_usage_label": self.window.label_memory_usage_value,
                 "log_as_file_checkbox": self.window.checkBox_log_as_file
