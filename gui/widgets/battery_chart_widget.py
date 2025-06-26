@@ -219,13 +219,18 @@ class BatteryChartWidget(QWidget):
             # Update x-axis limits
             if x_data:
                 x_min, x_max = min(x_data), max(x_data)
-                x_range = max(60, x_max - x_min)  # Minimum 60 seconds range
+                total_range = x_max - x_min
                 
-                # Set x-axis limits for main axis (others will follow)
-                self.ax_main.set_xlim(x_max - x_range, x_max + 5)
-                
-                # Update x-axis label
-                self.ax_main.set_xlabel(f'Time (last {int(x_range)}s)', color='white', fontsize=10)
+                # Show complete data range if more than 600 seconds, otherwise show minimum 60 seconds
+                if total_range > 600:
+                    # Show all data with some padding
+                    self.ax_main.set_xlim(x_min - 10, x_max + 10)
+                    self.ax_main.set_xlabel(f'Time (total {int(total_range)}s)', color='white', fontsize=10)
+                else:
+                    # Show minimum 60 seconds range for shorter data
+                    display_range = max(60, total_range)
+                    self.ax_main.set_xlim(x_max - display_range, x_max + 5)
+                    self.ax_main.set_xlabel(f'Time (last {int(display_range)}s)', color='white', fontsize=10)
             
             # Update Y-axis limits dynamically based on data
             self._update_y_axis_limits()

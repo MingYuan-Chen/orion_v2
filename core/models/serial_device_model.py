@@ -195,7 +195,7 @@ class SerialDeviceModel(DeviceModel):
             is_i2c_command = "i2ctransfer" in command
             is_eeprog_command = "eeprog" in command
             is_md5_command = "md5sum" in command
-            is_simple_command = command.strip() in ["sync", "ls", "pwd", "whoami", "root", "cat", "echo", "reboot"]
+            is_simple_command = command.strip() in ["sync", "ls", "pwd", "whoami", "root", "cat", "echo", "reboot", "top"]
             
             # Conservative buffer clearing - only when necessary
             if is_i2c_command:

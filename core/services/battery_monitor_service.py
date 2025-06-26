@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject, Signal, Slot, QTimer
 import json
 import time
 from typing import Dict, Any, Optional, List
+import re
 from util.logger import logger
 from core.models.platform_command_set import PlatformCommandSet, CommandType
 
@@ -33,6 +34,7 @@ class BatteryMonitorService(QObject):
         6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
         7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
     }
+
     INTERRUPT_STATUS_MAP = {
         0: "Normal",
         1: "No Battery",
@@ -43,6 +45,22 @@ class BatteryMonitorService(QObject):
         32: "Over Temperature - Discharge",
         64: "Over Current - Discharge",
         96: "Over Current & Temperature - Discharge",
+    }
+
+    BATTERY_STATUS_MAP = {
+        128: "Charging",
+        192: "Discharging",
+        160: "Full Charged",
+        224: "Full Charged, Discharging",
+        32896: "Over Charged",
+        16512: "Terminate Charge",
+        16544: "Full Charged, Terminate Charge",
+        20608: "Over Temperature, Terminate Charge",
+        20672: "Over Temperature, Terminate Charge",
+        4224: "Over Temperature - Charge",
+        4288: "Over Temperature - Discharge",
+        704: "Remaining Capacity Alarm",
+        448: "Remaining Time Alarm",
     }
 
     def __init__(self, serial_worker, platform_name="hydra"):
@@ -75,7 +93,8 @@ class BatteryMonitorService(QObject):
         
         # Define command priority (order of execution)
         self.command_priority = [
-            "dc_status",
+            "battery_status",
+            "top_info",
             "relative_state",
             "voltage",
             "current",
@@ -113,7 +132,9 @@ class BatteryMonitorService(QObject):
             "current": (-5.0, 5.0),         # Battery current (A)
             "temperature": (0.0, 100.0),    # Battery temperature (°C)
             "led_status": (0, 31),          # Battery LED status
-            "interrupt_status": (0, 98)     # Battery interrupt status
+            "interrupt_status": (0, 98),    # Battery interrupt status
+            "cpu_usage": (0.0, 100.0),      # CPU usage percentage
+            "memory_usage": (0.0, 100.0)    # Memory usage percentage
         }
     
     def _get_battery_commands(self):
@@ -134,7 +155,8 @@ class BatteryMonitorService(QObject):
             "temperature",          # Battery temperature (°C)
             "led_status",           # Battery LED status
             "interrupt_status",     # Battery interrupt status
-            "dc_status"             # Battery DC status
+            "battery_status",       # Battery status
+            "top_info"              # Top info
         ]
         
         battery_commands = {}
@@ -342,6 +364,36 @@ class BatteryMonitorService(QObject):
         Returns:
             bool: True if value is valid, False otherwise
         """
+        # Handle top_info command which returns a dictionary
+        if command_name == "top_info":
+            if not isinstance(value, dict):
+                return False
+            
+            # Check if both cpu_usage and memory_usage are present and valid
+            required_keys = ["cpu_usage", "memory_usage"]
+            for key in required_keys:
+                if key not in value:
+                    return False
+                
+                val = value[key]
+                if val is None:
+                    return False
+                
+                # Check if value is within valid range
+                if key in self.valid_ranges:
+                    min_val, max_val = self.valid_ranges[key]
+                    try:
+                        if isinstance(val, (int, float)):
+                            if not (min_val <= val <= max_val):
+                                return False
+                        else:
+                            return False
+                    except (ValueError, TypeError):
+                        return False
+            
+            return True
+        
+        # Original logic for single value commands
         if command_name not in self.valid_ranges:
             return True  # No range defined, assume valid
         
@@ -352,6 +404,8 @@ class BatteryMonitorService(QObject):
             return value in self.INTERRUPT_STATUS_MAP.keys()
         elif command_name == "led_status":
             return value in self.LED_STATUS_MAP.keys()
+        elif command_name == "battery_status":
+            return value in self.BATTERY_STATUS_MAP.keys()
         
         try:
             min_val, max_val = self.valid_ranges[command_name]
@@ -429,9 +483,27 @@ class BatteryMonitorService(QObject):
             # Valid result, store it
             if command_name == "led_status":
                 parsed_value = self.LED_STATUS_MAP[parsed_value]
+                self.collected_battery_info[command_name] = parsed_value
             elif command_name == "interrupt_status":
-                parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
-            self.collected_battery_info[command_name] = parsed_value
+                if parsed_value in self.INTERRUPT_STATUS_MAP.keys():
+                    parsed_value = self.INTERRUPT_STATUS_MAP[parsed_value]
+                else:
+                    logger.warning(f"Interrupt status: {parsed_value}")
+                    parsed_value = "Unknown"
+                self.collected_battery_info[command_name] = parsed_value
+            elif command_name == "battery_status":
+                if parsed_value in self.BATTERY_STATUS_MAP.keys():
+                    parsed_value = self.BATTERY_STATUS_MAP[parsed_value]
+                else:
+                    logger.warning(f"Battery status: {parsed_value}")
+                    parsed_value = "Unknown"
+                self.collected_battery_info[command_name] = parsed_value
+            elif command_name == "top_info":
+                # For top_info, store individual cpu_usage and memory_usage values
+                self.collected_battery_info["cpu_usage"] = parsed_value["cpu_usage"]
+                self.collected_battery_info["memory_usage"] = parsed_value["memory_usage"]
+            else:
+                self.collected_battery_info[command_name] = parsed_value
             
             # Reset current command and continue to next
             self._reset_current_command()
@@ -466,8 +538,15 @@ class BatteryMonitorService(QObject):
             Parsed battery value or None if parsing failed
         """
         try:
+            # Check for device disconnection errors first
+            if "No response received from device" in response or "ClearCommError failed" in response:
+                logger.error(f"Device disconnection detected in response for {command_name}: {response}")
+                # Emit error signal for device disconnection
+                self.battery_info_error.emit(self.current_device_id, response)
+                return None
+            
             # Process i2ctransfer command results for battery commands
-            if command_name in ["relative_state", "voltage", "current", "temperature", "led_status", "interrupt_status"]:
+            if command_name in ["relative_state", "voltage", "current", "temperature", "led_status", "interrupt_status", "battery_status"]:
                 try:
                     # Enhanced parsing for i2c responses
                     lines = response.strip().split('\n')
@@ -520,17 +599,26 @@ class BatteryMonitorService(QObject):
                             signed_value = value
                         return round(float(signed_value/1000), 2)  # Convert to amperes
                     elif command_name == "temperature":
-                        return round(float(value/10)-273.15, 2)  # Convert to Celsius
+                        return round(float(value/10)-273.2, 1)  # Convert to Celsius
                     elif command_name == "led_status":
                         return value
                     elif command_name == "interrupt_status":
+                        return value
+                    elif command_name == "battery_status":
                         return value
                     
                 except Exception as e:
                     logger.error(f"Failed to parse battery command {command_name}: {e}")
                     return None
-            elif command_name == "dc_status":
-                return "Charging" if "1" in response else "Discharging"
+                
+            elif command_name == "top_info":
+                # Check for device disconnection in top_info response
+                if "No response received from device" in response or "ClearCommError failed" in response:
+                    logger.error(f"Device disconnection detected in top_info response: {response}")
+                    self.battery_info_error.emit(self.current_device_id, response)
+                    return None
+                # Parse top command output for CPU and memory usage
+                return self._parse_top_info_response(response)
             # If it's not a known battery command, return None
             return None
             
@@ -538,6 +626,89 @@ class BatteryMonitorService(QObject):
             logger.error(f"Error in battery response parsing for {command_name}: {str(e)}")
             return None
         
+    def _parse_top_info_response(self, response: str) -> Dict[str, float]:
+        """
+        Parse top command response to extract CPU and memory usage
+        
+        Args:
+            response: Top command response
+            
+        Returns:
+            Dictionary containing cpu_usage and memory_usage, or None if parsing failed
+        """
+        try:
+            lines = response.strip().split('\n')
+            cpu_usage = None
+            memory_usage = None
+            
+            for line in lines:
+                line = line.strip()
+                
+                # Parse CPU usage from lines like: "CPU:  12.5% usr   2.1% sys   0.0% nic  84.4% idle"
+                # Or: "%Cpu(s):  5.2 us,  1.3 sy,  0.0 ni, 93.5 id"
+                if line.startswith('CPU:') or line.startswith('%Cpu'):
+                    try:
+                        # Look for patterns like "12.5% usr" or "5.2 us"
+                        # Pattern to match percentage values before "usr", "us", "sys", "sy"
+                        cpu_pattern = r'(\d+\.?\d*)%?\s*(?:usr|us|sys|sy)'
+                        matches = re.findall(cpu_pattern, line)
+                        if matches:
+                            # Sum up user and system CPU usage (first two matches typically)
+                            usr_cpu = float(matches[0]) if len(matches) > 0 else 0.0
+                            sys_cpu = float(matches[1]) if len(matches) > 1 else 0.0
+                            cpu_usage = round(usr_cpu + sys_cpu, 1)
+                            
+                            # Alternative: calculate from idle percentage
+                            # Look for idle percentage
+                            idle_pattern = r'(\d+\.?\d*)%?\s*(?:idle|id)'
+                            idle_matches = re.findall(idle_pattern, line)
+                            if idle_matches:
+                                idle_cpu = float(idle_matches[0])
+                                cpu_usage = round(100.0 - idle_cpu, 1)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse CPU usage from line: {line}, error: {e}")
+                
+                # Parse memory usage from lines like: "Mem:   1024000k total,   512000k used,   512000k free"
+                # Or: "KiB Mem :  2048000 total,  1024000 used,   1024000 free"
+                elif 'Mem:' in line or 'KiB Mem' in line:
+                    try:
+                        # Look for total and used memory values
+                        # Pattern to match numbers followed by units (k, M, G, or KiB, MiB, GiB)
+                        memory_pattern = r'(\d+)(?:k|K|M|G|KiB|MiB|GiB)?\s+(?:total|used|free)'
+                        
+                        # Split line and look for total and used values
+                        parts = line.split()
+                        total_mem = None
+                        used_mem = None
+                        
+                        for i, part in enumerate(parts):
+                            if 'total' in part and i > 0:
+                                # Previous part should be the total memory value
+                                total_str = parts[i-1].replace('k', '').replace('K', '').replace(',', '')
+                                total_mem = int(total_str)
+                            elif 'used' in part and i > 0:
+                                # Previous part should be the used memory value
+                                used_str = parts[i-1].replace('k', '').replace('K', '').replace(',', '')
+                                used_mem = int(used_str)
+                        
+                        if total_mem and used_mem and total_mem > 0:
+                            memory_usage = round((used_mem / total_mem) * 100.0, 1)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse memory usage from line: {line}, error: {e}")
+            
+            # Return result if both values were parsed successfully
+            if cpu_usage is not None and memory_usage is not None:
+                return {
+                    "cpu_usage": cpu_usage,
+                    "memory_usage": memory_usage
+                }
+            else:
+                logger.warning(f"Failed to parse top info: cpu_usage={cpu_usage}, memory_usage={memory_usage}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error parsing top info response: {str(e)}")
+            return None
     
     def get_battery_commands(self) -> Dict[str, str]:
         """
