@@ -34,7 +34,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[0], 
                 expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
                 timeout=5, 
-                description="Generate EEPROM0 test data",
+                description="Generate EEPROM 24c04 test data",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -42,7 +42,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[1], 
                 expected_response=expected_responses[1] if len(expected_responses) > 1 else None, 
                 timeout=5, 
-                description="Generate EEPROM1 test data",
+                description="Generate EEPROM 24c128 test data",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -57,7 +57,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[3], 
                 validation_func=self._store_to_eeprom0_md5,
                 timeout=5, 
-                description="Calculate the MD5 of EEPROM0 test data",
+                description="Calculate the MD5 of EEPROM 24c04 test data",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -65,7 +65,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[4], 
                 validation_func=self._store_to_eeprom1_md5,
                 timeout=5, 
-                description="Calculate the MD5 of EEPROM1 test data",
+                description="Calculate the MD5 of EEPROM 24c128 test data",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -75,7 +75,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[5], 
                 expected_response=expected_responses[5] if len(expected_responses) > 5 else None, 
                 timeout=10, 
-                description="Write data to EEPROM0",
+                description="Write data to EEPROM 24c04",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -83,7 +83,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[6], 
                 expected_response=expected_responses[6] if len(expected_responses) > 6 else None, 
                 timeout=10, 
-                description="Write data to EEPROM1",
+                description="Write data to EEPROM 24c128",
                 max_retries=1,
                 retry_delay=1000
             ),
@@ -97,14 +97,14 @@ class EepromWorker(BaseTestWorker):
             TestStep(
                 command=commands[8], 
                 timeout=10, 
-                description="Read data from EEPROM0",
+                description="Read data from EEPROM 24c04",
                 max_retries=3,
                 retry_delay=1000
             ),
             TestStep(
                 command=commands[9], 
                 timeout=10, 
-                description="Read data from EEPROM1",
+                description="Read data from EEPROM 24c128",
                 max_retries=3,
                 retry_delay=1000
             ),
@@ -119,7 +119,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[11], 
                 validation_func=self._store_from_eeprom0_md5,
                 timeout=5, 
-                description="Calculate the MD5 of the read data from EEPROM0",
+                description="Calculate the MD5 of the read data from EEPROM 24c04",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -127,7 +127,7 @@ class EepromWorker(BaseTestWorker):
                 command=commands[12], 
                 validation_func=self._store_from_eeprom1_md5,
                 timeout=5, 
-                description="Calculate the MD5 of the read data from EEPROM1",
+                description="Calculate the MD5 of the read data from EEPROM 24c128",
                 max_retries=2,
                 retry_delay=500
             ),
@@ -147,12 +147,12 @@ class EepromWorker(BaseTestWorker):
             TestStep(
                 command=commands[14], 
                 timeout=3, 
-                description="Clean up EEPROM0 test files",
+                description="Clean up EEPROM 24c04 test files",
             ),
             TestStep(
                 command=commands[15], 
                 timeout=3, 
-                description="Clean up EEPROM1 test files",
+                description="Clean up EEPROM 24c128 test files",
             ),
             TestStep(
                 command=commands[16], 
@@ -162,9 +162,9 @@ class EepromWorker(BaseTestWorker):
         ]
     
     def _store_to_eeprom0_md5(self, response: str) -> Tuple[bool, str]:
-        """Store the MD5 value of EEPROM0 test data"""
+        """Store the MD5 value of EEPROM 24c04 test data"""
         if not response.strip():
-            return False, "Failed to get the MD5 value of EEPROM0 test data"
+            return False, "Failed to get the MD5 value of EEPROM 24c04 test data"
         
         # Extract MD5 hash from response (32 characters hexadecimal)
         import re
@@ -176,12 +176,12 @@ class EepromWorker(BaseTestWorker):
         
         # Take the last MD5 hash found (in case there are multiple)
         self.to_eeprom0_md5 = matches[-1].lower()
-        return True, f"The MD5 value of EEPROM0 test data: {self.to_eeprom0_md5}"
+        return True, f"The MD5 value of EEPROM 24c04 test data: {self.to_eeprom0_md5}"
     
     def _store_to_eeprom1_md5(self, response: str) -> Tuple[bool, str]:
-        """Store the MD5 value of EEPROM1 test data"""
+        """Store the MD5 value of EEPROM 24c128 test data"""
         if not response.strip():
-            return False, "Failed to get the MD5 value of EEPROM1 test data"
+            return False, "Failed to get the MD5 value of EEPROM 24c128 test data"
         
         # Extract MD5 hash from response (32 characters hexadecimal)
         import re
@@ -193,12 +193,12 @@ class EepromWorker(BaseTestWorker):
         
         # Take the last MD5 hash found (in case there are multiple)
         self.to_eeprom1_md5 = matches[-1].lower()
-        return True, f"The MD5 value of EEPROM1 test data: {self.to_eeprom1_md5}"
+        return True, f"The MD5 value of EEPROM 24c128 test data: {self.to_eeprom1_md5}"
     
     def _store_from_eeprom0_md5(self, response: str) -> Tuple[bool, str]:
-        """Store the MD5 value of the read data from EEPROM0"""
+        """Store the MD5 value of the read data from EEPROM 24c04"""
         if not response.strip():
-            return False, "Failed to get the MD5 value of the read data from EEPROM0"
+            return False, "Failed to get the MD5 value of the read data from EEPROM 24c04"
         
         # Extract MD5 hash from response (32 characters hexadecimal)
         import re
@@ -210,12 +210,12 @@ class EepromWorker(BaseTestWorker):
         
         # Take the last MD5 hash found (in case there are multiple)
         self.from_eeprom0_md5 = matches[-1].lower()
-        return True, f"The MD5 value of the read data from EEPROM0: {self.from_eeprom0_md5}"
+        return True, f"The MD5 value of the read data from EEPROM 24c04: {self.from_eeprom0_md5}"
     
     def _store_from_eeprom1_md5(self, response: str) -> Tuple[bool, str]:
-        """Store the MD5 value of the read data from EEPROM1"""
+        """Store the MD5 value of the read data from EEPROM 24c128"""
         if not response.strip():
-            return False, "Failed to get the MD5 value of the read data from EEPROM1"
+            return False, "Failed to get the MD5 value of the read data from EEPROM 24c128"
         
         # Extract MD5 hash from response (32 characters hexadecimal)
         import re
@@ -227,7 +227,7 @@ class EepromWorker(BaseTestWorker):
         
         # Take the last MD5 hash found (in case there are multiple)
         self.from_eeprom1_md5 = matches[-1].lower()
-        return True, f"The MD5 value of the read data from EEPROM1: {self.from_eeprom1_md5}"
+        return True, f"The MD5 value of the read data from EEPROM 24c128: {self.from_eeprom1_md5}"
     
     def _validate_md5_values(self, response: str) -> Tuple[bool, str]:
         """Validate the consistency of EEPROM read and write"""
@@ -235,10 +235,10 @@ class EepromWorker(BaseTestWorker):
         eeprom1_success = self.to_eeprom1_md5 == self.from_eeprom1_md5
         
         if not eeprom0_success and not eeprom1_success:
-            return False, f"EEPROM0 and EEPROM1 test failed! EEPROM0 expected: {self.to_eeprom0_md5}, actual: {self.from_eeprom0_md5}; EEPROM1 expected: {self.to_eeprom1_md5}, actual: {self.from_eeprom1_md5}"
+            return False, f"EEPROM 24c04 and 24c128 test failed! EEPROM 24c04 expected: {self.to_eeprom0_md5}, actual: {self.from_eeprom0_md5}; EEPROM 24c128 expected: {self.to_eeprom1_md5}, actual: {self.from_eeprom1_md5}"
         elif not eeprom0_success:
-            return False, f"EEPROM0 test failed! Expected MD5: {self.to_eeprom0_md5}, actual MD5: {self.from_eeprom0_md5}"
+            return False, f"EEPROM 24c04 test failed! Expected MD5: {self.to_eeprom0_md5}, actual MD5: {self.from_eeprom0_md5}"
         elif not eeprom1_success:
-            return False, f"EEPROM1 test failed! Expected MD5: {self.to_eeprom1_md5}, actual MD5: {self.from_eeprom1_md5}"
+            return False, f"EEPROM 24c128 test failed! Expected MD5: {self.to_eeprom1_md5}, actual MD5: {self.from_eeprom1_md5}"
         
-        return True, "EEPROM0 and EEPROM1 read and write test passed!" 
+        return True, "EEPROM 24c04 and 24c128 read and write test passed!" 

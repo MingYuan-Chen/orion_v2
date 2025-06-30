@@ -53,8 +53,8 @@ class PicVersionWorker(BaseTestWorker):
                 command=commands[1], 
                 expected_response=expected_responses[1] if len(expected_responses) > 1 else None,           # convert to decimal: 100
                 timeout=5, 
-                description="Check HW revision by proc",
-                criteria="The HW revision is 100",
+                description="Check HW version by proc",
+                criteria="The HW version is 100",
                 max_retries=1,
                 retry_delay=500
             )

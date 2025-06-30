@@ -1630,7 +1630,7 @@ class MainWindowController(QObject):
             
             # Apply unit conversions based on step description
             if "0x51 0x00 0x19" in command.lower():
-                return f"{combined_value} = {round(combined_value/1000, 2)}V"
+                return f"{combined_value} = {round(combined_value, 2)}mV"
             elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower():
                 return f"{combined_value} = {round(combined_value/1000, 2)}A"
             elif "0x51 0x00 0x08" in command.lower():
@@ -1809,7 +1809,7 @@ class MainWindowController(QObject):
                         continue
             
             if x_resolution and y_resolution:
-                return f"Touch Resolution: {x_resolution}x{y_resolution} pixels"
+                return f"Panel Resolution: {x_resolution}x{y_resolution} pixels"
             
             return response
         except Exception as e:
@@ -2045,9 +2045,10 @@ class MainWindowController(QObject):
             return response
     
     def _clean_response_text(self, response):
-        """Clean up response text by removing command echoes and prompts"""
+        """Clean up response text by removing command echoes, prompts, and duplicate lines"""
         try:
             cleaned_lines = []
+            seen_lines = set()  # Track seen lines to remove duplicates
             lines = response.split('\n')
             
             for line in lines:
@@ -2062,7 +2063,10 @@ class MainWindowController(QObject):
                 ]):
                     continue
                 
-                cleaned_lines.append(line_stripped)
+                # Remove duplicate lines - only keep the first occurrence
+                if line_stripped not in seen_lines:
+                    seen_lines.add(line_stripped)
+                    cleaned_lines.append(line_stripped)
             
             return '\n'.join(cleaned_lines) if cleaned_lines else response
         except Exception as e:
