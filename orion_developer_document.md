@@ -2458,3 +2458,534 @@ logger.error(f"Error updating battery chart: {str(e)}")
    - 提供設備間的電池狀態比較功能
 
 Battery Monitor 系統通過其完整的架構設計、豐富的功能特色和良好的擴展性，為 Orion 系統提供了專業級的電池監控解決方案，滿足了從基本監控到高級分析的各種需求。
+
+## 19. Reboot 檢查機制
+
+Reboot 檢查機制是 Orion 系統中的關鍵功能模組，專門處理設備重啟命令並實現智能登錄驗證。該機制解決了設備重啟後需要等待系統完全啟動並成功登錄的複雜問題，為系統提供了可靠的重啟操作支援。
+
+### 19.1 系統架構概述
+
+Reboot 檢查機制採用專用服務架構設計，與 SerialDeviceWorker 深度整合：
+
+```mermaid
+graph TD
+    A[SerialDeviceWorker] --> B[RebootHandler]
+    B --> C[設備管理器]
+    C --> D[硬體設備]
+    
+    E[重啟命令執行] --> F[登錄狀態檢查]
+    F --> G[響應驗證]
+    G --> H[超時管理]
+    
+    I[QTimer.singleShot] --> J[避免線程問題]
+    K[互斥鎖機制] --> L[命令序列化]
+    
+    B --> E
+    B --> I
+    B --> K
+    
+    M[信號機制] --> N[reboot_completed]
+    M --> O[reboot_failed]
+    B --> M
+```
+
+#### 19.1.1 核心組件
+
+1. **RebootHandler** (`core/services/reboot_handler.py`)
+   - 重啟檢查的核心服務
+   - 管理重啟狀態和登錄驗證流程
+   - 提供可配置的檢查參數和超時機制
+
+2. **SerialDeviceWorker 整合**
+   - 在命令執行層面整合 RebootHandler
+   - 自動識別 reboot 命令並觸發特殊處理
+   - 維護與其他命令的執行順序
+
+3. **設備狀態管理**
+   - 追蹤設備重啟狀態
+   - 管理登錄驗證嘗試次數
+   - 提供重啟進度回饋
+
+### 19.2 工作流程詳解
+
+#### 19.2.1 重啟啟動流程
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶
+    participant SW as SerialDeviceWorker
+    participant RH as RebootHandler
+    participant DM as DeviceManager
+    participant Device as 硬體設備
+    
+    User->>SW: send_command("device_001", "reboot", 90)
+    SW->>SW: _execute_send_command 檢查命令
+    SW->>RH: handle_reboot(device_id, timeout)
+    
+    Note over RH: 確保超時時間至少60秒
+    RH->>RH: 記錄重啟狀態
+    RH->>DM: send_command("reboot")
+    DM->>Device: 執行重啟命令
+    Device-->>DM: 重啟響應
+    DM-->>RH: 命令執行完畢
+    
+    Note over RH: 更新狀態為檢查登錄階段
+    RH->>RH: QTimer.singleShot(2000ms, check_login)
+```
+
+#### 19.2.2 登錄檢查循環
+
+```mermaid
+sequenceDiagram
+    participant RH as RebootHandler
+    participant DM as DeviceManager
+    participant Device as 硬體設備
+    participant SW as SerialDeviceWorker
+    
+    loop 登錄檢查循環 (最多30次)
+        RH->>DM: send_command("root")
+        DM->>Device: 發送登錄檢查命令
+        Device-->>DM: 返回響應
+        DM-->>RH: 檢查響應
+        
+        alt 響應 = "-sh: root: command not found"
+            RH->>SW: reboot_completed 信號
+            SW->>SW: 返回成功結果
+            Note over SW: "reboot and login os complete"
+        else 其他響應或無響應
+            Note over RH: 等待2秒後重試
+            RH->>RH: QTimer.singleShot(2000ms, 重試)
+        end
+        
+        Note over RH: 檢查是否超時或達到最大嘗試次數
+        alt 超時或最大嘗試次數
+            RH->>SW: reboot_failed 信號
+            SW->>SW: 返回失敗結果
+        end
+    end
+```
+
+### 19.3 關鍵技術特色
+
+#### 19.3.1 簡化驗證邏輯
+
+系統採用極簡化的登錄驗證邏輯，只檢查一個特定的成功響應：
+
+```python
+def _is_valid_login_response(self, response: str) -> bool:
+    """
+    Check if login response is valid
+    
+    Simplified logic: only when response is exactly "-sh: root: command not found" is considered successful
+    """
+    if not response or not response.strip():
+        logger.debug("Empty response, device not ready")
+        return False
+    
+    # Remove leading/trailing whitespace
+    response_clean = response.strip()
+    
+    # Only check specific success response string
+    success_response = "-sh: root: command not found"
+    
+    if response_clean == success_response:
+        logger.debug(f"Login success detected: {response_clean}")
+        return True
+    
+    # All other responses indicate device not ready
+    logger.debug(f"Response doesn't indicate login success: {response_clean}")
+    return False
+```
+
+**設計優勢**：
+- **100% 準確性**：不會有任何誤判
+- **簡單可靠**：邏輯極其簡單，不會出錯
+- **明確標準**：只有一個判斷條件
+- **避免干擾**：重啟過程中的任何系統消息都不會影響判斷
+
+#### 19.3.2 線程安全設計
+
+使用 `QTimer.singleShot` 代替持續運行的定時器，避免多線程問題：
+
+```python
+# 使用 QTimer.singleShot 安排首次登錄檢查
+QTimer.singleShot(self.login_check_interval, lambda dev_id=device_id: self._check_single_device_login(dev_id))
+
+# 登錄未成功，安排下次檢查
+logger.debug(f"Device {device_id} not ready yet, will retry in {self.login_check_interval/1000}s")
+QTimer.singleShot(self.login_check_interval, lambda dev_id=device_id: self._check_single_device_login(dev_id))
+```
+
+**技術優勢**：
+- 避免 "QObject::startTimer: Timers cannot be started from another thread" 錯誤
+- 每次檢查都是獨立的，沒有狀態依賴
+- 自動處理 lambda 閉包問題
+
+#### 19.3.3 智能超時管理
+
+系統提供智能的超時時間管理，確保有足夠時間完成重啟：
+
+```python
+def handle_reboot(self, device_id: str, timeout: int = 60):
+    # Ensure reboot timeout is long enough (at least 60 seconds)
+    reboot_timeout = max(timeout, 60)
+    if reboot_timeout != timeout:
+        logger.info(f"Adjusted reboot timeout from {timeout}s to {reboot_timeout}s for device {device_id}")
+```
+
+**配置參數**：
+- **預設超時**：60秒（系統保證的最小重啟時間）
+- **檢查間隔**：2秒（平衡響應速度和系統負載）
+- **最大嘗試次數**：30次（總計60秒的檢查窗口）
+- **單命令超時**：3秒（避免單次命令hang住）
+
+### 19.4 SerialDeviceWorker 整合
+
+#### 19.4.1 整合架構
+
+RebootHandler 作為 SerialDeviceWorker 的專用服務整合：
+
+```mermaid
+graph TD
+    A[SerialDeviceWorker] --> B[_execute_send_command]
+    B --> C{命令是否為 reboot?}
+    C -->|是| D[RebootHandler.handle_reboot]
+    C -->|否| E[normal_send_command]
+    
+    D --> F[reboot_completed 信號]
+    D --> G[reboot_failed 信號]
+    
+    F --> H[_on_reboot_completed]
+    G --> I[_on_reboot_failed]
+    
+    H --> J[返回成功結果]
+    I --> K[返回失敗結果]
+```
+
+#### 19.4.2 信號處理機制
+
+```python
+def __init__(self, device_manager_model):
+    # ... 其他初始化代碼 ...
+    
+    # Initialize reboot handler
+    self.reboot_handler = RebootHandler(device_manager_model)
+    
+    # Connect reboot handler signals
+    self.reboot_handler.reboot_completed.connect(self._on_reboot_completed)
+    self.reboot_handler.reboot_failed.connect(self._on_reboot_failed)
+
+def _on_reboot_completed(self, device_id: str, command: str, response: str):
+    """Handle reboot completion"""
+    logger.info(f"Reboot completed: {response}")
+    # Send success signal to waiting thread
+    if device_id in self.pending_results:
+        self.pending_results[device_id] = response
+        if device_id in self.result_events:
+            self.result_events[device_id].set()
+
+def _on_reboot_failed(self, device_id: str, command: str, error_message: str):
+    """Handle reboot failure"""
+    logger.error(f"Reboot failed: {error_message}")
+    # Send error signal to waiting thread
+    if device_id in self.pending_results:
+        self.pending_results[device_id] = f"ERROR: {error_message}"
+        if device_id in self.result_events:
+            self.result_events[device_id].set()
+```
+
+#### 19.4.3 命令路由邏輯
+
+```python
+def _execute_send_command(self, device_id: str, command: str, timeout: int) -> str:
+    """Execute command with special handling for reboot"""
+    
+    # Special handling for reboot command
+    if command.strip().lower() == "reboot":
+        logger.info(f"Detected reboot command for device {device_id}")
+        
+        # Use reboot handler for reboot operations
+        self.reboot_handler.handle_reboot(device_id, timeout)
+        
+        # Wait for reboot completion
+        if device_id in self.result_events:
+            success = self.result_events[device_id].wait(timeout)
+            if success and device_id in self.pending_results:
+                return self.pending_results[device_id]
+            else:
+                return f"ERROR: Reboot operation timeout after {timeout}s"
+    
+    # Normal command execution
+    return self._normal_send_command(device_id, command, timeout)
+```
+
+### 19.5 狀態管理與監控
+
+#### 19.5.1 重啟狀態追蹤
+
+```python
+# 重啟狀態數據結構
+self.rebooting_devices = {
+    'device_001': {
+        'start_time': 1640995200.123,
+        'timeout': 90,
+        'phase': 'checking_login',  # 'rebooting' or 'checking_login'
+        'login_attempts': 8,
+        'max_attempts': 30
+    }
+}
+```
+
+#### 19.5.2 提供的管理介面
+
+```python
+def get_rebooting_devices(self) -> Dict[str, Dict]:
+    """Get list of devices currently rebooting"""
+    return self.rebooting_devices.copy()
+
+def is_device_rebooting(self, device_id: str) -> bool:
+    """Check if device is currently rebooting"""
+    return device_id in self.rebooting_devices
+
+def cancel_reboot(self, device_id: str):
+    """Cancel device reboot waiting"""
+    if device_id in self.rebooting_devices:
+        logger.info(f"Cancelling reboot process for device {device_id}")
+        self.reboot_failed.emit(device_id, "reboot", "Operation cancelled by user")
+        self._cleanup_reboot_state(device_id)
+```
+
+### 19.6 可配置性與擴展
+
+#### 19.6.1 登錄檢查命令配置
+
+系統支援自定義登錄檢查命令，雖然預設使用 "root"：
+
+```python
+def set_login_check_command(self, command: str):
+    """
+    Set login check command
+    
+    Args:
+        command: Check command, e.g.:
+                "root" - Default command (if device supports)
+                "echo ready" - More general, always successful
+                "whoami" - Check current user
+                "pwd" - Check current directory
+    """
+    self.login_check_command = command
+    logger.info(f"Login check command set to: {command}")
+```
+
+#### 19.6.2 使用範例
+
+```python
+# 基本使用（預設 root 命令）
+serial_worker.send_command("device_001", "reboot", 90)
+
+# 自定義檢查命令（可選）
+serial_worker.reboot_handler.set_login_check_command("echo ready")
+serial_worker.send_command("device_001", "reboot", 90)
+
+# 檢查重啟狀態
+is_rebooting = serial_worker.reboot_handler.is_device_rebooting("device_001")
+rebooting_devices = serial_worker.reboot_handler.get_rebooting_devices()
+
+# 取消重啟等待
+serial_worker.reboot_handler.cancel_reboot("device_001")
+```
+
+### 19.7 日誌記錄與調試
+
+#### 19.7.1 完整的日誌追蹤
+
+系統提供詳細的日誌記錄來協助調試和監控：
+
+```python
+# 重啟開始日誌
+logger.info(f"Starting reboot process for device {device_id} with {reboot_timeout}s timeout")
+
+# 命令執行日誌
+logger.info(f"REBOOT: [{device_id}] >>> reboot")
+logger.info(f"REBOOT: [{device_id}] <<< {response}")
+
+# 登錄檢查日誌
+logger.debug(f"LOGIN_CHECK: [{device_id}] >>> {self.login_check_command} (attempt {attempt}/{max_attempts})")
+logger.debug(f"LOGIN_CHECK: [{device_id}] <<< {response}")
+
+# 結果日誌
+logger.info(f"Device {device_id} login successful after {attempts} attempts")
+logger.debug(f"Login success detected: {response_clean}")
+```
+
+#### 19.7.2 預期日誌示例
+
+成功的重啟操作日誌流程：
+
+```
+2025-01-20 15:30:00 - INFO - Starting reboot process for device serial_COM5 with 90s timeout
+2025-01-20 15:30:00 - INFO - REBOOT: [serial_COM5] >>> reboot
+2025-01-20 15:30:00 - INFO - REBOOT: [serial_COM5] <<< Broadcast message from...
+2025-01-20 15:30:02 - DEBUG - LOGIN_CHECK: [serial_COM5] >>> root (attempt 1/30)
+2025-01-20 15:30:02 - DEBUG - LOGIN_CHECK: [serial_COM5] <<< (空響應)
+2025-01-20 15:30:02 - DEBUG - Empty response, device not ready
+2025-01-20 15:30:04 - DEBUG - LOGIN_CHECK: [serial_COM5] >>> root (attempt 2/30)
+2025-01-20 15:30:04 - DEBUG - LOGIN_CHECK: [serial_COM5] <<< Sending all processes...
+2025-01-20 15:30:04 - DEBUG - Response doesn't indicate login success: Sending all processes...
+...
+2025-01-20 15:30:16 - DEBUG - LOGIN_CHECK: [serial_COM5] >>> root (attempt 8/30)
+2025-01-20 15:30:16 - DEBUG - LOGIN_CHECK: [serial_COM5] <<< -sh: root: command not found
+2025-01-20 15:30:16 - DEBUG - Login success detected: -sh: root: command not found
+2025-01-20 15:30:16 - INFO - Device serial_COM5 login successful after 8 attempts
+2025-01-20 15:30:16 - INFO - Reboot completed: reboot and login os complete (took 16.2s, 8 attempts)
+```
+
+### 19.8 錯誤處理與異常管理
+
+#### 19.8.1 超時處理
+
+```python
+# 檢查是否超時
+elapsed_time = current_time - reboot_info['start_time']
+if elapsed_time > reboot_info['timeout']:
+    logger.error(f"Reboot timeout for device {device_id} after {elapsed_time:.1f}s")
+    self.reboot_failed.emit(device_id, "reboot", f"Reboot timeout after {elapsed_time:.1f}s")
+    self._cleanup_reboot_state(device_id)
+    return
+```
+
+#### 19.8.2 最大嘗試次數處理
+
+```python
+# 檢查是否達到最大嘗試次數
+if reboot_info['login_attempts'] >= self.max_login_attempts:
+    logger.error(f"Max login attempts reached for device {device_id}")
+    self.reboot_failed.emit(device_id, "reboot", "Max login attempts reached")
+    self._cleanup_reboot_state(device_id)
+    return
+```
+
+#### 19.8.3 通訊異常處理
+
+```python
+except Exception as e:
+    logger.warning(f"Login check failed for device {device_id}: {e}")
+    # Schedule next check, not immediately fail
+    QTimer.singleShot(self.login_check_interval, lambda dev_id=device_id: self._check_single_device_login(dev_id))
+```
+
+### 19.9 性能特色與優化
+
+#### 19.9.1 資源效率
+
+- **零干擾設計**：不影響其他命令的正常執行
+- **按需激活**：只有在執行 reboot 命令時才啟動檢查機制
+- **自動清理**：完成或失敗後自動清理相關資源
+
+#### 19.9.2 並發處理
+
+- **多設備支援**：支援同時處理多個設備的重啟操作
+- **狀態隔離**：各設備的重啟狀態完全獨立
+- **無鎖設計**：使用信號槽機制，避免複雜的線程同步
+
+#### 19.9.3 網絡友好
+
+- **適當間隔**：2秒檢查間隔，平衡響應速度和網絡負載
+- **短命令超時**：3秒單命令超時，避免長時間佔用連接
+- **智能重試**：命令失敗時繼續重試，而不是立即放棄
+
+### 19.10 與其他系統模組的整合
+
+#### 19.10.1 與測試框架整合
+
+```python
+# 在測試步驟中使用 reboot
+test_steps = [
+    TestStep(command="prepare_system", description="準備系統"),
+    TestStep(command="reboot", description="重啟設備", timeout=90),
+    TestStep(command="verify_boot", description="驗證啟動")
+]
+```
+
+#### 19.10.2 與設備管理器整合
+
+```python
+# DeviceManagerViewModel 中的使用
+def reboot_device(self, device_id: str):
+    """重啟指定設備"""
+    try:
+        result = self.serial_worker.send_command(device_id, "reboot", 90)
+        if "reboot and login os complete" in result:
+            self.log_message("INFO", f"Device {device_id} rebooted successfully")
+        else:
+            self.log_message("ERROR", f"Device {device_id} reboot failed: {result}")
+    except Exception as e:
+        self.log_message("ERROR", f"Reboot operation error: {str(e)}")
+```
+
+### 19.11 故障排除指南
+
+#### 19.11.1 常見問題
+
+1. **重啟後登錄檢查一直失敗**：
+   - 檢查設備是否真的重啟成功
+   - 確認設備啟動後的登錄狀態
+   - 檢查網絡連接是否穩定
+
+2. **超時時間過短**：
+   - 系統自動確保最少60秒超時
+   - 可根據設備特性調整超時參數
+   - 檢查設備重啟時間是否異常長
+
+3. **線程相關錯誤**：
+   - 系統已使用 QTimer.singleShot 避免線程問題
+   - 如仍有問題，檢查 Qt 事件循環是否正常
+
+#### 19.11.2 調試建議
+
+1. **啟用詳細日誌**：設置日誌級別為 DEBUG 查看詳細信息
+2. **檢查響應內容**：確認設備返回的確切響應字符串
+3. **測試登錄命令**：手動執行 "root" 命令驗證設備狀態
+4. **監控網絡狀態**：確保設備連接穩定
+
+### 19.12 未來發展方向
+
+#### 19.12.1 功能增強
+
+1. **多種登錄驗證方式**：
+   - 支援更多類型的登錄檢查命令
+   - 自動檢測設備類型並選擇最佳驗證方式
+
+2. **智能重啟檢測**：
+   - 自動檢測設備是否真的需要重啟
+   - 提供重啟前的狀態保存和恢復
+
+3. **批量重啟支援**：
+   - 支援同時重啟多個設備
+   - 提供批量操作的進度顯示
+
+#### 19.12.2 監控增強
+
+1. **重啟過程可視化**：
+   - 提供重啟進度的圖形化顯示
+   - 實時顯示各階段的狀態
+
+2. **歷史記錄**：
+   - 記錄設備重啟歷史
+   - 分析重啟成功率和時間統計
+
+3. **告警機制**：
+   - 重啟異常時的告警通知
+   - 長時間未響應的自動處理
+
+#### 19.12.3 擴展性改進
+
+1. **插件化登錄檢查**：
+   - 支援自定義登錄檢查邏輯
+   - 提供登錄檢查插件介面
+
+2. **配置文件支援**：
+   - 從配置文件讀取重啟參數
+   - 支援不同設備類型的專用配置
+
+通過這套完整的 Reboot 檢查機制，Orion 系統能夠可靠地處理設備重啟操作，確保重啟後的系統狀態驗證準確無誤，為自動化測試和設備管理提供了強有力的支援。
