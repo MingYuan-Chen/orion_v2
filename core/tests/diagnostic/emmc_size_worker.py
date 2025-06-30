@@ -14,7 +14,7 @@ class EmmcSizeWorker(BaseTestWorker):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "diagnostic_emmc_size"
         self.expected_emmc_size_mapping = {
-            "hydra_fhd": [125250306048, 116.64],
+            "hydra_fhd": [125250306048, 116.65],
             "hydra": [125069950976, 116.48],
             "gemini_fhd": [125069950976, 116.48],  # Same as gemini
             "gemini": [125069950976, 116.48],
