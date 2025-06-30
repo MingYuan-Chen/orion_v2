@@ -86,8 +86,8 @@ class SystemInfoService(QObject):
         # Define valid ranges for battery commands (after conversion)
         self.valid_ranges = {
             "relative_state": (0, 100),        # 0 ~ 100
-            "charging_voltage": (7.0, 9.0),    # 7 ~ 9 V
-            "charging_current": (1.0, 2.0),    # 1 ~ 2 A  
+            "charging_voltage": (0.0, 9.0),    # 7 ~ 9 V
+            "charging_current": (0.0, 2.0),    # 1 ~ 2 A  
             "voltage": (0.0, 9.0),            # 0 ~ 50 V
             "current": (-4.0, 4.0),            # -4 ~ 4 A
             "temperature": (0.0, 70.0),        # 0 ~ 70 °C
