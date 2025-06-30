@@ -3,6 +3,7 @@ from typing import Dict, Optional, List, Any
 import uuid
 import time
 from core.models.device_manager_model import DeviceManagerModel
+from core.services.reboot_handler import RebootHandler
 from util.logger import logger
 import sys
 
@@ -32,6 +33,11 @@ class SerialDeviceWorker(QObject):
         
         # Add a flag to prevent re-entry
         self._is_cleaning = False
+        
+        # Create RebootHandler for special reboot command processing
+        self.reboot_handler = RebootHandler(device_manager)
+        self.reboot_handler.reboot_completed.connect(self._on_reboot_completed)
+        self.reboot_handler.reboot_failed.connect(self._on_reboot_failed)
         
         # Create thread and move worker to thread
         self.thread = QThread()
@@ -71,6 +77,11 @@ class SerialDeviceWorker(QObject):
         logger.info("SerialDeviceWorker starts cleaning up resources")
         
         try:
+            # Clean up RebootHandler first
+            if hasattr(self, 'reboot_handler'):
+                logger.debug("Cleaning up RebootHandler")
+                self.reboot_handler.cleanup()
+                self.reboot_handler = None
             # First disconnect all signal connections
             try:
                 # Block sending new signals
@@ -246,6 +257,18 @@ class SerialDeviceWorker(QObject):
     def _execute_send_command(self, device_id: str, command: str, timeout: int):
         """Actual execute send command operation (in worker thread)"""
         try:
+            # Check if this is a reboot command
+            if command.strip().lower() == "reboot":
+                logger.info(f"Detected reboot command for device {device_id}, using RebootHandler")
+                self.reboot_handler.handle_reboot(device_id, timeout)
+                return
+            
+            # Check if device is currently rebooting
+            if self.reboot_handler.is_device_rebooting(device_id):
+                logger.warning(f"Device {device_id} is rebooting, command ignored: {command}")
+                self.command_result.emit(device_id, command, "Error: Device is rebooting")
+                return
+            
             # use clear format to log command, ensure it is visible in system log
             logger.info(f"COMMAND: [{device_id}] >>> {command}")
             
@@ -259,6 +282,49 @@ class SerialDeviceWorker(QObject):
         except Exception as e:
             logger.error(f"Error sending command {command} to device {device_id}: {str(e)}")
             self.command_result.emit(device_id, command, f"Error: {str(e)}")
+    
+    # RebootHandler signal handlers
+    
+    @Slot(str, str, str)
+    def _on_reboot_completed(self, device_id: str, command: str, response: str):
+        """Handle reboot completion signal from RebootHandler"""
+        logger.info(f"Reboot completed for device {device_id}: {response}")
+        # Forward the signal to upper layers
+        self.command_result.emit(device_id, command, response)
+    
+    @Slot(str, str, str)
+    def _on_reboot_failed(self, device_id: str, command: str, error_message: str):
+        """Handle reboot failure signal from RebootHandler"""
+        logger.error(f"Reboot failed for device {device_id}: {error_message}")
+        # Forward the signal to upper layers
+        self.command_result.emit(device_id, command, f"Error: {error_message}")
+    
+    # Public methods for RebootHandler management
+    
+    def is_device_rebooting(self, device_id: str) -> bool:
+        """Check if device is currently rebooting"""
+        return self.reboot_handler.is_device_rebooting(device_id)
+    
+    def cancel_reboot(self, device_id: str):
+        """Cancel device reboot"""
+        self.reboot_handler.cancel_reboot(device_id)
+    
+    def get_rebooting_devices(self) -> Dict[str, Dict]:
+        """Get list of devices currently rebooting"""
+        return self.reboot_handler.get_rebooting_devices()
+    
+    def set_reboot_login_check_command(self, command: str):
+        """
+        Set reboot login check command
+        
+        Args:
+            command: Check command, e.g.:
+                    "root" - Default command (if device supports)
+                    "echo ready" - More general, always successful
+                    "whoami" - Check current user
+                    "pwd" - Check current directory
+        """
+        self.reboot_handler.set_login_check_command(command)
 
 
 if __name__ == "__main__":
