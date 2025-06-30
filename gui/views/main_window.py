@@ -1575,6 +1575,12 @@ class MainWindowController(QObject):
             if "gpio133" in command.lower():
                 return self._convert_dc_value_response(response_str, step_desc)
             
+            if "lsusb" in command.lower():
+                return self._convert_lsusb_response(response_str)
+            
+            if "lspci" in command.lower():
+                return self._convert_lspci_response(response_str)
+            
             # Handle i2c transfer responses (hex values like "0x00 0x11")
             # More specific check: command contains i2ctransfer OR response has structured hex format
             if "i2ctransfer" in command.lower() or (
@@ -2042,6 +2048,40 @@ class MainWindowController(QObject):
             
         except Exception as e:
             logger.warning(f"Error converting camera GPIO response: {e}")
+            return response
+    
+    def _convert_lsusb_response(self, response):
+        """Convert lsusb response to show device search result"""
+        try:
+            target_id = "1286:2046"
+            lines = response.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if line and target_id in line:
+                    return f"Device found: {line}"
+            
+            return "Device not found"
+            
+        except Exception as e:
+            logger.warning(f"Error converting lsusb response: {e}")
+            return response
+    
+    def _convert_lspci_response(self, response):
+        """Convert lspci response to show device search result"""
+        try:
+            target_name = "Marvell"
+            lines = response.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if line and target_name in line:
+                    return f"Device found: {line}"
+            
+            return "Device not found"
+            
+        except Exception as e:
+            logger.warning(f"Error converting lspci response: {e}")
             return response
     
     def _clean_response_text(self, response):
