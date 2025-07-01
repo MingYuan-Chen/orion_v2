@@ -27,7 +27,7 @@
     "expected_response": ["0x6e", "100"]
   },
   "diagnostic_sync_time": {
-    "commands": ["sudo ntpdate -u time.stdtime.gov.tw", "hwclock -w", "hwclock -r", "date"]
+    "commands": ["sudo ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"]
   },
   "diagnostic_set_get_rtc_time": {
     "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
