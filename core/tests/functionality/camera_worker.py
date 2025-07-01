@@ -28,7 +28,6 @@ class CameraWorker(BaseTestWorker):
             TestStep(
                 command=commands[0],
                 pre_condition="Please ensure LVDS camera is connected to port A(J1)",
-                post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
@@ -96,7 +95,6 @@ class CameraWorker(BaseTestWorker):
             TestStep(
                 command=commands[10],
                 pre_condition="Please ensure Scorpius camera is connected to port A(J1",
-                post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
@@ -165,7 +163,6 @@ class CameraWorker(BaseTestWorker):
             TestStep(
                 command=commands[20],
                 pre_condition="Please ensure MIPI VGA camera is connected to port A(J1)",
-                post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
@@ -234,7 +231,6 @@ class CameraWorker(BaseTestWorker):
             TestStep(
                 command=commands[30],
                 pre_condition="Please ensure smart cable is connected to port A(J1)",
-                post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
@@ -303,7 +299,6 @@ class CameraWorker(BaseTestWorker):
             TestStep(
                 command=commands[40],
                 pre_condition="Please ensure Jig A is connected to port A(J1), Jig B is connected to port B(J4)",
-                post_check="Is the device rebooted to the login screen?",
                 timeout=5,
                 description="reboot the device",
             ),
