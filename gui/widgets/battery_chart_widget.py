@@ -31,7 +31,7 @@ class BatteryChartWidget(QWidget):
         super().__init__(parent)
         
         # Data storage (use deque for efficient append/pop operations)
-        self.max_data_points = 100  # Keep last 100 data points (about 5 minutes at 3s intervals)
+        self.max_data_points = 30000  # Keep last 30000 data points (about 3+ days at 10s intervals)
         self.timestamps = deque(maxlen=self.max_data_points)
         self.battery_percentage = deque(maxlen=self.max_data_points)
         self.voltage_data = deque(maxlen=self.max_data_points)
@@ -43,6 +43,17 @@ class BatteryChartWidget(QWidget):
         self.show_voltage = True
         self.show_current = True
         self.show_temperature = True
+        
+        # Data cache for handling invalid values (similar to CSV cache)
+        self.data_cache = {
+            "relative_state": 0,
+            "voltage": 0,
+            "current": 0,
+            "temperature": 0
+        }
+        
+        # Sampling configuration
+        self.sampling_method = "multi_resolution"  # Options: "none", "uniform", "multi_resolution"
         
         # Setup chart
         self._setup_chart()
@@ -161,18 +172,43 @@ class BatteryChartWidget(QWidget):
         # Add timestamp
         self.timestamps.append(current_time)
         
-        # Extract and add data points (with fallback to 0 if not available)
-        try:
-            battery_pct = float(battery_data.get('relative_state', 0))
-            voltage = float(battery_data.get('voltage', 0))
-            current = float(battery_data.get('current', 0))
-            temp = float(battery_data.get('temperature', 0))
-        except (ValueError, TypeError):
-            # Use 0 as fallback for invalid data
-            battery_pct = 0
-            voltage = 0
-            current = 0
-            temp = 0
+        # Process data fields with caching for invalid values (similar to CSV logic)
+        data_fields = {
+            "relative_state": "battery_pct",
+            "voltage": "voltage", 
+            "current": "current",
+            "temperature": "temp"
+        }
+        
+        processed_data = {}
+        
+        for field, var_name in data_fields.items():
+            current_value = battery_data.get(field, None)
+            
+            # Check if current value is valid (not None, not empty string, and not just whitespace)
+            # Note: 0, 0.0, False are valid values, so we need to check specifically for None and empty strings
+            if current_value is not None and str(current_value).strip() != "":
+                try:
+                    # Valid value: update cache and use current value
+                    parsed_value = float(current_value)
+                    self.data_cache[field] = parsed_value
+                    processed_data[var_name] = parsed_value
+                    logger.debug(f"Updated chart cache for {field}: {parsed_value}")
+                except (ValueError, TypeError):
+                    # Invalid float value: use cached value
+                    processed_data[var_name] = self.data_cache[field]
+                    logger.debug(f"Invalid value for {field}, using cached: {self.data_cache[field]}")
+            else:
+                # Empty or invalid value: use cached value
+                processed_data[var_name] = self.data_cache[field]
+                if self.data_cache[field] != 0:
+                    logger.debug(f"Using cached value for {field}: {self.data_cache[field]}")
+        
+        # Add processed data to chart
+        battery_pct = processed_data["battery_pct"]
+        voltage = processed_data["voltage"]
+        current = processed_data["current"]
+        temp = processed_data["temp"]
         
         self.battery_percentage.append(battery_pct)
         self.voltage_data.append(voltage)
@@ -181,37 +217,168 @@ class BatteryChartWidget(QWidget):
         
         logger.debug(f"Added chart data point: Battery={battery_pct}%, V={voltage}V, I={current}A, T={temp}°C")
     
+    def _get_optimized_data_for_plotting(self):
+        """
+        Get optimized data for plotting with dynamic sampling
+        Returns sampled x_data and corresponding y_data for each metric
+        """
+        if len(self.timestamps) < 2:
+            return None, None, None, None, None
+        
+        # Convert timestamps to relative seconds
+        base_time = self.timestamps[0]
+        full_x_data = [(t - base_time).total_seconds() for t in self.timestamps]
+        full_battery = list(self.battery_percentage)
+        full_voltage = list(self.voltage_data)
+        full_current = list(self.current_data)
+        full_temperature = list(self.temperature_data)
+        
+        total_points = len(full_x_data)
+        
+        # Apply sampling based on configuration
+        if self.sampling_method == "none" or total_points <= 1000:
+            # No sampling or small dataset
+            return full_x_data, full_battery, full_voltage, full_current, full_temperature
+        
+        elif self.sampling_method == "uniform":
+            # Uniform sampling (your original suggestion)
+            return self._apply_uniform_sampling(
+                full_x_data, full_battery, full_voltage, full_current, full_temperature
+            )
+        
+        elif self.sampling_method == "multi_resolution":
+            # Multi-resolution sampling (recommended)
+            return self._apply_multi_resolution_sampling(
+                full_x_data, full_battery, full_voltage, full_current, full_temperature
+            )
+        
+        else:
+            # Fallback to no sampling
+            return full_x_data, full_battery, full_voltage, full_current, full_temperature
+    
+    def _apply_multi_resolution_sampling(self, x_data, battery, voltage, current, temperature):
+        """
+        Apply multi-resolution sampling:
+        - Recent data (last 2 hours): full resolution
+        - Medium data (last 12 hours): sample every 2 points
+        - Old data (older than 12 hours): sample every 5 points
+        """
+        total_points = len(x_data)
+        if total_points <= 1:
+            return x_data, battery, voltage, current, temperature
+        
+        # Calculate time ranges (in seconds)
+        max_time = x_data[-1]
+        recent_threshold = max_time - 7200    # Last 2 hours (2 * 3600)
+        medium_threshold = max_time - 43200   # Last 12 hours (12 * 3600)
+        
+        sampled_indices = []
+        
+        for i in range(total_points):
+            current_time = x_data[i]
+            
+            if current_time >= recent_threshold:
+                # Recent data: keep all points
+                sampled_indices.append(i)
+            elif current_time >= medium_threshold:
+                # Medium data: sample every 2 points
+                if i % 2 == 0:
+                    sampled_indices.append(i)
+            else:
+                # Old data: sample every 5 points
+                if i % 5 == 0:
+                    sampled_indices.append(i)
+        
+        # Always include the last point
+        if sampled_indices and sampled_indices[-1] != total_points - 1:
+            sampled_indices.append(total_points - 1)
+        
+        # Extract sampled data
+        sampled_x = [x_data[i] for i in sampled_indices]
+        sampled_battery = [battery[i] for i in sampled_indices]
+        sampled_voltage = [voltage[i] for i in sampled_indices]
+        sampled_current = [current[i] for i in sampled_indices]
+        sampled_temp = [temperature[i] for i in sampled_indices]
+        
+        logger.debug(f"Applied multi-resolution sampling: {total_points} -> {len(sampled_indices)} points")
+        return sampled_x, sampled_battery, sampled_voltage, sampled_current, sampled_temp
+    
+    def _apply_uniform_sampling(self, x_data, battery, voltage, current, temperature):
+        """
+        Apply uniform sampling based on total data points (your original suggestion):
+        - 1000+ points: sample every 2 points
+        - 2000+ points: sample every 3 points
+        - 3000+ points: sample every 4 points, etc.
+        """
+        total_points = len(x_data)
+        if total_points <= 1000:
+            return x_data, battery, voltage, current, temperature
+        
+        # Calculate sampling rate based on data size
+        if total_points <= 2000:
+            sample_rate = 2
+        elif total_points <= 3000:
+            sample_rate = 3
+        elif total_points <= 5000:
+            sample_rate = 4
+        elif total_points <= 10000:
+            sample_rate = 5
+        else:
+            # For very large datasets, sample more aggressively
+            sample_rate = max(5, total_points // 2000)
+        
+        # Apply uniform sampling
+        sampled_indices = []
+        for i in range(0, total_points, sample_rate):
+            sampled_indices.append(i)
+        
+        # Always include the last point
+        if sampled_indices and sampled_indices[-1] != total_points - 1:
+            sampled_indices.append(total_points - 1)
+        
+        # Extract sampled data
+        sampled_x = [x_data[i] for i in sampled_indices]
+        sampled_battery = [battery[i] for i in sampled_indices]
+        sampled_voltage = [voltage[i] for i in sampled_indices]
+        sampled_current = [current[i] for i in sampled_indices]
+        sampled_temp = [temperature[i] for i in sampled_indices]
+        
+        logger.debug(f"Applied uniform sampling (rate={sample_rate}): {total_points} -> {len(sampled_indices)} points")
+        return sampled_x, sampled_battery, sampled_voltage, sampled_current, sampled_temp
+    
     def _update_chart(self):
-        """Update chart display"""
+        """Update chart display with optimized data sampling"""
         if len(self.timestamps) < 2:
             return
         
         try:
-            # Convert timestamps to relative seconds for better display
-            base_time = self.timestamps[0]
-            x_data = [(t - base_time).total_seconds() for t in self.timestamps]
+            # Get optimized data for plotting
+            x_data, battery_data, voltage_data, current_data, temp_data = self._get_optimized_data_for_plotting()
+            
+            if x_data is None:
+                return
             
             # Update line data and visibility based on settings
             if self.show_battery:
-                self.line1.set_data(x_data, list(self.battery_percentage))
+                self.line1.set_data(x_data, battery_data)
                 self.line1.set_visible(True)
             else:
                 self.line1.set_visible(False)
             
             if self.show_voltage:
-                self.line2.set_data(x_data, list(self.voltage_data))
+                self.line2.set_data(x_data, voltage_data)
                 self.line2.set_visible(True)
             else:
                 self.line2.set_visible(False)
             
             if self.show_current:
-                self.line3.set_data(x_data, list(self.current_data))
+                self.line3.set_data(x_data, current_data)
                 self.line3.set_visible(True)
             else:
                 self.line3.set_visible(False)
             
             if self.show_temperature:
-                self.line4.set_data(x_data, list(self.temperature_data))
+                self.line4.set_data(x_data, temp_data)
                 self.line4.set_visible(True)
             else:
                 self.line4.set_visible(False)
@@ -221,19 +388,29 @@ class BatteryChartWidget(QWidget):
                 x_min, x_max = min(x_data), max(x_data)
                 total_range = x_max - x_min
                 
-                # Show complete data range if more than 600 seconds, otherwise show minimum 60 seconds
-                if total_range > 600:
-                    # Show all data with some padding
-                    self.ax_main.set_xlim(x_min - 10, x_max + 10)
-                    self.ax_main.set_xlabel(f'Time (total {int(total_range)}s)', color='white', fontsize=10)
+                # Always show complete data range with some padding
+                if total_range > 0:
+                    padding = max(10, total_range * 0.02)  # 2% padding or minimum 10 seconds
+                    self.ax_main.set_xlim(x_min - padding, x_max + padding)
+                    
+                    # Format time display based on range
+                    if total_range >= 3600:  # More than 1 hour
+                        hours = int(total_range // 3600)
+                        minutes = int((total_range % 3600) // 60)
+                        self.ax_main.set_xlabel(f'Time (total {hours}h {minutes}m)', color='white', fontsize=10)
+                    elif total_range >= 60:  # More than 1 minute
+                        minutes = int(total_range // 60)
+                        seconds = int(total_range % 60)
+                        self.ax_main.set_xlabel(f'Time (total {minutes}m {seconds}s)', color='white', fontsize=10)
+                    else:
+                        self.ax_main.set_xlabel(f'Time (total {int(total_range)}s)', color='white', fontsize=10)
                 else:
-                    # Show minimum 60 seconds range for shorter data
-                    display_range = max(60, total_range)
-                    self.ax_main.set_xlim(x_max - display_range, x_max + 5)
-                    self.ax_main.set_xlabel(f'Time (last {int(display_range)}s)', color='white', fontsize=10)
+                    # Fallback for very short data
+                    self.ax_main.set_xlim(-5, 5)
+                    self.ax_main.set_xlabel('Time (seconds)', color='white', fontsize=10)
             
-            # Update Y-axis limits dynamically based on data
-            self._update_y_axis_limits()
+            # Update Y-axis limits dynamically based on sampled data
+            self._update_y_axis_limits(battery_data, voltage_data, current_data, temp_data)
             
             # Update legend visibility
             self._update_legend()
@@ -244,9 +421,9 @@ class BatteryChartWidget(QWidget):
         except Exception as e:
             logger.error(f"Error updating battery chart: {str(e)}")
     
-    def _update_y_axis_limits(self):
-        """Update Y-axis limits dynamically based on current data"""
-        if not self.timestamps:
+    def _update_y_axis_limits(self, battery_data, voltage_data, current_data, temp_data):
+        """Update Y-axis limits dynamically based on sampled data"""
+        if not battery_data and not voltage_data and not current_data and not temp_data:
             return
         
         try:
@@ -259,9 +436,9 @@ class BatteryChartWidget(QWidget):
             }
             
             # Update Battery % axis
-            if self.show_battery and self.battery_percentage:
-                data_min = min(self.battery_percentage)
-                data_max = max(self.battery_percentage)
+            if self.show_battery and battery_data:
+                data_min = min(battery_data)
+                data_max = max(battery_data)
                 default_min, default_max, margin = default_ranges['battery']
                 
                 y_min = min(default_min, data_min - margin)
@@ -269,9 +446,9 @@ class BatteryChartWidget(QWidget):
                 self.ax_main.set_ylim(y_min, y_max)
             
             # Update Voltage axis
-            if self.show_voltage and self.voltage_data:
-                data_min = min(self.voltage_data)
-                data_max = max(self.voltage_data)
+            if self.show_voltage and voltage_data:
+                data_min = min(voltage_data)
+                data_max = max(voltage_data)
                 default_min, default_max, margin = default_ranges['voltage']
                 
                 y_min = min(default_min, data_min - margin)
@@ -279,9 +456,9 @@ class BatteryChartWidget(QWidget):
                 self.ax_voltage.set_ylim(y_min, y_max)
             
             # Update Current axis
-            if self.show_current and self.current_data:
-                data_min = min(self.current_data)
-                data_max = max(self.current_data)
+            if self.show_current and current_data:
+                data_min = min(current_data)
+                data_max = max(current_data)
                 default_min, default_max, margin = default_ranges['current']
                 
                 y_min = min(default_min, data_min - margin)
@@ -289,9 +466,9 @@ class BatteryChartWidget(QWidget):
                 self.ax_current.set_ylim(y_min, y_max)
             
             # Update Temperature axis
-            if self.show_temperature and self.temperature_data:
-                data_min = min(self.temperature_data)
-                data_max = max(self.temperature_data)
+            if self.show_temperature and temp_data:
+                data_min = min(temp_data)
+                data_max = max(temp_data)
                 default_min, default_max, margin = default_ranges['temperature']
                 
                 y_min = min(default_min, data_min - margin)
@@ -360,12 +537,118 @@ class BatteryChartWidget(QWidget):
         self.current_data.clear()
         self.temperature_data.clear()
         
+        # Clear data cache
+        self.data_cache = {
+            "relative_state": 0,
+            "voltage": 0,
+            "current": 0,
+            "temperature": 0
+        }
+        
         # Clear lines
         for line in [self.line1, self.line2, self.line3, self.line4]:
             line.set_data([], [])
         
         self.canvas.draw()
         logger.info("Battery chart data cleared")
+    
+    def reload_data_from_history(self, history_data: List[Dict[str, Any]]):
+        """
+        Reload chart data from history data
+        
+        Args:
+            history_data: List of historical battery data with timestamps
+        """
+        # Clear current data
+        self.clear_data()
+        
+        # Add data points from history in chronological order
+        for data_point in history_data:
+            if "timestamp" in data_point:
+                # Extract timestamp and battery data
+                timestamp = data_point["timestamp"]
+                battery_data = {k: v for k, v in data_point.items() if k != "timestamp"}
+                
+                # Add timestamp manually instead of using current time
+                self.timestamps.append(timestamp)
+                
+                # Process data fields with caching
+                data_fields = {
+                    "relative_state": "battery_pct",
+                    "voltage": "voltage", 
+                    "current": "current",
+                    "temperature": "temp"
+                }
+                
+                processed_data = {}
+                
+                for field, var_name in data_fields.items():
+                    current_value = battery_data.get(field, None)
+                    
+                    if current_value is not None and str(current_value).strip() != "":
+                        try:
+                            parsed_value = float(current_value)
+                            self.data_cache[field] = parsed_value
+                            processed_data[var_name] = parsed_value
+                        except (ValueError, TypeError):
+                            processed_data[var_name] = self.data_cache[field]
+                    else:
+                        processed_data[var_name] = self.data_cache[field]
+                
+                # Add processed data to chart
+                self.battery_percentage.append(processed_data["battery_pct"])
+                self.voltage_data.append(processed_data["voltage"])
+                self.current_data.append(processed_data["current"])
+                self.temperature_data.append(processed_data["temp"])
+        
+        # Update chart display
+        self._update_chart()
+        logger.info(f"Reloaded {len(history_data)} data points from history")
+    
+    def set_sampling_method(self, method: str):
+        """
+        Set the data sampling method for chart rendering
+        
+        Args:
+            method: Sampling method - "none", "uniform", or "multi_resolution"
+        """
+        valid_methods = ["none", "uniform", "multi_resolution"]
+        if method in valid_methods:
+            self.sampling_method = method
+            logger.info(f"Sampling method changed to: {method}")
+            # Force chart refresh with new sampling
+            self._update_chart()
+        else:
+            logger.warning(f"Invalid sampling method: {method}. Valid options: {valid_methods}")
+    
+    def get_sampling_info(self) -> dict:
+        """
+        Get information about current sampling configuration and data size
+        
+        Returns:
+            Dictionary with sampling information
+        """
+        total_points = len(self.timestamps)
+        
+        if total_points < 2:
+            return {
+                "total_points": total_points,
+                "sampling_method": self.sampling_method,
+                "displayed_points": total_points,
+                "sampling_ratio": 1.0
+            }
+        
+        # Get sampled data to see actual display points
+        x_data, _, _, _, _ = self._get_optimized_data_for_plotting()
+        displayed_points = len(x_data) if x_data else 0
+        sampling_ratio = displayed_points / total_points if total_points > 0 else 0
+        
+        return {
+            "total_points": total_points,
+            "sampling_method": self.sampling_method,
+            "displayed_points": displayed_points,
+            "sampling_ratio": round(sampling_ratio, 3)
+        }
     
     def save_chart(self, file_path=None):
         """
@@ -468,6 +751,13 @@ class BatteryChartWidget(QWidget):
         """Cleanup resources"""
         if hasattr(self, 'update_timer'):
             self.update_timer.stop()
+            logger.info("Battery Chart Widget timer stopped")
         
         self.clear_data()
-        logger.info("Battery Chart Widget cleaned up") 
+        logger.info("Battery Chart Widget cleaned up")
+    
+    def resume_updates(self):
+        """Resume chart updates (restart timer)"""
+        if hasattr(self, 'update_timer'):
+            self.update_timer.start(1000)  # Update chart every second
+            logger.info("Battery Chart Widget timer resumed") 

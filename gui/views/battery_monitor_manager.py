@@ -189,6 +189,19 @@ class BatteryMonitorManager(QObject):
         if success:
             self.monitoring_started.emit()
             
+            # Resume chart updates
+            if self.chart_widget:
+                self.chart_widget.resume_updates()
+                logger.info("Chart updates resumed")
+            
+            # If we have existing history data, reload chart to show complete range
+            if self.battery_history and self.chart_widget:
+                try:
+                    self.reload_chart_from_history()
+                    logger.info(f"Reloaded chart with {len(self.battery_history)} historical data points")
+                except Exception as e:
+                    logger.error(f"Failed to reload chart history: {str(e)}")
+            
             # Add system log
             if self.main_controller:
                 self.main_controller.add_system_log("INFO", "Battery monitoring started")
@@ -211,6 +224,12 @@ class BatteryMonitorManager(QObject):
         
         # Stop monitoring timer
         self.monitoring_timer.stop()
+        
+        # Stop chart widget timer immediately
+        if self.chart_widget:
+            if hasattr(self.chart_widget, 'update_timer'):
+                self.chart_widget.update_timer.stop()
+                logger.info("Chart widget timer stopped")
         
         # Stop battery service
         if self.battery_service:
@@ -718,11 +737,62 @@ class BatteryMonitorManager(QObject):
             "export_timestamp": datetime.datetime.now().isoformat()
         }
     
+    def reload_chart_from_history(self):
+        """
+        Reload chart data from stored history
+        This ensures chart displays consistent data with CSV exports
+        """
+        if self.chart_widget and self.battery_history:
+            try:
+                self.chart_widget.reload_data_from_history(self.battery_history)
+                logger.info("Chart reloaded from history data")
+                
+                # Add system log
+                if self.main_controller:
+                    self.main_controller.add_system_log("INFO", "Battery chart reloaded from history")
+            except Exception as e:
+                logger.error(f"Failed to reload chart from history: {str(e)}")
+                # Add system log
+                if self.main_controller:
+                    self.main_controller.add_system_log("ERROR", f"Failed to reload chart: {str(e)}")
+        else:
+            logger.warning("Cannot reload chart: no chart widget or history data available")
+    
+    def set_chart_sampling_method(self, method: str):
+        """
+        Set the chart sampling method
+        
+        Args:
+            method: "none", "uniform", or "multi_resolution"
+        """
+        if self.chart_widget:
+            self.chart_widget.set_sampling_method(method)
+            
+            # Add system log
+            if self.main_controller:
+                self.main_controller.add_system_log("INFO", f"Chart sampling method set to: {method}")
+    
+    def get_chart_sampling_info(self) -> dict:
+        """
+        Get chart sampling information
+        
+        Returns:
+            Dictionary with sampling info or empty dict if no chart widget
+        """
+        if self.chart_widget:
+            return self.chart_widget.get_sampling_info()
+        return {}
+    
     def cleanup(self):
         """Clean up resources"""
         # Stop monitoring
         if self.is_monitoring:
             self.stop_monitoring()
+        
+        # Cleanup chart widget and stop its timer
+        if self.chart_widget:
+            self.chart_widget.cleanup()
+            logger.info("Chart widget cleaned up")
         
         # Disconnect signals
         try:
