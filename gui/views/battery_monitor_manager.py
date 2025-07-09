@@ -222,6 +222,9 @@ class BatteryMonitorManager(QObject):
         
         logger.info(f"Stopping battery monitoring for device: {self.device_id}")
         
+        # Show stopping status (but don't change button text if controlled by main window)
+        self._update_status_display("Stopping...")
+        
         # Stop monitoring timer
         self.monitoring_timer.stop()
         
@@ -238,7 +241,7 @@ class BatteryMonitorManager(QObject):
         # Update state
         self.is_monitoring = False
         
-        # Update UI state
+        # Update UI state to final stopped state
         self._set_monitoring_ui_state(False)
         
         # Close CSV file if logging was enabled
@@ -330,7 +333,11 @@ class BatteryMonitorManager(QObject):
         Args:
             monitoring: True if monitoring is active
         """
-        if "monitor_button" in self.ui_components:
+        # Check if this is an embedded mode (controlled by main window)
+        is_embedded_mode = hasattr(self, 'main_controller') and self.main_controller is not None
+        
+        if "monitor_button" in self.ui_components and not is_embedded_mode:
+            # Only control button in standalone mode (BatteryMonitorWidget)
             button = self.ui_components["monitor_button"]
             if monitoring:
                 button.setText("Stop Monitoring")
@@ -348,6 +355,7 @@ class BatteryMonitorManager(QObject):
                 """)
             else:
                 button.setText("Start Monitoring")
+                button.setEnabled(True)  # Re-enable button after stopping
                 button.setStyleSheet("""
                     QPushButton {
                         background-color: #0078D7;
@@ -367,6 +375,32 @@ class BatteryMonitorManager(QObject):
         else:
             self._update_status_display("Ready")
     
+    def _set_stopping_ui_state(self):
+        """
+        Update UI state to show stopping status
+        """
+        if "monitor_button" in self.ui_components:
+            button = self.ui_components["monitor_button"]
+            button.setText("Stopping...")
+            button.setEnabled(False)  # Disable button during stopping process
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    border: none;
+                    padding: 6px 15px;
+                    border-radius: 3px;
+                }
+                QPushButton:disabled {
+                    background-color: #FF9800;
+                    color: white;
+                }
+            """)
+        
+        # Update status display
+        self._update_status_display("Stopping...")
+    
+
     def _update_status_display(self, status: str):
         """Update status label"""
         if "status_label" in self.ui_components:
