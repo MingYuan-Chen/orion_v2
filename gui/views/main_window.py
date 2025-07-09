@@ -1193,9 +1193,34 @@ class MainWindowController(QObject):
                 logger.info("Battery monitor not initialized, initializing now...")
                 self._init_embedded_battery_monitor()
             
-            # Toggle monitoring
+            # Check if manager is available and determine current state
             if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
-                if self.battery_monitor_manager.is_monitoring:
+                is_currently_monitoring = self.battery_monitor_manager.is_monitoring
+                logger.info(f"Current monitoring state: {is_currently_monitoring}")
+                
+                if is_currently_monitoring:
+                    # Immediately show stopping state before calling stop_monitoring
+                    logger.info("Setting button to Stopping... state immediately")
+                    self.window.pushButton_battery_monitor.setText("Stopping...")
+                    self.window.pushButton_battery_monitor.setEnabled(False)
+                    self.window.pushButton_battery_monitor.setStyleSheet("""
+                        QPushButton {
+                            background-color: #FF9800;
+                            color: white;
+                            border: none;
+                            padding: 6px 15px;
+                            border-radius: 3px;
+                        }
+                        QPushButton:disabled {
+                            background-color: #FF9800;
+                            color: white;
+                        }
+                    """)
+                    
+                    # Force immediate UI update
+                    self.window.pushButton_battery_monitor.repaint()
+                    
+                    # Now call stop monitoring
                     self.battery_monitor_manager.stop_monitoring()
                 else:
                     self.battery_monitor_manager.start_monitoring()
@@ -1356,7 +1381,21 @@ class MainWindowController(QObject):
         # Add Battery Monitor to the mutual exclusion mechanism
         self._on_test_execution_started("Battery Monitor")
         
+        # Set button to stop monitoring state
         self.window.pushButton_battery_monitor.setText("Stop Monitoring")
+        self.window.pushButton_battery_monitor.setEnabled(True)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #D32F2F;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #F44336;
+            }
+        """)
         self.log_manager.add_log_entry("INFO", "Battery monitoring started")
     
     def _on_embedded_monitoring_completed(self):
@@ -1366,7 +1405,21 @@ class MainWindowController(QObject):
         # Remove Battery Monitor from the mutual exclusion mechanism
         self._on_test_execution_completed("Battery Monitor")
         
+        # Restore button to normal state
         self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.window.pushButton_battery_monitor.setEnabled(True)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+        """)
         self.log_manager.add_log_entry("INFO", "Battery monitoring stopped")
     
     def _on_embedded_monitoring_error(self, error_message: str):
@@ -1376,7 +1429,21 @@ class MainWindowController(QObject):
         # Remove Battery Monitor from the mutual exclusion mechanism on error
         self._on_test_execution_aborted("Battery Monitor", f"Error: {error_message}")
         
+        # Restore button to normal state on error
         self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.window.pushButton_battery_monitor.setEnabled(True)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+        """)
         self.log_manager.add_log_entry("ERROR", f"Battery Monitor error: {error_message}")
     
     def _on_save_chart_clicked(self):
@@ -2633,8 +2700,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v1.5_20250626"])
-                writer.writerow(["Config Version", "v1.0_20250626"])
+                writer.writerow(["Tool Version", "v1.6_20250708"])
+                writer.writerow(["Config Version", "v1.1_20250708"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
