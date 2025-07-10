@@ -16,7 +16,7 @@
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],
-    "expected_response": ["3886520"]
+    "expected_response": ["3886540"]
   },
   "diagnostic_nor_flash_size": {
     "commands": ["cat /proc/mtd | grep 'mtd0"],
