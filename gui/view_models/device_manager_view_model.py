@@ -6,6 +6,9 @@ from core.workers.serial_device_worker import SerialDeviceWorker
 from core.services.smart_connection_monitor import SmartConnectionMonitor
 from util.logger import logger
 
+# Constants for platform detection
+NEED_ATHENA_CHECK = "NEED_ATHENA_CHECK"
+
 
 class DeviceManagerViewModel(QObject):
     """
@@ -384,8 +387,14 @@ class DeviceManagerViewModel(QObject):
             if command == "cat /proc/panel_id":
                 logger.info(f"Received platform detection response from {device_id}: {response}")
                 detected_platform = self._detect_platform_from_panel_id(response)
-                if detected_platform:
+                if detected_platform and detected_platform != NEED_ATHENA_CHECK:
                     logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
+                elif detected_platform == NEED_ATHENA_CHECK:
+                    logger.info(f"Unknown panel_id for device {device_id}, checking for Athena platform")
+                    # Store panel_id response for later use
+                    self.platform_detection_status[device_id]['panel_id_response'] = response
+                    # Send Athena check command
+                    self._serial_worker.send_command(device_id, "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", 10)
                 else:
                     # Check if this is panel_id = 01 (needs PIC version check)
                     panel_id = response.strip().lower()
@@ -399,6 +408,14 @@ class DeviceManagerViewModel(QObject):
             
             elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
                 logger.info(f"Received PIC version response from {device_id}: {response}")
+                
+                # Check if Athena platform is already detected - if so, ignore this PIC command
+                if device_id in self.platform_detection_status:
+                    detected_platform = self.platform_detection_status[device_id].get('detected_platform')
+                    if detected_platform == 'athena':
+                        logger.info(f"Athena platform already detected for device {device_id}, ignoring PIC version command")
+                        self.command_result.emit(device_id, command, response)
+                        return
                 
                 # Validate PIC response format
                 if not self._is_valid_pic_response(response):
@@ -425,6 +442,27 @@ class DeviceManagerViewModel(QObject):
                         logger.info(f"Detected platform from PIC version for device {device_id}: {detected_platform}")
                 
                 is_platform_detection_command = True
+            
+            elif command == "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2":
+                logger.info(f"Received Athena check response from {device_id}: {response}")
+                
+                # Check if this is Athena platform (0x04 value)
+                if self._is_athena_platform(response):
+                    detected_platform = "athena"
+                    logger.info(f"Detected Athena platform from PIC command for device {device_id}")
+                    
+                    # For Athena platform, immediately complete the platform detection
+                    # since we don't need to wait for the old PIC version command
+                    if device_id in self.platform_detection_status:
+                        self.platform_detection_status[device_id]['detected_platform'] = detected_platform
+                        logger.info(f"Completing platform detection for Athena device {device_id}")
+                        self._complete_platform_detection(device_id)
+                    return
+                else:
+                    logger.warning(f"Not Athena platform, platform detection failed for device {device_id}")
+                    detected_platform = None
+                
+                is_platform_detection_command = True
         
         # Handle platform detection command completion
         if is_platform_detection_command and device_id in self.platform_detection_status:
@@ -441,6 +479,12 @@ class DeviceManagerViewModel(QObject):
                 "cat /proc/panel_id",
                 "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
             }
+            
+            # Check if Athena check command was sent and should be expected
+            panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
+            if panel_id_response and self._detect_platform_from_panel_id(panel_id_response) == NEED_ATHENA_CHECK:
+                expected_commands.add("i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2")
+            
             completed_commands = self.platform_detection_status[device_id]['completed_commands']
             
             if expected_commands.issubset(completed_commands):
@@ -475,7 +519,7 @@ class DeviceManagerViewModel(QObject):
             panel_id_response: Response from 'cat /proc/panel_id' command
             
         Returns:
-            Optional[str]: Detected platform name, or None if detection failed or needs PIC version check
+            Optional[str]: Detected platform name, NEED_ATHENA_CHECK if need further check, or None if detection failed
         """
         # Remove whitespace and convert to lowercase for comparison
         response = panel_id_response.strip().lower()
@@ -499,9 +543,9 @@ class DeviceManagerViewModel(QObject):
         elif "11" in response:
             return "gemini"
         else:
-            # Unknown but valid response - log for debugging
-            logger.warning(f"Unknown panel_id response: '{panel_id_response}', platform detection failed")
-            return None
+            # Unknown but valid response - check for Athena platform
+            logger.warning(f"Unknown panel_id response: '{panel_id_response}', checking for Athena platform")
+            return NEED_ATHENA_CHECK
     
     def _detect_platform_from_panel_id_01(self, panel_id_response: str, pic_version_response: str) -> Optional[str]:
         """Detect platform when panel_id = 01 using PIC version
@@ -585,6 +629,32 @@ class DeviceManagerViewModel(QObject):
         else:
             return None
     
+    def _is_athena_platform(self, response: str) -> bool:
+        """Check if the response indicates Athena platform
+        
+        Args:
+            response: Raw response from Athena check PIC command
+            
+        Returns:
+            bool: True if response indicates Athena platform (0x04 value), False otherwise
+        """
+        # Remove whitespace and normalize response
+        clean_response = response.strip()
+        
+        # Check for error responses
+        response_lower = clean_response.lower()
+        if "error" in response_lower or "no response" in response_lower or not clean_response:
+            logger.debug(f"Invalid Athena check response: '{response}'")
+            return False
+        
+        # Check for 0x04 value which indicates Athena platform
+        if '0x04' in clean_response:
+            logger.debug(f"Athena platform signature found: 0x04 in response '{clean_response}'")
+            return True
+        
+        logger.debug(f"Athena platform signature not found in response: '{clean_response}'")
+        return False
+    
     def _retry_pic_command(self, device_id: str):
         """Retry PIC version command for platform detection with delay
         
@@ -593,6 +663,12 @@ class DeviceManagerViewModel(QObject):
         """
         if device_id not in self.platform_detection_status:
             logger.error(f"Cannot retry PIC command: device {device_id} not in platform detection status")
+            return
+        
+        # Check if Athena platform is already detected - if so, don't retry PIC command
+        detected_platform = self.platform_detection_status[device_id].get('detected_platform')
+        if detected_platform == 'athena':
+            logger.info(f"Athena platform already detected for device {device_id}, skipping PIC command retry")
             return
         
         # Get current retry count
