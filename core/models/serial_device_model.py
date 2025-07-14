@@ -424,20 +424,32 @@ class SerialDeviceModel(DeviceModel):
 
 if __name__ == "__main__":
     """Test serial device model"""
-
-    commands = {
-        "relative_state": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2"],
-        "voltage": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x09 r2"],
-        "current": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"],
-        "led_status": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"],
-        "interrupt_status": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x11 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x11 r2"],
-        "dc_status": ["cat /sys/class/gpio/gpio133/value"],
-        "temperature": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2"],
-    } 
-
+    
     device_id = "serial_COM4"
-    device = SerialDeviceModel(device_id)
-    device.connect()
-    for key, value in commands.items():
-        device.send_command(value[0])
-    device.disconnect()
+    port = "COM20"
+    
+    device = SerialDeviceModel(device_id, port=port)
+    pic_cmd_old = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    pic_cmd_new = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    
+    try:
+        if device.connect():
+            time.sleep(2)
+            response = device.send_command(pic_cmd_new)
+            
+            # 显示响应结果
+            if response and response.strip():
+                print(response)
+            time.sleep(3)
+    
+    except KeyboardInterrupt:
+        print("\n⚠️  Interrupted by user")
+    except Exception as e:
+        print(f"❌  Error occurred: {str(e)}")
+    finally:
+        print("Disconnecting...")
+        if device.disconnect():
+            print("✅  Disconnected")
+        else:
+            print("⚠️  Error occurred while disconnecting")
+    

@@ -121,7 +121,8 @@ class MainWindowController(QObject):
         "hydra_fhd": "Hydra FHD",
         "hydra": "Hydra",
         "gemini_fhd": "Gemini FHD",
-        "gemini": "Gemini"
+        "gemini": "Gemini",
+        "athena": "Athena"
     }
     
     def __init__(self, device_id, view_model, platform_name=None):
@@ -139,7 +140,7 @@ class MainWindowController(QObject):
         # Save device ID, view model and platform name
         self.device_id = device_id
         self.view_model = view_model
-        self.platform_name = self.platform_mapping[platform_name]
+        self.platform_name = self.platform_mapping.get(platform_name, platform_name.title() if platform_name else "Unknown")
         
         # Add update status flag
         self.is_updating = False
