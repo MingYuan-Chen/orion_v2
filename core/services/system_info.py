@@ -65,6 +65,7 @@ class SystemInfoService(QObject):
         """
         super().__init__()
         self.serial_worker = serial_worker
+        self.platform_name = platform_name
         
         # Initialize platform command set
         self.platform_command_set = PlatformCommandSet(platform_name=platform_name)
@@ -79,7 +80,7 @@ class SystemInfoService(QObject):
         
         # Add retry mechanism attributes
         self.retry_counts = {}  # Track retry count for each command
-        self.max_retries = 5    # Maximum number of retries per command
+        self.max_retries = 3    # Maximum number of retries per command
         self.current_command_name = None
         self.current_command_string = None
         
@@ -393,7 +394,7 @@ class SystemInfoService(QObject):
             elif command_name == "memory_info":
                 self.collected_info["memory"] = self._parse_memory_info(response)
             elif command_name == "disk_usage":
-                self.collected_info["storage"] = self._parse_disk_info(response)
+                self.collected_info["storage"] = self._parse_disk_info(response, self.platform_name)
             elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity", "battery_status",
                                  "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
                 # Use battery info parsing function to handle battery related commands
@@ -560,7 +561,7 @@ class SystemInfoService(QObject):
         # Removed debug logger for performance: Parsed memory info
         return memory_info
     
-    def _parse_disk_info(self, response: str) -> Dict[str, str]:
+    def _parse_disk_info(self, response: str, platform_name: str) -> Dict[str, str]:
         """Parse disk information from response.
         
         Args:
@@ -572,16 +573,36 @@ class SystemInfoService(QObject):
         disk_info = {}
         
         try:
-            # 只取第一行数字
-            total_sectors = int(response.strip().split('\n')[0])
-            # 转换为字节 (512 bytes per sector)
-            total_bytes = total_sectors * 512
-            # 转换为 GB
-            total_gb = total_bytes / (1024 ** 3)
+            if platform_name == "athena":
+                # For Athena platform, handle fdisk -l output format
+                # "Disk /dev/mmcblk0: 116.48 GiB, 125074145280 bytes, 244285440 sectors"
+                first_line = response.strip().split('\n')[0]
+                if "Disk" in first_line and "sectors" in first_line:
+                    # Extract sectors from the end of the line
+                    sectors_part = first_line.split(',')[-1].strip()  # "244285440 sectors"
+                    total_sectors = int(sectors_part.split()[0])  # Extract "244285440"
+                    total_bytes = total_sectors * 512
+                    total_gb = total_bytes / (1024 ** 3)
+                elif "GiB" in first_line:
+                    # Fallback: try to extract GiB value directly
+                    gib_part = first_line.split(',')[0].split(':')[1].strip()  # "116.48 GiB"
+                    total_gb = float(gib_part.split()[0])  # Extract "116.48"
+                else:
+                    # If neither format matches, set to 0
+                    total_gb = 0.0
+            else:
+                # For other platforms, handle cat /sys/block/mmcblk2/size output (just a number)
+                clean_response = response.strip().split('\n')[0]
+                if clean_response.isdigit():
+                    total_sectors = int(clean_response)
+                    total_bytes = total_sectors * 512
+                    total_gb = total_bytes / (1024 ** 3)
+                else:
+                    total_gb = 0.0
             
             disk_info["total"] = f"128G"
             disk_info["available"] = f"{total_gb:.2f}G"
-            disk_info["type"] = "eMMC"  # 默认假设为 eMMC
+            disk_info["type"] = "eMMC"
             
             # Removed debug logger for performance: Parsed disk info
             return disk_info
