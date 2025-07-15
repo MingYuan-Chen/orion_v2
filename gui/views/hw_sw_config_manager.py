@@ -2,9 +2,12 @@
 HW/SW Configuration Manager
 Manage the HW/SW configuration of the Hydra
 """
-from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QHBoxLayout, QWidget, QComboBox, QLabel, QVBoxLayout, QFileDialog, QMessageBox, QDialog
 from PySide6.QtCore import QObject, Signal, Qt
 from util.logger import logger
+import json
+import os
+from datetime import datetime
 
 
 class HWSWConfigManager(QObject):
@@ -17,46 +20,60 @@ class HWSWConfigManager(QObject):
         super().__init__()
         self.table_widget = None
         self.edit_dialog_class = None
+        self.save_button = None
+        self.load_button = None
+        self.config_combo = None
+        self.platform_name = None
         
-        # Default configuration data
+        # 确保 hw_config 目录存在
+        self.config_dir = "hw_config"
+        if not os.path.exists(self.config_dir):
+            os.makedirs(self.config_dir)
+            logger.info(f"Created directory: {self.config_dir}")
+        
+        # Default configuration data - 改为 "--"
         self.config_data = [
             {
                 "id": "touch",
                 "component": "Touch",
-                "part_number": "81B156YF3A3F-VR", 
-                "serial_number": "TP78422397",
-                "note": "PSC Customized"
+                "part_number": "--", 
+                "serial_number": "--",
+                "note": "--"
             },
             {
                 "id": "display",
                 "component": "Display",
-                "part_number": "931156VD16F-00",
-                "serial_number": "YD8374192",
-                "note": "TIANMA TM156VDSG16-00"
+                "part_number": "--",
+                "serial_number": "--",
+                "note": "--"
             },
             {
                 "id": "main_board",
                 "component": "Main Board",
-                "part_number": "99EMHYDRA00A3",
-                "serial_number": "HYFHD24160599",
-                "note": ""
+                "part_number": "--",
+                "serial_number": "--",
+                "note": "--"
             },
-
             {
                 "id": "edp_board",
                 "component": "eDP Board", 
-                "part_number": "99GLCNB000F",
-                "serial_number": "CM98437652",
-                "note": ""
+                "part_number": "--",
+                "serial_number": "--",
+                "note": "--"
             },
             {
                 "id": "battery",
                 "component": "Battery",
-                "part_number": "32LBN20130F",
-                "serial_number": "240500734",
-                "note": "Li-ion Battery 2S1P 3350mAh"
+                "part_number": "--",
+                "serial_number": "--",
+                "note": "--"
             }
         ]
+    
+    def set_platform_name(self, platform_name: str):
+        """set platform name"""
+        self.platform_name = platform_name
+        self._update_config_combo()
     
     def set_ui_components(self, table_widget: QTableWidget, edit_dialog_class=None):
         """
@@ -71,7 +88,121 @@ class HWSWConfigManager(QObject):
         
         if self.table_widget:
             self._setup_table()
+            self._add_config_buttons()
             self._populate_table()
+    
+    def _add_config_buttons(self):
+        """add config buttons and dropdown menu"""
+        # get the parent widget of the table widget (groupBox_hw_components)
+        parent_widget = self.table_widget.parent()
+        if not parent_widget:
+            logger.error("Cannot find parent widget for table")
+            return
+        
+        # get the existing layout
+        layout = parent_widget.layout()
+        if not layout:
+            logger.error("Cannot find layout for parent widget")
+            return
+        
+        # create button container
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Save config button
+        self.save_button = QPushButton("Save Config")
+        self.save_button.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QPushButton:pressed {
+                background-color: #00559F;
+            }
+        """)
+        self.save_button.clicked.connect(self._on_save_config)
+        
+        # Load config button
+        self.load_button = QPushButton("Load Config")
+        self.load_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00A86B;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #00C878;
+            }
+            QPushButton:pressed {
+                background-color: #008754;
+            }
+        """)
+        self.load_button.clicked.connect(self._on_load_config)
+        
+        # config file dropdown menu
+        self.config_combo = QComboBox()
+        self.config_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #3E3E3E;
+                color: white;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 8px;
+                min-width: 200px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                background-color: #555555;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: 3px solid transparent;
+                border-top-color: white;
+                top: 1px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #3E3E3E;
+                color: white;
+                border: 1px solid #555555;
+                selection-background-color: #0078D7;
+            }
+        """)
+        
+        # create Config label
+        config_label = QLabel("Config:")
+        config_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: transparent;
+                padding: 8px;
+                font-weight: bold;
+            }
+        """)
+        
+        # add to layout
+        button_layout.addWidget(self.save_button)
+        button_layout.addWidget(self.load_button)
+        button_layout.addWidget(config_label)
+        button_layout.addWidget(self.config_combo)
+        button_layout.addStretch()  # add stretch
+        
+        # insert button container before the table
+        layout.insertWidget(0, button_container)
+        
+        # update config dropdown menu
+        self._update_config_combo()
     
     def _setup_table(self):
         """Set table properties"""
@@ -138,7 +269,7 @@ class HWSWConfigManager(QObject):
             QPushButton.config-edit-button:pressed {
                 background-color: #666666;
             }
-            /* 滾動條樣式 */
+            /* scroll bar style */
             QScrollBar:vertical {
                 background: #333333;
                 width: 12px;
@@ -221,91 +352,91 @@ class HWSWConfigManager(QObject):
         # Set row height
         for row in range(self.table_widget.rowCount()):
             self.table_widget.setRowHeight(row, 50)
-    
-    def _create_editable_cell(self, value: str, component_id: str, field_type: str):
+
+    def _create_editable_cell(self, value: str, component_id: str, field_type: str) -> QWidget:
         """
-        Create editable cell component
+        Create editable cell with value and edit button
         
         Args:
-            value: Display value
+            value: Cell value
             component_id: Component ID
-            field_type: Field type (part_number or serial_number)
+            field_type: Field type
             
         Returns:
-            QWidget with text and edit button
+            QWidget with value and edit button
         """
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(10)
+        # Create container widget
+        container = QWidget()
+        container.component_id = component_id
+        container.field_type = field_type
         
-        # Value label
-        value_item = QTableWidgetItem(value)
-        value_item.setData(1000, value)  # Store original value
+        # Create horizontal layout
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(5, 0, 5, 0)
+        layout.setSpacing(5)
         
-        # Edit button
+        # Create value label
+        value_label = QLabel(value)
+        value_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: transparent;
+                padding: 4px;
+                border: 1px solid transparent;
+                border-radius: 3px;
+            }
+        """)
+        
+        # Create edit button
         edit_button = QPushButton("✎")
         edit_button.setProperty("class", "config-edit-button")
-        edit_button.setMaximumSize(24, 24)
-        edit_button.setMinimumSize(24, 24)
+        edit_button.setToolTip("Edit value")
         edit_button.clicked.connect(
-            lambda: self._on_edit_clicked(component_id, field_type, value)
+            lambda: self._on_edit_value(component_id, field_type, value_label)
         )
         
-        # Display original value as text
-        from PySide6.QtWidgets import QLabel
-        value_label = QLabel(value)
-        value_label.setStyleSheet("color: #4FC3F7; font-weight: bold;")
-        
+        # Add to layout
         layout.addWidget(value_label)
         layout.addStretch()
         layout.addWidget(edit_button)
         
-        # Save reference for later updates
-        widget.value_label = value_label
-        widget.component_id = component_id
-        widget.field_type = field_type
+        # Store reference to value label for updates
+        container.value_label = value_label
         
-        return widget
+        return container
     
-    def _on_edit_clicked(self, component_id: str, field_type: str, current_value: str):
+    def _on_edit_value(self, component_id: str, field_type: str, value_label: QLabel):
         """
-        Handle edit button click event
+        Handle edit button click
         
         Args:
             component_id: Component ID
             field_type: Field type
-            current_value: Current value
+            value_label: Value label widget
         """
         if not self.edit_dialog_class:
             logger.warning("Edit dialog class not set")
             return
+            
+        # Get current value
+        current_value = value_label.text()
         
-        # Determine dialog title and label
-        if field_type == "part_number":
-            title = "Edit Part Number"
-            label = "Enter new part number:"
-        elif field_type == "serial_number":
-            title = "Edit Serial Number" 
-            label = "Enter new serial number:"
-        else:  # note
-            title = "Edit Note"
-            label = "Enter note:"
-        
-        # Display edit dialog
+        # Create dialog
         dialog = self.edit_dialog_class(
-            title=title,
-            label_text=label,
+            title="Edit Value",
+            label_text=f"Edit {field_type.replace('_', ' ').title()}:",
             initial_text=current_value
         )
         
-        if dialog.exec():
-            new_value = dialog.get_text().strip()
-            if new_value and new_value != current_value:
-                self._update_config_value(component_id, field_type, new_value)
-                # Send update signal
-                self.config_updated.emit(component_id, field_type, new_value)
-                logger.info(f"Updated {component_id} {field_type}: {current_value} -> {new_value}")
+        # Show dialog
+        if dialog.exec() == QDialog.Accepted:
+            new_value = dialog.get_text()
+            
+            # Update value
+            self._update_config_value(component_id, field_type, new_value)
+            
+            # Emit signal
+            self.config_updated.emit(component_id, field_type, new_value)
     
     def _update_config_value(self, component_id: str, field_type: str, new_value: str):
         """
@@ -350,6 +481,176 @@ class HWSWConfigManager(QObject):
                     widget.value_label.setText(new_value)
                 break
     
+    def _on_save_config(self):
+        """handle save config button click"""
+        if not self.platform_name:
+            self._show_error_message("Error", "Cannot get platform name")
+            return
+        
+        # pop up input dialog to let user input config name
+        if not self.edit_dialog_class:
+            self._show_error_message("Error", "Edit dialog class not set")
+            return
+        
+        dialog = self.edit_dialog_class(
+            title="Save Config",
+            label_text="Please input config name:",
+            initial_text=""
+        )
+        
+        if dialog.exec() == QDialog.Accepted:
+            config_name = dialog.get_text().strip()
+            if not config_name:
+                self._show_error_message("Error", "Config name cannot be empty")
+                return
+            
+            # generate file name
+            filename = f"{self.platform_name}_{config_name}.json"
+            filepath = os.path.join(self.config_dir, filename)
+            
+            try:
+                # create hw_config directory if it doesn't exist
+                if not os.path.exists(self.config_dir):
+                    os.makedirs(self.config_dir, exist_ok=True)
+                    logger.info(f"Created config directory: {self.config_dir}")
+                
+                # create config data
+                config_data = {
+                    "platform_name": self.platform_name,
+                    "config_name": config_name,
+                    "created_date": datetime.now().isoformat(),
+                    "components": self.config_data
+                }
+                
+                # save to file
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, indent=2, ensure_ascii=False)
+                
+                logger.info(f"Config saved to: {filepath}")
+                self._show_info_message("Success", f"Config saved as: {filename}")
+                
+                # update dropdown menu
+                self._update_config_combo()
+                
+            except Exception as e:
+                error_msg = f"Save config failed: {str(e)}"
+                logger.error(error_msg)
+                self._show_error_message("Error", error_msg)
+    
+    def _on_load_config(self):
+        """handle load config button click"""
+        if not self.config_combo:
+            return
+        
+        selected_config = self.config_combo.currentText()
+        if not selected_config or selected_config == "No available config":
+            self._show_error_message("Error", "Please select a config to load")
+            return
+        
+        # generate file path
+        filepath = os.path.join(self.config_dir, selected_config)
+        
+        try:
+            # read config file
+            with open(filepath, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            # validate config data
+            if 'components' not in config_data:
+                self._show_error_message("Error", "Config file format is incorrect")
+                return
+            
+            # update config data
+            self.config_data = config_data['components']
+            
+            # repopulate table
+            self._populate_table()
+            
+            logger.info(f"Config loaded from {filepath}")
+            self._show_info_message("Success", f"Config loaded: {selected_config}")
+            
+        except Exception as e:
+            error_msg = f"Load config failed: {str(e)}"
+            logger.error(error_msg)
+            self._show_error_message("Error", error_msg)
+    
+    def _update_config_combo(self):
+        """update config dropdown menu"""
+        if not self.config_combo or not self.platform_name:
+            return
+        
+        # clear existing options
+        self.config_combo.clear()
+        
+        try:
+            # get all config files
+            config_files = []
+            if os.path.exists(self.config_dir):
+                for filename in os.listdir(self.config_dir):
+                    if filename.endswith('.json') and filename.startswith(f"{self.platform_name}_"):
+                        config_files.append(filename)
+            
+            # sort file names
+            config_files.sort()
+            
+            if config_files:
+                self.config_combo.addItems(config_files)
+                logger.info(f"Found {len(config_files)} {self.platform_name} config files")
+            else:
+                self.config_combo.addItem("No available config")
+                logger.info(f"No {self.platform_name} config files found")
+                
+        except Exception as e:
+            logger.error(f"Update config dropdown menu failed: {str(e)}")
+            self.config_combo.addItem("No available config")
+    
+    def _show_error_message(self, title: str, message: str):
+        """show error message"""
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        msg_box.exec()
+    
+    def _show_info_message(self, title: str, message: str):
+        """show info message"""
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        msg_box.exec()
+    
+    def _get_dark_message_box_style(self):
+        """get dark message box style"""
+        return """
+            QMessageBox {
+                background-color: #2E2E2E;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+                background-color: transparent;
+            }
+            QMessageBox QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+                min-width: 60px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #1C97EA;
+            }
+            QMessageBox QPushButton:pressed {
+                background-color: #00559F;
+            }
+        """
+    
     def get_config_data(self):
         """Get current config data"""
         return self.config_data.copy()
@@ -363,10 +664,4 @@ class HWSWConfigManager(QObject):
         """
         self.config_data = new_data.copy()
         if self.table_widget:
-            self._populate_table()
-    
-    def export_config(self):
-        """Export config data"""
-        return {
-            "hw_sw_configuration": self.config_data
-        } 
+            self._populate_table() 

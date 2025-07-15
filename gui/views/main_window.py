@@ -393,13 +393,17 @@ class MainWindowController(QObject):
         # Get the table widget from the UI
         hw_sw_table = self.window.tableWidget_hw_sw_config
         
+        # Set platform name to the HW/SW config manager
+        platform_name = getattr(self.view_model, 'platform_name', 'argo')
+        self.hw_sw_config_manager.set_platform_name(platform_name)
+        
         # Set up the HW/SW config manager with the table widget and edit dialog
         self.hw_sw_config_manager.set_ui_components(hw_sw_table, DarkEditDialog)
         
         # Connect signals if needed
         self.hw_sw_config_manager.config_updated.connect(self._on_hw_sw_config_updated)
         
-        logger.info("HW/SW configuration view initialized")
+        logger.info(f"HW/SW configuration view initialized for platform: {platform_name}")
     
     def _init_firmware_os_view(self):
         """Initialize firmware & OS view"""
