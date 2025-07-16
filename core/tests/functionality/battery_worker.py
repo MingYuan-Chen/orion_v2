@@ -15,14 +15,14 @@ class BatteryWorker(BaseTestWorker):
         self.test_id = "functionality_battery"
         
         self.LED_STATUS_MAP = {
-            0: "Off", 8: "Off", 16: "Off", 24: "Off",
-            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
-            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
-            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
-            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
-            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
-            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
-            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+            0: "Off", 8: "Off", 16: "Off", 24: "Off", 32: "Off",
+            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking", 33: "Blue", 41: "Blue Blinking",
+            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking", 34: "Green", 42: "Green Blinking",
+            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking", 35: "Cyan", 43: "Cyan Blinking",
+            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking", 36: "Red", 44: "Red Blinking",
+            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking", 37: "Fuchsia", 45: "Fuchsia Blinking",
+            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking", 38: "Orange", 46: "Orange Blinking",
+            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking", 39: "White", 47: "White Blinking"
         }
 
         self.INTERRUPT_STATUS_MAP = {
@@ -50,6 +50,8 @@ class BatteryWorker(BaseTestWorker):
             20672: "Over Temperature, Terminate Charge",
             4224: "Over Temperature - Charge",
             4288: "Over Temperature - Discharge",
+            3008: "Remaining Capacity and Time Alarm, Terminate Charge",
+            960: "Remaining Capacity and Time Alarm",
             704: "Remaining Capacity Alarm",
             448: "Remaining Time Alarm",
         }

@@ -27,6 +27,8 @@ class ChargeWorker(BaseTestWorker):
             20672: "Over Temperature, Terminate Charge",
             4224: "Over Temperature - Charge",
             4288: "Over Temperature - Discharge",
+            3008: "Remaining Capacity and Time Alarm, Terminate Charge",
+            960: "Remaining Capacity and Time Alarm",
             704: "Remaining Capacity Alarm",
             448: "Remaining Time Alarm",
         }
