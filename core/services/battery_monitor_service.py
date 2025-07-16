@@ -25,14 +25,14 @@ class BatteryMonitorService(QObject):
     battery_info_error = Signal(str, str)      # device_id, error_message
     battery_command_executed = Signal(str, str, str)  # device_id, command_name, command
     LED_STATUS_MAP = {
-        0: "Off", 8: "Off", 16: "Off", 24: "Off",
-        1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
-        2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
-        3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
-        4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
-        5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
-        6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
-        7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+        0: "Off", 8: "Off", 16: "Off", 24: "Off", 32: "Off",
+        1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking", 33: "Blue", 49: "Blue Blinking",
+        2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking", 34: "Green", 50: "Green Blinking",
+        3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking", 35: "Cyan", 51: "Cyan Blinking",
+        4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking", 36: "Red", 52: "Red Blinking",
+        5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking", 37: "Fuchsia", 53: "Fuchsia Blinking",
+        6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking", 38: "Orange", 54: "Orange Blinking",
+        7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking", 39: "White", 55: "White Blinking"
     }
 
     INTERRUPT_STATUS_MAP = {
@@ -482,7 +482,11 @@ class BatteryMonitorService(QObject):
         if is_valid:
             # Valid result, store it
             if command_name == "led_status":
-                parsed_value = self.LED_STATUS_MAP[parsed_value]
+                if parsed_value in self.LED_STATUS_MAP.keys():
+                    parsed_value = self.LED_STATUS_MAP[parsed_value]
+                else:
+                    logger.warning(f"LED status: {parsed_value} is not in the valid range")
+                    parsed_value = "Unknown"
                 self.collected_battery_info[command_name] = parsed_value
             elif command_name == "interrupt_status":
                 if parsed_value in self.INTERRUPT_STATUS_MAP.keys():
@@ -670,12 +674,9 @@ class BatteryMonitorService(QObject):
                 
                 # Parse memory usage from lines like: "Mem:   1024000k total,   512000k used,   512000k free"
                 # Or: "KiB Mem :  2048000 total,  1024000 used,   1024000 free"
-                elif 'Mem:' in line or 'KiB Mem' in line:
+                # Or: "MiB Mem :   3851.2 total,   3529.4 free,    193.9 used,    128.0 buff/cache"
+                elif 'Mem:' in line or 'KiB Mem' in line or 'MiB Mem' in line:
                     try:
-                        # Look for total and used memory values
-                        # Pattern to match numbers followed by units (k, M, G, or KiB, MiB, GiB)
-                        memory_pattern = r'(\d+)(?:k|K|M|G|KiB|MiB|GiB)?\s+(?:total|used|free)'
-                        
                         # Split line and look for total and used values
                         parts = line.split()
                         total_mem = None
@@ -685,11 +686,11 @@ class BatteryMonitorService(QObject):
                             if 'total' in part and i > 0:
                                 # Previous part should be the total memory value
                                 total_str = parts[i-1].replace('k', '').replace('K', '').replace(',', '')
-                                total_mem = int(total_str)
+                                total_mem = float(total_str)
                             elif 'used' in part and i > 0:
                                 # Previous part should be the used memory value
                                 used_str = parts[i-1].replace('k', '').replace('K', '').replace(',', '')
-                                used_mem = int(used_str)
+                                used_mem = float(used_str)
                         
                         if total_mem and used_mem and total_mem > 0:
                             memory_usage = round((used_mem / total_mem) * 100.0, 1)
