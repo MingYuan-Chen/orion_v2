@@ -4,6 +4,7 @@ import time
 from core.models.device_manager_model import DeviceManagerModel
 from core.workers.serial_device_worker import SerialDeviceWorker
 from core.services.smart_connection_monitor import SmartConnectionMonitor
+from core.services.usb_package_deploy_service import UsbPackageDeployService
 from util.logger import logger
 
 # Constants for platform detection
@@ -32,6 +33,12 @@ class DeviceManagerViewModel(QObject):
     # Connection monitoring signals
     device_ready_for_commands = Signal(str)  # device_id - device is ready for commands
     device_connection_lost = Signal(str, str)  # device_id, reason - device connection lost
+    
+    # USB package deployment signals
+    usb_deployment_started = Signal(str)  # device_id - USB deployment started
+    usb_deployment_progress = Signal(str, str)  # device_id, progress_message
+    usb_deployment_completed = Signal(str, bool, str)  # device_id, success, message
+    usb_deployment_ready_for_system_info = Signal(str)  # device_id - ready for system info
     
     def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd", parent_widget=None):
         super().__init__()
@@ -64,6 +71,15 @@ class DeviceManagerViewModel(QObject):
         
         # Initialize smart connection monitor (delayed initialization to avoid circular dependencies)
         self.smart_monitor = None
+        
+        # Initialize USB package deploy service
+        self.usb_package_deploy_service = UsbPackageDeployService(self)
+        
+        # Connect USB package deploy service signals
+        self.usb_package_deploy_service.deployment_started.connect(self.usb_deployment_started.emit)
+        self.usb_package_deploy_service.deployment_progress.connect(self.usb_deployment_progress.emit)
+        self.usb_package_deploy_service.deployment_completed.connect(self.usb_deployment_completed.emit)
+        self.usb_package_deploy_service.ready_for_system_info.connect(self.usb_deployment_ready_for_system_info.emit)
         
         logger.info(f"DeviceManagerViewModel initialized with default platform: {platform_name}")
         
@@ -980,3 +996,54 @@ class DeviceManagerViewModel(QObject):
         if self.smart_monitor:
             return self.smart_monitor.get_device_status(device_id)
         return {'monitored': False, 'error': 'Smart monitor not initialized'}
+    
+    def start_usb_package_deployment(self, device_id: str, on_success: callable = None, on_failure: callable = None):
+        """
+        Start USB package deployment for a device
+        
+        Args:
+            device_id: Target device ID
+            on_success: Success callback function
+            on_failure: Failure callback function
+        """
+        logger.info(f"Starting USB package deployment for device {device_id}")
+        
+        if not self.usb_package_deploy_service:
+            logger.error("USB package deploy service not initialized")
+            if on_failure:
+                on_failure("USB package deploy service not initialized")
+            return
+        
+        # Check if deployment is already in progress
+        if self.usb_package_deploy_service.is_deployment_in_progress(device_id):
+            logger.warning(f"USB package deployment already in progress for device {device_id}")
+            if on_failure:
+                on_failure("USB package deployment already in progress")
+            return
+        
+        # Start deployment
+        self.usb_package_deploy_service.start_deployment(device_id, on_success, on_failure)
+    
+    def get_usb_deployment_status(self, device_id: str) -> dict:
+        """
+        Get USB deployment status for a device
+        
+        Args:
+            device_id: Target device ID
+            
+        Returns:
+            Dictionary containing deployment status
+        """
+        if self.usb_package_deploy_service:
+            return self.usb_package_deploy_service.get_deployment_status(device_id) or {}
+        return {}
+    
+    def cancel_usb_deployment(self, device_id: str):
+        """
+        Cancel USB deployment for a device
+        
+        Args:
+            device_id: Target device ID
+        """
+        if self.usb_package_deploy_service:
+            self.usb_package_deploy_service.cancel_deployment(device_id)

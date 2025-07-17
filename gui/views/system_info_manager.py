@@ -53,6 +53,21 @@ class SystemInfoManagerView(QObject):
             self.system_info_service.info_received.connect(self._on_system_info_received)
             self.system_info_service.info_error.connect(self._on_system_info_error)
             self.system_info_service.command_executed.connect(self._on_command_executed)
+            
+    def _disconnect_signals(self):
+        """Disconnect system info service signals"""
+        if self.system_info_service:
+            try:
+                self.system_info_service.info_received.disconnect(self._on_system_info_received)
+                self.system_info_service.info_error.disconnect(self._on_system_info_error)
+                self.system_info_service.command_executed.disconnect(self._on_command_executed)
+                logger.debug("Disconnected system info service signals")
+            except Exception as e:
+                logger.debug(f"Error disconnecting signals: {e}")
+    
+    def __del__(self):
+        """Cleanup when object is destroyed"""
+        self._disconnect_signals()
     
     def set_ui_components(self, components: Dict[str, Any]):
         """
@@ -118,11 +133,42 @@ class SystemInfoManagerView(QObject):
         if "design_capacity" in self.ui_components:
             self.ui_components["design_capacity"].setText("...")
     
+    def set_deployment_status(self, status_message: str):
+        """Set USB deployment status message"""
+        if "last_updated_label" in self.ui_components:
+            self.ui_components["last_updated_label"].setText(status_message)
+            # Keep white color but make it bold to indicate deployment status
+            self.ui_components["last_updated_label"].setStyleSheet("font-weight: bold;")
+    
+    def clear_deployment_status(self):
+        """Clear USB deployment status and restore normal display"""
+        if "last_updated_label" in self.ui_components:
+            # Restore normal timestamp display
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.ui_components["last_updated_label"].setText(f"Last updated: {current_time}")
+            # Clear the bold styling
+            self.ui_components["last_updated_label"].setStyleSheet("")
+    
     def refresh_system_info(self):
         """Refresh system information"""
         # If already updating, ignore this click
         if self.is_updating:
             return
+        
+        # Ensure signals are properly connected (in case of window reopening)
+        if self.system_info_service:
+            try:
+                # Disconnect first to avoid duplicate connections
+                self.system_info_service.info_received.disconnect(self._on_system_info_received)
+                self.system_info_service.info_error.disconnect(self._on_system_info_error)
+                self.system_info_service.command_executed.disconnect(self._on_command_executed)
+            except Exception:
+                pass  # Ignore if not connected
+            
+            # Reconnect signals
+            self.system_info_service.info_received.connect(self._on_system_info_received)
+            self.system_info_service.info_error.connect(self._on_system_info_error)
+            self.system_info_service.command_executed.connect(self._on_command_executed)
         
         # 设置更新状态
         self.is_updating = True

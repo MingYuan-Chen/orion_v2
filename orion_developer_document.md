@@ -2989,3 +2989,559 @@ def reboot_device(self, device_id: str):
    - 支援不同設備類型的專用配置
 
 通過這套完整的 Reboot 檢查機制，Orion 系統能夠可靠地處理設備重啟操作，確保重啟後的系統狀態驗證準確無誤，為自動化測試和設備管理提供了強有力的支援。
+
+## 20. USB 包部署服務
+
+USB 包部署服務是 Orion 系統中的重要功能模組，專門負責在系統啟動時自動檢測和部署USB設備上的dqa_package包。該服務確保在執行系統信息更新之前，必要的測試包已經成功部署到設備的根目錄中。
+
+### 20.1 系統架構概述
+
+USB 包部署服務採用獨立服務架構設計，與主窗口控制器和設備管理器深度整合：
+
+```mermaid
+graph TD
+    A[USBPackageDeployService] --> B[DeviceManagerViewModel]
+    B --> C[MainWindowController]
+    C --> D[SystemInfoManager]
+    
+    E[USB設備掃描] --> F[dqa_package檢測]
+    F --> G[包複製部署]
+    G --> H[部署狀態反饋]
+    
+    I[信號機制] --> J[deployment_started]
+    I --> K[deployment_progress]
+    I --> L[deployment_completed]
+    I --> M[deployment_ready_for_system_info]
+    
+    A --> E
+    A --> I
+    
+    N[設備命令執行] --> O[同步命令處理]
+    O --> P[響應驗證]
+    P --> Q[錯誤處理]
+    
+    A --> N
+```
+
+#### 20.1.1 核心組件
+
+1. **USBPackageDeployService** (`core/services/usb_package_deploy_service.py`)
+   - USB包部署的核心服務層
+   - 負責掃描USB設備、檢測dqa_package並執行部署
+   - 提供完整的部署狀態管理和錯誤處理
+
+2. **DeviceManagerViewModel 整合**
+   - 在設備管理器視圖模型中集成USB部署服務
+   - 提供統一的服務啟動和信號路由
+   - 管理部署服務的生命周期
+
+3. **MainWindowController 整合**
+   - 在主窗口啟動時自動觸發USB部署
+   - 處理部署進度顯示和狀態更新
+   - 確保部署完成後才開始系統信息更新
+
+### 20.2 核心功能實現
+
+#### 20.2.1 USB設備掃描機制
+
+```python
+def _scan_usb_devices(self, device_id: str) -> List[str]:
+    """
+    掃描USB設備
+    
+    通過ls /run/media命令掃描掛載的USB設備
+    """
+    try:
+        logger.info(f"Scanning /run/media for USB devices on device {device_id}")
+        
+        # 發送同步命令獲取USB設備列表
+        response = self._send_command_sync(device_id, "ls /run/media")
+        
+        if not response or "Command sent (async)" in response:
+            logger.warning(f"Invalid response for USB scan: {response}")
+            return []
+        
+        # 解析設備名稱
+        device_names = []
+        for line in response.split('\n'):
+            device_name = line.strip()
+            if device_name and not device_name.startswith('ls:'):
+                device_names.append(device_name)
+        
+        logger.info(f"Found {len(device_names)} USB device(s) for device {device_id}: {device_names}")
+        return device_names
+        
+    except Exception as e:
+        logger.error(f"Error scanning USB devices for {device_id}: {str(e)}")
+        return []
+```
+
+#### 20.2.2 dqa_package檢測邏輯
+
+```python
+def _check_dqa_package_exists(self, device_id: str, usb_device_name: str) -> bool:
+    """
+    檢查USB設備上是否存在dqa_package
+    
+    使用test命令檢查目錄是否存在
+    """
+    try:
+        test_path = f"/run/media/{usb_device_name}/dqa_package"
+        command = f'test -d {test_path} && echo "Pass" || echo "Fail"'
+        
+        logger.info(f"Testing dqa_package on device {usb_device_name}: {command}")
+        
+        # 發送同步命令檢查包是否存在
+        response = self._send_command_sync(device_id, command)
+        
+        if response and "Pass" in response:
+            logger.info(f"Found dqa_package on USB device: {usb_device_name}")
+            return True
+        else:
+            logger.info(f"No dqa_package found on USB device: {usb_device_name} (response: {response})")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error checking dqa_package on {usb_device_name}: {str(e)}")
+        return False
+```
+
+#### 20.2.3 包部署執行
+
+```python
+def _deploy_dqa_package(self, device_id: str, usb_device_name: str) -> bool:
+    """
+    部署dqa_package到設備根目錄
+    
+    使用cp命令複製包到/dqa_package目錄
+    """
+    try:
+        source_path = f"/run/media/{usb_device_name}/dqa_package"
+        target_path = "/dqa_package"
+        command = f"cp -r {source_path} {target_path}"
+        
+        logger.info(f"Executing copy command: {command}")
+        
+        # 發送同步命令執行複製
+        response = self._send_command_sync(device_id, command)
+        
+        logger.info(f"Successfully deployed package from USB device: {usb_device_name}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error deploying package from {usb_device_name}: {str(e)}")
+        return False
+```
+
+### 20.3 同步命令處理機制
+
+#### 20.3.1 真正的同步執行
+
+為了確保命令的可靠執行，系統實現了真正的同步命令處理：
+
+```python
+def _send_command_sync(self, device_id: str, command: str, timeout: int = 60) -> str:
+    """
+    發送同步命令並等待響應
+    
+    使用信號監聽機制實現真正的同步執行
+    """
+    if not self.device_manager_model:
+        logger.error("Device manager model not available")
+        return ""
+    
+    # 創建信號監聽器
+    result_container = {"response": None, "received": False}
+    
+    def on_command_completed(dev_id, cmd, response):
+        if dev_id == device_id and cmd == command:
+            result_container["response"] = response
+            result_container["received"] = True
+    
+    # 連接信號
+    self.device_manager_model.command_completed.connect(on_command_completed)
+    
+    try:
+        # 發送命令
+        self.device_manager_model.send_command(device_id, command)
+        
+        # 等待響應
+        start_time = time.time()
+        while not result_container["received"]:
+            if time.time() - start_time > timeout:
+                logger.error(f"Command timeout after {timeout}s: {command}")
+                return ""
+            time.sleep(0.1)
+        
+        return result_container["response"]
+        
+    finally:
+        # 斷開信號連接
+        self.device_manager_model.command_completed.disconnect(on_command_completed)
+```
+
+#### 20.3.2 響應驗證機制
+
+```python
+def _validate_command_response(self, response: str, expected_patterns: List[str] = None) -> bool:
+    """
+    驗證命令響應的有效性
+    
+    避免處理異步響應或無效響應
+    """
+    if not response:
+        return False
+    
+    # 過濾明顯的異步響應
+    if "Command sent (async)" in response:
+        return False
+    
+    # 檢查預期模式
+    if expected_patterns:
+        for pattern in expected_patterns:
+            if pattern in response:
+                return True
+        return False
+    
+    return True
+```
+
+### 20.4 工作流程詳解
+
+#### 20.4.1 部署啟動流程
+
+```mermaid
+sequenceDiagram
+    participant MW as MainWindowController
+    participant VM as DeviceManagerViewModel
+    participant UDS as USBPackageDeployService
+    participant Device as 硬件設備
+    
+    MW->>MW: 主窗口初始化完成
+    MW->>VM: start_usb_package_deployment(device_id)
+    VM->>UDS: start_deployment(device_id)
+    UDS->>UDS: deployment_started 信號
+    UDS->>Device: ls /run/media
+    Device-->>UDS: 返回USB設備列表
+    
+    loop 檢查每個USB設備
+        UDS->>Device: test -d /run/media/xxx/dqa_package
+        Device-->>UDS: 返回檢查結果
+        alt 找到dqa_package
+            UDS->>Device: cp -r /run/media/xxx/dqa_package /dqa_package
+            Device-->>UDS: 複製完成
+            UDS->>UDS: deployment_progress 信號
+        end
+    end
+    
+    UDS->>UDS: deployment_completed 信號
+    UDS->>UDS: deployment_ready_for_system_info 信號
+    UDS-->>MW: 部署完成，可以開始系統信息更新
+```
+
+#### 20.4.2 錯誤處理流程
+
+```mermaid
+graph TD
+    A[開始部署] --> B[掃描USB設備]
+    B --> C{掃描成功?}
+    C -->|否| D[記錄錯誤]
+    C -->|是| E[檢查dqa_package]
+    
+    E --> F{找到包?}
+    F -->|否| G[繼續檢查下一個設備]
+    F -->|是| H[執行部署]
+    
+    H --> I{部署成功?}
+    I -->|否| J[記錄錯誤，繼續下一個]
+    I -->|是| K[記錄成功]
+    
+    D --> L[發送完成信號]
+    G --> M{還有設備?}
+    J --> M
+    K --> M
+    
+    M -->|是| E
+    M -->|否| L
+    
+    L --> N[觸發系統信息更新]
+```
+
+### 20.5 與主窗口的整合
+
+#### 20.5.1 初始化整合
+
+```python
+def __init__(self, device_id, view_model, platform_name=None):
+    """主窗口控制器初始化"""
+    # ... 其他初始化代碼 ...
+    
+    # 連接USB部署信號
+    self._connect_usb_deployment_signals()
+    
+    # 啟動USB包部署（不再自動啟動系統信息更新）
+    self._start_usb_package_deployment()
+
+def _connect_usb_deployment_signals(self):
+    """連接USB包部署信號"""
+    try:
+        # 防止重複連接
+        try:
+            self.view_model.usb_deployment_started.disconnect(self._on_usb_deployment_started)
+            self.view_model.usb_deployment_progress.disconnect(self._on_usb_deployment_progress)
+            self.view_model.usb_deployment_completed.disconnect(self._on_usb_deployment_completed)
+            self.view_model.usb_deployment_ready_for_system_info.disconnect(self._on_usb_deployment_ready_for_system_info)
+            logger.debug("Disconnected existing USB deployment signals")
+        except Exception:
+            pass
+            
+        # 連接USB部署信號
+        self.view_model.usb_deployment_started.connect(self._on_usb_deployment_started)
+        self.view_model.usb_deployment_progress.connect(self._on_usb_deployment_progress)
+        self.view_model.usb_deployment_completed.connect(self._on_usb_deployment_completed)
+        self.view_model.usb_deployment_ready_for_system_info.connect(self._on_usb_deployment_ready_for_system_info)
+        
+        logger.debug("USB deployment signals connected")
+        
+    except Exception as e:
+        logger.error(f"Error connecting USB deployment signals: {str(e)}")
+```
+
+#### 20.5.2 狀態顯示整合
+
+```python
+def _on_usb_deployment_progress(self, device_id: str, message: str):
+    """處理USB部署進度更新"""
+    if device_id == self.device_id:
+        logger.info(f"USB deployment progress for device {device_id}: {message}")
+        # 更新狀態顯示
+        self.system_info_manager.set_deployment_status(message)
+
+def _on_usb_deployment_completed(self, device_id: str, success: bool, message: str):
+    """處理USB部署完成"""
+    if device_id == self.device_id:
+        logger.info(f"USB deployment completed for device {device_id}: success={success}, message={message}")
+        
+        # 停止waiting spinner
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.stop()
+            
+        # 更新狀態顯示
+        if success:
+            self.system_info_manager.set_deployment_status(f"USB 包部署成功: {message}")
+        else:
+            self.system_info_manager.set_deployment_status(f"USB 包部署失敗: {message}")
+```
+
+### 20.6 UI狀態管理優化
+
+#### 20.6.1 狀態顯示位置
+
+USB部署狀態專門顯示在右上角的狀態栏中，不會干擾系統信息區域：
+
+```python
+def set_deployment_status(self, status_message: str):
+    """設置USB部署狀態消息"""
+    if "last_updated_label" in self.ui_components:
+        self.ui_components["last_updated_label"].setText(status_message)
+        # 保持白色但使用粗體來表示部署狀態
+        self.ui_components["last_updated_label"].setStyleSheet("font-weight: bold;")
+
+def clear_deployment_status(self):
+    """清除USB部署狀態並恢復正常顯示"""
+    if "last_updated_label" in self.ui_components:
+        # 恢復正常時間戳顯示
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.ui_components["last_updated_label"].setText(f"Last updated: {current_time}")
+        # 清除粗體樣式
+        self.ui_components["last_updated_label"].setStyleSheet("")
+```
+
+#### 20.6.2 Waiting Spinner定位
+
+```python
+def _position_spinner_in_placeholder(self):
+    """將waiting spinner定位在指定占位符中"""
+    if hasattr(self.window, 'label_spinner_placeholder'):
+        placeholder = self.window.label_spinner_placeholder
+        if placeholder and placeholder.isVisible():
+            # 獲取占位符的全局位置
+            global_pos = placeholder.mapToGlobal(placeholder.rect().center())
+            # 轉換為父組件坐標
+            parent_pos = self.waiting_spinner.parent().mapFromGlobal(global_pos)
+            # 將spinner居中定位
+            spinner_x = parent_pos.x() - self.waiting_spinner.width() // 2
+            spinner_y = parent_pos.y() - self.waiting_spinner.height() // 2
+            self.waiting_spinner.move(spinner_x, spinner_y)
+```
+
+### 20.7 命令衝突避免機制
+
+#### 20.7.1 順序執行控制
+
+```python
+def _on_usb_deployment_ready_for_system_info(self, device_id: str):
+    """處理USB部署完成，準備開始系統信息更新"""
+    if device_id == self.device_id:
+        logger.info(f"USB deployment ready for system info for device {device_id}")
+        
+        # 檢查系統信息更新是否已經在進行中
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System info update already in progress, ignoring USB deployment ready signal")
+            return
+            
+        # 確保USB部署標誌已清除
+        self.usb_deployment_in_progress = False
+        
+        # 現在開始系統信息更新
+        self._on_refresh_system_info()
+```
+
+#### 20.7.2 更新狀態標誌
+
+```python
+def _on_refresh_system_info(self):
+    """處理系統信息刷新請求"""
+    # 檢查是否已經在更新中
+    if hasattr(self, 'is_updating') and self.is_updating:
+        logger.debug("System info update already in progress, ignoring duplicate request")
+        return
+        
+    # 檢查USB部署是否在進行中
+    if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+        logger.debug("USB deployment in progress, postponing system info update")
+        return
+        
+    # 清除USB部署狀態並恢復正常顯示
+    self.system_info_manager.clear_deployment_status()
+    
+    # 繼續系統信息更新流程...
+```
+
+### 20.8 錯誤處理與調試
+
+#### 20.8.1 詳細日誌記錄
+
+```python
+# USB設備掃描日誌
+logger.info(f"Scanning /run/media for USB devices on device {device_id}")
+logger.info(f"Found {len(device_names)} USB device(s) for device {device_id}: {device_names}")
+
+# dqa_package檢測日誌
+logger.info(f"Testing dqa_package on device {usb_device_name}: {command}")
+logger.info(f"Found dqa_package on USB device: {usb_device_name}")
+logger.info(f"No dqa_package found on USB device: {usb_device_name} (response: {response})")
+
+# 部署執行日誌
+logger.info(f"Executing copy command: {command}")
+logger.info(f"Successfully deployed package from USB device: {usb_device_name}")
+
+# 錯誤處理日誌
+logger.error(f"Error scanning USB devices for {device_id}: {str(e)}")
+logger.error(f"Error checking dqa_package on {usb_device_name}: {str(e)}")
+logger.error(f"Error deploying package from {usb_device_name}: {str(e)}")
+```
+
+#### 20.8.2 異常處理機制
+
+```python
+def _handle_deployment_error(self, device_id: str, error_message: str):
+    """處理部署錯誤"""
+    logger.error(f"USB deployment error for device {device_id}: {error_message}")
+    
+    # 發送部署完成信號（失敗）
+    self.deployment_completed.emit(device_id, False, f"Deployment failed: {error_message}")
+    
+    # 繼續觸發系統信息更新（即使部署失敗）
+    self.deployment_ready_for_system_info.emit(device_id)
+    
+    # 清理部署狀態
+    self._cleanup_deployment_state(device_id)
+```
+
+### 20.9 關鍵技術決策
+
+#### 20.9.1 為什麼選擇命令行方式？
+
+1. **跨平台兼容性**：命令行介面在所有Linux系統上都可用
+2. **簡單可靠**：避免複雜的文件系統API調用
+3. **易於調試**：命令和響應都有明確的日誌記錄
+4. **設備友好**：對設備資源要求低，執行效率高
+
+#### 20.9.2 為什麼實現同步命令執行？
+
+1. **狀態可控**：確保命令按預期順序執行
+2. **錯誤處理**：能夠準確捕獲和處理命令執行錯誤
+3. **響應驗證**：確保獲得正確的命令響應
+4. **避免競爭**：防止並發命令導致的狀態混亂
+
+#### 20.9.3 為什麼整合到主窗口初始化？
+
+1. **用戶體驗**：確保系統啟動時自動完成必要的準備工作
+2. **依賴管理**：確保系統信息更新有必要的包支持
+3. **狀態同步**：提供清晰的操作流程和狀態反饋
+4. **錯誤恢復**：部署失敗時不會阻塞其他功能
+
+### 20.10 故障排除指南
+
+#### 20.10.1 常見問題
+
+1. **USB設備掃描失敗**：
+   - 檢查設備是否正確連接
+   - 確認USB設備是否已正確掛載
+   - 檢查/run/media目錄是否存在
+
+2. **dqa_package檢測失敗**：
+   - 確認USB設備上確實存在dqa_package目錄
+   - 檢查目錄權限是否正確
+   - 確認設備響應是否正常
+
+3. **包部署失敗**：
+   - 檢查目標設備的磁碟空間
+   - 確認複製命令權限
+   - 檢查網絡連接穩定性
+
+4. **信號連接問題**：
+   - 確認信號連接沒有重複
+   - 檢查主窗口是否正確初始化
+   - 確認設備ID匹配
+
+#### 20.10.2 調試工具
+
+```python
+# 啟用詳細日誌模式
+logging.getLogger('usb_package_deploy').setLevel(logging.DEBUG)
+
+# 檢查部署狀態
+def get_deployment_status(self, device_id: str) -> Dict:
+    """獲取部署狀態信息"""
+    return {
+        'device_id': device_id,
+        'is_deploying': device_id in self.deployment_states,
+        'usb_devices_found': self.last_scan_results.get(device_id, []),
+        'packages_found': self.found_packages.get(device_id, []),
+        'deployment_success': self.deployment_results.get(device_id, None)
+    }
+```
+
+### 20.11 未來發展方向
+
+#### 20.11.1 多包類型支持
+
+- 支持多種包類型的自動識別和部署
+- 智能選擇最合適的包進行部署
+- 提供包優先級排序機制
+
+#### 20.11.2 批量部署功能
+
+- 支持同時向多個設備部署包
+- 提供並行部署和順序部署選項
+- 批量操作的進度追蹤和狀態管理
+
+#### 20.11.3 部署策略優化
+
+- 根據設備特性智能選擇部署策略
+- 支持增量部署和差異化更新
+- 提供部署回滾和恢復功能
+
+通過這套完整的USB包部署服務，Orion系統能夠可靠地處理設備啟動時的包部署需求，確保測試環境的完整性和一致性，為後續的系統操作提供了可靠的基礎支撐。
