@@ -129,9 +129,9 @@
   },
   "functionality_touch": {
     "commands": [
-      "/run/media/sda1/TouchTestQt", "/run/media/sdb1/TouchTestQt", "",
+      "/dqa_package/TouchTestQt", "",
       "ts_test_mt -j 2 -v",
-      "", "", "", "", "", "", "", "", ""
+      "", "", "", "", "", "", ""
     ]
   },
   "functionality_hdmi": {
