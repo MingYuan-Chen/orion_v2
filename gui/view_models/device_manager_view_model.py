@@ -4,6 +4,7 @@ import time
 from core.models.device_manager_model import DeviceManagerModel
 from core.workers.serial_device_worker import SerialDeviceWorker
 from core.services.smart_connection_monitor import SmartConnectionMonitor
+from core.services.usb_package_deploy_service import UsbPackageDeployService
 from util.logger import logger
 
 # Constants for platform detection
@@ -32,6 +33,12 @@ class DeviceManagerViewModel(QObject):
     # Connection monitoring signals
     device_ready_for_commands = Signal(str)  # device_id - device is ready for commands
     device_connection_lost = Signal(str, str)  # device_id, reason - device connection lost
+    
+    # USB package deployment signals
+    usb_deployment_started = Signal(str)  # device_id - USB deployment started
+    usb_deployment_progress = Signal(str, str)  # device_id, progress_message
+    usb_deployment_completed = Signal(str, bool, str)  # device_id, success, message
+    usb_deployment_ready_for_system_info = Signal(str)  # device_id - ready for system info
     
     def __init__(self, device_manager: DeviceManagerModel = None, platform_name: str = "hydra_fhd", parent_widget=None):
         super().__init__()
@@ -64,6 +71,15 @@ class DeviceManagerViewModel(QObject):
         
         # Initialize smart connection monitor (delayed initialization to avoid circular dependencies)
         self.smart_monitor = None
+        
+        # Initialize USB package deploy service
+        self.usb_package_deploy_service = UsbPackageDeployService(self)
+        
+        # Connect USB package deploy service signals
+        self.usb_package_deploy_service.deployment_started.connect(self.usb_deployment_started.emit)
+        self.usb_package_deploy_service.deployment_progress.connect(self.usb_deployment_progress.emit)
+        self.usb_package_deploy_service.deployment_completed.connect(self.usb_deployment_completed.emit)
+        self.usb_package_deploy_service.ready_for_system_info.connect(self.usb_deployment_ready_for_system_info.emit)
         
         logger.info(f"DeviceManagerViewModel initialized with default platform: {platform_name}")
         
@@ -369,10 +385,9 @@ class DeviceManagerViewModel(QObject):
                     logger.info(f"Device {device_id} is responsive, starting platform detection")
                     self.platform_detection_status[device_id]['status'] = 'detecting_platform'
                     
-                    # Now send platform detection commands
-                    logger.info(f"Sending platform detection commands to device {device_id}")
+                    # Start with panel_id detection first
+                    logger.info(f"Starting platform detection for device {device_id}")
                     self._serial_worker.send_command(device_id, "cat /proc/panel_id", 10)
-                    self._serial_worker.send_command(device_id, "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", 10)
                     
                     # Always emit the command result signal for other components
                     self.command_result.emit(device_id, command, response)
@@ -394,16 +409,38 @@ class DeviceManagerViewModel(QObject):
                     # Store panel_id response for later use
                     self.platform_detection_status[device_id]['panel_id_response'] = response
                     # Send Athena check command
-                    self._serial_worker.send_command(device_id, "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", 10)
+                    athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+                    self._serial_worker.send_command(device_id, athena_command, 10)
+                    # Record that we sent this command
+                    if 'sent_commands' not in self.platform_detection_status[device_id]:
+                        self.platform_detection_status[device_id]['sent_commands'] = set()
+                    self.platform_detection_status[device_id]['sent_commands'].add(athena_command)
                 else:
-                    # Check if this is panel_id = 01 (needs PIC version check)
+                    # detected_platform is None - could be panel_id=01 or file not found
                     panel_id = response.strip().lower()
                     if "01" in panel_id:
-                        logger.info(f"panel_id = 01 detected for device {device_id}, waiting for PIC version to determine argo vs hydra_fhd")
+                        logger.info(f"panel_id = 01 detected for device {device_id}, sending PIC version command to determine argo vs hydra_fhd")
                         # Store panel_id response for later use
                         self.platform_detection_status[device_id]['panel_id_response'] = response
+                        # Send PIC version command for panel_id = 01
+                        pic_command = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+                        self._serial_worker.send_command(device_id, pic_command, 10)
+                        # Record that we sent this command
+                        if 'sent_commands' not in self.platform_detection_status[device_id]:
+                            self.platform_detection_status[device_id]['sent_commands'] = set()
+                        self.platform_detection_status[device_id]['sent_commands'].add(pic_command)
                     else:
-                        logger.warning(f"Unable to detect platform from panel_id for device {device_id}: {response}")
+                        # panel_id detection failed (file not found, etc.), this likely indicates Athena platform
+                        logger.info(f"panel_id detection failed for device {device_id}, checking for Athena platform")
+                        # Store panel_id response for later use
+                        self.platform_detection_status[device_id]['panel_id_response'] = response
+                        # Send Athena check command
+                        athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+                        self._serial_worker.send_command(device_id, athena_command, 10)
+                        # Record that we sent this command
+                        if 'sent_commands' not in self.platform_detection_status[device_id]:
+                            self.platform_detection_status[device_id]['sent_commands'] = set()
+                        self.platform_detection_status[device_id]['sent_commands'].add(athena_command)
                 is_platform_detection_command = True
             
             elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
@@ -447,7 +484,10 @@ class DeviceManagerViewModel(QObject):
                 logger.info(f"Received Athena check response from {device_id}: {response}")
                 
                 # Check if this is Athena platform (0x04 value)
-                if self._is_athena_platform(response):
+                is_athena = self._is_athena_platform(response)
+                logger.debug(f"Athena platform check result for device {device_id}: {is_athena}")
+                
+                if is_athena:
                     detected_platform = "athena"
                     logger.info(f"Detected Athena platform from PIC command for device {device_id}")
                     
@@ -475,15 +515,25 @@ class DeviceManagerViewModel(QObject):
                 self.platform_detection_status[device_id]['detected_platform'] = detected_platform
             
             # Check if all platform detection commands are completed
-            expected_commands = {
-                "cat /proc/panel_id",
-                "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-            }
+            # Start with panel_id command which is always sent
+            expected_commands = {"cat /proc/panel_id"}
             
-            # Check if Athena check command was sent and should be expected
-            panel_id_response = self.platform_detection_status[device_id].get('panel_id_response', '')
-            if panel_id_response and self._detect_platform_from_panel_id(panel_id_response) == NEED_ATHENA_CHECK:
-                expected_commands.add("i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2")
+            # Add additional commands based on what was actually sent
+            pic_command = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+            athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+            
+            # Check if we are expecting additional commands based on detection status
+            # If we sent commands but haven't received responses yet, we need to wait
+            if 'sent_commands' not in self.platform_detection_status[device_id]:
+                self.platform_detection_status[device_id]['sent_commands'] = set()
+            
+            sent_commands = self.platform_detection_status[device_id]['sent_commands']
+            
+            # Include all commands that have been sent
+            if pic_command in sent_commands:
+                expected_commands.add(pic_command)
+            if athena_command in sent_commands:
+                expected_commands.add(athena_command)
             
             completed_commands = self.platform_detection_status[device_id]['completed_commands']
             
@@ -506,6 +556,12 @@ class DeviceManagerViewModel(QObject):
                         self.platform_detection_status[device_id]['detected_platform'] = final_platform
                         logger.info(f"Final platform determination for panel_id=01 device {device_id}: {final_platform}")
                 
+                # If still no platform detected, use default
+                if not final_platform:
+                    logger.warning(f"No platform detected for device {device_id} after all commands completed, defaulting to hydra_fhd")
+                    final_platform = 'hydra_fhd'
+                    self.platform_detection_status[device_id]['detected_platform'] = final_platform
+                
                 # Use the new completion method
                 self._complete_platform_detection(device_id)
         
@@ -527,7 +583,16 @@ class DeviceManagerViewModel(QObject):
         logger.debug(f"Analyzing panel_id response: '{response}'")
         
         # Check if this is an error response
-        if "error" in response or "no response" in response or response == "":
+        error_patterns = [
+            "error",
+            "no response", 
+            "no such file",
+            "not found",
+            "permission denied",
+            "command not found"
+        ]
+        
+        if response == "" or any(pattern in response for pattern in error_patterns):
             logger.warning(f"Invalid panel_id response: '{panel_id_response}', platform detection failed")
             return None
         
@@ -640,19 +705,20 @@ class DeviceManagerViewModel(QObject):
         """
         # Remove whitespace and normalize response
         clean_response = response.strip()
+        logger.info(f"Checking Athena platform with response: '{clean_response}'")
         
         # Check for error responses
         response_lower = clean_response.lower()
         if "error" in response_lower or "no response" in response_lower or not clean_response:
-            logger.debug(f"Invalid Athena check response: '{response}'")
+            logger.warning(f"Invalid Athena check response: '{response}'")
             return False
         
         # Check for 0x04 value which indicates Athena platform
         if '0x04' in clean_response:
-            logger.debug(f"Athena platform signature found: 0x04 in response '{clean_response}'")
+            logger.info(f"Athena platform signature found: 0x04 in response '{clean_response}'")
             return True
         
-        logger.debug(f"Athena platform signature not found in response: '{clean_response}'")
+        logger.warning(f"Athena platform signature not found in response: '{clean_response}'")
         return False
     
     def _retry_pic_command(self, device_id: str):
@@ -682,6 +748,11 @@ class DeviceManagerViewModel(QObject):
             if "01" in panel_id_response.strip().lower():
                 # Default to hydra_fhd for panel_id = 01 when PIC command fails
                 logger.warning(f"Defaulting to hydra_fhd for device {device_id} due to PIC command failure")
+                self.platform_detection_status[device_id]['detected_platform'] = 'hydra_fhd'
+                self._complete_platform_detection(device_id)
+            else:
+                # For other cases (like Athena detection failure), also set a default platform
+                logger.warning(f"Platform detection failed for device {device_id}, defaulting to hydra_fhd")
                 self.platform_detection_status[device_id]['detected_platform'] = 'hydra_fhd'
                 self._complete_platform_detection(device_id)
             return
@@ -744,14 +815,19 @@ class DeviceManagerViewModel(QObject):
         
         logger.info(f"Platform detection completed for device {device_id}: {final_platform}")
         
-        # Initialize services if this is the first connected device or if services are not initialized
-        if self.system_info_service is None or self.hardware_test_manager is None:
+        # Check if platform changed and we need to reinitialize services
+        platform_changed = self.platform_name != final_platform
+        
+        if self.system_info_service is None or self.hardware_test_manager is None or platform_changed:
+            if platform_changed:
+                logger.info(f"Platform changed from {self.platform_name} to {final_platform}, reinitializing services")
+            
             # Update platform name and initialize services
             self.platform_name = final_platform
             self._initialize_services()
             logger.info(f"Services initialized with detected platform: {final_platform}")
         else:
-            logger.debug(f"Services already initialized, skipping for device {device_id}")
+            logger.debug(f"Services already initialized with same platform, skipping for device {device_id}")
         
         # Clean up detection status for this device
         del self.platform_detection_status[device_id]
@@ -920,3 +996,54 @@ class DeviceManagerViewModel(QObject):
         if self.smart_monitor:
             return self.smart_monitor.get_device_status(device_id)
         return {'monitored': False, 'error': 'Smart monitor not initialized'}
+    
+    def start_usb_package_deployment(self, device_id: str, on_success: callable = None, on_failure: callable = None):
+        """
+        Start USB package deployment for a device
+        
+        Args:
+            device_id: Target device ID
+            on_success: Success callback function
+            on_failure: Failure callback function
+        """
+        logger.info(f"Starting USB package deployment for device {device_id}")
+        
+        if not self.usb_package_deploy_service:
+            logger.error("USB package deploy service not initialized")
+            if on_failure:
+                on_failure("USB package deploy service not initialized")
+            return
+        
+        # Check if deployment is already in progress
+        if self.usb_package_deploy_service.is_deployment_in_progress(device_id):
+            logger.warning(f"USB package deployment already in progress for device {device_id}")
+            if on_failure:
+                on_failure("USB package deployment already in progress")
+            return
+        
+        # Start deployment
+        self.usb_package_deploy_service.start_deployment(device_id, on_success, on_failure)
+    
+    def get_usb_deployment_status(self, device_id: str) -> dict:
+        """
+        Get USB deployment status for a device
+        
+        Args:
+            device_id: Target device ID
+            
+        Returns:
+            Dictionary containing deployment status
+        """
+        if self.usb_package_deploy_service:
+            return self.usb_package_deploy_service.get_deployment_status(device_id) or {}
+        return {}
+    
+    def cancel_usb_deployment(self, device_id: str):
+        """
+        Cancel USB deployment for a device
+        
+        Args:
+            device_id: Target device ID
+        """
+        if self.usb_package_deploy_service:
+            self.usb_package_deploy_service.cancel_deployment(device_id)

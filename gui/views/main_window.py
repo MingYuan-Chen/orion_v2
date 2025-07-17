@@ -148,6 +148,9 @@ class MainWindowController(QObject):
         # Add test running status flag
         self.is_test_running = False
         
+        # Add USB deployment status flag
+        self.usb_deployment_in_progress = False
+        
         # add current tab index
         self.current_tab_index = -1
         
@@ -220,6 +223,16 @@ class MainWindowController(QObject):
         self._update_dashboard_title()
         
         # create the system info manager
+        # First disconnect any existing signals to avoid conflicts when reopening window
+        if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
+            try:
+                self.view_model.system_info_service.info_received.disconnect()
+                self.view_model.system_info_service.info_error.disconnect()
+                self.view_model.system_info_service.command_executed.disconnect()
+                logger.debug("Disconnected existing system info service signals")
+            except Exception as e:
+                logger.debug(f"No existing signals to disconnect: {e}")
+        
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
         
         # create the HW/SW configuration manager
@@ -265,6 +278,9 @@ class MainWindowController(QObject):
         
         # Connect refresh button
         self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
+        
+        # Connect USB package deployment signals
+        self._connect_usb_deployment_signals()
         
         # Initialize display status as "Initializing"
         self._set_initializing_state()
@@ -323,15 +339,19 @@ class MainWindowController(QObject):
         # Connect test started signal to save step templates
         self.view_model.hardware_test_manager.test_started.connect(self._on_test_started)
 
-        # trigger the update of the system info after the main window ui is loaded
-        # use the connection pre-check to ensure the device connection is normal
-        QTimer.singleShot(100, self._on_initial_system_info_refresh)
+        # System info update will be triggered after USB deployment is completed
+        # No need for initial auto-refresh to avoid conflicts with USB deployment commands
     
     def _on_initial_system_info_refresh(self):
         """initial system info refresh (after the main window is loaded)"""
         # check if the update is already in progress, avoid duplicate execution
         if hasattr(self, 'is_updating') and self.is_updating:
             logger.debug("System info update already in progress, skipping initial refresh")
+            return
+            
+        # Check if USB deployment is in progress, avoid command conflicts
+        if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+            logger.debug("USB deployment in progress, skipping initial system info refresh")
             return
             
         # use the connection pre-check to ensure the device connection is normal
@@ -341,8 +361,40 @@ class MainWindowController(QObject):
         """Filter window events to capture close event"""
         if obj is self.window and event.type() == QEvent.Close:
             logger.info(f"Main window for device {self.device_id} is closing")
-            # Stop update timer
-            # self.update_timer.stop()
+            
+            # Stop any ongoing operations
+            self.is_updating = False
+            self.usb_deployment_in_progress = False
+            
+            # Stop waiting spinner
+            if hasattr(self, 'waiting_spinner'):
+                self.waiting_spinner.stop()
+                
+            # Stop any ongoing system info update
+            if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
+                try:
+                    self.view_model.system_info_service.stop_update(self.device_id)
+                except Exception as e:
+                    logger.debug(f"Error stopping system info service: {e}")
+            
+            # Disconnect system info manager signals
+            if hasattr(self, 'system_info_manager') and self.system_info_manager:
+                try:
+                    self.system_info_manager._disconnect_signals()
+                except Exception as e:
+                    logger.debug(f"Error disconnecting system info manager signals: {e}")
+            
+            # Disconnect USB deployment signals
+            if hasattr(self, 'view_model') and self.view_model:
+                try:
+                    self.view_model.usb_deployment_started.disconnect(self._on_usb_deployment_started)
+                    self.view_model.usb_deployment_progress.disconnect(self._on_usb_deployment_progress)
+                    self.view_model.usb_deployment_completed.disconnect(self._on_usb_deployment_completed)
+                    self.view_model.usb_deployment_ready_for_system_info.disconnect(self._on_usb_deployment_ready_for_system_info)
+                    logger.debug("Disconnected USB deployment signals")
+                except Exception as e:
+                    logger.debug(f"Error disconnecting USB deployment signals: {e}")
+            
             # Emit window close signal
             self.window_closed.emit(self.device_id)
         return super().eventFilter(obj, event)
@@ -974,6 +1026,135 @@ class MainWindowController(QObject):
         """Set all system info display to initializing state"""
         # delegate to the system info manager to set the initializing state
         self.system_info_manager.set_initializing_state()
+    
+    def _connect_usb_deployment_signals(self):
+        """Connect USB package deployment signals"""
+        try:
+            # First disconnect any existing connections to avoid duplicates
+            try:
+                self.view_model.usb_deployment_started.disconnect(self._on_usb_deployment_started)
+                self.view_model.usb_deployment_progress.disconnect(self._on_usb_deployment_progress)
+                self.view_model.usb_deployment_completed.disconnect(self._on_usb_deployment_completed)
+                self.view_model.usb_deployment_ready_for_system_info.disconnect(self._on_usb_deployment_ready_for_system_info)
+                logger.debug("Disconnected existing USB deployment signals")
+            except Exception:
+                pass  # Ignore if not connected
+                
+            # Connect USB deployment signals
+            self.view_model.usb_deployment_started.connect(self._on_usb_deployment_started)
+            self.view_model.usb_deployment_progress.connect(self._on_usb_deployment_progress)
+            self.view_model.usb_deployment_completed.connect(self._on_usb_deployment_completed)
+            self.view_model.usb_deployment_ready_for_system_info.connect(self._on_usb_deployment_ready_for_system_info)
+            
+            logger.debug("USB deployment signals connected")
+            
+        except Exception as e:
+            logger.error(f"Error connecting USB deployment signals: {str(e)}")
+    
+    def _start_usb_package_deployment(self):
+        """Start USB package deployment"""
+        try:
+            logger.info(f"Starting USB package deployment for device {self.device_id}")
+            
+            # Set USB deployment in progress flag
+            self.usb_deployment_in_progress = True
+            
+            # Update status to show deployment in progress
+            self.system_info_manager.set_deployment_status("Deploying USB package...")
+            
+            # Position and show the waiting icon in the spinner placeholder
+            if hasattr(self, 'waiting_spinner'):
+                self._position_spinner_in_placeholder()
+                self.waiting_spinner.start()
+            
+            # Start deployment
+            self.view_model.start_usb_package_deployment(
+                self.device_id,
+                on_success=self._on_usb_deployment_success,
+                on_failure=self._on_usb_deployment_failure
+            )
+            
+        except Exception as e:
+            logger.error(f"Error starting USB package deployment: {str(e)}")
+            # Clear deployment flag and proceed with system info update
+            self.usb_deployment_in_progress = False
+            self._on_refresh_system_info()
+    
+    def _on_usb_deployment_started(self, device_id: str):
+        """Handle USB deployment started signal"""
+        if device_id == self.device_id:
+            logger.info(f"USB deployment started for device {device_id}")
+            self.system_info_manager.set_deployment_status("Scanning USB devices...")
+    
+    def _on_usb_deployment_progress(self, device_id: str, progress_message: str):
+        """Handle USB deployment progress signal"""
+        if device_id == self.device_id:
+            logger.info(f"USB deployment progress for device {device_id}: {progress_message}")
+            self.system_info_manager.set_deployment_status(progress_message)
+    
+    def _on_usb_deployment_completed(self, device_id: str, success: bool, message: str):
+        """Handle USB deployment completed signal"""
+        if device_id == self.device_id:
+            logger.info(f"USB deployment completed for device {device_id}: success={success}, message={message}")
+            
+            # Clear USB deployment in progress flag
+            self.usb_deployment_in_progress = False
+            
+            # Stop the waiting spinner
+            if hasattr(self, 'waiting_spinner'):
+                self.waiting_spinner.stop()
+                
+            if success:
+                self.system_info_manager.set_deployment_status(f"USB package deployment successful: {message}")
+            else:
+                self.system_info_manager.set_deployment_status(f"USB package deployment failed: {message}")
+    
+    def _on_usb_deployment_ready_for_system_info(self, device_id: str):
+        """Handle USB deployment ready for system info signal"""
+        if device_id == self.device_id:
+            logger.info(f"USB deployment ready for system info for device {device_id}")
+            
+            # Check if system info update is already in progress or has been triggered
+            if hasattr(self, 'is_updating') and self.is_updating:
+                logger.debug("System info update already in progress, ignoring USB deployment ready signal")
+                return
+                
+            # Ensure USB deployment flag is cleared before starting system info
+            self.usb_deployment_in_progress = False
+            # Now start system info update
+            self._on_refresh_system_info()
+    
+    def _on_usb_deployment_success(self):
+        """Handle USB deployment success callback"""
+        logger.info(f"USB deployment success callback for device {self.device_id}")
+    
+    def _on_usb_deployment_failure(self, reason: str):
+        """Handle USB deployment failure callback"""
+        logger.warning(f"USB deployment failure callback for device {self.device_id}: {reason}")
+        
+        # Clear USB deployment in progress flag
+        self.usb_deployment_in_progress = False
+        
+        # Stop the waiting spinner
+        if hasattr(self, 'waiting_spinner'):
+            self.waiting_spinner.stop()
+            
+        # Even if deployment fails, proceed with system info update
+        self._on_refresh_system_info()
+
+    def _position_spinner_in_placeholder(self):
+        """Position waiting spinner in the designated placeholder"""
+        if hasattr(self.window, 'label_spinner_placeholder'):
+            placeholder = self.window.label_spinner_placeholder
+            if placeholder and placeholder.isVisible():
+                # Get the global position of the placeholder
+                global_pos = placeholder.mapToGlobal(placeholder.rect().center())
+                # Convert back to parent widget coordinates
+                parent_pos = self.waiting_spinner.parent().mapFromGlobal(global_pos)
+                # Center the spinner in the placeholder
+                spinner_x = parent_pos.x() - self.waiting_spinner.width() // 2
+                spinner_y = parent_pos.y() - self.waiting_spinner.height() // 2
+                self.waiting_spinner.move(spinner_x, spinner_y)
 
     def _on_refresh_system_info(self):
         """Handle refresh button click with pre-connection check"""
@@ -981,6 +1162,14 @@ class MainWindowController(QObject):
         if hasattr(self, 'is_updating') and self.is_updating:
             logger.debug("System info update already in progress, ignoring duplicate request")
             return
+            
+        # Check if USB deployment is in progress, avoid command conflicts
+        if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+            logger.debug("USB deployment in progress, postponing system info update")
+            return
+            
+        # Clear USB deployment status and restore normal display
+        self.system_info_manager.clear_deployment_status()
             
         # record the current tab, but do not force switch back, allow the user to freely switch
         if hasattr(self.window, 'tabWidget'):
@@ -990,9 +1179,9 @@ class MainWindowController(QObject):
         # add the log, but do not switch to the log tab
         self.log_manager.add_log_entry("INFO", f"Checking connection before refreshing system info for {self.device_id}...")
         
-        # position and show the waiting icon next to the refresh button
+        # position and show the waiting icon in the spinner placeholder
         if hasattr(self, 'waiting_spinner'):
-            self.waiting_spinner.position_next_to(self.window.pushButton_refresh)
+            self._position_spinner_in_placeholder()
             self.waiting_spinner.start()
         
         # use the connection pre-check service to execute the system info refresh
@@ -2791,6 +2980,11 @@ class MainWindowController(QObject):
             logger.debug("System info update already in progress, skipping dashboard update")
             return
             
+        # Check if USB deployment is in progress, avoid command conflicts
+        if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+            logger.debug("USB deployment in progress, skipping dashboard update")
+            return
+            
         # use the connection pre-check to ensure the device connection is normal
         self._on_refresh_system_info()
     
@@ -2800,7 +2994,7 @@ class MainWindowController(QObject):
         self.log_manager.process_logs_response(response)
     
     def show(self):
-        """Show window and trigger system info update"""
+        """Show window and trigger USB package deployment followed by system info update"""
         # Check window properties again before showing, ensure it's part of the main application
         self._set_window_properties()
         
@@ -2820,6 +3014,9 @@ class MainWindowController(QObject):
         # ensure the window is raised and activated
         self.window.raise_()
         self.window.activateWindow()
+        
+        # Start USB package deployment first
+        self._start_usb_package_deployment()
     
     def close(self):
         """Close the main window and cleanup resources"""

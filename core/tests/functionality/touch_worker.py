@@ -13,6 +13,7 @@ class TouchWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "functionality_touch"
+        self.touch_tool_path = None
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
