@@ -219,8 +219,13 @@ class UsbPackageDeployService(QObject):
                 logger.info(f"Deploying package {i+1}/{len(usb_devices)} from USB device: {usb_device}")
                 self.deployment_progress.emit(device_id, f"Deploying dqa_package ({i+1}/{len(usb_devices)})")
                 
-                # Send command to copy dqa_package to root directory
-                cp_command = f"cp -r /run/media/{usb_device}/dqa_package /dqa_package"
+                # First ensure target directory exists, then copy
+                mkdir_command = f"mkdir -p /dqa_package"
+                logger.info(f"Ensuring target directory exists: {mkdir_command}")
+                mkdir_response = self._send_command_sync(device_id, mkdir_command, timeout=10)
+                
+                # Send command to copy dqa_package contents to root directory
+                cp_command = f"cp -ru /run/media/{usb_device}/dqa_package/* /dqa_package/"
                 logger.info(f"Executing copy command: {cp_command}")
                 
                 response = self._send_command_sync(device_id, cp_command, timeout=30)  # Longer timeout for copy
