@@ -52,6 +52,7 @@ class BatteryMonitorService(QObject):
         192: "Discharging",
         160: "Full Charged",
         224: "Full Charged",
+        144: "Full Discharged",
         32770: "Initializing",
         32896: "Over Charged",
         16512: "Terminate Charge",
@@ -233,10 +234,10 @@ class BatteryMonitorService(QObject):
     
     def stop_battery_monitoring(self, device_id: str = None):
         """
-        Stop the ongoing battery monitoring
+        Stop battery monitoring for specific device or current device
         
         Args:
-            device_id: The device ID to stop, if None stops the current monitoring
+            device_id: Target device ID, if None will stop current monitoring
         """
         if device_id and device_id != self.current_device_id:
             logger.debug(f"No active battery monitoring for device {device_id}")
@@ -251,6 +252,7 @@ class BatteryMonitorService(QObject):
             # Reset the monitoring status
             self.is_monitoring = False
             self._is_processing = False  # Clear processing flag
+            self._single_reading_mode = False  # Clear single reading mode flag
             self.current_device_id = None
             self.collected_battery_info = {}
             
@@ -258,6 +260,11 @@ class BatteryMonitorService(QObject):
             self.retry_counts = {}
             self.current_command_name = None
             self.current_command_string = None
+        else:
+            # Even if not monitoring, clear single reading mode
+            # This handles cases where get_battery_info_once was called
+            self._single_reading_mode = False
+            logger.debug("Cleared single reading mode flag")
     
     def get_battery_info_once(self, device_id: str) -> bool:
         """

@@ -99,8 +99,9 @@ class BatteryMonitorManager(QObject):
         """
         self.ui_components = components
         
-        # Connect refresh button if provided
-        if "refresh_button" in components:
+        # Connect refresh button only if provided and no main_controller is set
+        # (main_controller handles pre-check connections)
+        if "refresh_button" in components and (not hasattr(self, 'main_controller') or not self.main_controller):
             refresh_button = components["refresh_button"]
             
             # Disconnect any existing connections first
@@ -117,6 +118,8 @@ class BatteryMonitorManager(QObject):
             logger.info(f"Button enabled: {refresh_button.isEnabled()}")
             logger.info(f"Button visible: {refresh_button.isVisible()}")
             
+        elif "refresh_button" in components and hasattr(self, 'main_controller') and self.main_controller:
+            logger.info("Refresh button connection handled by main_controller (with pre-check)")
         else:
             logger.warning("No refresh_button found in UI components")
         
@@ -155,18 +158,21 @@ class BatteryMonitorManager(QObject):
         self.chart_widget = chart_widget
     
     def start_monitoring(self) -> bool:
-        """
-        Start battery monitoring
+        """Start battery monitoring"""
+        logger.debug(f"Starting battery monitoring for device: {self.device_id}")
         
-        Returns:
-            bool: True if monitoring started successfully
-        """
-        # Check if manager is already monitoring
+        # Ensure we're not already monitoring
         if self.is_monitoring:
-            logger.warning("Battery monitoring already active")
+            logger.warning("Battery monitoring already in progress")
             return False
         
-        # Check if service is in single reading mode
+        # Force clear any lingering state flags to ensure clean start
+        if self.battery_service:
+            self.battery_service._single_reading_mode = False
+            self.battery_service._is_processing = False
+            logger.debug("Force cleared battery service state flags before starting")
+        
+        # Check if service is in single reading mode (after force clear, should be False)
         if getattr(self.battery_service, '_single_reading_mode', False):
             logger.warning("Cannot start monitoring while single reading is in progress")
             return False
@@ -183,8 +189,9 @@ class BatteryMonitorManager(QObject):
         # Start timer for consistent intervals
         self.monitoring_timer.start(self.monitoring_interval)
         
-        # Start initial data collection immediately
-        success = self.battery_service.start_battery_monitoring(self.device_id)
+        # Start initial data collection immediately using get_battery_info_once
+        # to avoid conflicts with the monitoring timer
+        success = self.battery_service.get_battery_info_once(self.device_id)
         
         if success:
             self.monitoring_started.emit()
@@ -227,6 +234,7 @@ class BatteryMonitorManager(QObject):
         
         # Stop monitoring timer
         self.monitoring_timer.stop()
+        logger.debug("Monitoring timer stopped")
         
         # Stop chart widget timer immediately
         if self.chart_widget:
@@ -234,24 +242,41 @@ class BatteryMonitorManager(QObject):
                 self.chart_widget.update_timer.stop()
                 logger.info("Chart widget timer stopped")
         
-        # Stop battery service
+        # Stop battery service and ensure all flags are cleared
         if self.battery_service:
             self.battery_service.stop_battery_monitoring(self.device_id)
+            
+            # Force clear any remaining state flags
+            self.battery_service._single_reading_mode = False
+            self.battery_service._is_processing = False
+            logger.debug("Forced clear of battery service state flags")
         
-        # Update state
+        logger.debug("Battery service monitoring stopped")
+        
+        # Set manager state to not monitoring  
         self.is_monitoring = False
+        logger.debug("Manager monitoring state set to False")
         
-        # Update UI state to final stopped state
-        self._set_monitoring_ui_state(False)
+        # Update UI to show ready status
+        self._update_status_display("Ready")
+        logger.debug("UI state updated to stopped")
         
-        # Close CSV file if logging was enabled
-        self._close_csv_logging()
+        # Close CSV file if open
+        if hasattr(self, 'csv_file') and self.csv_file:
+            self.csv_file.close()
+            logger.info(f"CSV file closed: {getattr(self, 'csv_filename', 'unknown')}")
+            self.csv_file = None
         
         # Add system log
-        if self.main_controller:
-            self.main_controller.add_system_log("INFO", "Battery monitoring stopped")
+        if hasattr(self, 'main_controller') and hasattr(self.main_controller, 'add_system_log'):
+            self.main_controller.add_system_log("INFO", f"Battery monitoring stopped for device: {self.device_id}")
+            logger.debug("System log added via main_controller")
         
+        # Emit completed signal
+        logger.info("Emitting monitoring_completed signal")
         self.monitoring_completed.emit()
+        
+        logger.debug("Battery monitoring stop sequence completed")
     
     def get_single_reading(self):
         """Get a single battery reading without continuous monitoring"""
@@ -581,7 +606,8 @@ class BatteryMonitorManager(QObject):
                 logger.debug("Battery service is processing, skipping this timer trigger")
                 return
                 
-            self.battery_service.start_battery_monitoring(self.device_id)
+            # Use get_battery_info_once for timer-triggered readings to avoid state conflicts
+            self.battery_service.get_battery_info_once(self.device_id)
     
     @Slot(str, dict)
     def _on_battery_info_received(self, device_id: str, battery_info: Dict[str, Any]):
@@ -697,10 +723,10 @@ class BatteryMonitorManager(QObject):
                     border-radius: 3px;
                     min-width: 70px;
                 }
-                QMessageBox QPushButton:hover {
+                QPushButton:hover {
                     background-color: #1C97EA;
                 }
-                QMessageBox QPushButton:pressed {
+                QPushButton:pressed {
                     background-color: #005A9E;
                 }
             """)
@@ -988,3 +1014,43 @@ class BatteryMonitorManager(QObject):
             logger.error(f"Error logging battery data to CSV: {str(e)}")
             # Disable CSV logging on error to prevent spam
             self.csv_logging_enabled = False 
+
+    def force_reset(self):
+        """Force reset all battery monitoring states - use when system is stuck"""
+        logger.info(f"Force resetting battery monitoring states for device: {self.device_id}")
+        
+        # Stop all timers
+        if hasattr(self, 'monitoring_timer') and self.monitoring_timer:
+            self.monitoring_timer.stop()
+            logger.debug("Forced stop monitoring timer")
+        
+        # Stop chart widget timer
+        if self.chart_widget and hasattr(self.chart_widget, 'update_timer'):
+            self.chart_widget.update_timer.stop()
+            logger.debug("Forced stop chart timer")
+        
+        # Reset battery service states
+        if self.battery_service:
+            self.battery_service.stop_battery_monitoring(self.device_id)
+            self.battery_service._single_reading_mode = False
+            self.battery_service._is_processing = False
+            self.battery_service.is_monitoring = False
+            self.battery_service.pending_commands.clear()
+            logger.debug("Forced reset battery service states")
+        
+        # Reset manager states
+        self.is_monitoring = False
+        
+        # Reset UI state
+        self._update_status_display("Ready")
+        
+        # Close any open CSV file
+        if hasattr(self, 'csv_file') and self.csv_file:
+            try:
+                self.csv_file.close()
+                logger.info("Forced close CSV file")
+            except:
+                pass
+            self.csv_file = None
+        
+        logger.info("Force reset completed") 
