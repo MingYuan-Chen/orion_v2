@@ -42,6 +42,7 @@ class BatteryWorker(BaseTestWorker):
             192: "Discharging",
             160: "Full Charged",
             224: "Full Charged",
+            144: "Full Discharged",
             32770: "Initializing",
             32896: "Over Charged",
             16512: "Terminate Charge",

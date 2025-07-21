@@ -2,17 +2,18 @@
 Battery Monitor Widget Module
 A standalone window for real-time battery monitoring
 """
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                              QLabel, QPushButton, QProgressBar, QFrame, 
-                              QGroupBox, QSpacerItem, QSizePolicy, QComboBox, QCheckBox)
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QFont, QPixmap, QIcon
-from typing import Dict, Any, Optional
-from util.logger import logger
-import datetime
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
+                               QLabel, QPushButton, QProgressBar, QComboBox, 
+                               QCheckBox, QFrame, QGridLayout, QSizePolicy, QMessageBox)
+from PySide6.QtCore import Qt, QTimer, Slot, Signal
+from PySide6.QtGui import QFont
 
 from core.services.battery_monitor_service import BatteryMonitorService
 from gui.views.battery_monitor_manager import BatteryMonitorManager
+from core.services.connection_pre_check import ConnectionPreCheckService
+from gui.view_models.device_manager_view_model import DeviceManagerViewModel
+from util.logger import logger
+import datetime
 
 
 class BatteryMonitorWidget(QWidget):
@@ -38,10 +39,16 @@ class BatteryMonitorWidget(QWidget):
         
         self.device_id = device_id
         self.platform_name = platform_name
+        self.serial_worker = serial_worker
         
         # Create battery service and manager
         self.battery_service = BatteryMonitorService(serial_worker, platform_name)
         self.battery_manager = BatteryMonitorManager(device_id, self.battery_service)
+        
+        # Create connection pre-check service (create a mock device manager view model)
+        self.device_manager_vm = DeviceManagerViewModel()
+        self.device_manager_vm._serial_worker = serial_worker
+        self.connection_pre_check = ConnectionPreCheckService(self.device_manager_vm)
         
         # UI components
         self.ui_components = {}
@@ -344,9 +351,9 @@ class BatteryMonitorWidget(QWidget):
     
     def _setup_connections(self):
         """Setup signal connections"""
-        # Button connections
-        self.ui_components["refresh_once_button"].clicked.connect(self._on_refresh_once)
-        self.ui_components["monitor_button"].clicked.connect(self._on_toggle_monitoring)
+        # Button connections with pre-check
+        self.ui_components["refresh_once_button"].clicked.connect(self._on_refresh_once_with_pre_check)
+        self.ui_components["monitor_button"].clicked.connect(self._on_toggle_monitoring_with_pre_check)
         self.ui_components["interval_combo"].currentTextChanged.connect(self._on_interval_changed)
         
         # Battery manager connections
@@ -373,25 +380,105 @@ class BatteryMonitorWidget(QWidget):
         # Set default monitoring interval
         self._on_interval_changed("3 seconds")
     
-    def _on_refresh_once(self):
-        """Handle refresh once button click"""
-        logger.info("Battery Monitor: Refresh once requested")
+    def _on_refresh_once_with_pre_check(self):
+        """Handle refresh once button click with pre-connection check"""
+        logger.info("Battery Monitor Widget: Refresh once requested with pre-check")
         
         if self.is_monitoring:
             logger.warning("Cannot refresh once while monitoring is active")
             return
         
+        # Show checking state
+        original_text = self.ui_components["refresh_once_button"].text()
+        self.ui_components["refresh_once_button"].setText("Checking...")
+        self.ui_components["refresh_once_button"].setEnabled(False)
+        
+        # Use connection pre-check service
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name="Battery Refresh (Widget)",
+            operation_callback=self._execute_refresh_once,
+            on_success=self._on_refresh_pre_check_success,
+            on_failure=lambda reason: self._on_refresh_pre_check_failure(reason, original_text),
+            check_timeout=12000  # 12 seconds timeout
+        )
+    
+    def _execute_refresh_once(self):
+        """Execute the actual refresh once operation"""
         # Get single reading
         self.battery_manager.get_single_reading()
+        
+        # Restore button state
+        self.ui_components["refresh_once_button"].setText("Refresh Once")
+        self.ui_components["refresh_once_button"].setEnabled(True)
     
-    def _on_toggle_monitoring(self):
-        """Handle monitor button toggle"""
+    def _on_refresh_pre_check_success(self):
+        """Refresh once pre-check success callback"""
+        logger.info(f"Connection verified, refreshing battery info for {self.device_id}")
+    
+    def _on_refresh_pre_check_failure(self, reason: str, original_text: str):
+        """Refresh once pre-check failure callback"""
+        logger.error(f"Connection check failed for battery refresh: {reason}")
+        
+        # Restore button to normal state
+        self.ui_components["refresh_once_button"].setText(original_text)
+        self.ui_components["refresh_once_button"].setEnabled(True)
+        
+        # Show error message
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText("Device connection failed, battery refresh is canceled.")
+        msg_box.setInformativeText("Please ensure the device is connected and try again.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
+    
+    def _on_toggle_monitoring_with_pre_check(self):
+        """Handle monitor button toggle with pre-connection check"""
         if self.is_monitoring:
-            logger.info("Battery Monitor: Stopping monitoring")
+            logger.info("Battery Monitor Widget: Stopping monitoring")
             self.battery_manager.stop_monitoring()
         else:
-            logger.info("Battery Monitor: Starting monitoring")
-            self.battery_manager.start_monitoring()
+            logger.info("Battery Monitor Widget: Starting monitoring with pre-check")
+            
+            # Show checking state
+            self.ui_components["monitor_button"].setText("Checking...")
+            self.ui_components["monitor_button"].setEnabled(False)
+            
+            # Use connection pre-check service
+            self.connection_pre_check.execute_with_pre_check(
+                device_id=self.device_id,
+                operation_name="Battery Monitoring (Widget)",
+                operation_callback=self._execute_start_monitoring,
+                on_success=self._on_monitoring_pre_check_success,
+                on_failure=self._on_monitoring_pre_check_failure,
+                check_timeout=12000  # 12 seconds timeout
+            )
+    
+    def _execute_start_monitoring(self):
+        """Execute the actual start monitoring operation"""
+        self.battery_manager.start_monitoring()
+    
+    def _on_monitoring_pre_check_success(self):
+        """Start monitoring pre-check success callback"""
+        logger.info(f"Connection verified, starting battery monitoring for {self.device_id}")
+    
+    def _on_monitoring_pre_check_failure(self, reason: str):
+        """Start monitoring pre-check failure callback"""
+        logger.error(f"Connection check failed for battery monitoring: {reason}")
+        
+        # Restore button to normal state
+        self.ui_components["monitor_button"].setText("Start Monitoring")
+        self.ui_components["monitor_button"].setEnabled(True)
+        
+        # Show error message
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText("Device connection failed, battery monitoring is canceled.")
+        msg_box.setInformativeText("Please ensure the device is connected and try again.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
     
     def _on_interval_changed(self, interval_text: str):
         """Handle interval change"""
@@ -453,7 +540,7 @@ class BatteryMonitorWidget(QWidget):
             }
         """)
     
-    def get_current_battery_data(self) -> Dict[str, Any]:
+    def get_current_battery_data(self) -> dict:
         """Get current battery data"""
         return self.battery_manager.get_current_battery_data()
     

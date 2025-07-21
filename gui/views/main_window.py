@@ -1375,7 +1375,7 @@ class MainWindowController(QObject):
             self.log_manager.add_log_entry("INFO", "Battery serial number updated")
 
     def _on_battery_monitor_clicked(self):
-        """Handle Battery Monitor button click"""
+        """Handle Battery Monitor button click with pre-connection check"""
         logger.info("Battery Monitor button clicked")
         
         # Add log entry
@@ -1391,6 +1391,15 @@ class MainWindowController(QObject):
             if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
                 is_currently_monitoring = self.battery_monitor_manager.is_monitoring
                 logger.info(f"Current monitoring state: {is_currently_monitoring}")
+                
+                # Check if button is stuck in checking state
+                button_text = self.window.pushButton_battery_monitor.text()
+                if button_text == "Checking...":
+                    logger.warning("Button is stuck in Checking state, forcing reset")
+                    self.battery_monitor_manager.force_reset()
+                    self._restore_battery_monitor_button_state()
+                    self.log_manager.add_log_entry("WARNING", "Reset battery monitor from stuck checking state")
+                    return
                 
                 if is_currently_monitoring:
                     # Immediately show stopping state before calling stop_monitoring
@@ -1417,26 +1426,147 @@ class MainWindowController(QObject):
                     # Now call stop monitoring
                     self.battery_monitor_manager.stop_monitoring()
                 else:
-                    self.battery_monitor_manager.start_monitoring()
+                    # Start monitoring with pre-check
+                    self.execute_battery_monitoring_with_pre_check()
             else:
                 logger.error("Battery monitor manager not available after initialization")
-            
+                
         except Exception as e:
-            logger.error(f"Failed to start Battery Monitor: {str(e)}")
-            self.log_manager.add_log_entry("ERROR", f"Battery Monitor failed: {str(e)}")
+            logger.error(f"Error in battery monitor button click: {str(e)}")
+            self.log_manager.add_log_entry("ERROR", f"Battery monitor error: {str(e)}")
+
+    def execute_battery_monitoring_with_pre_check(self):
+        """Execute battery monitoring with pre-check"""
+        # Check if update is already in progress, avoid duplicate execution
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System update already in progress, postponing battery monitoring")
+            return
             
-            # Show error message
-            msg_box = QMessageBox(self.window)
-            msg_box.setWindowTitle("Battery Monitor Error")
-            msg_box.setText("Battery Monitor 無法啟動")
-            msg_box.setInformativeText(f"錯誤訊息：{str(e)}")
-            msg_box.setIcon(QMessageBox.Critical)
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.setStyleSheet(self._get_dark_message_box_style())
-            msg_box.exec()
+        # Check if USB deployment is in progress, avoid command conflicts
+        if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+            logger.debug("USB deployment in progress, postponing battery monitoring")
+            return
+        
+        self.log_manager.add_log_entry("INFO", f"Checking connection before starting battery monitoring for {self.device_id}...")
+        
+        # Show checking state
+        self.window.pushButton_battery_monitor.setText("Checking...")
+        self.window.pushButton_battery_monitor.setEnabled(False)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:disabled {
+                background-color: #FF9800;
+                color: white;
+            }
+        """)
+        
+        # Use connection pre-check service to execute battery monitoring
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name="Battery Monitoring",
+            operation_callback=self._execute_battery_monitoring,
+            on_success=self._on_battery_monitoring_pre_check_success,
+            on_failure=self._on_battery_monitoring_pre_check_failure,
+            check_timeout=12000  # 12 seconds timeout
+        )
     
+    def _execute_battery_monitoring(self):
+        """Execute the actual battery monitoring operation"""
+        try:
+            # Start battery monitoring
+            if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+                success = self.battery_monitor_manager.start_monitoring()
+                if not success:
+                    # If start_monitoring failed, restore button state
+                    logger.warning("Battery monitoring failed to start")
+                    self._restore_battery_monitor_button_state()
+                    self.log_manager.add_log_entry("ERROR", "Failed to start battery monitoring")
+                else:
+                    logger.info("Battery monitoring started successfully")
+            else:
+                logger.error("Battery monitor manager not available")
+                self._restore_battery_monitor_button_state()
+                self.log_manager.add_log_entry("ERROR", "Battery monitor manager not available")
+        except Exception as e:
+            logger.error(f"Error executing battery monitoring: {str(e)}")
+            self._restore_battery_monitor_button_state()
+            self.log_manager.add_log_entry("ERROR", f"Battery monitoring error: {str(e)}")
+    
+    def _restore_battery_monitor_button_state(self):
+        """Restore battery monitor button to normal state"""
+        self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.window.pushButton_battery_monitor.setEnabled(True)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+        """)
+        logger.debug("Battery monitor button state restored")
+    
+    def _on_battery_monitoring_pre_check_success(self):
+        """Battery monitoring pre-check success callback"""
+        self.log_manager.add_log_entry("INFO", f"Connection verified, starting battery monitoring for {self.device_id}")
+        
+        # Force clear any lingering states before starting
+        if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+            if hasattr(self.battery_monitor_manager, 'battery_service') and self.battery_monitor_manager.battery_service:
+                self.battery_monitor_manager.battery_service._single_reading_mode = False
+                self.battery_monitor_manager.battery_service._is_processing = False
+                logger.debug("Pre-start: Cleared battery service state flags")
+    
+    def _on_battery_monitoring_pre_check_failure(self, reason: str):
+        """Battery monitoring pre-check failure callback"""
+        self.log_manager.add_log_entry("ERROR", f"Connection check failed for battery monitoring: {reason}")
+        
+        # Force reset states on failure to ensure clean state
+        if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+            self.battery_monitor_manager.force_reset()
+        
+        # Restore button to normal state since pre-check failed
+        self.window.pushButton_battery_monitor.setText("Start Monitoring")
+        self.window.pushButton_battery_monitor.setEnabled(True)
+        self.window.pushButton_battery_monitor.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                border: none;
+                padding: 6px 15px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1C97EA;
+            }
+        """)
+        
+        # Show error message
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText("Device connection failed, battery monitoring is canceled.")
+        msg_box.setInformativeText(f"Ensure the device is connected, back up existing test content, then close the main window and return to Device Manager to reconnect the device.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # Apply dark style sheet
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
+
     def _init_embedded_battery_monitor(self):
-        """Initialize embedded battery monitor in Stability Test tab"""
+        """Initialize embedded battery monitor for main window"""
+        
         try:
             # Get serial worker from view model
             serial_worker = None
@@ -1462,10 +1592,10 @@ class MainWindowController(QObject):
             # Initialize battery chart widget
             self._init_battery_chart()
             
-            # Map UI components from main window
+            # Map UI components from main window (exclude refresh_button to handle separately)
             ui_mapping = {
                 "monitor_button": self.window.pushButton_battery_monitor,
-                "refresh_button": self.window.pushButton_battery_refresh,
+                # "refresh_button": self.window.pushButton_battery_refresh,  # Remove this line
                 "interval_spinbox": self.window.spinBox_monitor_interval,
                 "status_label": self.window.label_battery_status,
                 "voltage_label": self.window.label_voltage_value,
@@ -1483,14 +1613,27 @@ class MainWindowController(QObject):
             
             self.battery_monitor_manager.set_ui_components(ui_mapping)
             
-            # Set chart widget reference
+            # Set chart widget reference BEFORE setting main controller
             if hasattr(self, 'battery_chart_widget') and self.battery_chart_widget:
                 self.battery_monitor_manager.set_chart_widget(self.battery_chart_widget)
+                logger.info("Chart widget reference set to battery monitor manager")
+            
+            # Set main controller reference for battery monitor manager
+            self.battery_monitor_manager.main_controller = self
             
             # Connect signals
             self.battery_monitor_manager.monitoring_started.connect(self._on_embedded_monitoring_started)
             self.battery_monitor_manager.monitoring_completed.connect(self._on_embedded_monitoring_completed)
             self.battery_monitor_manager.monitoring_error.connect(self._on_embedded_monitoring_error)
+            
+            # Connect battery refresh button to our pre-check method
+            self.window.pushButton_battery_refresh.clicked.connect(self._on_battery_refresh_clicked)
+            
+            # Connect battery service signals for proper data flow
+            if hasattr(self.battery_service, 'battery_info_received'):
+                self.battery_service.battery_info_received.connect(self.battery_monitor_manager._on_battery_info_received)
+            if hasattr(self.battery_service, 'battery_info_error'):
+                self.battery_service.battery_info_error.connect(self.battery_monitor_manager._on_battery_info_error)
             
             # Don't perform initial refresh to avoid state conflicts
             # User can click "Refresh Once" button if needed
@@ -1501,6 +1644,109 @@ class MainWindowController(QObject):
             logger.error(f"Failed to initialize embedded battery monitor: {str(e)}")
             raise
     
+    def add_system_log(self, level: str, message: str):
+        """
+        Add system log entry (for battery monitor manager compatibility)
+        
+        Args:
+            level: Log level (INFO, WARNING, ERROR, etc.)
+            message: Log message
+        """
+        self.log_manager.add_log_entry(level, message)
+
+    def _on_battery_refresh_clicked(self):
+        """Handle battery refresh button click with pre-connection check"""
+        logger.info("Battery refresh button clicked")
+        
+        # Add log entry
+        self.log_manager.add_log_entry("INFO", "Battery refresh button clicked")
+        
+        try:
+            # Check if battery monitor manager is available
+            if not hasattr(self, 'battery_monitor_manager') or self.battery_monitor_manager is None:
+                logger.info("Battery monitor not initialized, initializing now...")
+                self._init_embedded_battery_monitor()
+            
+            # Check if monitoring is in progress
+            if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+                if self.battery_monitor_manager.is_monitoring:
+                    logger.warning("Cannot refresh battery info while monitoring is active")
+                    self.log_manager.add_log_entry("WARNING", "Cannot refresh battery info while monitoring is active")
+                    return
+                
+                # Start refresh with pre-check
+                self.execute_battery_refresh_with_pre_check()
+            else:
+                logger.error("Battery monitor manager not available after initialization")
+                
+        except Exception as e:
+            logger.error(f"Error in battery refresh button click: {str(e)}")
+            self.log_manager.add_log_entry("ERROR", f"Battery refresh error: {str(e)}")
+
+    def execute_battery_refresh_with_pre_check(self):
+        """Execute battery refresh with pre-check"""
+        # Check if update is already in progress, avoid duplicate execution
+        if hasattr(self, 'is_updating') and self.is_updating:
+            logger.debug("System update already in progress, postponing battery refresh")
+            return
+            
+        # Check if USB deployment is in progress, avoid command conflicts
+        if hasattr(self, 'usb_deployment_in_progress') and self.usb_deployment_in_progress:
+            logger.debug("USB deployment in progress, postponing battery refresh")
+            return
+        
+        self.log_manager.add_log_entry("INFO", f"Checking connection before refreshing battery info for {self.device_id}...")
+        
+        # Show checking state
+        original_text = self.window.pushButton_battery_refresh.text()
+        self.window.pushButton_battery_refresh.setText("Checking...")
+        self.window.pushButton_battery_refresh.setEnabled(False)
+        
+        # Use connection pre-check service to execute battery refresh
+        self.connection_pre_check.execute_with_pre_check(
+            device_id=self.device_id,
+            operation_name="Battery Refresh",
+            operation_callback=self._execute_battery_refresh,
+            on_success=self._on_battery_refresh_pre_check_success,
+            on_failure=lambda reason: self._on_battery_refresh_pre_check_failure(reason, original_text),
+            check_timeout=12000  # 12 seconds timeout
+        )
+    
+    def _execute_battery_refresh(self):
+        """Execute the actual battery refresh operation"""
+        # Get single battery reading
+        if hasattr(self, 'battery_monitor_manager') and self.battery_monitor_manager:
+            self.battery_monitor_manager.get_single_reading()
+            
+            # Restore refresh button state
+            self.window.pushButton_battery_refresh.setText("Refresh Once")
+            self.window.pushButton_battery_refresh.setEnabled(True)
+    
+    def _on_battery_refresh_pre_check_success(self):
+        """Battery refresh pre-check success callback"""
+        self.log_manager.add_log_entry("INFO", f"Connection verified, refreshing battery info for {self.device_id}")
+    
+    def _on_battery_refresh_pre_check_failure(self, reason: str, original_text: str):
+        """Battery refresh pre-check failure callback"""
+        self.log_manager.add_log_entry("ERROR", f"Connection check failed for battery refresh: {reason}")
+        
+        # Restore button to normal state since pre-check failed
+        self.window.pushButton_battery_refresh.setText(original_text)
+        self.window.pushButton_battery_refresh.setEnabled(True)
+        
+        # Show error message
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Connection Check Failed")
+        msg_box.setText("Device connection failed, battery refresh is canceled.")
+        msg_box.setInformativeText(f"Ensure the device is connected, back up existing test content, then close the main window and return to Device Manager to reconnect the device.")
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        
+        # Apply dark style sheet
+        msg_box.setStyleSheet(self._get_dark_message_box_style())
+        
+        msg_box.exec()
+
     def _init_battery_chart(self):
         """Initialize battery chart widget"""
         try:
@@ -2894,8 +3140,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v1.6_20250708"])
-                writer.writerow(["Config Version", "v1.1_20250708"])
+                writer.writerow(["Tool Version", "v1.6.1_20250721"])
+                writer.writerow(["Config Version", "v1.1.1_20250721"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
