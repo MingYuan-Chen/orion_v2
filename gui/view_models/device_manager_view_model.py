@@ -714,7 +714,7 @@ class DeviceManagerViewModel(QObject):
             return False
         
         # Check for 0x04 value which indicates Athena platform
-        if '0x04' in clean_response:
+        if '0x04' in clean_response or '0x05' in clean_response:
             logger.info(f"Athena platform signature found: 0x04 in response '{clean_response}'")
             return True
         
