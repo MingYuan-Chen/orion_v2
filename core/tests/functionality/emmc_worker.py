@@ -74,8 +74,8 @@ class EmmcWorker(BaseTestWorker):
         try:
             logger.info(f"Start validating EMMC write speed: {response}")
             
-            # match various formats of speed values, e.g. 79.7 MB/s, 79.7 MiB/s, 79.7 M/s, etc.
-            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_match = re.search(speed_pattern, response)
             
             if not speed_match:
@@ -85,20 +85,28 @@ class EmmcWorker(BaseTestWorker):
                 logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
                 return False, f"EMMC write test failed, cannot parse write speed. Line containing 'copied': {copied_line}"
                 
-            # extract speed value and convert to float
-            write_speed = float(speed_match.group(1))
-            logger.info(f"Extracted write speed: {write_speed} MB/s")
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                write_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted write speed: {speed_value} {speed_unit} = {write_speed_mb} MB/s")
+            else:
+                write_speed_mb = speed_value
+                logger.info(f"Extracted write speed: {write_speed_mb} MB/s")
             
             # use configured threshold to determine
             threshold = self.emmc_write_speed_threshold
             logger.info(f"Speed threshold: {threshold} MB/s")
             
-            if write_speed >= threshold:
-                logger.info(f"EMMC write speed test passed: {write_speed} MB/s > {threshold} MB/s")
-                return True, f"EMMC write test passed, write speed: {write_speed} MB/s > {threshold} MB/s"
+            if write_speed_mb >= threshold:
+                logger.info(f"EMMC write speed test passed: {write_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"EMMC write test passed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) > {threshold} MB/s"
             else:
-                logger.warning(f"EMMC write speed test failed: {write_speed} MB/s < {threshold} MB/s")
-                return False, f"EMMC write test failed, write speed: {write_speed} MB/s < {threshold} MB/s"
+                logger.warning(f"EMMC write speed test failed: {write_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"EMMC write test failed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) < {threshold} MB/s"
                 
         except Exception as e:
             logger.error(f"EMMC write validation error: {str(e)}", exc_info=True)
@@ -125,8 +133,8 @@ class EmmcWorker(BaseTestWorker):
         """
         try:
             logger.info(f"Start validating EMMC read speed: {response}")
-            # match various formats of speed values, e.g. 291 MB/s, 291 MiB/s, 291 M/s, etc.
-            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_match = re.search(speed_pattern, response)
             
             if not speed_match:
@@ -136,20 +144,28 @@ class EmmcWorker(BaseTestWorker):
                 logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
                 return False, f"EMMC read test failed, cannot parse read speed. Line containing 'copied': {copied_line}"
                 
-            # extract speed value and convert to float
-            read_speed = float(speed_match.group(1))
-            logger.info(f"Extracted read speed: {read_speed} MB/s")
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                read_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted read speed: {speed_value} {speed_unit} = {read_speed_mb} MB/s")
+            else:
+                read_speed_mb = speed_value
+                logger.info(f"Extracted read speed: {read_speed_mb} MB/s")
             
             # use configured threshold to determine
             threshold = self.emmc_read_speed_threshold
             logger.info(f"Speed threshold: {threshold} MB/s")
             
-            if read_speed >= threshold:
-                logger.info(f"EMMC read speed test passed: {read_speed} MB/s > {threshold} MB/s")
-                return True, f"EMMC read test passed, read speed: {read_speed} MB/s > {threshold} MB/s"
+            if read_speed_mb >= threshold:
+                logger.info(f"EMMC read speed test passed: {read_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"EMMC read test passed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) > {threshold} MB/s"
             else:
-                logger.warning(f"EMMC read speed test failed: {read_speed} MB/s < {threshold} MB/s")
-                return False, f"EMMC read test failed, read speed: {read_speed} MB/s < {threshold} MB/s"
+                logger.warning(f"EMMC read speed test failed: {read_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"EMMC read test failed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) < {threshold} MB/s"
                 
         except Exception as e:
             logger.error(f"EMMC read validation error: {str(e)}", exc_info=True)

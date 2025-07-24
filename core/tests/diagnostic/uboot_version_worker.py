@@ -47,19 +47,44 @@ class UbootVersionWorker(BaseTestWorker):
             bool: True if U-Boot version is found and extracted successfully
         """
         try:
-            # Use regex to extract U-Boot version from response
+            logger.info(f"Validating U-Boot version from response: {response}")
+            
+            # First try: original pattern for older format
             # match: U-Boot 2016.03-argo_production+g2c7fd59 (May 31 2024 - 14:00:48 +0800)
-            pattern = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
-            match = re.search(pattern, response)
+            pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
+            match = re.search(pattern1, response)
             
             if match:
                 # extract the full version
                 full_version = match.group(1).strip()
-                logger.info(f"Extract U-Boot version: {full_version}")
+                logger.info(f"Extract U-Boot version (pattern 1): {full_version}")
                 return True, f"U-Boot version validation passed: {full_version}"
             
-            else:
-                return False, f"U-Boot version not found"
+            # Second try: new pattern for newer format
+            # match: U-Boot 2023.01 (May 28 2025 - 10:00:44 +0000)
+            pattern2 = r'U-Boot\s+(\d+\.\d+(?:\.\d+)?\s+\([^)]+\))'
+            match = re.search(pattern2, response)
+            
+            if match:
+                # extract the full version including "U-Boot" prefix
+                version_part = match.group(1).strip()
+                full_version = f"U-Boot {version_part}"
+                logger.info(f"Extract U-Boot version (pattern 2): {full_version}")
+                return True, f"U-Boot version validation passed: {full_version}"
+            
+            # Third try: more flexible pattern to catch any U-Boot with version number and date
+            # This will match any line that has U-Boot followed by version number and parentheses
+            pattern3 = r'(U-Boot\s+\d+\.\d+(?:\.\d+)?(?:[^\n]*?)?\s+\([^)]+\))'
+            match = re.search(pattern3, response)
+            
+            if match:
+                full_version = match.group(1).strip()
+                logger.info(f"Extract U-Boot version (pattern 3): {full_version}")
+                return True, f"U-Boot version validation passed: {full_version}"
+            
+            # If no pattern matches, log the response for debugging
+            logger.warning(f"No U-Boot version pattern matched. Response content: {response}")
+            return False, f"U-Boot version not found"
                 
         except Exception as e:
             logger.error(f"Error occurred while validating U-Boot version: {e}")

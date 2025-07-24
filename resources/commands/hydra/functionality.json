@@ -117,17 +117,18 @@
       "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2",
       "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x0c r2",
       "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2",
-      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x00 r2"
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x10 r2"
     ]
   },
   "functionality_usb": {
     "commands": [
-      "dd if=/dev/zero of=/run/media/sda1/usb_throughput bs=1M count=200 status=progress",
-      "dd if=/run/media/sda1/usb_throughput of=/dev/null bs=1M",
-      "dd if=/dev/zero of=/run/media/sdb1/usb_throughput bs=1M count=200 status=progress",
-      "dd if=/run/media/sdb1/usb_throughput of=/dev/null bs=1M",
-      "rm -f /run/media/sda1/usb_throughput",
-      "rm -f /run/media/sdb1/usb_throughput"
+      "ls /run/media",
+      "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
+      "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
+      "rm -f {usb1_path}/usb_throughput",
+      "rm -f {usb2_path}/usb_throughput"
     ]
   },
   "functionality_touch": {

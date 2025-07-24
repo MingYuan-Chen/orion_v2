@@ -49,8 +49,8 @@
     "expected_response": ["Linux gemini"]
   },
   "diagnostic_panel_id_resolution": {
-    "commands": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog", "cat /proc/panel_id"],
-    "expected_response": ["", "", "", "", "00"]
+    "commands": ["fbset | grep geometry", "cat /proc/panel_id"],
+    "expected_response": ["", "00"]
   },
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],

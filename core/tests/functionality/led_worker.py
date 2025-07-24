@@ -126,7 +126,7 @@ class LedWorker(BaseTestWorker):
             TestStep(
                 command=commands[12],  
                 timeout=5, 
-                description=f"Set led status to {self.LED_STATUS_MAP[0]}",
+                description=f"Set led status to PIC control",
             )
         ]
     
