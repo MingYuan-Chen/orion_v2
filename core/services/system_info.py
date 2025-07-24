@@ -493,7 +493,10 @@ class SystemInfoService(QObject):
                     continue
                 # Look for hardware model information
                 if any(keyword in line.lower() for keyword in ['freescale', 'imx', 'mx6', 'cortex', 'arm', 'intel', 'amd']):
-                    cpu_info["model"] = line.strip()
+                    if self.platform_name == "athena":
+                        cpu_info["model"] = line.split(':')[1].strip()
+                    else:
+                        cpu_info["model"] = line.strip()
                     break
             
             # If no specific hardware model found, try to find any non-empty line that's not a command
@@ -897,9 +900,7 @@ class SystemInfoService(QObject):
                     if 'Linux' in line and any(char.isdigit() for char in line):
                         # Extract kernel information, avoid command echoes
                         if not line.startswith('uname'):
-                            # Clean up the line by splitting at first # and taking the part before
-                            clean_line = line.split('#')[0].strip()
-                            return clean_line if clean_line else line.strip()
+                            return line.strip()
                 return "Unknown OS Version"
                 
             else:

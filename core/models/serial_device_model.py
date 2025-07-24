@@ -371,9 +371,9 @@ class SerialDeviceModel(DeviceModel):
                         continue
                 
                 # Handle shell prompts - extract any useful content before prompt
-                if any(prompt in line for prompt in ['root@', '$', '#']):
+                if any(prompt in line for prompt in ['root@', '$']):
                     # Try to extract useful data before prompt
-                    for prompt_symbol in ['root@', '#', '$']:
+                    for prompt_symbol in ['root@', '$']:
                         if prompt_symbol in line:
                             parts = line.split(prompt_symbol)
                             if parts[0].strip():

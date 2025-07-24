@@ -1,7 +1,7 @@
 {
   "diagnostic_cpu_name": {
-    "commands": ["grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'"],
-    "expected_response": ["i.MX6"]
+    "commands": ["lscpu | grep 'Model name'"],
+    "expected_response": ["Cortex-A53"]
   },
   "diagnostic_cpu_processor": {
     "commands": ["grep -c ^processor /proc/cpuinfo"],
@@ -46,7 +46,7 @@
   },
   "diagnostic_kernal_name": {
     "commands": ["uname -a"],
-    "expected_response": ["Linux gemini"]
+    "expected_response": ["Linux verathon-athena"]
   },
   "diagnostic_panel_id_resolution": {
     "commands": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog", "cat /proc/panel_id"],
@@ -54,6 +54,6 @@
   },
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],
-    "expected_response": ["1286:2046", "Marvell"]
+    "expected_response": ["1286:204e", "Marvell"]
   }
 }

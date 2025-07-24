@@ -2218,15 +2218,24 @@ class MainWindowController(QObject):
             import re
             
             # Look for speed information in the response
-            # Pattern matches formats like: "62.2 MB/s", "258 MB/s", "91.8 MB/s"
-            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            # Pattern matches formats like: "62.2 MB/s", "258 MB/s", "91.8 MB/s", "1.4 GB/s"
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_matches = re.findall(speed_pattern, response)
             
             if not speed_matches:
                 return response
             
             # Get the last speed value (usually the final transfer speed)
-            final_speed = speed_matches[-1]
+            final_speed_value = speed_matches[-1][0]
+            final_speed_unit = speed_matches[-1][1]
+            
+            # Convert to MB/s for consistent display
+            speed_value = float(final_speed_value)
+            if final_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                speed_mb = speed_value * 1024  # convert GB to MB
+                display_speed = f"{final_speed_value} {final_speed_unit} ({speed_mb:.1f} MB/s)"
+            else:
+                display_speed = f"{final_speed_value} {final_speed_unit}"
             
             # Determine if this is a read or write operation based on step description
             operation_type = "Unknown"
@@ -2243,7 +2252,7 @@ class MainWindowController(QObject):
                 device_type = "USB"
             
             # Return formatted speed information
-            return f"{device_type} {operation_type} Speed: {final_speed} MB/s"
+            return f"{device_type} {operation_type} Speed: {display_speed}"
             
         except Exception as e:
             logger.warning(f"Error converting throughput response: {e}")

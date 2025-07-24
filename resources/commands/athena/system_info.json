@@ -1,6 +1,6 @@
 {
   "os_version": ["uname -a"],
-  "cpu_info": ["grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \\t]*//'"],
+  "cpu_info": ["lscpu | grep 'Model name'"],
   "memory_info": ["free -h | grep 'Mem:'"],
   "top_info": ["top -b -n 1 | head -n 5"],
   "disk_usage": ["fdisk -l /dev/mmcblk0"],

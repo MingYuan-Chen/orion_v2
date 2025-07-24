@@ -14,9 +14,10 @@ class UsbWorker(BaseTestWorker):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "functionality_usb"
         
-        # set usb write speed threshold
+        self.usb1_path = None
+        self.usb2_path = None
+        
         self.usb_write_speed_threshold = 30.0  # unit: MB/s
-        # set usb read speed threshold
         self.usb_read_speed_threshold = 200.0  # unit: MB/s
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -30,6 +31,12 @@ class UsbWorker(BaseTestWorker):
         return [
             TestStep(
                 command=commands[0], 
+                validation_func=self._find_valid_usb_path,
+                timeout=5, 
+                description="find valid usb path"
+            ),
+            TestStep(
+                command=commands[1], 
                 validation_func=self._validate_usb_write,
                 timeout=5, 
                 description="Write to usb_throughput on usb 1",
@@ -38,7 +45,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=500
             ),
             TestStep(
-                command=commands[1], 
+                command=commands[2], 
                 validation_func=self._validate_usb_read,
                 timeout=10, 
                 description="Read from usb_throughput on usb 1",
@@ -47,7 +54,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1000
             ),
             TestStep(
-                command=commands[2], 
+                command=commands[3], 
                 validation_func=self._validate_usb_write, 
                 timeout=10, 
                 description="Write to usb_throughput on usb 2",
@@ -56,7 +63,7 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command=commands[3], 
+                command=commands[4], 
                 validation_func=self._validate_usb_read,
                 timeout=10, 
                 description="Read from usb_throughput on usb 2",
@@ -65,16 +72,31 @@ class UsbWorker(BaseTestWorker):
                 retry_delay=1500
             ),
             TestStep(
-                command=commands[4],  
+                command=commands[5],  
                 timeout=5,
                 description="Remove usb_throughput on usb 1",
             ),
             TestStep(
-                command=commands[5],  
+                command=commands[6],  
                 timeout=5,
                 description="Remove usb_throughput on usb 2",
             )
         ]
+    
+    def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
+        """
+        Find valid usb path
+        """
+        try:
+            devices = response.split(" ")
+            for device in devices:
+                if "sda1" in device:
+                    self.usb1_path = f"/run/media/{device}"
+                elif "sdb1" in device:
+                    self.usb2_path = f"/run/media/{device}"
+            return True, f"Find valid usb path: {self.usb1_path} and {self.usb2_path}"
+        except Exception as e:
+            logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
     
     def _validate_usb_write(self, response: str) -> Tuple[bool, str]:
         """
@@ -97,8 +119,8 @@ class UsbWorker(BaseTestWorker):
                 
             # use regex to extract write speed
             import re
-            # match various formats of speed values, e.g. 79.7 MB/s, 79.7 MiB/s, 79.7 M/s, etc.
-            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_match = re.search(speed_pattern, response)
             
             if not speed_match:
@@ -108,20 +130,28 @@ class UsbWorker(BaseTestWorker):
                 logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
                 return False, f"USB write test failed, cannot parse write speed. Line containing 'copied': {copied_line}"
                 
-            # extract speed value and convert to float
-            write_speed = float(speed_match.group(1))
-            logger.info(f"Extracted write speed: {write_speed} MB/s")
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                write_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted write speed: {speed_value} {speed_unit} = {write_speed_mb} MB/s")
+            else:
+                write_speed_mb = speed_value
+                logger.info(f"Extracted write speed: {write_speed_mb} MB/s")
             
             # use configured threshold to determine
             threshold = self.usb_write_speed_threshold
             logger.info(f"Speed threshold: {threshold} MB/s")
             
-            if write_speed >= threshold:
-                logger.info(f"USB write speed test passed: {write_speed} MB/s > {threshold} MB/s")
-                return True, f"USB write test passed, write speed: {write_speed} MB/s > {threshold} MB/s"
+            if write_speed_mb >= threshold:
+                logger.info(f"USB write speed test passed: {write_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"USB write test passed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) > {threshold} MB/s"
             else:
-                logger.warning(f"USB write speed test failed: {write_speed} MB/s < {threshold} MB/s")
-                return False, f"USB write test failed, write speed: {write_speed} MB/s < {threshold} MB/s"
+                logger.warning(f"USB write speed test failed: {write_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"USB write test failed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) < {threshold} MB/s"
                 
         except Exception as e:
             logger.error(f"USB write validation error: {str(e)}", exc_info=True)
@@ -157,8 +187,8 @@ class UsbWorker(BaseTestWorker):
                 
             # use regex to extract read speed
             import re
-            # match various formats of speed values, e.g. 291 MB/s, 291 MiB/s, 291 M/s, etc.
-            speed_pattern = r'(\d+\.?\d*)\s+(?:MB/s|MiB/s|M/s)'
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_match = re.search(speed_pattern, response)
             
             if not speed_match:
@@ -168,20 +198,28 @@ class UsbWorker(BaseTestWorker):
                 logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
                 return False, f"USB read test failed, cannot parse read speed. Line containing 'copied': {copied_line}"
                 
-            # extract speed value and convert to float
-            read_speed = float(speed_match.group(1))
-            logger.info(f"Extracted read speed: {read_speed} MB/s")
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                read_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted read speed: {speed_value} {speed_unit} = {read_speed_mb} MB/s")
+            else:
+                read_speed_mb = speed_value
+                logger.info(f"Extracted read speed: {read_speed_mb} MB/s")
             
             # use configured threshold to determine
             threshold = self.usb_read_speed_threshold
             logger.info(f"Speed threshold: {threshold} MB/s")
             
-            if read_speed >= threshold:
-                logger.info(f"USB read speed test passed: {read_speed} MB/s > {threshold} MB/s")
-                return True, f"USB read test passed, read speed: {read_speed} MB/s > {threshold} MB/s"
+            if read_speed_mb >= threshold:
+                logger.info(f"USB read speed test passed: {read_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"USB read test passed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) > {threshold} MB/s"
             else:
-                logger.warning(f"USB read speed test failed: {read_speed} MB/s < {threshold} MB/s")
-                return False, f"USB read test failed, read speed: {read_speed} MB/s < {threshold} MB/s"
+                logger.warning(f"USB read speed test failed: {read_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"USB read test failed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) < {threshold} MB/s"
                 
         except Exception as e:
             logger.error(f"USB read validation error: {str(e)}", exc_info=True)
