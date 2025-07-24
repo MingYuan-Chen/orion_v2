@@ -107,11 +107,57 @@ class BatteryMonitorService(QObject):
             "interrupt_status"
         ]
         
+        # Monitor enable/disable configuration
+        self.enabled_monitors = {
+            "relative_state": True,      # Battery Level
+            "voltage": True,             # Voltage
+            "current": True,             # Current
+            "temperature": True,         # Temperature
+            "led_status": True,          # LED Status
+            "battery_status": True,      # Battery Status
+            "interrupt_status": True,    # Interrupt Status
+            "cpu_usage": True,           # CPU Usage (from top_info)
+            "memory_usage": True         # Memory Usage (from top_info)
+        }
+        
         # Connect to serial worker signals if available
         if self.serial_worker:
             self.serial_worker.command_result.connect(self._on_command_completed)
         
         logger.info(f"Battery Monitor Service initialized for platform: {platform_name}")
+    
+    def set_enabled_monitors(self, monitor_config: dict):
+        """
+        Set which monitors are enabled
+        
+        Args:
+            monitor_config: Dictionary mapping monitor names to boolean enabled state
+                          Keys: 'relative_state', 'voltage', 'current', 'temperature', 
+                                'led_status', 'battery_status', 'interrupt_status',
+                                'cpu_usage', 'memory_usage'
+        """
+        logger.info(f"Setting enabled monitors: {monitor_config}")
+        
+        # Update enabled monitors configuration
+        for monitor_name, is_enabled in monitor_config.items():
+            if monitor_name in self.enabled_monitors:
+                self.enabled_monitors[monitor_name] = is_enabled
+        
+        # If cpu_usage or memory_usage is enabled, ensure top_info is included
+        if self.enabled_monitors.get("cpu_usage", False) or self.enabled_monitors.get("memory_usage", False):
+            # top_info will be included automatically as it's in the priority list
+            pass
+        
+        logger.info(f"Updated enabled monitors: {self.enabled_monitors}")
+    
+    def get_enabled_monitors(self) -> dict:
+        """
+        Get current enabled monitors configuration
+        
+        Returns:
+            Dictionary of monitor names and their enabled state
+        """
+        return self.enabled_monitors.copy()
     
     def _load_battery_commands(self, platform_name):
         """
@@ -214,16 +260,8 @@ class BatteryMonitorService(QObject):
         self.current_command_name = None
         self.current_command_string = None
         
-        # Create prioritized command list
-        prioritized_commands = []
-        for cmd_name in self.command_priority:
-            if cmd_name in self.battery_commands:
-                prioritized_commands.append((cmd_name, self.battery_commands[cmd_name]))
-        
-        # Add any remaining commands not in priority list
-        for cmd_name, cmd_value in self.battery_commands.items():
-            if cmd_name not in self.command_priority:
-                prioritized_commands.append((cmd_name, cmd_value))
+        # Create prioritized command list based on enabled monitors
+        prioritized_commands = self._create_enabled_command_list()
         
         self.pending_commands = prioritized_commands
         
@@ -297,16 +335,8 @@ class BatteryMonitorService(QObject):
         # Set single reading flag
         self._single_reading_mode = True
         
-        # Prepare prioritized command list
-        prioritized_commands = []
-        for cmd_name in self.command_priority:
-            if cmd_name in self.battery_commands:
-                prioritized_commands.append((cmd_name, self.battery_commands[cmd_name]))
-        
-        # Add any remaining commands not in priority list
-        for cmd_name, cmd_value in self.battery_commands.items():
-            if cmd_name not in self.command_priority:
-                prioritized_commands.append((cmd_name, cmd_value))
+        # Prepare prioritized command list based on enabled monitors
+        prioritized_commands = self._create_enabled_command_list()
         
         self.pending_commands = prioritized_commands
         
@@ -318,6 +348,46 @@ class BatteryMonitorService(QObject):
         self._execute_next_command()
         
         return True
+    
+    def _create_enabled_command_list(self) -> list:
+        """
+        Create a list of commands to execute based on enabled monitors
+        
+        Returns:
+            List of (command_name, command_string) tuples for enabled monitors
+        """
+        prioritized_commands = []
+        
+        # First pass: Add commands in priority order if they are enabled
+        for cmd_name in self.command_priority:
+            if cmd_name in self.battery_commands and self._is_monitor_enabled_for_command(cmd_name):
+                prioritized_commands.append((cmd_name, self.battery_commands[cmd_name]))
+        
+        # Second pass: Add any remaining enabled commands not in priority list
+        for cmd_name, cmd_value in self.battery_commands.items():
+            if cmd_name not in self.command_priority and self._is_monitor_enabled_for_command(cmd_name):
+                prioritized_commands.append((cmd_name, cmd_value))
+        
+        logger.info(f"Created command list with {len(prioritized_commands)} enabled commands: {[cmd[0] for cmd in prioritized_commands]}")
+        return prioritized_commands
+    
+    def _is_monitor_enabled_for_command(self, cmd_name: str) -> bool:
+        """
+        Check if a command should be executed based on enabled monitors
+        
+        Args:
+            cmd_name: Command name to check
+            
+        Returns:
+            bool: True if command should be executed
+        """
+        # For top_info, execute if either cpu_usage or memory_usage is enabled
+        if cmd_name == "top_info":
+            return (self.enabled_monitors.get("cpu_usage", False) or 
+                   self.enabled_monitors.get("memory_usage", False))
+        
+        # For other commands, check if the corresponding monitor is enabled
+        return self.enabled_monitors.get(cmd_name, False)
     
     def _execute_next_command(self):
         """

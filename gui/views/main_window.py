@@ -1635,6 +1635,9 @@ class MainWindowController(QObject):
             if hasattr(self.battery_service, 'battery_info_error'):
                 self.battery_service.battery_info_error.connect(self.battery_monitor_manager._on_battery_info_error)
             
+            # Connect display control checkboxes to monitor configuration handler
+            self._connect_battery_display_controls()
+            
             # Don't perform initial refresh to avoid state conflicts
             # User can click "Refresh Once" button if needed
             
@@ -1653,6 +1656,130 @@ class MainWindowController(QObject):
             message: Log message
         """
         self.log_manager.add_log_entry(level, message)
+    
+    def _connect_battery_display_controls(self):
+        """Connect battery display control checkboxes to monitor configuration handler"""
+        try:
+            # Map of checkbox names to monitor names
+            checkbox_monitor_map = {
+                'checkBox_show_battery_level': 'relative_state',
+                'checkBox_show_voltage_monitor': 'voltage', 
+                'checkBox_show_current_monitor': 'current',
+                'checkBox_show_temperature_monitor': 'temperature',
+                'checkBox_show_led_status': 'led_status',
+                'checkBox_show_cpu_usage': 'cpu_usage',
+                'checkBox_show_memory_usage': 'memory_usage',
+                'checkBox_show_battery_status': 'battery_status',
+                'checkBox_show_interrupt_status': 'interrupt_status'
+            }
+            
+            # Connect each checkbox to the handler
+            for checkbox_name, monitor_name in checkbox_monitor_map.items():
+                if hasattr(self.window, checkbox_name):
+                    checkbox = getattr(self.window, checkbox_name)
+                    # Use lambda with default parameter to capture monitor_name correctly
+                    checkbox.toggled.connect(
+                        lambda checked, name=monitor_name: self._on_battery_monitor_toggle(name, checked)
+                    )
+                    logger.debug(f"Connected {checkbox_name} to monitor {monitor_name}")
+            
+            # Set initial monitor configuration based on current checkbox states
+            self._update_battery_monitor_configuration()
+            
+            logger.info("Battery display control checkboxes connected successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to connect battery display control checkboxes: {str(e)}")
+    
+    def _on_battery_monitor_toggle(self, monitor_name: str, checked: bool):
+        """
+        Handle battery monitor checkbox toggle
+        
+        Args:
+            monitor_name: Name of the monitor (e.g., 'voltage', 'current')
+            checked: Whether the checkbox is checked
+        """
+        logger.info(f"Battery monitor toggle: {monitor_name} = {checked}")
+        
+        # Update the battery service configuration
+        if hasattr(self, 'battery_service') and self.battery_service:
+            current_config = self.battery_service.get_enabled_monitors()
+            current_config[monitor_name] = checked
+            self.battery_service.set_enabled_monitors(current_config)
+            
+            # Add system log
+            self.log_manager.add_log_entry("INFO", f"Battery monitor {monitor_name} {'enabled' if checked else 'disabled'}")
+        
+        # Update UI display visibility based on checkbox state
+        self._update_battery_display_visibility(monitor_name, checked)
+    
+    def _update_battery_monitor_configuration(self):
+        """Update battery monitor configuration based on current checkbox states"""
+        try:
+            if not hasattr(self, 'battery_service') or not self.battery_service:
+                return
+            
+            # Map of checkbox names to monitor names
+            checkbox_monitor_map = {
+                'checkBox_show_battery_level': 'relative_state',
+                'checkBox_show_voltage_monitor': 'voltage',
+                'checkBox_show_current_monitor': 'current', 
+                'checkBox_show_temperature_monitor': 'temperature',
+                'checkBox_show_led_status': 'led_status',
+                'checkBox_show_cpu_usage': 'cpu_usage',
+                'checkBox_show_memory_usage': 'memory_usage',
+                'checkBox_show_battery_status': 'battery_status',
+                'checkBox_show_interrupt_status': 'interrupt_status'
+            }
+            
+            # Get current checkbox states
+            monitor_config = {}
+            for checkbox_name, monitor_name in checkbox_monitor_map.items():
+                if hasattr(self.window, checkbox_name):
+                    checkbox = getattr(self.window, checkbox_name)
+                    monitor_config[monitor_name] = checkbox.isChecked()
+            
+            # Update battery service configuration
+            self.battery_service.set_enabled_monitors(monitor_config)
+            
+            logger.info(f"Battery monitor configuration updated: {monitor_config}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update battery monitor configuration: {str(e)}")
+    
+    def _update_battery_display_visibility(self, monitor_name: str, visible: bool):
+        """
+        Update battery display UI element visibility
+        
+        Args:
+            monitor_name: Name of the monitor
+            visible: Whether the display should be visible
+        """
+        try:
+            # Map monitor names to UI elements
+            monitor_ui_map = {
+                'relative_state': ['label_battery_level_title', 'label_battery_level_value', 'progressBar_battery_level'],
+                'voltage': ['label_voltage_title', 'label_voltage_value'],
+                'current': ['label_current_title', 'label_current_value'], 
+                'temperature': ['label_temperature_title', 'label_temperature_value'],
+                'led_status': ['label_led_status_title', 'label_led_status_value'],
+                'cpu_usage': ['label_cpu_usage_title', 'label_cpu_usage_value'],
+                'memory_usage': ['label_memory_usage_title', 'label_memory_usage_value'],
+                'battery_status': ['label_dc_status_title', 'label_dc_status_value'],
+                'interrupt_status': ['label_interrupt_status_title', 'label_interrupt_status_value']
+            }
+            
+            # Update visibility for associated UI elements
+            if monitor_name in monitor_ui_map:
+                for ui_element_name in monitor_ui_map[monitor_name]:
+                    if hasattr(self.window, ui_element_name):
+                        ui_element = getattr(self.window, ui_element_name)
+                        ui_element.setVisible(visible)
+                        
+                logger.debug(f"Updated UI visibility for {monitor_name}: {visible}")
+                        
+        except Exception as e:
+            logger.error(f"Failed to update battery display visibility for {monitor_name}: {str(e)}")
 
     def _on_battery_refresh_clicked(self):
         """Handle battery refresh button click with pre-connection check"""
