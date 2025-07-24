@@ -47,7 +47,7 @@ class BatteryMonitorManager(QObject):
         
         # Monitoring state
         self.is_monitoring = False
-        self.monitoring_interval = 3000  # 3 seconds default (optimized for better user experience)
+        self.monitoring_interval = 3000  # 3 seconds default
         self.monitoring_timer = QTimer()
         self.monitoring_timer.timeout.connect(self._on_monitoring_timer)
         
@@ -329,10 +329,10 @@ class BatteryMonitorManager(QObject):
         Set monitoring interval in milliseconds
         
         Args:
-            interval_ms: Interval in milliseconds (minimum 3000ms)
+            interval_ms: Interval in milliseconds (minimum 0ms for continuous monitoring)
         """
-        if interval_ms < 3000:
-            interval_ms = 3000  # Minimum 3 seconds
+        if interval_ms < 0:
+            interval_ms = 0  # Minimum 0 second (continuous monitoring)
         
         self.monitoring_interval = interval_ms
         
@@ -916,7 +916,7 @@ class BatteryMonitorManager(QObject):
                 'Relative State (%)',
                 'Voltage (V)',
                 'Current (A)',
-                'Temperature (°C)',
+                'Temperature (C)',
                 'LED Status',
                 'Interrupt Status',
                 'Battery Status',

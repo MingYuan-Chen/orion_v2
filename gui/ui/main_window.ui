@@ -2118,6 +2118,74 @@ QCheckBox::indicator:checked:hover {
                </widget>
               </item>
               <item>
+               <widget class="QCheckBox" name="checkBox_show_battery_status">
+                <property name="text">
+                 <string>Battery Status</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="styleSheet">
+                 <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #26A69A;
+    background-color: #26A69A;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #00897B;
+}</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="checkBox_show_interrupt_status">
+                <property name="text">
+                 <string>Interrupt Status</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="styleSheet">
+                 <string>QCheckBox {
+    color: #FFFFFF;
+    font-size: 11px;
+    spacing: 5px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    border: 2px solid #555555;
+    background-color: #2B2B2B;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 2px solid #26A69A;
+    background-color: #26A69A;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #00897B;
+}</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <spacer name="horizontalSpacer_display_controls">
                 <property name="orientation">
                  <enum>Qt::Horizontal</enum>
@@ -2193,7 +2261,7 @@ QCheckBox::indicator:checked:hover {
                 </size>
                </property>
                <property name="minimum">
-                <number>3</number>
+                <number>0</number>
                </property>
                <property name="maximum">
                 <number>60</number>

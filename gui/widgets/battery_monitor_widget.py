@@ -244,7 +244,7 @@ class BatteryMonitorWidget(QWidget):
         
         self.ui_components["interval_combo"] = QComboBox()
         self.ui_components["interval_combo"].addItems([
-            "1 second", "2 seconds", "3 seconds", "5 seconds", "10 seconds", "30 seconds"
+            "0 second", "1 second", "2 seconds", "3 seconds", "5 seconds", "10 seconds", "30 seconds"
         ])
         self.ui_components["interval_combo"].setCurrentText("3 seconds")
         self.ui_components["interval_combo"].setStyleSheet("""
@@ -484,6 +484,7 @@ class BatteryMonitorWidget(QWidget):
         """Handle interval change"""
         # Parse interval from text
         interval_map = {
+            "0 second": 0,
             "1 second": 1000,
             "2 seconds": 2000,
             "3 seconds": 3000,
