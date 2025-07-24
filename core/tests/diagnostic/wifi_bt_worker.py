@@ -30,7 +30,7 @@ class WifiBtWorker(BaseTestWorker):
                 expected_response=expected_responses[0] if len(expected_responses) > 0 else None,            # Get the ID
                 timeout=5, 
                 description="Check bluetooth device ID",
-                criteria="The bluetooth device ID is 1286:2046",
+                criteria="The bluetooth device ID can be read",
                 max_retries=1,
                 retry_delay=500
             ),
@@ -39,7 +39,7 @@ class WifiBtWorker(BaseTestWorker):
                 expected_response=expected_responses[1] if len(expected_responses) > 1 else None,            # Get the wifi device name
                 timeout=5, 
                 description="Check wifi device name",
-                criteria="The wifi device name is Marvell",
+                criteria="The wifi device name can be read",
                 max_retries=1,
                 retry_delay=500
             )
