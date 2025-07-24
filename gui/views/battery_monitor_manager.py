@@ -621,6 +621,9 @@ class BatteryMonitorManager(QObject):
         if device_id != self.device_id:
             return
         
+        if battery_info.get("relative_state") == 100 and battery_info.get("current") == 0:
+            battery_info["led_status"] = "Green"
+        
         logger.info(f"Battery info received: {battery_info}")
         
         # Store current data
