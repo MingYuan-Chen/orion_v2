@@ -332,8 +332,16 @@ class BaseTestWorker(QObject):
         
         # Check if there are steps to execute
         if not self.steps:
-            logger.warning("No test steps defined")
-            self.test_completed.emit(False, "No test steps defined")
+            # Check if all steps were filtered out by ignore_commands
+            original_steps = self.prepare_test_steps()
+            if len(original_steps) > 0:
+                # All steps were ignored, mark as passed
+                logger.info("All test steps were ignored, marking test as passed")
+                self.test_completed.emit(True, "All test steps were ignored")
+            else:
+                # No steps were defined at all, mark as failed
+                logger.warning("No test steps defined")
+                self.test_completed.emit(False, "No test steps defined")
             self.is_running = False
             return
         

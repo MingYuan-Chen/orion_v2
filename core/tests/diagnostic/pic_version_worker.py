@@ -46,7 +46,7 @@ class PicVersionWorker(BaseTestWorker):
                 # Gemini: 0x64 = 100
                 timeout=5, 
                 description="Check PIC Version by i2c",
-                criteria=f"The PIC version is {expected_pic_version}",
+                criteria=f"The PIC version can be read",
                 max_retries=3,
                 retry_delay=500
             ),
@@ -55,7 +55,7 @@ class PicVersionWorker(BaseTestWorker):
                 expected_response=expected_responses[1] if len(expected_responses) > 1 else None,           # convert to decimal: 100
                 timeout=5, 
                 description="Check HW version by proc",
-                criteria="The HW version is 100",
+                criteria="The HW version can be read",
                 max_retries=1,
                 retry_delay=500
             )

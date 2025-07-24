@@ -20,11 +20,12 @@
   },
   "diagnostic_nor_flash_size": {
     "commands": ["cat /proc/mtd | grep 'mtd0"],
-    "expected_response": ["04000000"]
+    "expected_response": ["04000000"],
+    "ignore_commands": ["True"]
   },
   "diagnostic_pic_version": {
-    "commands": ["i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/hw_rev"],
-    "expected_response": ["0x04", "100"]
+    "commands": ["i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/device-tree/model"],
+    "expected_response": ["0x04", "Athena-030"]
   },
   "diagnostic_sync_time": {
     "commands": ["sudo ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"]

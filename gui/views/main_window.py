@@ -2669,11 +2669,14 @@ class MainWindowController(QObject):
         """Convert lsusb response to show device search result"""
         try:
             target_id = "1286:2046"
+            target_id_2 = "1286:204e"
             lines = response.strip().split('\n')
             
             for line in lines:
                 line = line.strip()
                 if line and target_id in line:
+                    return f"Device found: {line}"
+                elif line and target_id_2 in line:
                     return f"Device found: {line}"
             
             return "Device not found"
