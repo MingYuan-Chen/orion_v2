@@ -8,15 +8,15 @@
     "expected_response": ["4"]
   },
   "diagnostic_emmc_size": {
-    "commands": ["cat /sys/block/mmcblk2/size"],
-    "expected_response": ["244629504"]
+    "commands": ["cat /sys/block/mmcblk0/size"],
+    "expected_response": ["244285440"]
   },
   "diagnostic_mac_address": {
     "commands": ["cat /sys/class/net/eth0/address"]
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],
-    "expected_response": ["3886540"]
+    "expected_response": ["3943680"]
   },
   "diagnostic_nor_flash_size": {
     "commands": ["cat /proc/mtd | grep 'mtd0"],
@@ -42,15 +42,16 @@
     "expected_response": ["0x2a 0x30"]
   },
   "diagnostic_uboot_version": {
-    "commands": ["strings /dev/mtd0 | grep -E 'U-Boot'"]
+    "commands": ["strings /dev/mtd5 | grep -E 'U-Boot'"]
   },
   "diagnostic_kernal_name": {
     "commands": ["uname -a"],
     "expected_response": ["Linux verathon-athena"]
   },
   "diagnostic_panel_id_resolution": {
-    "commands": ["evtest /dev/input/event1 > evtlog &", "kill {process_id}", "cat evtlog", "rm evtlog", "cat /proc/panel_id"],
-    "expected_response": ["", "", "", "", "01"]
+    "commands": ["fbset | grep geometry", "cat /proc/panel_id"],
+    "expected_response": ["", "01"],
+    "ignore_commands": ["False", "True"]
   },
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],

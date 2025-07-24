@@ -2301,39 +2301,11 @@ class MainWindowController(QObject):
     def _convert_resolution_response(self, response):
         """Convert panel resolution response to readable format"""
         try:
-            lines = response.split("\n")
-            current_axis = None
-            x_resolution = None
-            y_resolution = None
-            
-            for line in lines:
-                line = line.strip()
-                
-                if "Event code 0 (ABS_X)" in line:
-                    current_axis = "X"
-                elif "Event code 1 (ABS_Y)" in line:
-                    current_axis = "Y"
-                elif line.startswith("Event code") and ("ABS_X" not in line and "ABS_Y" not in line):
-                    current_axis = None
-                
-                if line.startswith("Max") and current_axis:
-                    try:
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            max_value = parts[1].strip()
-                            actual_resolution = str(int(max_value) + 1)
-                            
-                            if current_axis == "X":
-                                x_resolution = actual_resolution
-                            elif current_axis == "Y":
-                                y_resolution = actual_resolution
-                    except (IndexError, ValueError):
-                        continue
-            
-            if x_resolution and y_resolution:
-                return f"Panel Resolution: {x_resolution}x{y_resolution} pixels"
-            
-            return response
+            lines = response.split(" ")
+            if lines[0] == "geometry":
+                return f"Panel Resolution: {lines[1]}x{lines[2]} pixels"
+            else:
+                return response
         except Exception as e:
             logger.warning(f"Error converting resolution response: {e}")
             return response
