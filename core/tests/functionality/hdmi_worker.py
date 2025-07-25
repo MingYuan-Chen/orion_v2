@@ -31,39 +31,6 @@ class HdmiWorker(BaseTestWorker):
                 description="Enable HDMI display",
             ),
             
-            # Step 2: Backup original display config
-            # TestStep(
-            #     command="cp /usr/share/imx_6q_display_config /usr/share/imx_6q_display_config.backup",
-            #     timeout=5,
-            #     description="Backup original display configuration",
-            #     criteria="Original configuration should be backed up successfully",
-            #     validation_func=self._validate_backup_config,
-            #     max_retries=1,
-            #     retry_delay=500
-            # ),
-            
-            # Step 3: Modify display config for dual display mode
-            # TestStep(
-            #     command="cd /usr/share && echo 'ldb=sin0' > imx_6q_display_config && echo 'hdmi=1920x1080M@60' >> imx_6q_display_config",
-            #     timeout=10,
-            #     description="Configure dual display mode",
-            #     criteria="Display configuration should be modified for dual display",
-            #     validation_func=self._validate_config_modification,
-            #     max_retries=1,
-            #     retry_delay=500
-            # ),
-            
-            # Step 4: Verify display configuration
-            # TestStep(
-            #     command="cat /usr/share/imx_6q_display_config",
-            #     timeout=5,
-            #     description="Verify display configuration",
-            #     criteria="Configuration should contain dual display settings",
-            #     validation_func=self._validate_display_config,
-            #     max_retries=1,
-            #     retry_delay=500
-            # ),
-            
             # Step 7: Start video playback with dual display
             TestStep(
                 command=commands[1],

@@ -24,6 +24,8 @@ class SerialDeviceWorker(QObject):
     _connect_device_signal = Signal(str, str, int, int)  # device_id, port, baudrate, timeout
     _disconnect_device_signal = Signal(str)  # device_id
     _send_command_signal = Signal(str, str, int)  # device_id, command, timeout
+    _send_ctrl_c_signal = Signal(str)  # device_id
+    _send_control_sequence_signal = Signal(str, str)  # device_id, control_char
     
     def __init__(self, device_manager: DeviceManagerModel):
         super().__init__()
@@ -52,6 +54,8 @@ class SerialDeviceWorker(QObject):
         self._connect_device_signal.connect(self._execute_connect_device)
         self._disconnect_device_signal.connect(self._execute_disconnect_device)
         self._send_command_signal.connect(self._execute_send_command)
+        self._send_ctrl_c_signal.connect(self._execute_send_ctrl_c)
+        self._send_control_sequence_signal.connect(self._execute_send_control_sequence)
         
         # Start thread
         self.thread.start()
@@ -117,6 +121,22 @@ class SerialDeviceWorker(QObject):
                     pass
                 except Exception as e:
                     logger.warning(f"Error disconnecting _send_command_signal: {e}")
+                
+                try:
+                    self._send_ctrl_c_signal.disconnect(self._execute_send_ctrl_c)
+                    logger.debug("Disconnected _send_ctrl_c_signal signal")
+                except (TypeError, RuntimeError):
+                    pass
+                except Exception as e:
+                    logger.warning(f"Error disconnecting _send_ctrl_c_signal: {e}")
+                
+                try:
+                    self._send_control_sequence_signal.disconnect(self._execute_send_control_sequence)
+                    logger.debug("Disconnected _send_control_sequence_signal signal")
+                except (TypeError, RuntimeError):
+                    pass
+                except Exception as e:
+                    logger.warning(f"Error disconnecting _send_control_sequence_signal: {e}")
                 
                 # Do not try to disconnect external signals, because we do not know who connected them
                 # Just keep blockSignals(True)
@@ -215,6 +235,25 @@ class SerialDeviceWorker(QObject):
         logger.info(f"Request to send command to device {device_id}: {command}")
         self._send_command_signal.emit(device_id, command, timeout)
     
+    def send_ctrl_c(self, device_id: str):
+        """Send CTRL+C interrupt signal to device - execute in worker thread by emitting signals
+        
+        Args:
+            device_id: device ID
+        """
+        logger.info(f"Request to send CTRL+C to device {device_id}")
+        self._send_ctrl_c_signal.emit(device_id)
+    
+    def send_control_sequence(self, device_id: str, control_char: str):
+        """Send control character sequence to device - execute in worker thread by emitting signals
+        
+        Args:
+            device_id: device ID
+            control_char: control character name ('ctrl+c', 'ctrl+d', etc.)
+        """
+        logger.info(f"Request to send control sequence '{control_char}' to device {device_id}")
+        self._send_control_sequence_signal.emit(device_id, control_char)
+    
     # Actual execution methods - these slots are executed in the worker thread
     
     @Slot(str, str, int, int)
@@ -282,6 +321,56 @@ class SerialDeviceWorker(QObject):
         except Exception as e:
             logger.error(f"Error sending command {command} to device {device_id}: {str(e)}")
             self.command_result.emit(device_id, command, f"Error: {str(e)}")
+    
+    @Slot(str)
+    def _execute_send_ctrl_c(self, device_id: str):
+        """Actual execute send CTRL+C operation (in worker thread)"""
+        try:
+            logger.info(f"CTRL+C: [{device_id}] >>> Sending interrupt signal")
+            
+            # Get the device and send CTRL+C
+            device = self.device_manager.get_device(device_id)
+            if not device:
+                logger.error(f"Device {device_id} not found")
+                self.command_result.emit(device_id, "CTRL+C", "Error: Device not found")
+                return
+            
+            success = device.send_ctrl_c()
+            if success:
+                logger.info(f"CTRL+C: [{device_id}] <<< Interrupt signal sent successfully")
+                self.command_result.emit(device_id, "CTRL+C", "Interrupt signal sent")
+            else:
+                logger.error(f"Failed to send CTRL+C to device {device_id}")
+                self.command_result.emit(device_id, "CTRL+C", "Error: Failed to send interrupt signal")
+                
+        except Exception as e:
+            logger.error(f"Error sending CTRL+C to device {device_id}: {str(e)}")
+            self.command_result.emit(device_id, "CTRL+C", f"Error: {str(e)}")
+    
+    @Slot(str, str)
+    def _execute_send_control_sequence(self, device_id: str, control_char: str):
+        """Actual execute send control sequence operation (in worker thread)"""
+        try:
+            logger.info(f"CONTROL: [{device_id}] >>> Sending '{control_char}' sequence")
+            
+            # Get the device and send control sequence
+            device = self.device_manager.get_device(device_id)
+            if not device:
+                logger.error(f"Device {device_id} not found")
+                self.command_result.emit(device_id, f"CONTROL:{control_char}", "Error: Device not found")
+                return
+            
+            success = device.send_control_sequence(control_char)
+            if success:
+                logger.info(f"CONTROL: [{device_id}] <<< '{control_char}' sequence sent successfully")
+                self.command_result.emit(device_id, f"CONTROL:{control_char}", f"Control sequence '{control_char}' sent")
+            else:
+                logger.error(f"Failed to send '{control_char}' to device {device_id}")
+                self.command_result.emit(device_id, f"CONTROL:{control_char}", f"Error: Failed to send '{control_char}' sequence")
+                
+        except Exception as e:
+            logger.error(f"Error sending '{control_char}' to device {device_id}: {str(e)}")
+            self.command_result.emit(device_id, f"CONTROL:{control_char}", f"Error: {str(e)}")
     
     # RebootHandler signal handlers
     

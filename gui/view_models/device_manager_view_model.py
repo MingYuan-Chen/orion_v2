@@ -864,6 +864,28 @@ class DeviceManagerViewModel(QObject):
             
         # Use worker thread to send command
         self._serial_worker.send_command(device_id, command, timeout)
+    
+    def send_ctrl_c(self, device_id: str):
+        """Send CTRL+C interrupt signal to device"""
+        logger.info(f"Request to send CTRL+C to device {device_id}")
+        
+        if device_id not in self.connected_devices:
+            self.command_result.emit(device_id, "CTRL+C", f"Error: Device {device_id} is not connected")
+            return
+            
+        # Use worker thread to send CTRL+C
+        self._serial_worker.send_ctrl_c(device_id)
+    
+    def send_control_sequence(self, device_id: str, control_char: str):
+        """Send control character sequence to device"""
+        logger.info(f"Request to send control sequence '{control_char}' to device {device_id}")
+        
+        if device_id not in self.connected_devices:
+            self.command_result.emit(device_id, f"CONTROL:{control_char}", f"Error: Device {device_id} is not connected")
+            return
+            
+        # Use worker thread to send control sequence
+        self._serial_worker.send_control_sequence(device_id, control_char)
         
     def get_connected_devices(self) -> List[Dict[str, Any]]:
         """Get list of connected devices"""

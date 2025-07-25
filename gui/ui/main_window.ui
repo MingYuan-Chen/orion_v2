@@ -2873,6 +2873,36 @@ QPushButton:pressed {
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_send_ctrl_c">
+            <property name="text">
+             <string>CTRL+C</string>
+            </property>
+            <property name="toolTip">
+             <string>Send CTRL+C interrupt signal to device</string>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+  background-color: #FF4444;
+  color: white;
+  border: 1px solid #CC3333;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-weight: bold;
+}
+
+QPushButton:hover {
+  background-color: #FF6666;
+  border-color: #FF4444;
+}
+
+QPushButton:pressed {
+  background-color: #CC3333;
+  border-color: #AA2222;
+}</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
         <item>
