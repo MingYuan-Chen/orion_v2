@@ -665,6 +665,9 @@ class MainWindowController(QObject):
         
         # Connect logs refresh button
         self.window.pushButton_refresh_logs.clicked.connect(self._refresh_logs)
+        
+        # Connect CTRL+C button
+        self.window.pushButton_send_ctrl_c.clicked.connect(self._on_send_ctrl_c)
     
     def _filter_logs(self):
         """Filter logs based on selected level and time range"""
@@ -705,6 +708,16 @@ class MainWindowController(QObject):
         
         # mark the command as logged
         self.mark_command_as_logged(command)
+    
+    def _on_send_ctrl_c(self):
+        """Process CTRL+C sending"""
+        logger.info(f"Sending CTRL+C to device {self.device_id}")
+        
+        # Send CTRL+C to device
+        self.view_model.send_ctrl_c(self.device_id)
+        
+        # Add CTRL+C record to logs
+        self.log_manager.add_log_entry("INFO", "[CTRL+C] Interrupt signal sent")
     
     def _connect_signals(self):
         """Connect signals and slots"""

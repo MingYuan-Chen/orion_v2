@@ -422,6 +422,96 @@ class SerialDeviceModel(DeviceModel):
             logger.error(f"Command: '{command}' failed: {error_msg}")
             return error_msg
 
+    def send_ctrl_c(self) -> bool:
+        """
+        Send CTRL+C interrupt signal to the device
+        
+        Returns:
+            bool: True if signal was sent successfully, False otherwise
+        """
+        if not self.is_connected:
+            logger.error(f"{self.device_id}: Cannot send CTRL+C - device not connected")
+            return False
+            
+        try:
+            # CTRL+C is ASCII character 3 (0x03)
+            ctrl_c_bytes = b'\x03'
+            self.device.write(ctrl_c_bytes)
+            self.device.flush()
+            
+            logger.info(f"{self.device_id}: CTRL+C interrupt signal sent")
+            
+            # Brief wait to allow the interrupt to be processed
+            time.sleep(0.1)
+            
+            # Clear any immediate response from the interrupt
+            if self.device.in_waiting > 0:
+                response = self.device.read(self.device.in_waiting).decode('utf-8', errors='ignore')
+                logger.info(f"{self.device_id}: Interrupt response: {response.strip()}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"{self.device_id}: Failed to send CTRL+C - {str(e)}")
+            return False
+
+    def send_control_sequence(self, control_char: str) -> bool:
+        """
+        Send control character sequence to the device
+        
+        Args:
+            control_char: Control character name ('ctrl+c', 'ctrl+d', 'ctrl+z', etc.)
+        
+        Returns:
+            bool: True if control sequence was sent successfully, False otherwise
+        """
+        if not self.is_connected:
+            logger.error(f"{self.device_id}: Cannot send control sequence - device not connected")
+            return False
+            
+        # Map control character names to their ASCII values
+        control_map = {
+            'ctrl+c': b'\x03',  # Interrupt (SIGINT)
+            'ctrl+d': b'\x04',  # End of file (EOF)
+            'ctrl+z': b'\x1a', # Suspend (SIGTSTP)
+            'ctrl+a': b'\x01', # Start of heading
+            'ctrl+e': b'\x05', # End of line
+            'ctrl+k': b'\x0b', # Kill line
+            'ctrl+l': b'\x0c', # Clear screen
+            'ctrl+u': b'\x15', # Kill line backward
+            'ctrl+w': b'\x17', # Kill word backward
+            'esc': b'\x1b',    # Escape
+            'tab': b'\x09',    # Horizontal tab
+            'enter': b'\x0d',  # Carriage return
+        }
+        
+        control_char_lower = control_char.lower().strip()
+        
+        if control_char_lower not in control_map:
+            logger.error(f"{self.device_id}: Unknown control character '{control_char}'")
+            return False
+            
+        try:
+            control_bytes = control_map[control_char_lower]
+            self.device.write(control_bytes)
+            self.device.flush()
+            
+            logger.info(f"{self.device_id}: Control sequence '{control_char}' sent")
+            
+            # Brief wait to allow the control sequence to be processed
+            time.sleep(0.1)
+            
+            # Clear any immediate response
+            if self.device.in_waiting > 0:
+                response = self.device.read(self.device.in_waiting).decode('utf-8', errors='ignore')
+                logger.info(f"{self.device_id}: Control sequence response: {response.strip()}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"{self.device_id}: Failed to send control sequence '{control_char}' - {str(e)}")
+            return False
+
 if __name__ == "__main__":
     """Test serial device model"""
     

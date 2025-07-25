@@ -2,7 +2,7 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
@@ -137,10 +137,9 @@
   },
   "functionality_hdmi": {
     "commands": [
-      "echo 0 > /sys/class/graphics/fb2/blank",
+      "gpioset `gpiofind IOEX_HDMI_EN`=1",
       "",
-      "gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
+      "gst-launch-1.0 playbin uri=file:///dqa_package/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
       "",
       "pkill -f gst-launch"
     ]
