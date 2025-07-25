@@ -834,11 +834,29 @@ class SystemInfoService(QObject):
             lines = [line.strip() for line in clean_response.split('\n') if line.strip()]
             
             if command_name == "uboot_version":
-                # Parse U-Boot version from strings output
-                for line in lines:
-                    if 'U-Boot' in line and any(char.isdigit() for char in line):
-                        # Extract version information
-                        return line.strip()
+                import re
+                # match: U-Boot 2016.03-argo_production+g2c7fd59 (May 31 2024 - 14:00:48 +0800)
+                pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
+                match = re.search(pattern1, response)
+                if match:
+                    full_version = match.group(1).strip()
+                    return full_version
+                
+                # match: U-Boot 2023.01 (May 28 2025 - 10:00:44 +0000)
+                pattern2 = r'U-Boot\s+(\d+\.\d+(?:\.\d+)?\s+\([^)]+\))'
+                match = re.search(pattern2, response)
+                if match:
+                    version_part = match.group(1).strip()
+                    full_version = f"U-Boot {version_part}"
+                    return full_version
+                
+                # This will match any line that has U-Boot followed by version number and parentheses
+                pattern3 = r'(U-Boot\s+\d+\.\d+(?:\.\d+)?(?:[^\n]*?)?\s+\([^)]+\))'
+                match = re.search(pattern3, response)
+                if match:
+                    full_version = match.group(1).strip()
+                    return full_version
+                
                 return "Unknown U-Boot Version"
                 
             elif command_name == "pic_firmware":

@@ -1352,7 +1352,7 @@ QScrollArea QScrollBar::sub-line:vertical {
              <number>0</number>
             </property>
             <property name="leftMargin">
-             <number>10</number>
+             <number>5</number>
             </property>
             <property name="topMargin">
              <number>10</number>
@@ -1374,13 +1374,13 @@ QScrollArea QScrollBar::sub-line:vertical {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>310</height>
+            <height>330</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>310</height>
+            <height>330</height>
            </size>
           </property>
           <property name="title">
