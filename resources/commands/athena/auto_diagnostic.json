@@ -25,14 +25,14 @@
   },
   "diagnostic_pic_version": {
     "commands": ["i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/device-tree/model"],
-    "expected_response": ["0x04", "Athena-030"]
+    "expected_response": ["0x05", "Athena-030"]
   },
   "diagnostic_sync_time": {
     "commands": ["sudo ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"]
   },
   "diagnostic_set_get_rtc_time": {
     "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
+    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "2024-02-29"]
   },
   "diagnostic_design_capacity": {
     "commands": ["i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
