@@ -350,6 +350,17 @@ class SystemInfoManagerView(QObject):
             if "design_capacity" in battery_info and "design_capacity" in self.ui_components:
                 design_capacity = battery_info["design_capacity"]
                 self.ui_components["design_capacity"].setText(f"{design_capacity} mAh")
+            
+            # Battery model
+            if "battery_model" in battery_info and "battery_model" in self.ui_components:
+                battery_model = battery_info["battery_model"]
+                self.ui_components["battery_model"].setText(battery_model)
+            
+            # Battery serial
+            if "battery_serial" in battery_info and "battery_serial" in self.ui_components:
+                battery_serial = battery_info["battery_serial"]
+                # Convert to string to avoid TypeError
+                self.ui_components["battery_serial"].setText(str(battery_serial))
     
     def update_model_name(self, name: str):
         """
