@@ -396,7 +396,7 @@ class SystemInfoService(QObject):
             elif command_name == "disk_usage":
                 self.collected_info["storage"] = self._parse_disk_info(response, self.platform_name)
             elif command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity", "battery_status",
-                                 "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status"]:
+                                 "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "battery_serial", "battery_model"]:
                 # Use battery info parsing function to handle battery related commands
                 if "battery" not in self.collected_info:
                     self.collected_info["battery"] = {}
@@ -630,7 +630,8 @@ class SystemInfoService(QObject):
 
             # Process i2ctransfer command results
             if command_name in ["capacity", "full_capacity", "relative_state", "charging_voltage", "design_voltage", "design_capacity",
-                               "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "battery_status"]:
+                               "charging_current", "voltage", "current", "temperature", "cycle_count", "led_status", "battery_status",
+                               "battery_serial", "battery_model"]:
                 try:
                     # Enhanced parsing for i2c responses with better error handling
                     # Look for hex values more robustly
@@ -663,6 +664,10 @@ class SystemInfoService(QObject):
                                 current_command_context = "design_capacity"
                             elif command_name == "battery_status" and "0x16" in line:
                                 current_command_context = "battery_status"
+                            elif command_name == "battery_serial" and "0x1c" in line:
+                                current_command_context = "battery_serial"
+                            elif command_name == "battery_model" and "0x21" in line:
+                                current_command_context = "battery_model"
                             continue
                             
                         # Look for hex values in the line
@@ -777,6 +782,33 @@ class SystemInfoService(QObject):
                         elif command_name == "battery_status":
                             # Return battery status value directly
                             parsed_value = value
+                        elif command_name == "battery_serial":
+                            # Return battery serial value directly
+                            parsed_value = value
+                        elif command_name == "battery_model":
+                            # Convert hex values to ASCII string
+                            # Expected format: response has additional bytes, actual data starts from third byte
+                            if len(target_hex_values) >= 10:
+                                # Skip first two bytes (status/length bytes), use next 8 bytes for data
+                                data_hex_values = target_hex_values[2:10]  # Take bytes 3-10
+                                # Convert hex values to ASCII characters
+                                ascii_chars = []
+                                for hex_val in data_hex_values:
+                                    try:
+                                        char_code = int(hex_val, 16)
+                                        if 32 <= char_code <= 126:  # Printable ASCII range
+                                            ascii_chars.append(chr(char_code))
+                                        else:
+                                            ascii_chars.append('?')  # Replace non-printable chars
+                                    except (ValueError, OverflowError):
+                                        ascii_chars.append('?')  # Replace invalid chars
+                                
+                                # Join characters and remove trailing nulls/spaces
+                                model_string = ''.join(ascii_chars).rstrip('\x00').rstrip()
+                                parsed_value = model_string
+                            else:
+                                # Fallback: return as hex string if not enough values
+                                parsed_value = ' '.join(target_hex_values)
                         else:
                             parsed_value = value
                         
