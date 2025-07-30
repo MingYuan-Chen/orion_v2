@@ -40,6 +40,9 @@ class TestItemWidget(QWidget):
         self.current_status = "not_started"
         self.status_message = ""
         
+        # Flag to mark tests that should always remain disabled (In Dev tests)
+        self.always_disabled = False
+        
         # Create layout
         self._init_ui()
     
@@ -88,10 +91,32 @@ class TestItemWidget(QWidget):
         # ensure the fixed height
         self.setFixedHeight(32)
     
+    def set_always_disabled(self, always_disabled):
+        """
+        Set whether this test should always remain disabled
+        
+        Args:
+            always_disabled: Whether the test should always be disabled
+        """
+        self.always_disabled = always_disabled
+        if always_disabled:
+            self.test_button.setEnabled(False)
+            self.test_button.setText("In Dev")
+            self.test_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #666666;
+                    color: #CCCCCC;
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 2px;
+                }
+            """)
+    
     def _on_test_button_clicked(self):
         """Handle test button click"""
-        # Emit test started signal
-        self.test_started.emit(self.test_id)
+        # Don't emit signal if test is always disabled
+        if not self.always_disabled:
+            self.test_started.emit(self.test_id)
     
     def set_state(self, state, message=""):
         """
@@ -117,11 +142,21 @@ class TestItemWidget(QWidget):
                 # if there is a message, it may contain progress information
                 self.test_button.setText(message)
         elif state == "pass" or state == "fail":
-            self.test_button.setEnabled(True)
-            self.test_button.setText("Re-Test")
+            # If test is always disabled, keep it disabled
+            if self.always_disabled:
+                self.test_button.setEnabled(False)
+                self.test_button.setText("In Dev")
+            else:
+                self.test_button.setEnabled(True)
+                self.test_button.setText("Re-Test")
         else:  # not_started
-            self.test_button.setEnabled(True)
-            self.test_button.setText("Start Test")
+            # If test is always disabled, keep it disabled
+            if self.always_disabled:
+                self.test_button.setEnabled(False)
+                self.test_button.setText("In Dev")
+            else:
+                self.test_button.setEnabled(True)
+                self.test_button.setText("Start Test")
     
     def set_enabled(self, enabled):
         """
@@ -130,7 +165,11 @@ class TestItemWidget(QWidget):
         Args:
             enabled: Whether to enable the button
         """
-        self.test_button.setEnabled(enabled)
+        # If test is always disabled, don't enable it
+        if self.always_disabled:
+            self.test_button.setEnabled(False)
+        else:
+            self.test_button.setEnabled(enabled)
 
 class TestContainer(QScrollArea):
     """
