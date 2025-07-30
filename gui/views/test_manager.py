@@ -135,8 +135,20 @@ class TestManagerView(QObject):
             self.local_temp_progress[test_id] = []
             
         # Set initial state for all tests
+        # Define the tests that should remain disabled (In Dev tests)
+        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+        
         for test_id in test_ids:
+            # Skip the dev tests - they should always remain disabled
+            if test_id in dev_tests:
+                continue
             self.test_container.set_test_state(test_id, "not_started")
+        
+        # Ensure dev tests remain disabled after any state changes
+        for test_id in dev_tests:
+            test_widget = self.test_container.get_test_widget(test_id)
+            if test_widget:
+                test_widget.set_always_disabled(True)
     
     def start_test(self, test_id: str):
         """
@@ -726,10 +738,18 @@ class TestManagerView(QObject):
         # Get all test IDs from the test container
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
+            # Define the tests that should remain disabled (In Dev tests)
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
             
             # Reset UI state to not started
             for test_id in test_ids:
-                self.test_container.set_test_state(test_id, "not_started")
+                if test_id in dev_tests:
+                    # Ensure dev tests remain disabled and show "In Dev"
+                    test_widget = self.test_container.get_test_widget(test_id)
+                    if test_widget:
+                        test_widget.set_always_disabled(True)
+                else:
+                    self.test_container.set_test_state(test_id, "not_started")
         
         logger.info("Test results and progress records cleared")
     
@@ -772,8 +792,17 @@ class TestManagerView(QObject):
             enabled: Whether to enable the buttons
         """
         if self.test_container:
+            # Define the tests that should remain disabled (In Dev tests)
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+            
             for test_id in self.test_container.get_all_test_ids():
-                self.test_container.get_test_widget(test_id).set_enabled(enabled)
+                test_widget = self.test_container.get_test_widget(test_id)
+                if test_widget:
+                    if test_id in dev_tests:
+                        # Ensure dev tests remain disabled and show "In Dev"
+                        test_widget.set_always_disabled(True)
+                    else:
+                        test_widget.set_enabled(enabled)
             
         # Enable or disable "Test All" button
         if self.test_all_button:
@@ -940,5 +969,14 @@ class TestManagerView(QObject):
         # reset the UI status of all the test items
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
+            # Define the tests that should remain disabled (In Dev tests)
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+            
             for test_id in test_ids:
-                self.test_container.set_test_state(test_id, "not_started") 
+                if test_id in dev_tests:
+                    # Ensure dev tests remain disabled and show "In Dev"
+                    test_widget = self.test_container.get_test_widget(test_id)
+                    if test_widget:
+                        test_widget.set_always_disabled(True)
+                else:
+                    self.test_container.set_test_state(test_id, "not_started") 

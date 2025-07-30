@@ -946,6 +946,13 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_touch", "Touch Test")
         test_container.add_test_group("functionality_usb", "USB Test")
         
+        # Set specific tests to "In Dev" and disable them
+        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+        for test_id in dev_tests:
+            test_widget = test_container.get_test_widget(test_id)
+            if test_widget:
+                test_widget.set_always_disabled(True)
+        
         # add the test container to the layout
         content_layout.addWidget(test_container)
         
