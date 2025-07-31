@@ -17,6 +17,7 @@ class EepromWorker(BaseTestWorker):
         self.to_eeprom1_md5 = ""
         self.from_eeprom0_md5 = ""
         self.from_eeprom1_md5 = ""
+        self.platform_name = platform_name
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -28,138 +29,179 @@ class EepromWorker(BaseTestWorker):
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.FUNCTIONALITY)
         
-        return [
-            # First step: Generate random test data
-            TestStep(
-                command=commands[0], 
-                expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
-                timeout=5, 
-                description="Generate EEPROM 24c04 test data",
-                max_retries=2,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[1], 
-                expected_response=expected_responses[1] if len(expected_responses) > 1 else None, 
-                timeout=5, 
-                description="Generate EEPROM 24c128 test data",
-                max_retries=2,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[2], 
-                timeout=3, 
-                description="Sync"
-            ),
-            
-            # Second step: Calculate the MD5 of the test data
-            TestStep(
-                command=commands[3], 
-                validation_func=self._store_to_eeprom0_md5,
-                timeout=5, 
-                description="Calculate the MD5 of EEPROM 24c04 test data",
-                max_retries=2,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[4], 
-                validation_func=self._store_to_eeprom1_md5,
-                timeout=5, 
-                description="Calculate the MD5 of EEPROM 24c128 test data",
-                max_retries=2,
-                retry_delay=500
-            ),
-            
-            # Third step: Write the data to EEPROM
-            TestStep(
-                command=commands[5], 
-                expected_response=expected_responses[5] if len(expected_responses) > 5 else None, 
-                timeout=10, 
-                description="Write data to EEPROM 24c04",
-                max_retries=1,
-                retry_delay=1000
-            ),
-            TestStep(
-                command=commands[6], 
-                expected_response=expected_responses[6] if len(expected_responses) > 6 else None, 
-                timeout=10, 
-                description="Write data to EEPROM 24c128",
-                max_retries=1,
-                retry_delay=1000
-            ),
-            TestStep(
-                command=commands[7], 
-                timeout=3, 
-                description="Sync"
-            ),
-            
-            # Fourth step: Read the data from EEPROM
-            TestStep(
-                command=commands[8], 
-                timeout=10, 
-                description="Read data from EEPROM 24c04",
-                max_retries=3,
-                retry_delay=1000
-            ),
-            TestStep(
-                command=commands[9], 
-                timeout=10, 
-                description="Read data from EEPROM 24c128",
-                max_retries=3,
-                retry_delay=1000
-            ),
-            TestStep(
-                command=commands[10],  
-                timeout=3, 
-                description="Sync"
-            ),
-            
-            # Fifth step: Calculate the MD5 of the read data
-            TestStep(
-                command=commands[11], 
-                validation_func=self._store_from_eeprom0_md5,
-                timeout=5, 
-                description="Calculate the MD5 of the read data from EEPROM 24c04",
-                max_retries=2,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[12], 
-                validation_func=self._store_from_eeprom1_md5,
-                timeout=5, 
-                description="Calculate the MD5 of the read data from EEPROM 24c128",
-                max_retries=2,
-                retry_delay=500
-            ),
-            
-            # Sixth step: Compare the MD5 values
-            TestStep(
-                command=commands[13], 
-                validation_func=self._validate_md5_values,
-                timeout=3, 
-                description="Validate the consistency of EEPROM read and write",
-                criteria="EEPROM Read data and Write data are consistent",
-                max_retries=0,
-                retry_delay=0
-            ),
-            
-            # Seventh step: Clean up files
-            TestStep(
-                command=commands[14], 
-                timeout=3, 
-                description="Clean up EEPROM 24c04 test files",
-            ),
-            TestStep(
-                command=commands[15], 
-                timeout=3, 
-                description="Clean up EEPROM 24c128 test files",
-            ),
-            TestStep(
-                command=commands[16], 
-                timeout=3, 
-                description="Sync"
-            )
-        ]
+        if self.platform_name == "athena":
+            return [
+                TestStep(
+                    command=commands[0], 
+                    expected_response=expected_responses[0] if len(expected_responses) > 0 else None,
+                    timeout=5, 
+                    description="write 0xaa to embedded eeprom (128 bytes)"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    expected_response=expected_responses[1] if len(expected_responses) > 1 else None,
+                    timeout=5, 
+                    description="read embedded eeprom",
+                    criteria="read 0xaa from embedded eeprom"
+                ),
+                TestStep(
+                    command=commands[2], 
+                    validation_func=self._validate_athena_eeprom_embeded_dump,
+                    timeout=5, 
+                    description="dump embedded eeprom"
+                ),
+                TestStep(
+                    command=commands[3], 
+                    expected_response=expected_responses[3] if len(expected_responses) > 3 else None,
+                    timeout=5, 
+                    description="write 19-byte timestamp to eeprom 1 (32K bytes)"
+                ),
+                TestStep(
+                    command=commands[4], 
+                    expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
+                    timeout=5, 
+                    description="read data from eeprom 1"
+                ),
+                TestStep(
+                    command=commands[5], 
+                    validation_func=self._validate_athena_eeprom_1_dump,
+                    timeout=5, 
+                    description="dump eeprom 1"
+                )
+            ]
+        else:
+            return [
+                # First step: Generate random test data
+                TestStep(
+                    command=commands[0], 
+                    expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
+                    timeout=5, 
+                    description="Generate EEPROM 24c04 test data",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[1], 
+                    expected_response=expected_responses[1] if len(expected_responses) > 1 else None, 
+                    timeout=5, 
+                    description="Generate EEPROM 24c128 test data",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[2], 
+                    timeout=3, 
+                    description="Sync"
+                ),
+                
+                # Second step: Calculate the MD5 of the test data
+                TestStep(
+                    command=commands[3], 
+                    validation_func=self._store_to_eeprom0_md5,
+                    timeout=5, 
+                    description="Calculate the MD5 of EEPROM 24c04 test data",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[4], 
+                    validation_func=self._store_to_eeprom1_md5,
+                    timeout=5, 
+                    description="Calculate the MD5 of EEPROM 24c128 test data",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                
+                # Third step: Write the data to EEPROM
+                TestStep(
+                    command=commands[5], 
+                    expected_response=expected_responses[5] if len(expected_responses) > 5 else None, 
+                    timeout=10, 
+                    description="Write data to EEPROM 24c04",
+                    max_retries=1,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[6], 
+                    expected_response=expected_responses[6] if len(expected_responses) > 6 else None, 
+                    timeout=10, 
+                    description="Write data to EEPROM 24c128",
+                    max_retries=1,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[7], 
+                    timeout=3, 
+                    description="Sync"
+                ),
+                
+                # Fourth step: Read the data from EEPROM
+                TestStep(
+                    command=commands[8], 
+                    timeout=10, 
+                    description="Read data from EEPROM 24c04",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[9], 
+                    timeout=10, 
+                    description="Read data from EEPROM 24c128",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[10],  
+                    timeout=3, 
+                    description="Sync"
+                ),
+                
+                # Fifth step: Calculate the MD5 of the read data
+                TestStep(
+                    command=commands[11], 
+                    validation_func=self._store_from_eeprom0_md5,
+                    timeout=5, 
+                    description="Calculate the MD5 of the read data from EEPROM 24c04",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[12], 
+                    validation_func=self._store_from_eeprom1_md5,
+                    timeout=5, 
+                    description="Calculate the MD5 of the read data from EEPROM 24c128",
+                    max_retries=2,
+                    retry_delay=500
+                ),
+                
+                # Sixth step: Compare the MD5 values
+                TestStep(
+                    command=commands[13], 
+                    validation_func=self._validate_md5_values,
+                    timeout=3, 
+                    description="Validate the consistency of EEPROM read and write",
+                    criteria="EEPROM Read data and Write data are consistent",
+                    max_retries=0,
+                    retry_delay=0
+                ),
+                
+                # Seventh step: Clean up files
+                TestStep(
+                    command=commands[14], 
+                    timeout=3, 
+                    description="Clean up EEPROM 24c04 test files",
+                ),
+                TestStep(
+                    command=commands[15], 
+                    timeout=3, 
+                    description="Clean up EEPROM 24c128 test files",
+                ),
+                TestStep(
+                    command=commands[16], 
+                    timeout=3, 
+                    description="Sync"
+                )
+            ]
     
     def _store_to_eeprom0_md5(self, response: str) -> Tuple[bool, str]:
         """Store the MD5 value of EEPROM 24c04 test data"""
@@ -242,3 +284,34 @@ class EepromWorker(BaseTestWorker):
             return False, f"EEPROM 24c128 test failed! Expected MD5: {self.to_eeprom1_md5}, actual MD5: {self.from_eeprom1_md5}"
         
         return True, "EEPROM 24c04 and 24c128 read and write test passed!" 
+    
+    def _validate_athena_eeprom_embeded_dump(self, response: str) -> Tuple[bool, str]:
+        """Validate the consistency of EEPROM read and write"""
+        if not response.strip():
+            return False, "Failed to get the response from EEPROM"
+        
+        lines = response.split("\n")
+        for line in lines:
+            if line.startswith("10:") and "ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff aa" in line:
+                return True, "EEPROM read and write test passed!"
+        
+        return False, "Failed to get the response from EEPROM"
+    
+    def _validate_athena_eeprom_1_dump(self, response: str) -> Tuple[bool, str]:
+        """Validate the consistency of EEPROM read and write"""
+        if not response.strip():
+            return False, "Failed to get the response from EEPROM"
+        
+        line_1 = False
+        line_2 = False
+        lines = response.split("\n")
+        for line in lines:
+            if line.startswith("00000080") and "ff ff ff 32 30 32 35 2f  30 33 2f 32 38 20 32 30" in line and "2025/03/28 20" in line:
+                line_1 = True
+            if line.startswith("00000090") and "3a 32 38 3a 33 36 ff ff" in line and ":28:36" in line:
+                line_2 = True
+        
+        if line_1 and line_2:
+            return True, "EEPROM 1 dump timestamp test passed!"
+        
+        return False, "Failed to get the dump log from EEPROM"
