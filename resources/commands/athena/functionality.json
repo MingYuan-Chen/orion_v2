@@ -57,25 +57,14 @@
   },
   "functionality_eeprom": {
     "commands": [
-      "dd if=/dev/urandom of=to_eeprom0_data bs=1K count=16",
-      "dd if=/dev/urandom of=to_eeprom1_data bs=1 count=128",
-      "sync",
-      "md5sum to_eeprom0_data | cut -d' ' -f1",
-      "md5sum to_eeprom1_data | cut -d' ' -f1",
-      "cat to_eeprom0_data | eeprog -f -16 /dev/i2c-0 0x55 -w 0x0",
-      "cat to_eeprom1_data | eeprog -f -8 /dev/i2c-0 0x57 -w 0x0",
-      "sync",
-      "eeprog /dev/i2c-0 0x55 -16 -f -q -r 0x0:16384 > from_eeprom0_data",
-      "eeprog /dev/i2c-0 0x57 -8 -f -q -r 0x0:128 > from_eeprom1_data",
-      "sync",
-      "md5sum from_eeprom0_data | cut -d' ' -f1",
-      "md5sum from_eeprom1_data | cut -d' ' -f1",
-      "echo 'Comparing MD5 values'",
-      "rm -f to_eeprom0_data from_eeprom0_data",
-      "rm -f to_eeprom1_data from_eeprom1_data",
-      "sync"
+      "i2cset -f -y 1 0x57 0x1f 0xaa",
+      "i2cget -f -y 1 0x57 0x1f",
+      "i2cdump -f -y -r 0x00-0x7f 1 0x57",
+      "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 0x32 0x30 0x32 0x35 0x2F 0x30 0x33 0x2F 0x32 0x38 0x20 0x32 0x30 0x3A 0x32 0x38 0x3A 0x33 0x36",
+      "i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19",
+      "hexdump -C /sys/devices/platform/axi/ff030000.i2c/i2c-1/1-0054/eeprom"
     ],
-    "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
+    "expected_response": ["", "0xaa", "", "", "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36", ""]
   },
   "functionality_emmc": {
     "commands": [

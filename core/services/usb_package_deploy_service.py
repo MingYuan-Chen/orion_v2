@@ -125,6 +125,9 @@ class UsbPackageDeployService(QObject):
                 # Parse the response to get device names
                 # Remove any command echo and extra formatting
                 clean_response = response.strip()
+                if "cannot access" in clean_response or "No such file or directory" in clean_response:
+                    logger.warning(f"No USB devices found for device {device_id}")
+                    return []
                 
                 # Handle responses that might include command echo
                 if clean_response.startswith('ls /run/media'):
