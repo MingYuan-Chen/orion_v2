@@ -3271,8 +3271,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v1.6.1_20250721"])
-                writer.writerow(["Config Version", "v1.1.1_20250721"])
+                writer.writerow(["Tool Version", "v2.0.0_20250801"])
+                writer.writerow(["Config Version", "v2.0.0_20250801"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 

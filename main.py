@@ -19,11 +19,11 @@ def main():
         app = QApplication(sys.argv)
         
         # Set application name
-        app.setApplicationName("VT Hydra")
-        app.setApplicationDisplayName("System Monitor v1.6.1 20250724")
+        app.setApplicationName("Orion")
+        app.setApplicationDisplayName("Orion Monitor v2.0.0 20250801")
         app.setOrganizationName("Orion")
         app.setOrganizationDomain("orion.com")
-        app.setApplicationVersion("1.6.1.0")
+        app.setApplicationVersion("2.0.0.0")
         
         # use high DPI scaling
         app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
@@ -50,7 +50,7 @@ def main():
         # Set process ID, for task manager display
         if sys.platform == 'win32':
             import ctypes
-            app_id = 'Orion.VTHydra.DeviceManager.1000'  # Format: Organization.Product.Application.Version
+            app_id = 'Promate.Orion.DeviceManager.1000'  # Format: Organization.Product.Application.Version
             try:
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
                 logger.debug(f"Set Windows Application User Model ID: {app_id}")
