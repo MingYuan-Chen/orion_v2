@@ -64,7 +64,7 @@ class SyncTimeWorker(BaseTestWorker):
             return False, "No response received from ntpdate command"
             
         response_lower = response.lower()
-        if "error" in response_lower or "failed" in response_lower or "no server" in response_lower:
+        if "error" in response_lower or "failed" in response_lower or "no server" in response_lower or "command not found" in response_lower:
             return False, "Failed to sync time"
         
         try:

@@ -48,7 +48,8 @@ class EepromWorker(BaseTestWorker):
                     command=commands[2], 
                     validation_func=self._validate_athena_eeprom_embeded_dump,
                     timeout=5, 
-                    description="dump embedded eeprom"
+                    description="dump embedded eeprom",
+                    criteria="writed 0xaa can be observed in the dump log"
                 ),
                 TestStep(
                     command=commands[3], 
@@ -60,13 +61,15 @@ class EepromWorker(BaseTestWorker):
                     command=commands[4], 
                     expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
                     timeout=5, 
-                    description="read data from eeprom 1"
+                    description="read data from eeprom 1",
+                    criteria="read 19-byte timestamp from eeprom 1"
                 ),
                 TestStep(
                     command=commands[5], 
                     validation_func=self._validate_athena_eeprom_1_dump,
                     timeout=5, 
-                    description="dump eeprom 1"
+                    description="dump eeprom 1",
+                    criteria="19-byte timestamp can be observed in the dump log"
                 )
             ]
         else:

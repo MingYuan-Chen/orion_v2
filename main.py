@@ -20,7 +20,7 @@ def main():
         
         # Set application name
         app.setApplicationName("Orion")
-        app.setApplicationDisplayName("Orion Monitor v2.0.0 20250801")
+        app.setApplicationDisplayName("Orion Monitor v2.0.0 20250804")
         app.setOrganizationName("Orion")
         app.setOrganizationDomain("orion.com")
         app.setApplicationVersion("2.0.0.0")

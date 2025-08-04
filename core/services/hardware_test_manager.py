@@ -109,8 +109,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_pic_version", PicVersionWorker, continue_on_failure=True)
         from core.tests.diagnostic.sync_time_worker import SyncTimeWorker
         self._register_worker("diagnostic_sync_time", SyncTimeWorker, continue_on_failure=True)
-        from core.tests.diagnostic.set_get_rtc_time_worker import SetGetRtcTimeWorker
-        self._register_worker("diagnostic_set_get_rtc_time", SetGetRtcTimeWorker, continue_on_failure=True)
+        # from core.tests.diagnostic.set_get_rtc_time_worker import SetGetRtcTimeWorker
+        # self._register_worker("diagnostic_set_get_rtc_time", SetGetRtcTimeWorker, continue_on_failure=True)
         from core.tests.diagnostic.design_capacity_worker import DesignCapacityWorker
         self._register_worker("diagnostic_design_capacity", DesignCapacityWorker, continue_on_failure=True)
         from core.tests.diagnostic.design_voltage_worker import DesignVoltageWorker

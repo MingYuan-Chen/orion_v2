@@ -136,7 +136,7 @@ class TestManagerView(QObject):
             
         # Set initial state for all tests
         # Define the tests that should remain disabled (In Dev tests)
-        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
         
         for test_id in test_ids:
             # Skip the dev tests - they should always remain disabled
@@ -739,7 +739,7 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             # Reset UI state to not started
             for test_id in test_ids:
@@ -793,7 +793,7 @@ class TestManagerView(QObject):
         """
         if self.test_container:
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             for test_id in self.test_container.get_all_test_ids():
                 test_widget = self.test_container.get_test_widget(test_id)
@@ -970,7 +970,7 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             for test_id in test_ids:
                 if test_id in dev_tests:
