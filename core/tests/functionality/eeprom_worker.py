@@ -18,6 +18,8 @@ class EepromWorker(BaseTestWorker):
         self.from_eeprom0_md5 = ""
         self.from_eeprom1_md5 = ""
         self.platform_name = platform_name
+        self.eeprom_e_orig = ""
+        self.eeprom_1_orig = ""
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -33,43 +35,61 @@ class EepromWorker(BaseTestWorker):
             return [
                 TestStep(
                     command=commands[0], 
-                    expected_response=expected_responses[0] if len(expected_responses) > 0 else None,
+                    validation_func=self._store_eeprom_e_orig,
+                    timeout=5, 
+                    description="store eeprom e original data"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    validation_func=self._store_eeprom_1_orig,
+                    timeout=5, 
+                    description="store eeprom 1 original data"
+                ),
+                TestStep(
+                    command=commands[2],
                     timeout=5, 
                     description="write 0xaa to embedded eeprom (128 bytes)"
                 ),
                 TestStep(
-                    command=commands[1], 
-                    expected_response=expected_responses[1] if len(expected_responses) > 1 else None,
+                    command=commands[3],
                     timeout=5, 
-                    description="read embedded eeprom",
-                    criteria="read 0xaa from embedded eeprom"
+                    description="read write data from embedded eeprom",
+                    criteria="read write data without error" 
                 ),
                 TestStep(
-                    command=commands[2], 
+                    command=commands[4], 
                     validation_func=self._validate_athena_eeprom_embeded_dump,
                     timeout=5, 
                     description="dump embedded eeprom",
                     criteria="writed 0xaa can be observed in the dump log"
                 ),
                 TestStep(
-                    command=commands[3], 
-                    expected_response=expected_responses[3] if len(expected_responses) > 3 else None,
+                    command=commands[5],
                     timeout=5, 
                     description="write 19-byte timestamp to eeprom 1 (32K bytes)"
                 ),
                 TestStep(
-                    command=commands[4], 
-                    expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
+                    command=commands[6],
                     timeout=5, 
-                    description="read data from eeprom 1",
-                    criteria="read 19-byte timestamp from eeprom 1"
+                    description="read write multiple data from eeprom 1",
+                    criteria="read write multiple data without error"
                 ),
                 TestStep(
-                    command=commands[5], 
+                    command=commands[7], 
                     validation_func=self._validate_athena_eeprom_1_dump,
                     timeout=5, 
                     description="dump eeprom 1",
                     criteria="19-byte timestamp can be observed in the dump log"
+                ),
+                TestStep(
+                    command=commands[8],
+                    timeout=5, 
+                    description="reset eeprom e"
+                ),
+                TestStep(
+                    command=commands[9],
+                    timeout=5, 
+                    description="reset eeprom 1",
                 )
             ]
         else:
@@ -287,6 +307,16 @@ class EepromWorker(BaseTestWorker):
             return False, f"EEPROM 24c128 test failed! Expected MD5: {self.to_eeprom1_md5}, actual MD5: {self.from_eeprom1_md5}"
         
         return True, "EEPROM 24c04 and 24c128 read and write test passed!" 
+    
+    def _store_eeprom_e_orig(self, response: str) -> Tuple[bool, str]:
+        """Store the original data of eeprom e"""
+        self.eeprom_e_orig = response.strip()
+        return True, f"The original data of eeprom e: {self.eeprom_e_orig}"
+    
+    def _store_eeprom_1_orig(self, response: str) -> Tuple[bool, str]:
+        """Store the original data of eeprom 1"""
+        self.eeprom_1_orig = response.strip()
+        return True, f"The original data of eeprom 1: {self.eeprom_1_orig}"
     
     def _validate_athena_eeprom_embeded_dump(self, response: str) -> Tuple[bool, str]:
         """Validate the consistency of EEPROM read and write"""
