@@ -14,14 +14,14 @@ class LedWorker(BaseTestWorker):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "functionality_led"
         self.LED_STATUS_MAP = {
-            0: "Off", 8: "Off", 16: "Off", 24: "Off",
-            1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
-            2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
-            3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
-            4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
-            5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
-            6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
-            7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+            0: "Off",       8: "Off",               16: "Off",      24: "Off",              32: "Off",
+            1: "Blue",      9: "Blue Blinking",     17: "Blue",     25: "Blue Blinking",    33: "Blue",     49: "Blue Blinking",
+            2: "Green",     10: "Green Blinking",   18: "Green",    26: "Green Blinking",   34: "Green",    50: "Green Blinking",
+            3: "Cyan",      11: "Cyan Blinking",    19: "Cyan",     27: "Cyan Blinking",
+            4: "Red",       12: "Red Blinking",     20: "Red",      28: "Red Blinking",     36: "Red",      52: "Red Blinking",
+            5: "Fuchsia",   13: "Fuchsia Blinking", 21: "Fuchsia",  29: "Fuchsia Blinking",
+            6: "Orange",    14: "Orange Blinking",  22: "Orange",   30: "Orange Blinking",  38: "Orange",   54: "Orange Blinking",
+            7: "White",     15: "White Blinking",   23: "White",    31: "White Blinking",   40: "Yellow",   56: "Yellow Blinking",
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -45,8 +45,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status blue",
                 post_check="Is the led status blue?",
                 criteria="Led status is blue",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[2],  
@@ -60,8 +59,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status green",
                 post_check="Is the led status green?",
                 criteria="Led status is green",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[4],  
@@ -75,8 +73,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status red",
                 post_check="Is the led status red?",
                 criteria="Led status is red",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[6],  
@@ -90,8 +87,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status blinking blue",
                 post_check="Is the led status blinking blue?",
                 criteria="Led status is blinking blue",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[8],  
@@ -105,8 +101,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status blinking green",
                 post_check="Is the led status blinking green?",
                 criteria="Led status is blinking green",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[10],  
@@ -120,8 +115,7 @@ class LedWorker(BaseTestWorker):
                 description="Check led status blinking red",
                 post_check="Is the led status blinking red?",
                 criteria="Led status is blinking red",
-                max_retries=3,
-                retry_delay=1000
+                manual_only=True
             ),
             TestStep(
                 command=commands[12],  

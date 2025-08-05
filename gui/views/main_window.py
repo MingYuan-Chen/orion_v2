@@ -822,7 +822,7 @@ class MainWindowController(QObject):
             "diagnostic_memory_size": "Check Memory Size",
             "diagnostic_nor_flash_size": "Check NOR Flash Size",
             "diagnostic_pic_version": "Check PIC Version",
-            "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
+            # "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
             "diagnostic_sync_time": "Check Sync Time",
             "diagnostic_design_capacity": "Check Design Capacity",
             "diagnostic_design_voltage": "Check Design Voltage",
@@ -947,7 +947,7 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_usb", "USB Test")
         
         # Set specific tests to "In Dev" and disable them
-        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_power_button"]
+        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
         for test_id in dev_tests:
             test_widget = test_container.get_test_widget(test_id)
             if test_widget:
@@ -2190,6 +2190,18 @@ class MainWindowController(QObject):
         try:
             response_str = str(response).strip()
             
+            if "i2cget -f -y 1 0x57 0x1f" in command.lower():
+                return self._convert_embedded_eeprom_response(response_str)
+            
+            if "i2cdump -f -y -r 0x00-0x7f 1 0x57" in command.lower():
+                return self._convert_dump_embedded_eeprom_response(response_str)
+            
+            if "i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19" in command.lower():
+                return self._convert_eeprom_1_read_response(response_str)
+            
+            if "hexdump -c /sys/devices/platform/axi/ff030000.i2c/i2c-1/1-0054/eeprom" in command.lower():
+                return self._convert_hexdump_eeprom_1_response(response_str)
+
             # Handle throughput speed conversion for USB and eMMC tests
             if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower():
                 return self._convert_throughput_response(response_str, step_desc)
@@ -2257,6 +2269,51 @@ class MainWindowController(QObject):
         except Exception as e:
             logger.warning(f"Error converting response: {str(e)}")
             return response_str
+
+    def _convert_embedded_eeprom_response(self, response):
+        """Convert embedded eeprom response to readable format"""
+        try:
+            if "0xaa" in response.lower():
+                return "0xaa"
+            else:
+                return response
+            
+        except Exception as e:
+            logger.warning(f"Error converting embedded eeprom response: {e}")
+            return response
+    
+    def _convert_dump_embedded_eeprom_response(self, response):
+        """Convert dump embedded eeprom response to readable format"""
+        try:
+            if "10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff aa" in response.lower():
+                return "dump log with 'aa' in expected location"
+            else:
+                return response
+        except Exception as e:
+            logger.warning(f"Error converting dump embedded eeprom response: {e}")
+            return response
+
+    def _convert_eeprom_1_read_response(self, response):
+        """Convert eeprom 1 read response to readable format"""
+        try:
+            if "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36" in response.lower():
+                return "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36 = 2025/03/28 20:28:36"
+            else:
+                return response
+        except Exception as e:
+            logger.warning(f"Error converting eeprom 1 read response: {e}")
+            return response
+
+    def _convert_hexdump_eeprom_1_response(self, response):
+        """Convert hexdump eeprom 1 response to readable format"""
+        try:
+            if "2025/03/28 20" in response.lower():
+                return "dump log with '2025/03/28 20:28:36' in expected location"
+            else:
+                return response
+        except Exception as e: 
+            logger.warning(f"Error converting hexdump eeprom 1 response: {e}")
+            return response
 
     def _convert_i2c_response(self, response, command):
         """Convert i2c hex response to readable format"""
@@ -2513,14 +2570,14 @@ class MainWindowController(QObject):
         try:
             # LED status mapping from led_worker.py
             LED_STATUS_MAP = {
-                0: "Off", 8: "Off", 16: "Off", 24: "Off",
-                1: "Blue", 9: "Blue Blinking", 17: "Blue", 25: "Blue Blinking",
-                2: "Green", 10: "Green Blinking", 18: "Green", 26: "Green Blinking",
-                3: "Cyan", 11: "Cyan Blinking", 19: "Cyan", 27: "Cyan Blinking",
-                4: "Red", 12: "Red Blinking", 20: "Red", 28: "Red Blinking",
-                5: "Fuchsia", 13: "Fuchsia Blinking", 21: "Fuchsia", 29: "Fuchsia Blinking",
-                6: "Orange", 14: "Orange Blinking", 22: "Orange", 30: "Orange Blinking",
-                7: "White", 15: "White Blinking", 23: "White", 31: "White Blinking"
+                0: "Off",       8: "Off",               16: "Off",      24: "Off",              32: "Off",
+                1: "Blue",      9: "Blue Blinking",     17: "Blue",     25: "Blue Blinking",    33: "Blue",     49: "Blue Blinking",
+                2: "Green",     10: "Green Blinking",   18: "Green",    26: "Green Blinking",   34: "Green",    50: "Green Blinking",
+                3: "Cyan",      11: "Cyan Blinking",    19: "Cyan",     27: "Cyan Blinking",
+                4: "Red",       12: "Red Blinking",     20: "Red",      28: "Red Blinking",     36: "Red",      52: "Red Blinking",
+                5: "Fuchsia",   13: "Fuchsia Blinking", 21: "Fuchsia",  29: "Fuchsia Blinking",
+                6: "Orange",    14: "Orange Blinking",  22: "Orange",   30: "Orange Blinking",  38: "Orange",   54: "Orange Blinking",
+                7: "White",     15: "White Blinking",   23: "White",    31: "White Blinking",   40: "Yellow",   56: "Yellow Blinking",
             }
             
             # Extract hex values from response like i2c responses
@@ -2566,6 +2623,7 @@ class MainWindowController(QObject):
                 192: "Discharging",
                 160: "Full Charged",
                 224: "Full Charged",
+                144: "Full Discharged",
                 32770: "Initializing",
                 32896: "Over Charged",
                 16512: "Terminate Charge",
@@ -2574,6 +2632,11 @@ class MainWindowController(QObject):
                 20672: "Over Temperature, Terminate Charge",
                 4224: "Over Temperature - Charge",
                 4288: "Over Temperature - Discharge",
+                3008: "Remaining Capacity and Time Alarm, Terminate Discharge",
+                2176: "Terminate Discharge",
+                2432: "Remaining Time Alarm, Terminate Discharge",
+                2688: "Remaining Capacity Alarm, Terminate Discharge",
+                960: "Remaining Capacity and Time Alarm",
                 704: "Remaining Capacity Alarm",
                 448: "Remaining Time Alarm",
             }
@@ -3271,8 +3334,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v1.6.1_20250721"])
-                writer.writerow(["Config Version", "v1.1.1_20250721"])
+                writer.writerow(["Tool Version", "v2.0.0_20250804"])
+                writer.writerow(["Config Version", "v2.0.0_20250804"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 

@@ -30,7 +30,7 @@ class MemorySizeWorker(BaseTestWorker):
                 expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check Memory Size by proc/meminfo",
-                criteria="The memory size is 3886520 bytes(3.7GB)",
+                criteria="The memory size can be found in the response",
                 max_retries=1,
                 retry_delay=500
             )

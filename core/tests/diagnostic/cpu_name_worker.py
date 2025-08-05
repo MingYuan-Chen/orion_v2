@@ -14,6 +14,14 @@ class CpuNameWorker(BaseTestWorker):
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "diagnostic_cpu_name"
+        self.expected_cpu_name_mapping = {
+            "hydra_fhd": "i.MX6",
+            "hydra": "i.MX6",
+            "gemini_fhd": "i.MX6",
+            "gemini": "i.MX6",
+            "argo": "i.MX6",
+            "athena": " Cortex-A53"
+        }
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -31,7 +39,7 @@ class CpuNameWorker(BaseTestWorker):
                 expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check CPU Name",
-                criteria="CPU name with 'i.MX6'",
+                criteria=f"CPU name with '{self.expected_cpu_name_mapping[self.platform_name]}'",
                 max_retries=1,
                 retry_delay=500
             )

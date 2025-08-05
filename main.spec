@@ -35,7 +35,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='vt_hydra_monitor',
+    name='orion_monitor',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
