@@ -752,6 +752,10 @@ class MainWindowController(QObject):
         self.cpu_stress_service.stress_completed.connect(self._on_cpu_stress_completed)
         self.cpu_stress_service.stress_error.connect(self._on_cpu_stress_error)
         self.cpu_stress_service.stress_progress.connect(self._on_cpu_stress_progress)
+        self.cpu_stress_service.temp_warning.connect(self._on_temp_warning)
+        
+        # Connect device command result to CPU stress service (for temperature reading)
+        self.view_model._serial_worker.command_result.connect(self.cpu_stress_service._on_command_result)
 
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -1409,7 +1413,7 @@ class MainWindowController(QObject):
             # Clear chart data for new test
             if self.cpu_stress_chart_widget:
                 self.cpu_stress_chart_widget.clear_data()
-                self.cpu_stress_chart_widget.set_chart_title(f"CPU Stress Test - Target: {loading_percent}%")
+                self.cpu_stress_chart_widget.set_chart_title(f"CPU Temperature Monitor - Stress: {loading_percent}%")
     
     @Slot(str, str)
     def _on_cpu_stress_completed(self, device_id: str, message: str):
@@ -1425,21 +1429,19 @@ class MainWindowController(QObject):
             self._reset_cpu_stress_ui()
             self.add_system_log("ERROR", f"CPU stress test error: {error_message}")
     
-    @Slot(str, int, int, int, int)
-    def _on_cpu_stress_progress(self, device_id: str, elapsed_seconds: int, total_seconds: int, ram_stress_enabled: int, ram_stress_mb: int):
+    @Slot(str, int, int, int, int, float)
+    def _on_cpu_stress_progress(self, device_id: str, elapsed_seconds: int, total_seconds: int, ram_stress_enabled: int, ram_stress_mb: int, cpu_temp: float):
         """Handle CPU stress test progress signal"""
         if device_id == self.device_id:
-            # Simulate CPU load data (in real implementation, this would come from monitoring)
-            # For now, we'll add some variation around the target load
-            import random
-            simulated_load = self.cpu_stress_target_load + random.uniform(-5, 5)
-            simulated_load = max(0, min(100, simulated_load))
+            # Use target CPU load as display value (consistent with stress test setting)
+            # Display the configured stress level instead of simulated random variation
+            simulated_load = self.cpu_stress_target_load
             
-            # Add data point to chart with RAM information
+            # Add data point to chart with temperature as main data
             if self.cpu_stress_chart_widget:
                 self.cpu_stress_chart_widget.add_data_point(
-                    simulated_load, 
-                    self.cpu_stress_target_load, 
+                    cpu_temp,  # 主要顯示溫度
+                    simulated_load,  # CPU 負載用於日誌
                     bool(ram_stress_enabled), 
                     ram_stress_mb
                 )
@@ -1451,6 +1453,12 @@ class MainWindowController(QObject):
                 else:
                     progress_percent = (elapsed_seconds / total_seconds) * 100
                     self.add_system_log("INFO", f"CPU stress test progress: {elapsed_seconds}/{total_seconds}s ({progress_percent:.1f}%)")
+    
+    @Slot(str, float)
+    def _on_temp_warning(self, device_id: str, temperature: float):
+        """Handle CPU temperature warning signal (>85°C)"""
+        if device_id == self.device_id:
+            self.add_system_log("WARNING", f"CPU temperature warning: {temperature:.1f}°C - High temperature detected, hardware thermal protection will activate if needed")
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
@@ -3969,6 +3977,21 @@ class MainWindowController(QObject):
                 except Exception:
                     pass
                 self.battery_chart_widget = None
+            
+            # Clean up CPU stress service
+            if hasattr(self, 'cpu_stress_service') and self.cpu_stress_service:
+                logger.debug("Cleaning up CPU stress service")
+                try:
+                    # Stop any running stress test
+                    if self.cpu_stress_service.is_running:
+                        self.cpu_stress_service.stop_stress_test()
+                    # Disconnect signal
+                    self.view_model._serial_worker.command_result.disconnect(self.cpu_stress_service._on_command_result)
+                    # Cleanup service
+                    self.cpu_stress_service.cleanup()
+                except Exception:
+                    pass
+                self.cpu_stress_service = None
             
             # Clean up the view model
             if hasattr(self, 'view_model') and self.view_model and hasattr(self.view_model, 'cleanup'):

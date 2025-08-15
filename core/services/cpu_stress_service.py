@@ -18,7 +18,8 @@ class CpuStressService(QObject):
     stress_started = Signal(str, int, int)    # device_id, loading_percent, duration_seconds
     stress_completed = Signal(str, str)       # device_id, message
     stress_error = Signal(str, str)           # device_id, error_message
-    stress_progress = Signal(str, int, int, int, int)   # device_id, elapsed_seconds, total_seconds, ram_stress_enabled(1/0), ram_stress_mb
+    stress_progress = Signal(str, int, int, int, int, float)   # device_id, elapsed_seconds, total_seconds, ram_stress_enabled(1/0), ram_stress_mb, cpu_temp_celsius
+    temp_warning = Signal(str, float)         # device_id, temperature - 溫度警告信號（85°C以上）
     
     def __init__(self, serial_worker):
         """
@@ -40,6 +41,11 @@ class CpuStressService(QObject):
         # RAM 壓力測試設定
         self.ram_stress_enabled = False
         self.ram_stress_mb = 0
+        
+        # 溫度監控設定
+        self.current_cpu_temp = 0.0
+        self.temp_warning_threshold = 85.0  # 85°C 警告閾值
+        # 移除危險閾值，讓硬體自行處理過熱保護
         
         # 時間控制
         self.progress_timer = QTimer()
@@ -289,6 +295,9 @@ class CpuStressService(QObject):
         self.ram_stress_enabled = False
         self.ram_stress_mb = 0
         
+        # 重置溫度相關狀態
+        self.current_cpu_temp = 0.0
+        
         # 停止計時器
         self.progress_timer.stop()
         self.completion_timer.stop()
@@ -320,16 +329,63 @@ class CpuStressService(QObject):
         
         self.elapsed_seconds += 1
         
-        # 發出進度信號，包含 RAM 信息
+        # 讀取 CPU 溫度
+        self._read_cpu_temperature()
+        
+        # 發出進度信號，包含 RAM 和溫度信息
         self.stress_progress.emit(
             self.current_device_id, 
             self.elapsed_seconds, 
             self.duration_seconds,
             1 if self.ram_stress_enabled else 0,
-            self.ram_stress_mb
+            self.ram_stress_mb,
+            self.current_cpu_temp
         )
         
         logger.debug(f"CPU stress progress: {self.elapsed_seconds}/{self.duration_seconds}s")
+    
+    def _read_cpu_temperature(self):
+        """讀取 CPU 溫度（temp1_input）"""
+        try:
+            if self.current_device_id and self.serial_worker:
+                # 發送溫度讀取命令
+                command = "cat /sys/class/hwmon/hwmon0/temp1_input 2>/dev/null || echo '0'"
+                self.serial_worker.send_command(self.current_device_id, command, 5)  # 5秒超時
+        except Exception as e:
+            logger.error(f"Error reading CPU temperature: {e}")
+            self.current_cpu_temp = 0.0
+    
+    def _process_temperature_response(self, response: str):
+        """處理溫度命令回應"""
+        try:
+            # 解析溫度值（毫攝氏度轉攝氏度）
+            # 回應可能包含命令回顯，需要提取純數字部分
+            lines = response.strip().split('\n')
+            temp_raw = None
+            
+            # 尋找純數字行
+            for line in lines:
+                line = line.strip()
+                if line.isdigit():
+                    temp_raw = line
+                    break
+            
+            if temp_raw and temp_raw.isdigit():
+                temp_celsius = float(temp_raw) / 1000.0
+                self.current_cpu_temp = temp_celsius
+                
+                # 檢查溫度警告閾值（85°C）
+                if temp_celsius >= self.temp_warning_threshold:
+                    self.temp_warning.emit(self.current_device_id, temp_celsius)
+                    logger.warning(f"CPU temperature warning: {temp_celsius:.1f}°C - Monitor closely")
+                
+                logger.debug(f"CPU temperature: {temp_celsius:.1f}°C")
+            else:
+                logger.warning(f"Invalid temperature response: {response}")
+                self.current_cpu_temp = 0.0
+        except Exception as e:
+            logger.error(f"Error processing temperature response: {e}")
+            self.current_cpu_temp = 0.0
     
     @Slot()
     def _on_stress_completed(self):
@@ -371,6 +427,10 @@ class CpuStressService(QObject):
             # 處理 nproc 命令的回應
             if "nproc" in command:
                 self._handle_nproc_response(response)
+            
+            # 處理溫度讀取回應
+            elif "temp1_input" in command:
+                self._process_temperature_response(response)
             
             # 處理壓力測試開始確認
             elif ("CPU stress test started" in response or "stress test started" in response or 

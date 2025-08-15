@@ -14,8 +14,8 @@ from util.logger import logger
 
 class SimpleCpuChartWidget(QWidget):
     """
-    簡單的 CPU 壓力測試圖表組件
-    使用 Qt 原生繪圖功能顯示 CPU 負載監控
+    簡單的 CPU 溫度監控圖表組件
+    使用 Qt 原生繪圖功能顯示 CPU 溫度監控
     """
     
     # 信號定義
@@ -26,15 +26,14 @@ class SimpleCpuChartWidget(QWidget):
         super().__init__(parent)
         
         # 數據存儲
-        self.cpu_data = []
+        self.temp_data = []
         self.time_data = []
         self.start_time = None
         self.max_data_points = 100  # 最多保存 100 個數據點
         
         # 圖表顯示控制
-        self.show_cpu_load = True
-        self.show_target_load = True
-        self.target_load_value = 100
+        self.show_temp_line = True
+        self.temp_warning_threshold = 85.0  # 85°C 警告閾值
         
         # 設置 UI
         self._setup_ui()
@@ -51,20 +50,23 @@ class SimpleCpuChartWidget(QWidget):
         layout.setSpacing(5)
         
         # 圖表組
-        chart_group = QGroupBox("CPU Loading Chart")
+        chart_group = QGroupBox("CPU Temperature Monitor")
         chart_layout = QVBoxLayout(chart_group)
         
         # 控制面板
         controls_layout = QHBoxLayout()
         
         # 顯示控制復選框
-        self.cpu_load_checkbox = QCheckBox("CPU Load")
-        self.cpu_load_checkbox.setChecked(True)
-        self.cpu_load_checkbox.toggled.connect(self._on_cpu_load_toggled)
+        self.temp_line_checkbox = QCheckBox("Temperature")
+        self.temp_line_checkbox.setChecked(True)
+        self.temp_line_checkbox.setStyleSheet("color: white;")
+        self.temp_line_checkbox.toggled.connect(self._on_temp_line_toggled)
         
-        self.target_load_checkbox = QCheckBox("Target Load")
-        self.target_load_checkbox.setChecked(True)
-        self.target_load_checkbox.toggled.connect(self._on_target_load_toggled)
+        # 溫度警告線顯示
+        self.warning_line_checkbox = QCheckBox("Warning Line (85°C)")
+        self.warning_line_checkbox.setChecked(True)
+        self.warning_line_checkbox.setStyleSheet("color: white;")
+        self.warning_line_checkbox.toggled.connect(self._on_warning_line_toggled)
         
         # 統計信息標籤
         self.stats_label = QLabel("Points: 0")
@@ -76,8 +78,8 @@ class SimpleCpuChartWidget(QWidget):
         self.clear_button.clicked.connect(self.clear_data)
         
         # 添加控件到控制面板
-        controls_layout.addWidget(self.cpu_load_checkbox)
-        controls_layout.addWidget(self.target_load_checkbox)
+        controls_layout.addWidget(self.temp_line_checkbox)
+        controls_layout.addWidget(self.warning_line_checkbox)
         controls_layout.addStretch()
         controls_layout.addWidget(self.stats_label)
         controls_layout.addWidget(self.clear_button)
@@ -98,13 +100,13 @@ class SimpleCpuChartWidget(QWidget):
         
         layout.addWidget(chart_group)
     
-    def add_data_point(self, cpu_load: float, target_load: float = None, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
+    def add_data_point(self, cpu_temp: float, cpu_load: float = 0, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
         """
         添加數據點
         
         Args:
-            cpu_load: 實際 CPU 負載百分比
-            target_load: 目標 CPU 負載百分比
+            cpu_temp: CPU 溫度（攝氏度）
+            cpu_load: 實際 CPU 負載百分比（用於日誌）
             ram_stress_enabled: 是否啟用 RAM 壓力測試
             ram_stress_mb: RAM 壓力測試的 MB 數
         """
@@ -120,20 +122,17 @@ class SimpleCpuChartWidget(QWidget):
             
             # 添加數據
             self.time_data.append(elapsed_seconds)
-            self.cpu_data.append(cpu_load)
-            
-            if target_load is not None:
-                self.target_load_value = target_load
+            self.temp_data.append(cpu_temp)
             
             # 保持數據點數量在限制內
             if len(self.time_data) > self.max_data_points:
                 self.time_data.pop(0)
-                self.cpu_data.pop(0)
+                self.temp_data.pop(0)
             
             # 更新圖表和顯示
             self._update_chart()
             self._update_stats()
-            self._update_data_display(cpu_load, elapsed_seconds, ram_stress_enabled, ram_stress_mb)
+            self._update_data_display(cpu_temp, cpu_load, elapsed_seconds, ram_stress_enabled, ram_stress_mb)
             
         except Exception as e:
             logger.error(f"Error adding CPU data point: {e}")
@@ -144,10 +143,10 @@ class SimpleCpuChartWidget(QWidget):
             # 更新圖表繪製組件的數據
             self.chart_area.set_data(
                 self.time_data, 
-                self.cpu_data,
-                self.target_load_value if self.show_target_load else None,
-                self.show_cpu_load,
-                self.show_target_load
+                self.temp_data,
+                self.temp_warning_threshold,  # 警告閾值
+                self.show_temp_line,  # 顯示溫度線
+                True  # 顯示警告線
             )
             
         except Exception as e:
@@ -155,41 +154,50 @@ class SimpleCpuChartWidget(QWidget):
     
     def _update_stats(self):
         """更新統計信息"""
-        points_count = len(self.cpu_data)
+        points_count = len(self.temp_data)
         if points_count > 0:
-            current_load = self.cpu_data[-1]
-            avg_load = sum(self.cpu_data) / len(self.cpu_data)
-            max_load = max(self.cpu_data)
-            min_load = min(self.cpu_data)
+            current_temp = self.temp_data[-1]
+            avg_temp = sum(self.temp_data) / len(self.temp_data)
+            max_temp = max(self.temp_data)
+            min_temp = min(self.temp_data)
             
             stats_text = (f"Points: {points_count} | "
-                         f"Current: {current_load:.1f}% | "
-                         f"Avg: {avg_load:.1f}% | "
-                         f"Max: {max_load:.1f}% | "
-                         f"Min: {min_load:.1f}%")
+                         f"Current: {current_temp:.1f}°C | "
+                         f"Avg: {avg_temp:.1f}°C | "
+                         f"Max: {max_temp:.1f}°C | "
+                         f"Min: {min_temp:.1f}°C")
         else:
             stats_text = "Points: 0"
         
         self.stats_label.setText(stats_text)
     
-    def _update_data_display(self, cpu_load: float, elapsed_time: float, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
+    def _update_data_display(self, cpu_temp: float, cpu_load: float, elapsed_time: float, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
         """更新數據顯示"""
         try:
             timestamp = datetime.now().strftime("%H:%M:%S")
             
-            # 計算 RAM 使用百分比（模擬）
+            # 計算 RAM 使用百分比（基於設定值）
             if ram_stress_enabled and ram_stress_mb > 0:
-                # 使用目標 RAM 壓力作為當前值的基準，加上一些隨機變化
-                import random
-                ram_variation = random.uniform(-5, 5)  # ±5% 的變化
+                # 使用目標 RAM 壓力值作為顯示值，不添加隨機變化
                 # 使用動態獲取的系統總記憶體
-                base_ram_percent = (ram_stress_mb / self.total_ram_mb) * 100 if self.total_ram_mb > 0 else 0
-                current_ram_percent = max(0, min(100, base_ram_percent + ram_variation))
+                current_ram_percent = (ram_stress_mb / self.total_ram_mb) * 100 if self.total_ram_mb > 0 else 0
                 
-                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: {current_ram_percent:5.1f}% ({ram_stress_mb} MB)"
+                # 根據溫度決定顏色格式
+                if cpu_temp >= self.temp_warning_threshold:
+                    temp_color = "color: #ff6600; font-weight: bold;"  # 橙色粗體（85°C以上）
+                else:
+                    temp_color = "color: #00ff00;"  # 綠色
+                
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: {current_ram_percent:5.1f}% ({ram_stress_mb} MB) - Temp: {cpu_temp:.0f}°C"
             else:
                 # 只有 CPU 測試
-                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: 0.0% (0 MB)"
+                # 根據溫度決定顏色格式
+                if cpu_temp >= self.temp_warning_threshold:
+                    temp_color = "color: #ff6600; font-weight: bold;"  # 橙色粗體（85°C以上）
+                else:
+                    temp_color = "color: #00ff00;"  # 綠色
+                
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: 0.0% (0 MB) - Temp: {cpu_temp:.0f}°C"
             
             # 添加到文本區域
             self.data_display.append(data_line)
@@ -209,20 +217,20 @@ class SimpleCpuChartWidget(QWidget):
             logger.error(f"Error updating data display: {e}")
     
     @Slot(bool)
-    def _on_cpu_load_toggled(self, checked: bool):
-        """CPU 負載顯示切換"""
-        self.show_cpu_load = checked
+    def _on_temp_line_toggled(self, checked: bool):
+        """溫度線顯示切換"""
+        self.show_temp_line = checked
         self._update_chart()
     
     @Slot(bool)
-    def _on_target_load_toggled(self, checked: bool):
-        """目標負載顯示切換"""
-        self.show_target_load = checked
-        self._update_chart()
+    def _on_warning_line_toggled(self, checked: bool):
+        """警告線顯示切換"""
+        # 這個功能可以後續實現
+        pass
     
     def clear_data(self):
         """清除所有數據"""
-        self.cpu_data.clear()
+        self.temp_data.clear()
         self.time_data.clear()
         self.start_time = None
         
@@ -254,7 +262,7 @@ class SimpleCpuChartWidget(QWidget):
         Returns:
             統計數據字典
         """
-        if not self.cpu_data:
+        if not self.temp_data:
             return {
                 'count': 0,
                 'current': 0,
@@ -267,11 +275,11 @@ class SimpleCpuChartWidget(QWidget):
         duration = self.time_data[-1] - self.time_data[0] if len(self.time_data) > 1 else 0
         
         return {
-            'count': len(self.cpu_data),
-            'current': self.cpu_data[-1],
-            'average': sum(self.cpu_data) / len(self.cpu_data),
-            'maximum': max(self.cpu_data),
-            'minimum': min(self.cpu_data),
+            'count': len(self.temp_data),
+            'current': self.temp_data[-1],
+            'average': sum(self.temp_data) / len(self.temp_data),
+            'maximum': max(self.temp_data),
+            'minimum': min(self.temp_data),
             'duration': duration
         }
 
@@ -282,28 +290,28 @@ class ChartPaintWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.time_data = []
-        self.cpu_data = []
-        self.target_load = 100
-        self.show_cpu_load = True
-        self.show_target_load = True
+        self.temp_data = []
+        self.temp_warning_threshold = 85.0
+        self.show_temp_line = True
+        self.show_warning_line = True
         self.title = ""
         
         # 設置背景色
         self.setStyleSheet("background-color: #2D2D30; border: 1px solid #555555;")
     
-    def set_data(self, time_data, cpu_data, target_load=None, show_cpu=True, show_target=True):
+    def set_data(self, time_data, temp_data, warning_threshold=None, show_temp=True, show_warning=True):
         """設置圖表數據"""
         self.time_data = time_data.copy() if time_data else []
-        self.cpu_data = cpu_data.copy() if cpu_data else []
-        self.target_load = target_load if target_load is not None else 100
-        self.show_cpu_load = show_cpu
-        self.show_target_load = show_target
+        self.temp_data = temp_data.copy() if temp_data else []
+        self.temp_warning_threshold = warning_threshold if warning_threshold is not None else 85.0
+        self.show_temp_line = show_temp
+        self.show_warning_line = show_warning
         self.update()  # 觸發重繪
     
     def clear_data(self):
         """清除圖表數據"""
         self.time_data.clear()
-        self.cpu_data.clear()
+        self.temp_data.clear()
         self.update()
     
     def set_title(self, title: str):
@@ -358,48 +366,43 @@ class ChartPaintWidget(QWidget):
                 painter.setPen(QPen(QColor('gray'), 1))
         
         # 如果有數據，繪製數據線
-        if len(self.time_data) > 1 and len(self.cpu_data) > 1:
+        if len(self.time_data) > 1 and len(self.temp_data) > 1:
             # 計算縮放因子
             time_range = max(self.time_data) - min(self.time_data)
             if time_range > 0:
                 x_scale = chart_rect.width() / time_range
-                y_scale = chart_rect.height() / 100.0
+                y_scale = chart_rect.height() / 100.0  # 假設最大溫度 100°C
                 
-                # 繪製目標負載線
-                if self.show_target_load:
+                # 繪製溫度警告線
+                if self.show_warning_line:
                     painter.setPen(QPen(QColor('orange'), 2, Qt.DashLine))
-                    target_y = chart_rect.bottom() - self.target_load * y_scale
-                    painter.drawLine(chart_rect.left(), target_y, chart_rect.right(), target_y)
+                    warning_y = chart_rect.bottom() - self.temp_warning_threshold * y_scale
+                    painter.drawLine(chart_rect.left(), warning_y, chart_rect.right(), warning_y)
                 
-                # 繪製 CPU 負載線
-                if self.show_cpu_load:
+                # 繪製溫度線
+                if self.show_temp_line:
                     painter.setPen(QPen(QColor('green'), 2))
                     
                     for i in range(1, len(self.time_data)):
                         x1 = chart_rect.left() + (self.time_data[i-1] - min(self.time_data)) * x_scale
-                        y1 = chart_rect.bottom() - self.cpu_data[i-1] * y_scale
+                        y1 = chart_rect.bottom() - self.temp_data[i-1] * y_scale
                         x2 = chart_rect.left() + (self.time_data[i] - min(self.time_data)) * x_scale
-                        y2 = chart_rect.bottom() - self.cpu_data[i] * y_scale
+                        y2 = chart_rect.bottom() - self.temp_data[i] * y_scale
                         
                         painter.drawLine(x1, y1, x2, y2)
         
         # 繪製圖例
-        if self.show_cpu_load or self.show_target_load:
+        if self.show_temp_line:
             legend_x = chart_rect.right() - 150
             legend_y = chart_rect.top() + 10
             
-            if self.show_cpu_load:
+            if self.show_temp_line:
                 painter.setPen(QPen(QColor('green'), 2))
                 painter.drawLine(legend_x, legend_y, legend_x + 20, legend_y)
                 painter.setPen(QPen(QColor('white')))
-                painter.drawText(legend_x + 25, legend_y + 5, "CPU Load")
+                painter.drawText(legend_x + 25, legend_y + 5, "Temperature")
                 legend_y += 20
-            
-            if self.show_target_load:
-                painter.setPen(QPen(QColor('orange'), 2, Qt.DashLine))
-                painter.drawLine(legend_x, legend_y, legend_x + 20, legend_y)
-                painter.setPen(QPen(QColor('white')))
-                painter.drawText(legend_x + 25, legend_y + 5, "Target Load")
+
         
         painter.end()
 
