@@ -23,6 +23,8 @@ from gui.views.auto_diagnostic_view import AutoDiagnosticView
 from gui.views.hw_sw_config_manager import HWSWConfigManager
 from gui.views.firmware_os_manager import FirmwareOSManager
 from core.services.connection_pre_check import ConnectionPreCheckService
+from core.services.cpu_stress_service import CpuStressService
+from gui.widgets.simple_cpu_chart_widget import SimpleCpuChartWidget
 
 
 class DarkEditDialog(QDialog):
@@ -247,6 +249,14 @@ class MainWindowController(QObject):
         # create the connection pre-check service
         self.connection_pre_check = ConnectionPreCheckService(self.view_model)
         
+        # create the CPU stress test service
+        self.cpu_stress_service = CpuStressService(self.view_model._serial_worker)
+        
+        # CPU stress test state
+        self.cpu_stress_duration = 0.0  # Duration in hours
+        self.cpu_stress_target_load = 100  # Target CPU load percentage
+        self.cpu_stress_chart_widget = None
+        
         # Initialize system info view
         self._init_system_info_view()
         
@@ -275,6 +285,9 @@ class MainWindowController(QObject):
         
         # Initialize auto diagnostic view
         self._init_functionality_test_ui()
+        
+        # Initialize stress test UI
+        self._init_stress_test_ui()
         
         # Connect refresh button
         self.window.pushButton_refresh.clicked.connect(self._on_refresh_system_info)
@@ -726,6 +739,12 @@ class MainWindowController(QObject):
         
         # connect the all tests completed signal of the test manager
         self.test_manager.all_tests_completed.connect(self._on_all_tests_completed)
+        
+        # Connect CPU stress test signals
+        self.cpu_stress_service.stress_started.connect(self._on_cpu_stress_started)
+        self.cpu_stress_service.stress_completed.connect(self._on_cpu_stress_completed)
+        self.cpu_stress_service.stress_error.connect(self._on_cpu_stress_error)
+        self.cpu_stress_service.stress_progress.connect(self._on_cpu_stress_progress)
 
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -1041,6 +1060,183 @@ class MainWindowController(QObject):
             lambda test_type, test_id, data: self.record_test_result(test_type, test_id, data),
             lambda test_type, test_id, data: self.record_test_progress(test_type, test_id, data)
         )
+    
+    def _init_stress_test_ui(self):
+        """Initialize stress test UI elements"""
+        try:
+            # Set default CPU loading to 100%
+            cpu_loading_combo = self.window.comboBox_cpu_loading
+            cpu_loading_combo.setCurrentIndex(9)  # 100% is at index 9
+            
+            # Set default duration to 0.0
+            duration_spinbox = self.window.doubleSpinBox_duration
+            duration_spinbox.setValue(0.0)
+            
+            # Connect UI signals
+            self.window.doubleSpinBox_duration.valueChanged.connect(self._on_duration_changed)
+            self.window.pushButton_cpu_stress_start.clicked.connect(self._on_cpu_stress_start_clicked)
+            self.window.comboBox_cpu_loading.currentTextChanged.connect(self._on_cpu_loading_changed)
+            
+            # Initialize CPU stress chart widget
+            self._init_cpu_stress_chart()
+            
+            logger.debug("Stress test UI initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Error initializing stress test UI: {e}")
+    
+    def _init_cpu_stress_chart(self):
+        """Initialize CPU stress chart widget"""
+        try:
+            # Create CPU stress chart widget
+            self.cpu_stress_chart_widget = SimpleCpuChartWidget()
+            
+            # Get the placeholder widget and replace it with the chart
+            placeholder = self.window.widget_cpu_chart_placeholder
+            parent_layout = placeholder.parent().layout()
+            
+            # Find the placeholder in the layout and replace it
+            for i in range(parent_layout.count()):
+                item = parent_layout.itemAt(i)
+                if item.widget() == placeholder:
+                    # Remove the placeholder
+                    parent_layout.removeItem(item)
+                    placeholder.deleteLater()
+                    
+                    # Add the chart widget
+                    parent_layout.insertWidget(i, self.cpu_stress_chart_widget)
+                    break
+            
+            logger.debug("CPU stress chart initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Error initializing CPU stress chart: {e}")
+    
+    def _on_duration_changed(self, value: float):
+        """Handle duration spinbox value change"""
+        self.cpu_stress_duration = value
+        logger.debug(f"CPU stress duration changed to: {value} hours")
+    
+    def _on_cpu_loading_changed(self, text: str):
+        """Handle CPU loading selection change"""
+        try:
+            self.cpu_stress_target_load = int(text.replace('%', ''))
+            logger.debug(f"CPU target load changed to: {self.cpu_stress_target_load}%")
+            
+        except ValueError:
+            self.cpu_stress_target_load = 100
+    
+    def _on_cpu_stress_start_clicked(self):
+        """Handle CPU stress test start/stop button click"""
+        try:
+            button = self.window.pushButton_cpu_stress_start
+            
+            if button.text() == "Start":
+                # Get current duration from spinbox
+                self.cpu_stress_duration = self.window.doubleSpinBox_duration.value()
+                
+                # Start stress test
+                if self.cpu_stress_duration < 0:
+                    self.add_system_log("ERROR", "Duration cannot be negative")
+                    return
+                
+                # Convert hours to seconds (0 means unlimited duration)
+                if self.cpu_stress_duration == 0:
+                    duration_seconds = 0  # 0 means unlimited
+                    duration_text = "unlimited time"
+                else:
+                    duration_seconds = int(self.cpu_stress_duration * 3600)
+                    duration_text = f"{self.cpu_stress_duration} hours"
+                
+                # Start the stress test
+                success = self.cpu_stress_service.start_stress_test(
+                    self.device_id, 
+                    self.cpu_stress_target_load, 
+                    duration_seconds
+                )
+                
+                if success:
+                    button.setText("Stop")
+                    button.setStyleSheet("background-color: #D7342A;")  # Red for stop
+                    
+                    # Disable controls during test
+                    self.window.comboBox_cpu_loading.setEnabled(False)
+                    self.window.doubleSpinBox_duration.setEnabled(False)
+                    
+                    self.add_system_log("INFO", f"CPU stress test started: {self.cpu_stress_target_load}% for {duration_text}")
+                
+            else:
+                # Stop stress test
+                success = self.cpu_stress_service.stop_stress_test(self.device_id)
+                if success:
+                    self._reset_cpu_stress_ui()
+                    self.add_system_log("INFO", "CPU stress test stopped manually")
+                    
+        except Exception as e:
+            logger.error(f"Error handling CPU stress start/stop: {e}")
+            self.add_system_log("ERROR", f"CPU stress test error: {e}")
+    
+    def _reset_cpu_stress_ui(self):
+        """Reset CPU stress test UI to initial state"""
+        try:
+            button = self.window.pushButton_cpu_stress_start
+            button.setText("Start")
+            button.setStyleSheet("")  # Reset to default style
+            
+            # Re-enable controls
+            self.window.comboBox_cpu_loading.setEnabled(True)
+            self.window.doubleSpinBox_duration.setEnabled(True)
+            
+        except Exception as e:
+            logger.error(f"Error resetting CPU stress UI: {e}")
+    
+    @Slot(str, int, int)
+    def _on_cpu_stress_started(self, device_id: str, loading_percent: int, duration_seconds: int):
+        """Handle CPU stress test started signal"""
+        if device_id == self.device_id:
+            duration_hours = duration_seconds / 3600.0
+            self.add_system_log("INFO", f"CPU stress test started: {loading_percent}% load for {duration_hours:.1f} hours")
+            
+            # Clear chart data for new test
+            if self.cpu_stress_chart_widget:
+                self.cpu_stress_chart_widget.clear_data()
+                self.cpu_stress_chart_widget.set_chart_title(f"CPU Stress Test - Target: {loading_percent}%")
+    
+    @Slot(str, str)
+    def _on_cpu_stress_completed(self, device_id: str, message: str):
+        """Handle CPU stress test completed signal"""
+        if device_id == self.device_id:
+            self._reset_cpu_stress_ui()
+            self.add_system_log("INFO", f"CPU stress test completed: {message}")
+    
+    @Slot(str, str)
+    def _on_cpu_stress_error(self, device_id: str, error_message: str):
+        """Handle CPU stress test error signal"""
+        if device_id == self.device_id:
+            self._reset_cpu_stress_ui()
+            self.add_system_log("ERROR", f"CPU stress test error: {error_message}")
+    
+    @Slot(str, int, int)
+    def _on_cpu_stress_progress(self, device_id: str, elapsed_seconds: int, total_seconds: int):
+        """Handle CPU stress test progress signal"""
+        if device_id == self.device_id:
+            # Simulate CPU load data (in real implementation, this would come from monitoring)
+            # For now, we'll add some variation around the target load
+            import random
+            simulated_load = self.cpu_stress_target_load + random.uniform(-5, 5)
+            simulated_load = max(0, min(100, simulated_load))
+            
+            # Add data point to chart
+            if self.cpu_stress_chart_widget:
+                self.cpu_stress_chart_widget.add_data_point(simulated_load, self.cpu_stress_target_load)
+            
+            # Log progress periodically (every 30 seconds)
+            if elapsed_seconds % 30 == 0:
+                if total_seconds == 0:  # Unlimited duration
+                    self.add_system_log("INFO", f"CPU stress test progress: {elapsed_seconds}s (unlimited duration)")
+                else:
+                    progress_percent = (elapsed_seconds / total_seconds) * 100
+                    self.add_system_log("INFO", f"CPU stress test progress: {elapsed_seconds}/{total_seconds}s ({progress_percent:.1f}%)")
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
