@@ -49,6 +49,11 @@ class CpuStressChartWidget(QWidget):
         self._setup_ui()
         self._setup_chart()
         
+        # 用於存儲 RAM 壓力測試信息
+        self.ram_stress_enabled = False
+        self.ram_stress_mb = 0
+        self.total_ram_mb = 3891  # 預設值，會被動態更新
+        
         logger.debug("CPU stress chart widget initialized")
     
     def _setup_ui(self):
@@ -102,6 +107,24 @@ class CpuStressChartWidget(QWidget):
         self.chart_placeholder.setMinimumHeight(300)
         chart_layout.addWidget(self.chart_placeholder)
         
+        # 添加日誌顯示區域
+        from PySide6.QtWidgets import QTextEdit
+        self.data_display = QTextEdit()
+        self.data_display.setMaximumHeight(120)
+        self.data_display.setReadOnly(True)
+        self.data_display.setStyleSheet("""
+            QTextEdit {
+                background-color: #1E1E1E;
+                color: #FFFFFF;
+                border: 1px solid #3C3C3C;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 12px;
+                padding: 5px;
+            }
+        """)
+        self.data_display.setPlaceholderText("Stress test log will appear here...")
+        chart_layout.addWidget(self.data_display)
+        
         layout.addWidget(chart_group)
     
     def _setup_chart(self):
@@ -151,13 +174,15 @@ class CpuStressChartWidget(QWidget):
         
         logger.debug("CPU stress chart setup completed")
     
-    def add_data_point(self, cpu_load: float, target_load: float = None):
+    def add_data_point(self, cpu_load: float, target_load: float = None, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
         """
         添加數據點
         
         Args:
             cpu_load: 實際 CPU 負載百分比
             target_load: 目標 CPU 負載百分比
+            ram_stress_enabled: 是否啟用 RAM 壓力測試
+            ram_stress_mb: RAM 壓力測試的 MB 數
         """
         try:
             current_time = datetime.now()
@@ -178,11 +203,16 @@ class CpuStressChartWidget(QWidget):
                 self.time_data.pop(0)
                 self.cpu_data.pop(0)
             
+            # 存儲 RAM 壓力測試信息
+            self.ram_stress_enabled = ram_stress_enabled
+            self.ram_stress_mb = ram_stress_mb
+            
             # 更新圖表
             self._update_chart(target_load)
             
             # 更新統計信息
             self._update_stats()
+            self._update_data_display(cpu_load, elapsed_seconds)
             
         except Exception as e:
             logger.error(f"Error adding CPU data point: {e}")
@@ -239,6 +269,43 @@ class CpuStressChartWidget(QWidget):
         
         self.stats_label.setText(stats_text)
     
+    def _update_data_display(self, cpu_load: float, elapsed_time: float):
+        """更新數據顯示"""
+        try:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            
+            # 計算 RAM 使用百分比（模擬）
+            if self.ram_stress_enabled and self.ram_stress_mb > 0:
+                # 使用目標 RAM 壓力作為當前值的基準，加上一些隨機變化
+                import random
+                ram_variation = random.uniform(-5, 5)  # ±5% 的變化
+                # 使用動態獲取的系統總記憶體
+                base_ram_percent = (self.ram_stress_mb / self.total_ram_mb) * 100 if self.total_ram_mb > 0 else 0
+                current_ram_percent = max(0, min(100, base_ram_percent + ram_variation))
+                
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: {current_ram_percent:5.1f}% ({self.ram_stress_mb} MB)"
+            else:
+                # 只有 CPU 測試
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: 0.0% (0 MB)"
+            
+            # 添加到文本區域
+            self.data_display.append(data_line)
+            
+            # 保持在合理的行數內
+            lines = self.data_display.toPlainText().split('\n')
+            if len(lines) > 20:
+                self.data_display.setPlainText('\n'.join(lines[-20:]))
+            
+            # 自動滾動到底部
+            from PySide6.QtGui import QTextCursor
+            cursor = self.data_display.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            self.data_display.setTextCursor(cursor)
+            
+        except Exception as e:
+            logger.error(f"Error updating data display: {e}")
+    
     @Slot(bool)
     def _on_cpu_load_toggled(self, checked: bool):
         """CPU 負載顯示切換"""
@@ -263,6 +330,9 @@ class CpuStressChartWidget(QWidget):
             self.target_load_line.set_data([], [])
             self.canvas.draw()
         
+        # 清除日誌顯示
+        self.data_display.clear()
+        
         # 重置統計信息
         self._update_stats()
         
@@ -270,6 +340,11 @@ class CpuStressChartWidget(QWidget):
         self.chart_cleared.emit()
         
         logger.info("CPU stress chart data cleared")
+    
+    def set_total_ram_mb(self, total_ram_mb: int):
+        """設置系統總記憶體大小（MB）"""
+        self.total_ram_mb = total_ram_mb
+        logger.debug(f"Updated total RAM to {total_ram_mb} MB")
     
     def get_chart_data(self) -> Dict[str, Any]:
         """

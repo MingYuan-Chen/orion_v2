@@ -18,7 +18,7 @@ class CpuStressService(QObject):
     stress_started = Signal(str, int, int)    # device_id, loading_percent, duration_seconds
     stress_completed = Signal(str, str)       # device_id, message
     stress_error = Signal(str, str)           # device_id, error_message
-    stress_progress = Signal(str, int, int)   # device_id, elapsed_seconds, total_seconds
+    stress_progress = Signal(str, int, int, int, int)   # device_id, elapsed_seconds, total_seconds, ram_stress_enabled(1/0), ram_stress_mb
     
     def __init__(self, serial_worker):
         """
@@ -37,6 +37,10 @@ class CpuStressService(QObject):
         self.duration_seconds = 0
         self.elapsed_seconds = 0
         
+        # RAM 壓力測試設定
+        self.ram_stress_enabled = False
+        self.ram_stress_mb = 0
+        
         # 時間控制
         self.progress_timer = QTimer()
         self.progress_timer.timeout.connect(self._on_progress_update)
@@ -53,14 +57,15 @@ class CpuStressService(QObject):
         
         logger.info("CPU stress service initialized")
     
-    def start_stress_test(self, device_id: str, loading_percent: int, duration_seconds: int) -> bool:
+    def start_stress_test(self, device_id: str, loading_percent: int, duration_seconds: int, ram_stress_mb: int = 0) -> bool:
         """
-        開始 CPU 壓力測試
+        開始 CPU/RAM 壓力測試
         
         Args:
             device_id: 目標設備 ID
             loading_percent: CPU 負載百分比 (1-100)
             duration_seconds: 持續時間（秒）
+            ram_stress_mb: RAM 壓力測試大小（MB），0 表示不進行 RAM 測試
             
         Returns:
             bool: 是否成功啟動測試
@@ -83,6 +88,12 @@ class CpuStressService(QObject):
             self.stress_error.emit(device_id, error_msg)
             return False
         
+        if ram_stress_mb < 0:
+            error_msg = f"Invalid RAM stress size: {ram_stress_mb}. Must be 0 (disabled) or greater than 0."
+            logger.error(error_msg)
+            self.stress_error.emit(device_id, error_msg)
+            return False
+        
         # 設定測試參數
         self.current_device_id = device_id
         self.loading_percent = loading_percent
@@ -90,7 +101,12 @@ class CpuStressService(QObject):
         self.elapsed_seconds = 0
         self.is_running = True
         
-        logger.info(f"Starting CPU stress test: device={device_id}, loading={loading_percent}%, duration={duration_seconds}s")
+        # 設定 RAM 壓力測試參數
+        self.ram_stress_enabled = ram_stress_mb > 0
+        self.ram_stress_mb = ram_stress_mb
+        
+        ram_info = f", RAM={ram_stress_mb}MB" if self.ram_stress_enabled else ""
+        logger.info(f"Starting stress test: device={device_id}, CPU={loading_percent}%, duration={duration_seconds}s{ram_info}")
         
         # 發出測試開始信號
         self.stress_started.emit(device_id, loading_percent, duration_seconds)
@@ -154,8 +170,9 @@ class CpuStressService(QObject):
             work_time_ms = int(self.loading_percent * 10)  # 每秒工作的毫秒數
             sleep_time_ms = 1000 - work_time_ms            # 每秒休息的毫秒數
             
+            ram_info = f", RAM: {self.ram_stress_mb}MB" if self.ram_stress_enabled else ""
             logger.info(f"Starting stress test with {self.cpu_cores} cores, "
-                       f"work cycle: {work_time_ms}ms work, {sleep_time_ms}ms sleep")
+                       f"work cycle: {work_time_ms}ms work, {sleep_time_ms}ms sleep{ram_info}")
             
             # 生成壓力測試腳本
             stress_script = self._generate_stress_script(work_time_ms, sleep_time_ms)
@@ -193,8 +210,9 @@ class CpuStressService(QObject):
         # 生成多核心壓力測試腳本
         # 使用背景進程來控制每個核心的負載
         script_lines = []
-        script_lines.append("# CPU Stress Test Script")
-        script_lines.append(f"# Target: {self.loading_percent}% load for {self.duration_seconds}s")
+        ram_info = f" + RAM({self.ram_stress_mb}MB)" if self.ram_stress_enabled else ""
+        script_lines.append(f"# CPU{ram_info} Stress Test Script")
+        script_lines.append(f"# Target: {self.loading_percent}% CPU load for {self.duration_seconds}s")
         
         # 為每個 CPU 核心創建一個控制迴圈
         for core in range(self.cpu_cores):
@@ -211,7 +229,31 @@ class CpuStressService(QObject):
             script_lines.append(f"  done")
             script_lines.append(f") &")
         
-        script_lines.append("echo 'CPU stress test started'")
+        # 添加 RAM 壓力測試進程 - 純記憶體操作，完全不寫入存儲設備
+        if self.ram_stress_enabled:
+            # 計算每個進程應該分配的記憶體大小
+            ram_per_process = max(64, self.ram_stress_mb // 4)  # 至少 64MB，分成 4 個進程
+            num_ram_processes = min(4, max(1, self.ram_stress_mb // 64))  # 1-4 個進程
+            
+            for i in range(num_ram_processes):
+                script_lines.append(f"(")
+                if self.duration_seconds == 0:
+                    # 無限時間執行 - 純記憶體操作，不寫入任何文件
+                    script_lines.append(f"  while true; do")
+                    script_lines.append(f"    yes | head -c {ram_per_process}M | cat > /dev/null 2>&1")
+                    script_lines.append(f"    sleep 0.5")
+                    script_lines.append(f"  done")
+                else:
+                    # 有限時間執行 - 純記憶體操作，不寫入任何文件
+                    script_lines.append(f"  end_time=$(($(date +%s) + {self.duration_seconds}))")
+                    script_lines.append(f"  while [ $(date +%s) -lt $end_time ]; do")
+                    script_lines.append(f"    yes | head -c {ram_per_process}M | cat > /dev/null 2>&1")
+                    script_lines.append(f"    sleep 0.5")
+                    script_lines.append(f"  done")
+                script_lines.append(f") &")
+        
+        test_info = f"CPU+RAM stress test" if self.ram_stress_enabled else "CPU stress test"
+        script_lines.append(f"echo '{test_info} started'")
         
         # 合併成單一命令
         script = " && ".join([line for line in script_lines if not line.startswith("#")])
@@ -225,6 +267,8 @@ class CpuStressService(QObject):
             stop_command = "killall yes 2>/dev/null || echo 'stress processes stopped'"
             logger.debug(f"Sending stop command: {stop_command}")
             self.serial_worker.send_command(self.current_device_id, stop_command, 5)
+            
+            # RAM 壓力測試使用純記憶體操作，無需清理文件
             
         except Exception as e:
             logger.error(f"Error sending stop commands: {e}")
@@ -240,6 +284,10 @@ class CpuStressService(QObject):
         self.duration_seconds = 0
         self.elapsed_seconds = 0
         self.stress_pids = []
+        
+        # 重置 RAM 壓力測試參數
+        self.ram_stress_enabled = False
+        self.ram_stress_mb = 0
         
         # 停止計時器
         self.progress_timer.stop()
@@ -272,11 +320,13 @@ class CpuStressService(QObject):
         
         self.elapsed_seconds += 1
         
-        # 發出進度信號
+        # 發出進度信號，包含 RAM 信息
         self.stress_progress.emit(
             self.current_device_id, 
             self.elapsed_seconds, 
-            self.duration_seconds
+            self.duration_seconds,
+            1 if self.ram_stress_enabled else 0,
+            self.ram_stress_mb
         )
         
         logger.debug(f"CPU stress progress: {self.elapsed_seconds}/{self.duration_seconds}s")
@@ -323,12 +373,13 @@ class CpuStressService(QObject):
                 self._handle_nproc_response(response)
             
             # 處理壓力測試開始確認
-            elif "CPU stress test started" in response or "stress test started" in response:
-                logger.info(f"CPU stress test confirmed started on device: {device_id}")
+            elif ("CPU stress test started" in response or "stress test started" in response or 
+                  "CPU+RAM stress test started" in response):
+                logger.info(f"Stress test confirmed started on device: {device_id}")
             
             # 處理停止命令回應
             elif "stress processes stopped" in response or "killall" in command:
-                logger.info(f"CPU stress test processes stopped on device: {device_id}")
+                logger.info(f"Stress test processes stopped on device: {device_id}")
             
         except Exception as e:
             logger.error(f"Error processing command result: {e}")
@@ -370,7 +421,9 @@ class CpuStressService(QObject):
             "duration_seconds": self.duration_seconds,
             "elapsed_seconds": self.elapsed_seconds,
             "cpu_cores": self.cpu_cores,
-            "progress_percent": round((self.elapsed_seconds / self.duration_seconds) * 100, 1) if self.duration_seconds > 0 else 0
+            "progress_percent": round((self.elapsed_seconds / self.duration_seconds) * 100, 1) if self.duration_seconds > 0 else 0,
+            "ram_stress_enabled": self.ram_stress_enabled,
+            "ram_stress_mb": self.ram_stress_mb
         }
     
     def cleanup(self):

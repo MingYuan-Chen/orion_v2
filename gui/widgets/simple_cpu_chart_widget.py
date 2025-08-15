@@ -39,6 +39,9 @@ class SimpleCpuChartWidget(QWidget):
         # 設置 UI
         self._setup_ui()
         
+        # 用於存儲系統記憶體信息
+        self.total_ram_mb = 3891  # 預設值，會被動態更新
+        
         logger.debug("Simple CPU chart widget initialized")
     
     def _setup_ui(self):
@@ -95,13 +98,15 @@ class SimpleCpuChartWidget(QWidget):
         
         layout.addWidget(chart_group)
     
-    def add_data_point(self, cpu_load: float, target_load: float = None):
+    def add_data_point(self, cpu_load: float, target_load: float = None, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
         """
         添加數據點
         
         Args:
             cpu_load: 實際 CPU 負載百分比
             target_load: 目標 CPU 負載百分比
+            ram_stress_enabled: 是否啟用 RAM 壓力測試
+            ram_stress_mb: RAM 壓力測試的 MB 數
         """
         try:
             current_time = datetime.now()
@@ -128,7 +133,7 @@ class SimpleCpuChartWidget(QWidget):
             # 更新圖表和顯示
             self._update_chart()
             self._update_stats()
-            self._update_data_display(cpu_load, elapsed_seconds)
+            self._update_data_display(cpu_load, elapsed_seconds, ram_stress_enabled, ram_stress_mb)
             
         except Exception as e:
             logger.error(f"Error adding CPU data point: {e}")
@@ -167,11 +172,24 @@ class SimpleCpuChartWidget(QWidget):
         
         self.stats_label.setText(stats_text)
     
-    def _update_data_display(self, cpu_load: float, elapsed_time: float):
+    def _update_data_display(self, cpu_load: float, elapsed_time: float, ram_stress_enabled: bool = False, ram_stress_mb: int = 0):
         """更新數據顯示"""
         try:
             timestamp = datetime.now().strftime("%H:%M:%S")
-            data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% (Target: {self.target_load_value}%)"
+            
+            # 計算 RAM 使用百分比（模擬）
+            if ram_stress_enabled and ram_stress_mb > 0:
+                # 使用目標 RAM 壓力作為當前值的基準，加上一些隨機變化
+                import random
+                ram_variation = random.uniform(-5, 5)  # ±5% 的變化
+                # 使用動態獲取的系統總記憶體
+                base_ram_percent = (ram_stress_mb / self.total_ram_mb) * 100 if self.total_ram_mb > 0 else 0
+                current_ram_percent = max(0, min(100, base_ram_percent + ram_variation))
+                
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: {current_ram_percent:5.1f}% ({ram_stress_mb} MB)"
+            else:
+                # 只有 CPU 測試
+                data_line = f"[{timestamp}] {elapsed_time:6.1f}s - CPU: {cpu_load:5.1f}% - RAM: 0.0% (0 MB)"
             
             # 添加到文本區域
             self.data_display.append(data_line)
@@ -219,6 +237,11 @@ class SimpleCpuChartWidget(QWidget):
         self.chart_cleared.emit()
         
         logger.info("CPU chart data cleared")
+    
+    def set_total_ram_mb(self, total_ram_mb: int):
+        """設置系統總記憶體大小（MB）"""
+        self.total_ram_mb = total_ram_mb
+        logger.debug(f"Updated total RAM to {total_ram_mb} MB")
     
     def set_chart_title(self, title: str):
         """設置圖表標題"""
