@@ -605,6 +605,10 @@ class ChartPaintWidget(QWidget):
         self.show_warning_line = True
         self.title = ""
         
+        # 溫度範圍控制
+        self.min_temp_range = 100.0  # 最小顯示範圍 100°C
+        self.current_max_temp = 100.0  # 當前最大顯示溫度
+        
         # 設置背景色
         self.setStyleSheet("background-color: #2D2D30; border: 1px solid #555555;")
     
@@ -615,18 +619,45 @@ class ChartPaintWidget(QWidget):
         self.temp_warning_threshold = warning_threshold if warning_threshold is not None else 85.0
         self.show_temp_line = show_temp
         self.show_warning_line = show_warning
+        
+        # 動態計算 Y 軸最大值
+        if self.temp_data:
+            max_data_temp = max(self.temp_data)
+            # 如果最大溫度超過當前範圍，擴展範圍（向上取整到最近的10度）
+            if max_data_temp > self.current_max_temp:
+                self.current_max_temp = max(self.min_temp_range, ((max_data_temp // 10) + 1) * 10)
+            # 也考慮警告閾值
+            if self.temp_warning_threshold > self.current_max_temp:
+                self.current_max_temp = max(self.min_temp_range, ((self.temp_warning_threshold // 10) + 1) * 10)
+        else:
+            # 沒有數據時保持最小範圍
+            self.current_max_temp = self.min_temp_range
+        
         self.update()  # 觸發重繪
     
     def clear_data(self):
         """清除圖表數據"""
         self.time_data.clear()
         self.temp_data.clear()
+        # 重置溫度範圍到最小值
+        self.current_max_temp = self.min_temp_range
         self.update()
     
     def set_title(self, title: str):
         """設置圖表標題"""
         self.title = title
         self.update()
+    
+    def _calculate_temp_step(self, max_temp: float) -> float:
+        """計算合適的溫度刻度間隔"""
+        if max_temp <= 100:
+            return 20  # 0, 20, 40, 60, 80, 100
+        elif max_temp <= 150:
+            return 25  # 0, 25, 50, 75, 100, 125, 150
+        elif max_temp <= 200:
+            return 40  # 0, 40, 80, 120, 160, 200
+        else:
+            return 50  # 0, 50, 100, 150, 200, 250...
     
     def paintEvent(self, event):
         """繪製圖表"""
@@ -662,14 +693,22 @@ class ChartPaintWidget(QWidget):
         font.setPointSize(8)
         painter.setFont(font)
         
-        # Y 軸標籤 (0-100%)
-        for i in range(0, 101, 20):
-            y = chart_rect.bottom() - (i / 100.0) * chart_rect.height()
+        # Y 軸標籤 (溫度刻度)
+        # 計算刻度間隔，確保有適當的刻度數量
+        temp_step = self._calculate_temp_step(self.current_max_temp)
+        temp_steps = int(self.current_max_temp / temp_step) + 1
+        
+        for i in range(temp_steps):
+            temp_value = i * temp_step
+            if temp_value > self.current_max_temp:
+                break
+                
+            y = chart_rect.bottom() - (temp_value / self.current_max_temp) * chart_rect.height()
             painter.drawLine(chart_rect.left() - 5, y, chart_rect.left(), y)
-            painter.drawText(chart_rect.left() - 35, y - 5, 30, 10, Qt.AlignRight, f"{i}%")
+            painter.drawText(chart_rect.left() - 35, y - 5, 30, 10, Qt.AlignRight, f"{int(temp_value)}°C")
             
             # 網格線
-            if i > 0:
+            if temp_value > 0:
                 painter.setPen(QPen(QColor('gray'), 1, Qt.DotLine))
                 painter.drawLine(chart_rect.left(), y, chart_rect.right(), y)
                 painter.setPen(QPen(QColor('gray'), 1))
@@ -680,10 +719,10 @@ class ChartPaintWidget(QWidget):
             time_range = max(self.time_data) - min(self.time_data)
             if time_range > 0:
                 x_scale = chart_rect.width() / time_range
-                y_scale = chart_rect.height() / 100.0  # 假設最大溫度 100°C
+                y_scale = chart_rect.height() / self.current_max_temp  # 使用動態最大溫度
                 
                 # 繪製溫度警告線
-                if self.show_warning_line:
+                if self.show_warning_line and self.temp_warning_threshold <= self.current_max_temp:
                     painter.setPen(QPen(QColor('orange'), 2, Qt.DashLine))
                     warning_y = chart_rect.bottom() - self.temp_warning_threshold * y_scale
                     painter.drawLine(chart_rect.left(), warning_y, chart_rect.right(), warning_y)
