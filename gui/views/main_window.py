@@ -255,7 +255,7 @@ class MainWindowController(QObject):
         # Stress test state
         self.cpu_stress_duration = 0.0  # Duration in hours
         self.cpu_stress_target_load = 100  # Target CPU load percentage
-        self.ram_stress_target_percent = 25  # Target RAM stress percentage
+        self.ram_stress_target_percent = 100  # Target RAM stress percentage
         self.cpu_stress_enabled = True  # CPU stress test enabled
         self.ram_stress_enabled = False  # RAM stress test enabled
         self.cpu_stress_chart_widget = None
@@ -754,8 +754,7 @@ class MainWindowController(QObject):
         self.cpu_stress_service.stress_progress.connect(self._on_cpu_stress_progress)
         self.cpu_stress_service.temp_warning.connect(self._on_temp_warning)
         
-        # Connect device command result to CPU stress service (for temperature reading)
-        self.view_model._serial_worker.command_result.connect(self.cpu_stress_service._on_command_result)
+        # CPU stress service manages its own command result connection internally
 
     def _init_functionality_test_ui(self):
         """Initialize functionality test UI elements"""
@@ -1079,9 +1078,9 @@ class MainWindowController(QObject):
             cpu_loading_combo = self.window.comboBox_cpu_loading
             cpu_loading_combo.setCurrentIndex(9)  # 100% is at index 9
             
-            # Set default RAM loading to 25%
+            # Set default RAM loading to 100%
             ram_loading_spinbox = self.window.spinBox_ram_loading
-            ram_loading_spinbox.setValue(25)
+            ram_loading_spinbox.setValue(100)
             
             # Set default duration to 0.0
             duration_spinbox = self.window.doubleSpinBox_duration
@@ -1099,6 +1098,9 @@ class MainWindowController(QObject):
             self.window.checkBox_cpu_stress.toggled.connect(self._on_cpu_stress_toggled)
             self.window.checkBox_ram_stress.toggled.connect(self._on_ram_stress_toggled)
             
+            # Set scroll area style for stress test tab
+            self._setup_stress_test_scroll_area()
+            
             # Initialize CPU stress chart widget
             self._init_cpu_stress_chart()
             
@@ -1109,6 +1111,44 @@ class MainWindowController(QObject):
             
         except Exception as e:
             logger.error(f"Error initializing stress test UI: {e}")
+    
+    def _setup_stress_test_scroll_area(self):
+        """Setup scroll area style for stress test tab"""
+        try:
+            scroll_area = self.window.scrollArea_stress_test
+            scroll_area.setStyleSheet("""
+                QScrollArea {
+                    background-color: #1E1E1E;
+                    border: none;
+                }
+                QScrollBar:vertical {
+                    background: #333333;
+                    width: 12px;
+                    margin: 0px;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #555555;
+                    border-radius: 6px;
+                    min-height: 20px;
+                    margin: 2px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background: #666666;
+                }
+                QScrollBar::handle:vertical:pressed {
+                    background: #777777;
+                }
+                QScrollBar::add-line:vertical, 
+                QScrollBar::sub-line:vertical {
+                    height: 0px;
+                    background: none;
+                }
+            """)
+            logger.debug("Stress test scroll area style applied")
+            
+        except Exception as e:
+            logger.error(f"Error setting up stress test scroll area: {e}")
     
     def _init_cpu_stress_chart(self):
         """Initialize CPU stress chart widget"""
@@ -1131,6 +1171,17 @@ class MainWindowController(QObject):
                     # Add the chart widget
                     parent_layout.insertWidget(i, self.cpu_stress_chart_widget)
                     break
+            
+            # 連接溫度閾值變化信號
+            self.cpu_stress_chart_widget.warning_temp_spinbox.valueChanged.connect(
+                self._on_warning_temp_threshold_changed
+            )
+            
+            # 設置設備 ID 用於 CSV 檔案命名
+            if hasattr(self, 'device_id') and self.device_id:
+                self.cpu_stress_chart_widget.set_device_id(self.device_id)
+            else:
+                self.cpu_stress_chart_widget.set_device_id("unknown")
             
             logger.debug("CPU stress chart initialized successfully")
             
@@ -1160,22 +1211,22 @@ class MainWindowController(QObject):
             target_mb = int((value / 100.0) * self.device_total_memory_mb)
             
             # Generate tooltip with safety information
-            tooltip_text = f"{value}% = {target_mb} MB (總記憶體: {self.device_total_memory_mb} MB)"
+            tooltip_text = f"{value}% = {target_mb} MB (Total memory: {self.device_total_memory_mb} MB)"
             
             # Add safety warnings for high percentages
             if value >= 90:
-                tooltip_text += "\n⚠️ 警告：高記憶體使用可能影響系統穩定性"
+                tooltip_text += "\n⚠️ Warning: High RAM usage may affect system stability"
             elif value >= 80:
-                tooltip_text += "\n⚠️ 注意：較高的記憶體使用，請注意系統響應"
+                tooltip_text += "\n⚠️ Warning: High RAM usage may affect system response"
             elif value >= 50:
-                tooltip_text += "\n💡 提示：中等記憶體壓力測試"
+                tooltip_text += "\n💡 Tip: Medium RAM stress test"
             else:
-                tooltip_text += "\n✅ 安全：低記憶體壓力測試"
+                tooltip_text += "\n✅ Safe: Low RAM stress test"
                 
             self.window.spinBox_ram_loading.setToolTip(tooltip_text)
             logger.debug(f"RAM target load changed to: {value}% ({target_mb} MB of {self.device_total_memory_mb} MB total)")
         else:
-            self.window.spinBox_ram_loading.setToolTip("設備記憶體大小未知")
+            self.window.spinBox_ram_loading.setToolTip("Device memory size unknown")
             logger.debug(f"RAM target load changed to: {value}% (total memory unknown)")
     
     def _on_cpu_stress_toggled(self, checked: bool):
@@ -1204,7 +1255,7 @@ class MainWindowController(QObject):
             # Ensure at least one stress type is selected
             if not cpu_enabled and not ram_enabled:
                 self.window.pushButton_cpu_stress_start.setEnabled(False)
-                self.window.pushButton_cpu_stress_start.setToolTip("至少選擇一種壓力測試類型")
+                self.window.pushButton_cpu_stress_start.setToolTip("Select at least one stress test type")
             else:
                 self.window.pushButton_cpu_stress_start.setEnabled(True)
                 self.window.pushButton_cpu_stress_start.setToolTip("")
@@ -1257,17 +1308,17 @@ class MainWindowController(QObject):
                     actual_mb = int((current_percent / 100.0) * self.device_total_memory_mb)
                     
                     # Generate tooltip with safety information
-                    tooltip_text = f"{current_percent}% = {actual_mb} MB (總記憶體: {self.device_total_memory_mb} MB)"
+                    tooltip_text = f"{current_percent}% = {actual_mb} MB (Total memory: {self.device_total_memory_mb} MB)"
                     
                     # Add safety warnings for high percentages
                     if current_percent >= 90:
-                        tooltip_text += "\n⚠️ 警告：高記憶體使用可能影響系統穩定性"
+                        tooltip_text += "\n⚠️ Warning: High RAM usage may affect system stability"
                     elif current_percent >= 80:
-                        tooltip_text += "\n⚠️ 注意：較高的記憶體使用，請注意系統響應"
+                        tooltip_text += "\n⚠️ Warning: High RAM usage may affect system response"
                     elif current_percent >= 50:
-                        tooltip_text += "\n💡 提示：中等記憶體壓力測試"
+                        tooltip_text += "\n💡 Tip: Medium RAM stress test"
                     else:
-                        tooltip_text += "\n✅ 安全：低記憶體壓力測試"
+                        tooltip_text += "\n✅ Safe: Low RAM stress test"
                         
                     self.window.spinBox_ram_loading.setToolTip(tooltip_text)
                     
@@ -1277,7 +1328,7 @@ class MainWindowController(QObject):
             else:
                 logger.warning("Could not determine device total memory")
                 if hasattr(self.window, 'spinBox_ram_loading'):
-                    self.window.spinBox_ram_loading.setToolTip("設備記憶體大小未知")
+                    self.window.spinBox_ram_loading.setToolTip("Device memory size unknown")
                     
         except Exception as e:
             logger.error(f"Error updating device memory info: {e}")
@@ -1299,26 +1350,32 @@ class MainWindowController(QObject):
                     return
                 
                 if not cpu_enabled and not ram_enabled:
-                    self.add_system_log("ERROR", "至少選擇一種壓力測試類型")
+                    self.add_system_log("ERROR", "Select at least one stress test type")
                     return
                 
                 # Safety check for high RAM usage
                 if ram_enabled and self.ram_stress_target_percent >= 90:
                     from PySide6.QtWidgets import QMessageBox
-                    reply = QMessageBox.warning(
-                        self.window,
-                        "高記憶體使用警告",
-                        f"您即將使用 {self.ram_stress_target_percent}% 的系統記憶體進行壓力測試。\n\n"
-                        f"這可能會：\n"
-                        f"• 影響系統穩定性\n"
-                        f"• 導致系統響應緩慢\n"
-                        f"• 在極端情況下可能導致系統重啟\n\n"
-                        f"是否確定要繼續？",
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
+                    
+                    # Create custom message box with dark styling
+                    msg_box = QMessageBox(self.window)
+                    msg_box.setWindowTitle("High RAM usage warning")
+                    msg_box.setText(f"You are about to use {self.ram_stress_target_percent}% of system memory for stress testing.\n\n"
+                                  f"This may:\n"
+                                  f"• Affect system stability\n"
+                                  f"• Cause system response slowdown\n"
+                                  f"• In extreme cases, may cause system reboot\n\n"
+                                  f"Are you sure you want to continue?")
+                    msg_box.setIcon(QMessageBox.Warning)
+                    msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                    msg_box.setDefaultButton(QMessageBox.No)
+                    
+                    # Apply dark styling
+                    msg_box.setStyleSheet(self._get_dark_message_box_style())
+                    
+                    reply = msg_box.exec()
                     if reply == QMessageBox.No:
-                        self.add_system_log("INFO", f"用戶取消了 {self.ram_stress_target_percent}% RAM 壓力測試")
+                        self.add_system_log("INFO", f"User cancelled {self.ram_stress_target_percent}% RAM stress test")
                         return
                 
                 # Convert hours to seconds (0 means unlimited duration)
@@ -1372,12 +1429,20 @@ class MainWindowController(QObject):
                     self.window.spinBox_ram_loading.setEnabled(False)
                     self.window.doubleSpinBox_duration.setEnabled(False)
                     
+                    # 自動開始 CSV 記錄
+                    if hasattr(self, 'cpu_stress_chart_widget') and self.cpu_stress_chart_widget:
+                        self.cpu_stress_chart_widget.start_csv_logging()
+                    
                     self.add_system_log("INFO", f"Stress test started: {stress_description} for {duration_text}")
                 
             else:
                 # Stop stress test
                 success = self.cpu_stress_service.stop_stress_test(self.device_id)
                 if success:
+                    # 自動停止 CSV 記錄
+                    if hasattr(self, 'cpu_stress_chart_widget') and self.cpu_stress_chart_widget:
+                        self.cpu_stress_chart_widget.stop_csv_logging()
+                    
                     self._reset_cpu_stress_ui()
                     self.add_system_log("INFO", "Stress test stopped manually")
                     
@@ -1419,6 +1484,10 @@ class MainWindowController(QObject):
     def _on_cpu_stress_completed(self, device_id: str, message: str):
         """Handle CPU stress test completed signal"""
         if device_id == self.device_id:
+            # 自動停止 CSV 記錄
+            if hasattr(self, 'cpu_stress_chart_widget') and self.cpu_stress_chart_widget:
+                self.cpu_stress_chart_widget.stop_csv_logging()
+            
             self._reset_cpu_stress_ui()
             self.add_system_log("INFO", f"CPU stress test completed: {message}")
     
@@ -1426,6 +1495,10 @@ class MainWindowController(QObject):
     def _on_cpu_stress_error(self, device_id: str, error_message: str):
         """Handle CPU stress test error signal"""
         if device_id == self.device_id:
+            # 自動停止 CSV 記錄
+            if hasattr(self, 'cpu_stress_chart_widget') and self.cpu_stress_chart_widget:
+                self.cpu_stress_chart_widget.stop_csv_logging()
+            
             self._reset_cpu_stress_ui()
             self.add_system_log("ERROR", f"CPU stress test error: {error_message}")
     
@@ -1440,8 +1513,8 @@ class MainWindowController(QObject):
             # Add data point to chart with temperature as main data
             if self.cpu_stress_chart_widget:
                 self.cpu_stress_chart_widget.add_data_point(
-                    cpu_temp,  # 主要顯示溫度
-                    simulated_load,  # CPU 負載用於日誌
+                    cpu_temp,  # Mainly display temperature
+                    simulated_load,  # CPU load for logging
                     bool(ram_stress_enabled), 
                     ram_stress_mb
                 )
@@ -1454,11 +1527,20 @@ class MainWindowController(QObject):
                     progress_percent = (elapsed_seconds / total_seconds) * 100
                     self.add_system_log("INFO", f"CPU stress test progress: {elapsed_seconds}/{total_seconds}s ({progress_percent:.1f}%)")
     
+    @Slot(int)
+    def _on_warning_temp_threshold_changed(self, threshold: int):
+        """Handle warning temperature threshold change"""
+        # 更新 CPU stress service 的閾值
+        self.cpu_stress_service.set_temperature_warning_threshold(float(threshold))
+        logger.debug(f"Updated CPU stress service warning threshold to: {threshold}°C")
+    
     @Slot(str, float)
     def _on_temp_warning(self, device_id: str, temperature: float):
-        """Handle CPU temperature warning signal (>85°C)"""
+        """Handle CPU temperature warning signal"""
         if device_id == self.device_id:
-            self.add_system_log("WARNING", f"CPU temperature warning: {temperature:.1f}°C - High temperature detected, hardware thermal protection will activate if needed")
+            # 獲取當前閾值用於動態顯示
+            current_threshold = self.cpu_stress_service.temp_warning_threshold
+            self.add_system_log("WARNING", f"CPU temperature warning: {temperature:.1f}°C - Above {current_threshold:.0f}°C threshold, hardware thermal protection will activate if needed")
     
     def _set_initializing_state(self):
         """Set all system info display to initializing state"""
@@ -3752,8 +3834,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v2.0.0_20250804"])
-                writer.writerow(["Config Version", "v2.0.0_20250804"])
+                writer.writerow(["Tool Version", "v2.0.0_20250818"])
+                writer.writerow(["Config Version", "v2.0.0_20250818"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
@@ -3985,8 +4067,7 @@ class MainWindowController(QObject):
                     # Stop any running stress test
                     if self.cpu_stress_service.is_running:
                         self.cpu_stress_service.stop_stress_test()
-                    # Disconnect signal
-                    self.view_model._serial_worker.command_result.disconnect(self.cpu_stress_service._on_command_result)
+                    # CPU stress service manages its own signal disconnection in cleanup()
                     # Cleanup service
                     self.cpu_stress_service.cleanup()
                 except Exception:

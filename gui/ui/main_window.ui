@@ -1313,24 +1313,66 @@ QScrollArea QScrollBar::sub-line:vertical {
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_tab_stress_test">
         <property name="spacing">
-         <number>10</number>
+         <number>0</number>
         </property>
         <property name="leftMargin">
-         <number>10</number>
+         <number>0</number>
         </property>
         <property name="topMargin">
-         <number>10</number>
+         <number>0</number>
         </property>
         <property name="rightMargin">
-         <number>10</number>
+         <number>0</number>
         </property>
         <property name="bottomMargin">
-         <number>10</number>
+         <number>0</number>
         </property>
         <item>
+         <widget class="QScrollArea" name="scrollArea_stress_test">
+          <property name="frameShape">
+           <enum>QFrame::NoFrame</enum>
+          </property>
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <property name="horizontalScrollBarPolicy">
+           <enum>Qt::ScrollBarAlwaysOff</enum>
+          </property>
+          <widget class="QWidget" name="scrollAreaWidgetContents_stress_test">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>69</width>
+             <height>69</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_stress_test_content">
+            <property name="spacing">
+             <number>10</number>
+            </property>
+            <property name="leftMargin">
+             <number>10</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>10</number>
+            </property>
+            <property name="bottomMargin">
+             <number>10</number>
+            </property>
+            <item>
          <widget class="QGroupBox" name="groupBox_cpu_stress">
           <property name="title">
            <string>Stress Test</string>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>650</height>
+           </size>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_cpu_stress">
            <property name="spacing">
@@ -1759,7 +1801,7 @@ QDoubleSpinBox::down-arrow {
              <property name="minimumSize">
               <size>
                <width>0</width>
-               <height>350</height>
+               <height>550</height>
               </size>
              </property>
             </widget>
@@ -1767,18 +1809,22 @@ QDoubleSpinBox::down-arrow {
           </layout>
          </widget>
         </item>
-        <item>
-         <spacer name="verticalSpacer_stress_test">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
+            <item>
+             <spacer name="verticalSpacer_stress_test">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
         </item>
        </layout>
       </widget>

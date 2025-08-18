@@ -44,7 +44,7 @@ class CpuStressService(QObject):
         
         # 溫度監控設定
         self.current_cpu_temp = 0.0
-        self.temp_warning_threshold = 85.0  # 85°C 警告閾值
+        self.temp_warning_threshold = 85.0  # 85°C 警告閾值（可動態調整）
         # 移除危險閾值，讓硬體自行處理過熱保護
         
         # 時間控制
@@ -329,18 +329,9 @@ class CpuStressService(QObject):
         
         self.elapsed_seconds += 1
         
-        # 讀取 CPU 溫度
+        # 每秒讀取 CPU 溫度，但不立即發出進度信號
+        # 溫度回應處理時會發出信號
         self._read_cpu_temperature()
-        
-        # 發出進度信號，包含 RAM 和溫度信息
-        self.stress_progress.emit(
-            self.current_device_id, 
-            self.elapsed_seconds, 
-            self.duration_seconds,
-            1 if self.ram_stress_enabled else 0,
-            self.ram_stress_mb,
-            self.current_cpu_temp
-        )
         
         logger.debug(f"CPU stress progress: {self.elapsed_seconds}/{self.duration_seconds}s")
     
@@ -379,13 +370,32 @@ class CpuStressService(QObject):
                     self.temp_warning.emit(self.current_device_id, temp_celsius)
                     logger.warning(f"CPU temperature warning: {temp_celsius:.1f}°C - Monitor closely")
                 
+                # 在溫度更新後發出進度信號，避免重複
+                self._emit_progress_signal()
+                
                 logger.debug(f"CPU temperature: {temp_celsius:.1f}°C")
             else:
                 logger.warning(f"Invalid temperature response: {response}")
                 self.current_cpu_temp = 0.0
+                # 即使溫度無效，也發出進度信號保持更新
+                self._emit_progress_signal()
         except Exception as e:
             logger.error(f"Error processing temperature response: {e}")
             self.current_cpu_temp = 0.0
+            # 即使有錯誤，也發出進度信號保持更新
+            self._emit_progress_signal()
+    
+    def _emit_progress_signal(self):
+        """發出進度信號"""
+        if self.is_running and self.current_device_id:
+            self.stress_progress.emit(
+                self.current_device_id, 
+                self.elapsed_seconds, 
+                self.duration_seconds,
+                1 if self.ram_stress_enabled else 0,
+                self.ram_stress_mb,
+                self.current_cpu_temp
+            )
     
     @Slot()
     def _on_stress_completed(self):
@@ -467,6 +477,11 @@ class CpuStressService(QObject):
             self.cpu_cores = 4
             self._start_stress_commands()
     
+    def set_temperature_warning_threshold(self, threshold: float):
+        """設置溫度警告閾值"""
+        self.temp_warning_threshold = threshold
+        logger.debug(f"Temperature warning threshold set to: {threshold}°C")
+    
     def get_status(self) -> dict:
         """
         取得服務狀態
@@ -491,6 +506,15 @@ class CpuStressService(QObject):
         # 如果正在運行，先停止
         if self.is_running:
             self.stop_stress_test()
+        
+        # 斷開信號連接
+        if hasattr(self, '_command_connection') and self._command_connection:
+            try:
+                self.serial_worker.command_result.disconnect(self._command_connection)
+                self._command_connection = None
+                logger.debug("Disconnected CPU stress service command result signal")
+            except Exception as e:
+                logger.debug(f"Error disconnecting command result signal: {e}")
         
         # 清理狀態
         self._reset_service_state()
@@ -540,5 +564,4 @@ if __name__ == "__main__":
         
         sys.exit(app.exec())
     
-    if __name__ == "__main__":
-        main()
+    main()
