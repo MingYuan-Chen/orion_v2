@@ -162,6 +162,7 @@ class ChargeWorker(BaseTestWorker):
         """
         try:
             value = self._parse_battery_info(response)
+            
             if value <= 100 and value >= 0:
                 return True, f"Battery state is {value}%"
             else:
@@ -183,10 +184,14 @@ class ChargeWorker(BaseTestWorker):
         """
         try:
             value = self._parse_battery_info(response)
-            if value > -4000 and value < 1200:
-                return True, f"Current is {value}mA"
+            if value > 32767:
+                signed_value = value - 65536  # Convert to signed
             else:
-                return False, f"Current is {value}mA"
+                signed_value = value
+            if signed_value > -4000 and signed_value < 1200:
+                return True, f"Current is {signed_value}mA"
+            else:
+                return False, f"Current is {signed_value}mA"
         
         except Exception as e:
             logger.error(f"exception in current: {e}")
