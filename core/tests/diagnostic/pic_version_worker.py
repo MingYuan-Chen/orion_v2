@@ -40,7 +40,8 @@ class PicVersionWorker(BaseTestWorker):
         return [
             TestStep(
                 command=commands[0], 
-                expected_response=expected_responses[0] if len(expected_responses) > 0 else None,           # convert to decimal: 110
+                validation_func=self._validate_pic_version if self.platform_name == "athena" else None,
+                expected_response=expected_responses[0],           # convert to decimal: 110
                 # Hydra: 0x6e = 110
                 # Argo: 0x72 = 114
                 # Gemini: 0x64 = 100
@@ -60,4 +61,18 @@ class PicVersionWorker(BaseTestWorker):
                 retry_delay=500
             )
         ]
+    
+    def _validate_pic_version(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate PIC version
+        
+        Args:
+            response: Command execution response
+        """
+        # Convert response to decimal
+        available_values = ['0x04', '0x05', '0x06', '0x9d', '0x07', '0x08', '0x09']
+        for value in available_values:
+            if value in response:
+                return True, f"The PIC version is {int(value, 16)} ({value})"
+        return False, f"The PIC version is not in supported range"
 
