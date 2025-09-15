@@ -965,7 +965,9 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_backlight", "Backlight Test")
         test_container.add_test_group("functionality_battery", "Battery Test")
         test_container.add_test_group("functionality_camera", "Camera Test")
-        test_container.add_test_group("functionality_charge", "Charge Test")
+        charge_test_name = "Charge Test" if self.platform_name != "Athena" else "Charge Setting Test"
+        logger.debug(f"Charge test name set as {charge_test_name}")
+        test_container.add_test_group("functionality_charge", charge_test_name)
         test_container.add_test_group("functionality_eeprom", "EEPROM Test")
         test_container.add_test_group("functionality_emmc", "eMMC Test")
         test_container.add_test_group("functionality_hdmi", "HDMI Test")
@@ -2830,25 +2832,41 @@ class MainWindowController(QObject):
             if not hex_values:
                 return response
             
-            # Only filter out status bytes if they appear at the first position
-            data_hex = hex_values.copy()
-            if len(data_hex) > 0 and data_hex[0] in ['0x02', '0x00']:
-                data_hex = data_hex[1:]
-            
-            # Calculate combined value
-            if len(data_hex) >= 2:
-                high_byte = int(data_hex[-2], 16)
-                low_byte = int(data_hex[-1], 16)
+            if len(hex_values) >= 10:
+                # Skip first two bytes (status/length bytes), use next 8 bytes for data
+                data_hex_values = hex_values[2:10]  # Take bytes 3-10
+                # Convert hex values to ASCII characters
+                ascii_chars = []
+                for hex_val in data_hex_values:
+                    try:
+                        char_code = int(hex_val, 16)
+                        if 32 <= char_code <= 126:  # Printable ASCII range
+                            ascii_chars.append(chr(char_code))
+                        else:
+                            ascii_chars.append('?')  # Replace non-printable chars
+                    except (ValueError, OverflowError):
+                        ascii_chars.append('?')  # Replace invalid chars
+                
+                # Join characters and remove trailing nulls/spaces
+                combined_value = ''.join(ascii_chars).rstrip('\x00').rstrip()
+            elif len(hex_values) >= 3:
+                # Skip the first byte (status byte 0x02) and use the next 2 bytes as data
+                high_byte = int(hex_values[1], 16)  # Second hex value
+                low_byte = int(hex_values[2], 16)   # Third hex value
                 combined_value = (high_byte << 8) + low_byte
-            elif len(data_hex) == 1:
-                combined_value = int(data_hex[0], 16)
-            else:
-                combined_value = int(hex_values[-1], 16)
+            elif len(hex_values) == 2:
+                # Two values: use both as data (high byte + low byte)
+                high_byte = int(hex_values[0], 16)
+                low_byte = int(hex_values[1], 16)
+                combined_value = (high_byte << 8) + low_byte
+            elif len(hex_values) == 1:
+                # Single value
+                combined_value = int(hex_values[0], 16)
             
             # Apply unit conversions based on step description
-            if "0x51 0x00 0x19" in command.lower():
+            if "0x51 0x00 0x19" in command.lower() or "0x81 0x00 0x15" in command.lower():
                 return f"{combined_value} = {round(combined_value, 2)}mV"
-            elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower():
+            elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower() or "0x81 0x00 0x14" in command.lower():
                 return f"{combined_value} = {round(combined_value/1000, 2)}A"
             elif "0x51 0x00 0x08" in command.lower():
                 temp_celsius = round(combined_value/10 - 273.15, 2)
@@ -2859,8 +2877,10 @@ class MainWindowController(QObject):
                 return f"{combined_value} = {combined_value}%"
             elif "0x21 0x00 0x10" in command.lower():
                 return f"{combined_value} = v{combined_value}"
+            elif "0x51 0x00 0x21" in command.lower():
+                return f"{data_hex_values} = {combined_value}"
             else:
-                return f"{combined_value} (decimal from hex: {' '.join(data_hex)})"
+                return f"{combined_value} (decimal from hex: {' '.join(hex_values)})"
                 
         except Exception as e:
             logger.warning(f"Error converting i2c response: {e}")
@@ -3834,8 +3854,8 @@ class MainWindowController(QObject):
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
-                writer.writerow(["Tool Version", "v2.0.0_20250818"])
-                writer.writerow(["Config Version", "v2.0.0_20250818"])
+                writer.writerow(["Tool Version", "v2.0.0_20250915"])
+                writer.writerow(["Config Version", "v2.0.0_20250915"])
                 # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 

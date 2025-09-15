@@ -409,7 +409,7 @@ class DeviceManagerViewModel(QObject):
                     # Store panel_id response for later use
                     self.platform_detection_status[device_id]['panel_id_response'] = response
                     # Send Athena check command
-                    athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+                    athena_command = "cat /proc/device-tree/model"
                     self._serial_worker.send_command(device_id, athena_command, 10)
                     # Record that we sent this command
                     if 'sent_commands' not in self.platform_detection_status[device_id]:
@@ -435,7 +435,7 @@ class DeviceManagerViewModel(QObject):
                         # Store panel_id response for later use
                         self.platform_detection_status[device_id]['panel_id_response'] = response
                         # Send Athena check command
-                        athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+                        athena_command = "cat /proc/device-tree/model"
                         self._serial_worker.send_command(device_id, athena_command, 10)
                         # Record that we sent this command
                         if 'sent_commands' not in self.platform_detection_status[device_id]:
@@ -480,7 +480,7 @@ class DeviceManagerViewModel(QObject):
                 
                 is_platform_detection_command = True
             
-            elif command == "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2":
+            elif command == "cat /proc/device-tree/model":
                 logger.info(f"Received Athena check response from {device_id}: {response}")
                 
                 # Check if this is Athena platform (0x04 value)
@@ -489,7 +489,7 @@ class DeviceManagerViewModel(QObject):
                 
                 if is_athena:
                     detected_platform = "athena"
-                    logger.info(f"Detected Athena platform from PIC command for device {device_id}")
+                    logger.info(f"Detected Athena platform for device {device_id}")
                     
                     # For Athena platform, immediately complete the platform detection
                     # since we don't need to wait for the old PIC version command
@@ -520,7 +520,7 @@ class DeviceManagerViewModel(QObject):
             
             # Add additional commands based on what was actually sent
             pic_command = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-            athena_command = "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+            athena_command = "cat /proc/device-tree/model"
             
             # Check if we are expecting additional commands based on detection status
             # If we sent commands but haven't received responses yet, we need to wait
@@ -707,20 +707,7 @@ class DeviceManagerViewModel(QObject):
         clean_response = response.strip()
         logger.info(f"Checking Athena platform with response: '{clean_response}'")
         
-        # Check for error responses
-        response_lower = clean_response.lower()
-        if "error" in response_lower or "no response" in response_lower or not clean_response:
-            logger.warning(f"Invalid Athena check response: '{response}'")
-            return False
-        
-        available_values = ['0x04', '0x05', '0x06', '0x9d', '0x07', '0x08', '0x09']
-        # Check for 0x04 value which indicates Athena platform
-        if any(value in clean_response for value in available_values):
-            logger.info(f"Athena platform signature found")
-            return True
-        
-        logger.warning(f"Athena platform signature not found in response: '{clean_response}'")
-        return False
+        return "Athena-030" in clean_response
     
     def _retry_pic_command(self, device_id: str):
         """Retry PIC version command for platform detection with delay
