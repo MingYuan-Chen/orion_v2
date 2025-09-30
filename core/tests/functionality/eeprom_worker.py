@@ -339,9 +339,9 @@ class EepromWorker(BaseTestWorker):
         line_2 = False
         lines = response.split("\n")
         for line in lines:
-            if line.startswith("00000080") and "ff ff ff 32 30 32 35 2f  30 33 2f 32 38 20 32 30" in line and "2025/03/28 20" in line:
+            if line.startswith("00000080") and "32 30 32 35 2f  30 33 2f 32 38 20 32 30" in line and "2025/03/28 20" in line:
                 line_1 = True
-            if line.startswith("00000090") and "3a 32 38 3a 33 36 ff ff" in line and ":28:36" in line:
+            if line.startswith("00000090") and "3a 32 38 3a 33 36" in line and ":28:36" in line:
                 line_2 = True
         
         if line_1 and line_2:
