@@ -513,61 +513,39 @@ class DeviceConnectionDialog(QDialog):
             msg_box.exec()
     
     def _connect_tcpip(self):
-        """Connect to TCP/IP device"""
+        """Connect to TCP/IP device using the view model."""
         # Get connection parameters
-        ip = self.ui_widget.line_edit_ip.text()
-        port = self.ui_widget.line_edit_port_tcp.text()
+        ip = self.ui_widget.line_edit_ip.text().strip()
+        port_str = self.ui_widget.line_edit_port_tcp.text().strip()
         
         # Basic validation
         if not ip:
             raise ValueError("IP address is required")
-        if not port:
+        if not port_str:
             raise ValueError("Port is required")
         
-        # In a real application, you would connect to the TCP/IP device here
-        logger.info(f"Connecting to TCP/IP device at {ip}:{port}...")
-        
-        # Simulate processing
-        QApplication.processEvents()  # Ensure UI updates
-        time.sleep(1)  # Simulate connection time
-        
-        # Randomly succeed or fail (for demonstration purposes)
-        if random.random() > 0.3:  # 70% success rate
-            # Connection successful
-            logger.info(f"Successfully connected to TCP/IP device at {ip}:{port}")
+        try:
+            port = int(port_str)
+            if not (0 < port < 65536):
+                raise ValueError("Port must be between 1 and 65535")
+        except ValueError:
+            raise ValueError("Port must be a valid number")
+
+        # Check if view model exists
+        if hasattr(self, 'view_model') and self.view_model:
+            logger.info(f"Using view model to connect to TCP/IP device: {ip}:{port}")
             
-            # Create device info to return to caller
-            self.connected_device = {
-                'name': f"TCP/IP Device ({ip})",
-                'type': 'TCP/IP',
-                'address': f"{ip}:{port}",
-                'status': 'Connected',
-                'details': {}
-            }
+            # Generate device ID
+            device_id = f"tcp_{ip.replace('.', '_')}_{port}"
             
-            # Close dialog with success
-            self.accept()
+            # Use view model to connect (e.g., with a 10-second timeout)
+            self.view_model.connect_tcp_ip_device(device_id, ip, port, 10)
+            
+            # The connection result is handled asynchronously by the _on_device_connected_result slot
+            return
         else:
-            # Connection failed
-            error_msg = f"Failed to connect to TCP/IP device at {ip}:{port}"
-            logger.error(error_msg)
-            
-            # Re-enable connect button
-            self.ui_widget.push_button_connect.setEnabled(True)
-            self.ui_widget.push_button_connect.setText("Connect")
-            
-            # Show error dialog
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Connection Error")
-            msg_box.setText("Connection Error")
-            msg_box.setInformativeText(error_msg)
-            msg_box.setIcon(QMessageBox.Critical)
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            
-            # apply dark style sheet
-            msg_box.setStyleSheet(self._get_dark_style_sheet())
-            
-            msg_box.exec()
+            # If no view model, show error
+            raise RuntimeError("View model not available for device connection")
 
     def set_view_model(self, view_model):
         """Set view model for device operations
@@ -583,74 +561,57 @@ class DeviceConnectionDialog(QDialog):
 
     @Slot(str, bool, str)
     def _on_device_connected_result(self, device_id, success, message):
-        """Handle device connection result from view model
-        
-        Args:
-            device_id: device ID
-            success: connection success
-            message: connection result message
-        """
-        # Stop timeout timer
+        """Handle device connection result from view model"""
         self.connection_timeout_timer.stop()
-        
-        # Re-enable connect button
         self.ui_widget.push_button_connect.setEnabled(True)
         self.ui_widget.push_button_connect.setText("Connect")
         
         if success:
-            # Connection successful
             logger.info(f"Successfully connected to device {device_id}")
             
-            # Parse information from device ID
-            parts = device_id.split('_')
-            device_type = parts[0] if len(parts) > 0 else "serial"
-            address = parts[1] if len(parts) > 1 else device_id
-            
-            # Get connection parameters
-            port = self.ui_widget.combo_box_port.currentText()
-            baudrate = self.ui_widget.combo_box_baudrate.currentText()
-            latency = self.ui_widget.combo_box_latency.currentText()
-            
-            # If view model exists, update device details
-            if hasattr(self, 'view_model') and self.view_model:
-                details = {
-                    'port': port,
-                    'baudrate': baudrate,
-                    'latency': latency
+            device_type = "Unknown"
+            if device_id.startswith("serial_"):
+                device_type = "Serial"
+                port = self.ui_widget.combo_box_port.currentText()
+                baudrate = self.ui_widget.combo_box_baudrate.currentText()
+                latency = self.ui_widget.combo_box_latency.currentText()
+                details = {'port': port, 'baudrate': baudrate, 'latency': latency}
+                self.connected_device = {
+                    'id': device_id,
+                    'name': f"Serial Device ({port})",
+                    'type': 'Serial',
+                    'address': port,
+                    'status': 'Connected',
+                    'details': details
                 }
+
+            elif device_id.startswith("tcp_"):
+                device_type = "TCP/IP"
+                ip = self.ui_widget.line_edit_ip.text().strip()
+                port = self.ui_widget.line_edit_port_tcp.text().strip()
+                details = {'host': ip, 'port': port}
+                self.connected_device = {
+                    'id': device_id,
+                    'name': f"TCP/IP Device ({ip})",
+                    'type': 'TCP/IP',
+                    'address': f"{ip}:{port}",
+                    'status': 'Connected',
+                    'details': details
+                }
+
+            if hasattr(self, 'view_model') and self.view_model and device_type != "Unknown":
                 self.view_model.update_device_info(device_id, details)
             
-            # Create device info to return to caller
-            self.connected_device = {
-                'id': device_id,
-                'name': f"Serial Device ({port})",
-                'type': 'Serial',
-                'address': port,
-                'status': 'Connected',
-                'details': {
-                    'port': port,
-                    'baudrate': baudrate,
-                    'latency': latency
-                }
-            }
-            
-            # Successfully close dialog
             self.accept()
         else:
-            # Connection failed
             logger.error(f"Failed to connect to device: {message}")
-            
-            # Show error dialog
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Connection Error")
             msg_box.setText("Device Connection Failed")
             msg_box.setInformativeText(f"Failed to connect to device: {message}")
             msg_box.setIcon(QMessageBox.Critical)
             msg_box.setStandardButtons(QMessageBox.Ok)
-            
-            # apply dark style sheet
             msg_box.setStyleSheet(self._get_dark_style_sheet())
-            
             msg_box.exec()
 
     def _get_dark_style_sheet(self):

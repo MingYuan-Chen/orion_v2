@@ -15,16 +15,16 @@ class SmartConnectionMonitor(QObject):
     device_not_ready = Signal(str, str)  # device_id, reason - device is not ready
     connection_status_changed = Signal(str, bool)  # device_id, is_ready
     
-    def __init__(self, serial_worker):
+    def __init__(self, worker):
         super().__init__()
-        self.serial_worker = serial_worker
+        self.worker = worker
         self.monitoring_devices = {}  # device_id -> monitor_config
         self.busy_devices = set()  # devices that are executing other operations
         self.check_timer = QTimer()
         self.check_timer.timeout.connect(self._perform_health_checks)
         
-        # Connect to the serial device worker's signal
-        self.serial_worker.command_result.connect(self._on_command_result)
+        # Connect to the device worker's signal
+        self.worker.command_result.connect(self._on_command_result)
         
         # Monitor command identifier
         self.monitor_command_prefix = "CONNECTION_MONITOR_"
@@ -111,15 +111,12 @@ class SmartConnectionMonitor(QObject):
         if device_id in self.busy_devices:
             return
             
-        # Generate a unique monitoring command to avoid conflicts with other commands
-        timestamp = int(time.time() * 1000)
-        unique_ping_command = f"{self.monitor_command_prefix}{timestamp}"
         monitor_command = f"root"
         
         logger.debug(f"Smart health check for device {device_id}: {monitor_command}")
         
         # Send the monitoring command, using a shorter timeout
-        self.serial_worker.send_command(device_id, monitor_command, 2)
+        self.worker.send_command(device_id, monitor_command, 2)
         
     def _on_command_result(self, device_id: str, command: str, response: str):
         """Process command results, only process the monitor's own commands"""
@@ -139,7 +136,6 @@ class SmartConnectionMonitor(QObject):
             monitor_config['failure_count'] = 0
             monitor_config['last_success_time'] = time.time()
             
-            # If the device recovers from a failed state, reset the check interval
             if monitor_config['failed_completely']:
                 monitor_config['failed_completely'] = False
                 monitor_config['check_interval'] = monitor_config['original_check_interval']
@@ -155,37 +151,33 @@ class SmartConnectionMonitor(QObject):
             monitor_config['failure_count'] += 1
             logger.warning(f"Device {device_id} health check failed ({monitor_config['failure_count']}/{monitor_config['max_failures']})")
             
-            # If it fails once, report immediately and stop monitoring
             monitor_config['is_ready'] = False
             reason = f"Device connection check failed"
             logger.error(f"Device {device_id} not ready: {reason}")
             
-            # Immediately stop monitoring the device
-            logger.info(f"Stopping monitoring for device {device_id} due to connection failure")
             self.stop_monitoring(device_id)
-            
-            # Send failure signal
             self.device_not_ready.emit(device_id, reason)
             self.connection_status_changed.emit(device_id, False)
                     
     def _is_valid_monitor_response(self, actual_response: str) -> bool:
-        """Verify the response of the monitoring command"""
-            
-        # Check for login-related indicators (device needs authentication)
-        login_indicators = ["Password:", "Login incorrect", "gemini login:", "login:", "Username:"]
+        """Verify the response of the monitoring command based on specific expected outcomes."""
         response_lower = actual_response.lower()
+
+        # Per user's design, "command not found" after a `root` command indicates a successful login.
+        if "command not found" in response_lower:
+            logger.debug("Health check successful: 'command not found' indicates successful login.")
+            return True
+
+        # Check for login-related indicators, which means the root command did not result in a login.
+        login_indicators = ["password:", "login incorrect", "gemini login:", "login:", "username:"]
         for login_indicator in login_indicators:
-            if login_indicator.lower() in response_lower:
-                logger.warning(f"Device requires authentication: {actual_response.strip()}")
+            if login_indicator in response_lower:
+                logger.warning(f"Health check failed: Device requires authentication (e.g., login prompt found). Response: {actual_response.strip()}")
                 return False
             
-        # Check for obvious error indicators
-        error_indicators = ["Error:", "No such file", "Permission denied"]
-        for error in error_indicators:
-            if error.lower() in response_lower:
-                return False
-                
-        return True
+        # Any other response is unexpected for this specific health check and should be treated as a failure.
+        logger.warning(f"Health check failed: Received an unexpected response for the 'root' command. Response: {actual_response.strip()}")
+        return False
         
     def get_device_status(self, device_id: str) -> Dict:
         """Get device status information"""
