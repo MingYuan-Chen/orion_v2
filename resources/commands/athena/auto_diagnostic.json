@@ -28,7 +28,7 @@
     "expected_response": ["0x08", "Athena-030"]
   },
   "diagnostic_sync_time": {
-    "commands": ["sudo ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"]
+    "commands": ["hwclock -r", "date"]
   },
   "diagnostic_set_get_rtc_time": {
     "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
