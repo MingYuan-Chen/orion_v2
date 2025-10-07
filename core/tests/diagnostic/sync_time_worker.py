@@ -16,6 +16,7 @@ class SyncTimeWorker(BaseTestWorker):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.test_id = "diagnostic_sync_time"
         self.time_components = None
+        self.platform_name = platform_name
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -26,35 +27,52 @@ class SyncTimeWorker(BaseTestWorker):
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
-        return [
-            TestStep(
-                command=commands[0], 
-                validation_func=self._validate_sync_time,
-                timeout=5, 
-                description="Sync time with server",
-                criteria="Can sync time with server",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[1],
-                timeout=5, 
-                description="Write RTC Time",
-            ),
-            TestStep(
-                command=commands[2],
-                validation_func=self._validate_hwclock_time,
-                timeout=5, 
-                description="Read RTC Time",
-            ),
-            TestStep(
-                command=commands[3],
-                validation_func=self._validate_date,
-                timeout=5, 
-                description="Verify RTC time synced with server time",
-                criteria=f"RTC time is same as server time",
-            )
-        ]
+        if self.platform_name == "athena":
+            return [
+                TestStep(
+                    command=commands[0],
+                    validation_func=self._athena_parse_hwclock_time,
+                    timeout=5, 
+                    description="Read RTC Time",
+                ),
+                TestStep(
+                    command=commands[1],
+                    validation_func=self._athena_validate_date,
+                    timeout=5, 
+                    description="Verify RTC time synced with server time",
+                    criteria=f"RTC time is same as server time",
+                )
+            ]
+        else:
+            return [
+                TestStep(
+                    command=commands[0], 
+                    validation_func=self._validate_sync_time,
+                    timeout=5, 
+                    description="Sync time with server",
+                    criteria="Can sync time with server",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[1],
+                    timeout=5, 
+                    description="Write RTC Time",
+                ),
+                TestStep(
+                    command=commands[2],
+                    validation_func=self._validate_hwclock_time,
+                    timeout=5, 
+                    description="Read RTC Time",
+                ),
+                TestStep(
+                    command=commands[3],
+                    validation_func=self._validate_date,
+                    timeout=5, 
+                    description="Verify RTC time synced with server time",
+                    criteria=f"RTC time is same as server time",
+                )
+            ]
     
     def _validate_sync_time(self, response: str) -> Tuple[bool, str]:
         """
@@ -208,4 +226,70 @@ class SyncTimeWorker(BaseTestWorker):
         except Exception as e:
             logger.error(f"Error validating date: {e}")
             return False, f"Error validating date: {str(e)}"
+    
+    def _athena_parse_hwclock_time(self, response: str) -> Tuple[bool, str]:
+        """
+        Parse the time string from `hwclock -r` for the Athena platform.
+        The expected format is similar to ISO 8601, e.g., '2025-10-07 14:22:18.12345-07:00'.
+        """
+        try:
+            response_clean = response.strip()
+            if not response_clean:
+                return False, "Empty response from hwclock command"
+
+            # The fromisoformat method can handle most standard formats.
+            # It's more robust than strptime for this case.
+            self.hw_time = datetime.fromisoformat(response_clean)
+            logger.info(f"Parsed hwclock time: {self.hw_time}")
+            return True, f"Successfully parsed RTC time: {response_clean}"
+        except Exception as e:
+            logger.error(f"Error parsing hwclock response: {e}")
+            return False, f"Could not parse hwclock time: {response.strip()}"
+    
+    def _athena_validate_date(self, response: str) -> Tuple[bool, str]:
+        """
+        Parse the time from the `date` command and validate it against the stored hwclock time.
+        The expected format for date is e.g., 'Tue Oct  7 14:22:19 UTC 2025'.
+        """
+        try:
+            response_clean = response.strip()
+            if not hasattr(self, 'hw_time') or not self.hw_time:
+                return False, "hwclock time was not parsed successfully in the previous step."
+
+            if not response_clean:
+                return False, "Empty response from date command"
+
+            # Parse the date string. The format is 'Day Mon Day HH:MM:SS TZN YYYY'
+            # Example: 'Tue Oct  7 14:22:19 UTC 2025'
+            # We need to handle variable whitespace, so we split the string
+            parts = response_clean.split()
+            if len(parts) < 5:
+                 raise ValueError("Date string format is incorrect.")
+            # Rejoin the relevant parts to match strptime format
+            date_str_for_parsing = " ".join(parts)
+            
+            # The format code for this is %a %b %d %H:%M:%S %Z %Y
+            system_time = datetime.strptime(date_str_for_parsing, "%a %b %d %H:%M:%S %Z %Y")
+            logger.info(f"Parsed system date time: {system_time}")
+
+            # Make both datetimes offset-aware (assuming UTC if not specified)
+            # For simplicity, we can make them naive if they are in the same timezone
+            hw_time_naive = self.hw_time.replace(tzinfo=None)
+            system_time_naive = system_time.replace(tzinfo=None)
+
+            # Calculate the difference in seconds
+            time_difference = abs((system_time_naive - hw_time_naive).total_seconds())
+            logger.info(f"Time difference between hwclock and system date is {time_difference:.2f} seconds.")
+
+            # Set a tolerance of 2 seconds
+            tolerance_seconds = 2.0
+
+            if time_difference <= tolerance_seconds:
+                return True, f"Time is in sync. Difference: {time_difference:.2f}s"
+            else:
+                return False, f"Time is out of sync. Difference: {time_difference:.2f}s > {tolerance_seconds}s"
+
+        except Exception as e:
+            logger.error(f"Error validating date: {e}")
+            return False, f"Could not validate date: {response.strip()}"
 
