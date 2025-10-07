@@ -39,12 +39,15 @@ class MacAddressWorker(BaseTestWorker):
     
     def _validate_mac_address_pattern(self, response: str) -> Tuple[bool, str]:
         """
-        Validate the mac address pattern
+        Validate the mac address pattern by searching for it within the response.
         
         Args:
-            mac_address: The mac address to validate
+            mac_address: The response string containing the mac address to validate
         """
-        if re.match(r'^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$', response) is not None:
+        # Use re.search to find the MAC address pattern anywhere in the response string.
+        # The anchors (^) and ($) are removed to allow for surrounding text.
+        mac_pattern = r'[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+        if re.search(mac_pattern, response):
             return True, f"The mac address is valid"
         
         return False, f"The mac address is invalid"

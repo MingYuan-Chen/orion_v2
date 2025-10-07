@@ -2,6 +2,7 @@ from typing import Dict, Optional
 from util.logger import logger
 from core.models.device_model import DeviceModel
 from core.models.serial_device_model import SerialDeviceModel
+from core.models.tcp_ip_device_model import TcpIpDeviceModel
 
 class DeviceManagerModel:
     """Model class for managing device connections"""
@@ -92,12 +93,27 @@ class DeviceManagerModel:
             return device
             
         logger.error(f"Failed to create serial device {device_id}")
+        return None
+
+    def create_tcp_ip_device(self, device_id: str, host: str, port: int, timeout: int = 5) -> Optional[TcpIpDeviceModel]:
+        """Create a new TCP/IP device"""
+        if device_id in self.devices:
+            logger.info(f"Removing existing device {device_id}")
+            self.remove_device(device_id)
+        
+        device = TcpIpDeviceModel(device_id, host, port, timeout)
+        if self.add_device(device):
+            logger.info(f"Created and added new TCP/IP device {device_id}")
+            return device
+            
+        logger.error(f"Failed to create TCP/IP device {device_id}")
         return None 
 
 if __name__ == "__main__":
     """Test device manager model"""
     device_manager_model = DeviceManagerModel()
-    device_manager_model.create_serial_device("serial_COM4", port="COM4", baudrate=115200, timeout=3)
-    device_manager_model.connect_device("serial_COM4")
-    device_manager_model.send_command("serial_COM4", "ls")
-    device_manager_model.disconnect_device("serial_COM4")
+    device_manager_model.create_tcp_ip_device("tcp_test_device", host="192.168.0.11", port=23)
+    device_manager_model.connect_device("tcp_test_device")
+    device_manager_model.send_command("tcp_test_device", "root")
+    device_manager_model.send_command("tcp_test_device", "pwd")
+    device_manager_model.disconnect_device("tcp_test_device")

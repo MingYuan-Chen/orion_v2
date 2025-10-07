@@ -249,8 +249,15 @@ class MainWindowController(QObject):
         # create the connection pre-check service
         self.connection_pre_check = ConnectionPreCheckService(self.view_model)
         
-        # create the CPU stress test service
-        self.cpu_stress_service = CpuStressService(self.view_model._serial_worker)
+        # Dynamically get the correct worker for the device
+        worker = self.view_model._get_worker_for_device(self.device_id)
+        if not worker:
+            logger.error(f"Could not determine a valid worker for device {self.device_id}. Stress test service will be disabled.")
+            self.cpu_stress_service = None
+        else:
+            # create the CPU stress test service with the correct worker
+            self.cpu_stress_service = CpuStressService(worker)
+
         
         # Stress test state
         self.cpu_stress_duration = 0.0  # Duration in hours
