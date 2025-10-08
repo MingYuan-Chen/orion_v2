@@ -31,12 +31,17 @@ class SyncTimeWorker(BaseTestWorker):
             return [
                 TestStep(
                     command=commands[0],
+                    timeout=5, 
+                    description="Set system time",
+                ),
+                TestStep(
+                    command=commands[1],
                     validation_func=self._athena_parse_hwclock_time,
                     timeout=5, 
                     description="Read RTC Time",
                 ),
                 TestStep(
-                    command=commands[1],
+                    command=commands[2],
                     validation_func=self._athena_validate_date,
                     timeout=5, 
                     description="Verify RTC time synced with server time",
@@ -231,17 +236,19 @@ class SyncTimeWorker(BaseTestWorker):
         """
         Parse the time string from `hwclock -r` for the Athena platform.
         The expected format is similar to ISO 8601, e.g., '2025-10-07 14:22:18.12345-07:00'.
+        The response may contain extra text like a shell prompt on a new line.
         """
         try:
-            response_clean = response.strip()
-            if not response_clean:
+            if not response or not response.strip():
                 return False, "Empty response from hwclock command"
 
+            # Isolate the first line, which should contain the timestamp.
+            timestamp_str = response.strip().split('\n')[0]
+
             # The fromisoformat method can handle most standard formats.
-            # It's more robust than strptime for this case.
-            self.hw_time = datetime.fromisoformat(response_clean)
+            self.hw_time = datetime.fromisoformat(timestamp_str)
             logger.info(f"Parsed hwclock time: {self.hw_time}")
-            return True, f"Successfully parsed RTC time: {response_clean}"
+            return True, f"Successfully parsed RTC time: {timestamp_str}"
         except Exception as e:
             logger.error(f"Error parsing hwclock response: {e}")
             return False, f"Could not parse hwclock time: {response.strip()}"
@@ -250,26 +257,21 @@ class SyncTimeWorker(BaseTestWorker):
         """
         Parse the time from the `date` command and validate it against the stored hwclock time.
         The expected format for date is e.g., 'Tue Oct  7 14:22:19 UTC 2025'.
+        The response may contain extra text like a shell prompt on a new line.
         """
         try:
-            response_clean = response.strip()
             if not hasattr(self, 'hw_time') or not self.hw_time:
                 return False, "hwclock time was not parsed successfully in the previous step."
 
-            if not response_clean:
+            if not response or not response.strip():
                 return False, "Empty response from date command"
 
-            # Parse the date string. The format is 'Day Mon Day HH:MM:SS TZN YYYY'
-            # Example: 'Tue Oct  7 14:22:19 UTC 2025'
-            # We need to handle variable whitespace, so we split the string
-            parts = response_clean.split()
-            if len(parts) < 5:
-                 raise ValueError("Date string format is incorrect.")
-            # Rejoin the relevant parts to match strptime format
-            date_str_for_parsing = " ".join(parts)
-            
+            # Isolate the first line, which should contain the date string.
+            date_str = response.strip().split('\n')[0]
+
             # The format code for this is %a %b %d %H:%M:%S %Z %Y
-            system_time = datetime.strptime(date_str_for_parsing, "%a %b %d %H:%M:%S %Z %Y")
+            # Example: 'Tue Oct  7 14:22:19 UTC 2025'
+            system_time = datetime.strptime(date_str, "%a %b %d %H:%M:%S %Z %Y")
             logger.info(f"Parsed system date time: {system_time}")
 
             # Make both datetimes offset-aware (assuming UTC if not specified)
