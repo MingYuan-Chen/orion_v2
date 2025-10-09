@@ -4,6 +4,7 @@ Responsible for managing log display, filtering and clearing
 """
 from typing import Dict, List, Any, Optional
 import datetime
+import re
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QPushButton
 from PySide6.QtGui import QColor
@@ -94,6 +95,13 @@ class LogManagerView(QObject):
         """
         if timestamp is None:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Clean message from ANSI escape codes and other non-printable characters
+        # Comprehensive regex for ANSI escape sequences (CSI)
+        ansi_csi_pattern = r'\x1b\[[0-?]*[ -/]*[@-~]'
+        message = re.sub(ansi_csi_pattern, '', message)
+        # Remove null bytes, which can come from device responses
+        message = message.replace('\x00', '')
         
         # Add to log entries storage
         self.log_entries.append({

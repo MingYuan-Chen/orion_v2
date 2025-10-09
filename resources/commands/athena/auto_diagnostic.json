@@ -57,5 +57,13 @@
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],
     "expected_response": ["1286:204e", "Marvell"]
+  },
+  "diagnostic_ethernet": {
+    "commands": ["nmcli device disconnect wlp1s0", "curl -I -s https://www.google.com | grep 'HTTP/"],
+    "expected_response": ["", "HTTP/1.1 200 OK"]
+  },
+  "diagnostic_wifi_connection": {
+    "commands": ["nmcli device disconnect eth0", "nmcli device wifi rescan", "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025", "curl -I -s https://www.google.com | grep 'HTTP/"],
+    "expected_response": ["", "", "", "HTTP/1.1 200 OK"]
   }
 }

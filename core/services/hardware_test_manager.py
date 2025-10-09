@@ -123,6 +123,10 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_panel_id_resolution", PanelIdResolutionWorker, continue_on_failure=True)
         from core.tests.diagnostic.wifi_bt_worker import WifiBtWorker
         self._register_worker("diagnostic_wifi_bt", WifiBtWorker, continue_on_failure=True)
+        from core.tests.diagnostic.ethernet_worker import EthernetWorker
+        self._register_worker("diagnostic_ethernet", EthernetWorker, continue_on_failure=True)
+        from core.tests.diagnostic.wifi_connection_worker import WifiConnectionWorker
+        self._register_worker("diagnostic_wifi_connection", WifiConnectionWorker, continue_on_failure=True)
 
 
         # self._register_worker("touch_screen", TouchScreenTestWorker, continue_on_failure=True)
