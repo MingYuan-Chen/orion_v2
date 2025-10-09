@@ -865,8 +865,11 @@ class MainWindowController(QObject):
             "diagnostic_uboot_version": "Check U-Boot Version",
             "diagnostic_kernal_name": "Check Kernal Name",
             "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
-            "diagnostic_wifi_bt": "Check Wifi and Bluetooth"
+            "diagnostic_wifi_bt": "Check Wifi and Bluetooth",
         }
+        if self.platform_name == "Athena":
+            diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
+            diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
         # set the auto diagnostic log function
