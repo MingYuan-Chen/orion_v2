@@ -30,25 +30,43 @@ class WifiConnectionWorker(BaseTestWorker):
                 command=commands[0], 
                 expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
-                description="disconnect ethernet",
+                description="scan available wifi networks",
             ),
             TestStep(
                 command=commands[1], 
                 expected_response=expected_responses[1] if expected_responses else None, 
                 timeout=5, 
-                description="scan available wifi networks",
+                description="connect to wifi network",
             ),
             TestStep(
                 command=commands[2], 
                 expected_response=expected_responses[2] if expected_responses else None, 
                 timeout=5, 
-                description="connect to wifi network",
+                description="set wifi as default network",
             ),
             TestStep(
                 command=commands[3], 
                 expected_response=expected_responses[3] if expected_responses else None, 
                 timeout=5, 
+                description="apply default network setting",
+            ),
+            TestStep(
+                command=commands[4], 
+                expected_response=expected_responses[4] if expected_responses else None, 
+                timeout=5, 
                 description="Test wifi connection by downloading google homepage",
                 criteria="Can download google homepage normally",
+            ),
+            TestStep(
+                command=commands[5], 
+                expected_response=expected_responses[5] if expected_responses else None, 
+                timeout=5, 
+                description="reset ethernet as default network",
+            ),
+            TestStep(
+                command=commands[6], 
+                expected_response=expected_responses[6] if expected_responses else None, 
+                timeout=5, 
+                description="apply default network setting",
             )
         ]

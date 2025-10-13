@@ -59,11 +59,18 @@
     "expected_response": ["1286:204e", "Marvell"]
   },
   "diagnostic_ethernet": {
-    "commands": ["nmcli device disconnect wlp1s0", "curl -I -s https://www.google.com | grep 'HTTP/"],
-    "expected_response": ["", "HTTP/1.1 200 OK"]
+    "commands": ["nmcli device disconnect wlp1s0", "curl -I -s https://www.google.com | grep HTTP/", "nmcli device connect wlp1s0"],
+    "expected_response": ["", "HTTP/1.1 200 OK", ""]
   },
   "diagnostic_wifi_connection": {
-    "commands": ["nmcli device disconnect eth0", "nmcli device wifi rescan", "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025", "curl -I -s https://www.google.com | grep 'HTTP/"],
-    "expected_response": ["", "", "", "HTTP/1.1 200 OK"]
+    "commands": [
+      "nmcli device wifi rescan", 
+      "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025", 
+      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 50", 
+      "nmcli connection up DQA-Mesh66",
+      "curl -I -s https://www.google.com | grep HTTP/",
+      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 600", 
+      "nmcli connection up DQA-Mesh66"],
+    "expected_response": ["", "", "", "", "HTTP/1.1 200 OK", "", ""]
   }
 }

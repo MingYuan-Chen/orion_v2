@@ -35,8 +35,13 @@ class EthernetWorker(BaseTestWorker):
             TestStep(
                 command=commands[1], 
                 expected_response=expected_responses[1] if expected_responses else None, 
-                timeout=5, 
                 description="Test ethernet connection by downloading google homepage",
-                criteria="Can download google homepage normally",
+                criteria="Can download google homepage normally", 
+            ),
+            TestStep(
+                command=commands[2], 
+                expected_response=expected_responses[2] if expected_responses else None,
+                description="Ensure ethernet connected",
+                
             )
         ]
