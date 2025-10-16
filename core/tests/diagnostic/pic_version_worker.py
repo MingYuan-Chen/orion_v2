@@ -70,7 +70,7 @@ class PicVersionWorker(BaseTestWorker):
             response: Command execution response
         """
         # Convert response to decimal
-        available_values = ['0x04', '0x05', '0x06', '0x9d', '0x07', '0x08', '0x09']
+        available_values = ['0x04', '0x05', '0x06', '0x9d', '0x07', '0x08', '0x09', '0x0a', '0x0b']
         for value in available_values:
             if value in response:
                 return True, f"The PIC version is {int(value, 16)} ({value})"

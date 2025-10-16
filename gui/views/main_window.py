@@ -249,15 +249,8 @@ class MainWindowController(QObject):
         # create the connection pre-check service
         self.connection_pre_check = ConnectionPreCheckService(self.view_model)
         
-        # Dynamically get the correct worker for the device
-        worker = self.view_model._get_worker_for_device(self.device_id)
-        if not worker:
-            logger.error(f"Could not determine a valid worker for device {self.device_id}. Stress test service will be disabled.")
-            self.cpu_stress_service = None
-        else:
-            # create the CPU stress test service with the correct worker
-            self.cpu_stress_service = CpuStressService(worker)
-
+        # create the CPU stress test service
+        self.cpu_stress_service = CpuStressService(self.view_model._serial_worker)
         
         # Stress test state
         self.cpu_stress_duration = 0.0  # Duration in hours
@@ -865,11 +858,8 @@ class MainWindowController(QObject):
             "diagnostic_uboot_version": "Check U-Boot Version",
             "diagnostic_kernal_name": "Check Kernal Name",
             "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
-            "diagnostic_wifi_bt": "Check Wifi and Bluetooth",
+            "diagnostic_wifi_bt": "Check Wifi and Bluetooth"
         }
-        if self.platform_name == "Athena":
-            diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
-            diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
         # set the auto diagnostic log function
