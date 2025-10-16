@@ -340,9 +340,6 @@ class DeviceManagerViewModel(QObject):
                 elif "odin" in response_lower:
                     detected_platform = "odin"
                     logger.info(f"Detected Odin platform for device {device_id}")
-                elif "no such file or directory" in response_lower:
-                    logger.warning(f"/proc/device-tree/model not found, assuming Odin platform for device {device_id}")
-                    detected_platform = "odin"
                 else:
                     logger.warning(f"Unknown model response for device {device_id}: {response}")
                     detected_platform = None
