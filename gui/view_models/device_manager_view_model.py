@@ -9,7 +9,7 @@ from core.services.usb_package_deploy_service import UsbPackageDeployService
 from util.logger import logger
 
 # Constants for platform detection
-NEED_ATHENA_CHECK = "NEED_ATHENA_CHECK"
+NEED_ATHENA_ODIN_CHECK = "NEED_ATHENA_ODINCHECK"
 
 
 class DeviceManagerViewModel(QObject):
@@ -273,16 +273,16 @@ class DeviceManagerViewModel(QObject):
             if command == "cat /proc/panel_id":
                 logger.info(f"Received platform detection response from {device_id}: {response}")
                 detected_platform = self._detect_platform_from_panel_id(response)
-                if detected_platform and detected_platform != NEED_ATHENA_CHECK:
+                if detected_platform and detected_platform != NEED_ATHENA_ODIN_CHECK:
                     logger.info(f"Detected platform from panel_id for device {device_id}: {detected_platform}")
-                elif detected_platform == NEED_ATHENA_CHECK:
-                    logger.info(f"Unknown panel_id for device {device_id}, checking for Athena platform")
+                elif detected_platform == NEED_ATHENA_ODIN_CHECK:
+                    logger.info(f"Unknown panel_id for device {device_id}, checking for Athena or Odinplatform")
                     self.platform_detection_status[device_id]['panel_id_response'] = response
-                    athena_command = "cat /proc/device-tree/model"
-                    worker.send_command(device_id, athena_command, 10)
+                    athena_odin_command = "cat /proc/device-tree/model"
+                    worker.send_command(device_id, athena_odin_command, 10)
                     if 'sent_commands' not in self.platform_detection_status[device_id]:
                         self.platform_detection_status[device_id]['sent_commands'] = set()
-                    self.platform_detection_status[device_id]['sent_commands'].add(athena_command)
+                    self.platform_detection_status[device_id]['sent_commands'].add(athena_odin_command)
                 else:
                     panel_id = response.strip().lower()
                     if "01" in panel_id:
@@ -294,13 +294,13 @@ class DeviceManagerViewModel(QObject):
                             self.platform_detection_status[device_id]['sent_commands'] = set()
                         self.platform_detection_status[device_id]['sent_commands'].add(pic_command)
                     else:
-                        logger.info(f"panel_id detection failed for device {device_id}, checking for Athena platform")
+                        logger.info(f"panel_id detection failed for device {device_id}, checking for Athena or Odin platform")
                         self.platform_detection_status[device_id]['panel_id_response'] = response
-                        athena_command = "cat /proc/device-tree/model"
-                        worker.send_command(device_id, athena_command, 10)
+                        athena_odin_command = "cat /proc/device-tree/model"
+                        worker.send_command(device_id, athena_odin_command, 10)
                         if 'sent_commands' not in self.platform_detection_status[device_id]:
                             self.platform_detection_status[device_id]['sent_commands'] = set()
-                        self.platform_detection_status[device_id]['sent_commands'].add(athena_command)
+                        self.platform_detection_status[device_id]['sent_commands'].add(athena_odin_command)
                 is_platform_detection_command = True
             
             elif command == "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2":
@@ -331,20 +331,17 @@ class DeviceManagerViewModel(QObject):
                 is_platform_detection_command = True
             
             elif command == "cat /proc/device-tree/model":
-                logger.info(f"Received Athena check response from {device_id}: {response}")
-                is_athena = self._is_athena_platform(response)
-                logger.debug(f"Athena platform check result for device {device_id}: {is_athena}")
-                
-                if is_athena:
+                logger.info(f"Received model check response from {device_id}: {response}")
+                response_lower = response.strip().lower()
+
+                if "athena" in response_lower:
                     detected_platform = "athena"
                     logger.info(f"Detected Athena platform for device {device_id}")
-                    if device_id in self.platform_detection_status:
-                        self.platform_detection_status[device_id]['detected_platform'] = detected_platform
-                        logger.info(f"Completing platform detection for Athena device {device_id}")
-                        self._complete_platform_detection(device_id)
-                    return
+                elif "odin" in response_lower:
+                    detected_platform = "odin"
+                    logger.info(f"Detected Odin platform for device {device_id}")
                 else:
-                    logger.warning(f"Not Athena platform, platform detection failed for device {device_id}")
+                    logger.warning(f"Unknown model response for device {device_id}: {response}")
                     detected_platform = None
                 is_platform_detection_command = True
         
@@ -357,7 +354,7 @@ class DeviceManagerViewModel(QObject):
             
             expected_commands = {"cat /proc/panel_id"}
             pic_command = "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-            athena_command = "cat /proc/device-tree/model"
+            athena_odin_command = "cat /proc/device-tree/model"
             
             if 'sent_commands' not in self.platform_detection_status[device_id]:
                 self.platform_detection_status[device_id]['sent_commands'] = set()
@@ -365,8 +362,8 @@ class DeviceManagerViewModel(QObject):
             sent_commands = self.platform_detection_status[device_id]['sent_commands']
             if pic_command in sent_commands:
                 expected_commands.add(pic_command)
-            if athena_command in sent_commands:
-                expected_commands.add(athena_command)
+            if athena_odin_command in sent_commands:
+                expected_commands.add(athena_odin_command)
             
             completed_commands = self.platform_detection_status[device_id]['completed_commands']
             
@@ -528,8 +525,8 @@ class DeviceManagerViewModel(QObject):
         elif "11" in response:
             return "gemini"
         else:
-            logger.warning(f"Unknown panel_id response: '{panel_id_response}', checking for Athena platform")
-            return NEED_ATHENA_CHECK
+            logger.warning(f"Unknown panel_id response: '{panel_id_response}', checking for Athena or Odin platform")
+            return NEED_ATHENA_ODIN_CHECK
 
     def _detect_platform_from_panel_id_01(self, panel_id_response: str, pic_version_response: str) -> Optional[str]:
         logger.debug(f"Analyzing panel_id=01 with PIC version: '{pic_version_response}'")
@@ -572,12 +569,17 @@ class DeviceManagerViewModel(QObject):
         clean_response = response.strip()
         logger.info(f"Checking Athena platform with response: '{clean_response}'")
         return "Athena-030" in clean_response
-
+    
+    def _is_odin_platform(self, response: str) -> bool:
+        clean_response = response.strip()
+        logger.info(f"Checking Odin platform with response: '{clean_response}'")
+        return "PSC Odin" in clean_response
+    
     def _retry_pic_command(self, device_id: str):
         if device_id not in self.platform_detection_status:
             return
         detected_platform = self.platform_detection_status[device_id].get('detected_platform')
-        if detected_platform == 'athena':
+        if detected_platform == 'athena' or detected_platform == 'odin':
             return
         retry_count = self.platform_detection_status[device_id].get('pic_retry_count', 0)
         max_retries = self.pic_command_retry_config['max_retries']
