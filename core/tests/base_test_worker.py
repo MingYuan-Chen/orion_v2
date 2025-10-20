@@ -385,6 +385,7 @@ class BaseTestWorker(QObject):
     
     def _execute_next_step(self):
         """Execute next test step, or complete test if all steps are done"""
+        logger.info(f"[{getattr(self, 'test_id', 'N/A')}] _execute_next_step called. Current index: {self.current_step_index}, Total steps: {len(self.steps)}")
         # Go to next step
         self.current_step_index += 1
         
@@ -468,6 +469,7 @@ class BaseTestWorker(QObject):
     
     def _execute_step(self, step):
         """Execute the given step"""
+        logger.info(f"[{getattr(self, 'test_id', 'N/A')}] _execute_step called for step {self.current_step_index + 1}")
         # Check if this is a wait step
         if step.is_wait_step:
             logger.debug(f"Execute wait step {self.current_step_index+1}/{len(self.steps)}: {step.description} ({step.wait_time} ms)")
@@ -475,8 +477,26 @@ class BaseTestWorker(QObject):
             self.wait_timer.setInterval(step.wait_time)
             self.wait_timer.start()
             return
+
+        # Handle manual_only steps
+        if step.manual_only:
+            logger.info(f"[{getattr(self, 'test_id', 'N/A')}] Step {self.current_step_index + 1} is manual_only. Proceeding without sending command.")
+            logger.debug(f"Manual-only step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+            step.response = "Manual interaction step - no command executed"
+            step.result = "Manual interaction step"
+
+            if hasattr(step, 'log_to_system'):
+                step.log_to_system("INFO", f"[Manual Step] {step.description}")
+
+            if step.post_check:
+                self.interaction_state = InteractionState.POST_CHECK
+                self.post_check_required.emit(self.current_step_index, step.post_check)
+            else:
+                # No post_check, so the step is immediately considered passed.
+                self._handle_step_result(True, "Manual step completed without verification")
+            return  # IMPORTANT: return after handling manual step
         
-        logger.debug(f"Executing step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+        logger.debug(f"Executing non-manual step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
         
         # Check if command is empty before executing
         if not step.command:
@@ -506,6 +526,7 @@ class BaseTestWorker(QObject):
         Args:
             should_continue: True if continue with step, False if skip
         """
+        logger.info(f"[{getattr(self, 'test_id', 'N/A')}] handle_pre_condition_response called with: {should_continue}")
         if self.interaction_state == InteractionState.PRE_CONDITION and self.current_step_index >= 0:
             self.interaction_state = InteractionState.NONE
             
@@ -536,6 +557,7 @@ class BaseTestWorker(QObject):
         """
         Handle user response to post-check verification
         """
+        logger.info(f"[{getattr(self, 'test_id', 'N/A')}] handle_post_check_response called with: {is_passed}")
         if self.interaction_state == InteractionState.POST_CHECK and self.current_step_index >= 0:
             self.interaction_state = InteractionState.NONE
             
@@ -825,6 +847,7 @@ class BaseTestWorker(QObject):
     
     def _complete_test(self):
         """Complete test, check test results and send test completed signal"""
+        logger.info(f"[{getattr(self, 'test_id', 'N/A')}] _complete_test called. Test finished.")
         # Record test end time
         self.test_end_time = datetime.datetime.now()
         self.is_running = False
@@ -991,4 +1014,4 @@ class BaseTestWorker(QObject):
             collector_func: Collector function, parameters are (test_id, step_index, command, response)
         """
         self.response_collector = collector_func
-        logger.debug(f"Response collector function set for {self.__class__.__name__}") 
+        logger.debug(f"Response collector function set for {self.__class__.__name__}")

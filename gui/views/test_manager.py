@@ -136,7 +136,7 @@ class TestManagerView(QObject):
             
         # Set initial state for all tests
         # Define the tests that should remain disabled (In Dev tests)
-        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
         
         for test_id in test_ids:
             # Skip the dev tests - they should always remain disabled
@@ -157,6 +157,7 @@ class TestManagerView(QObject):
         Args:
             test_id: Test ID to start
         """
+        logger.warning(f">>> TEST RESTART DETECTED <<< Starting test: {test_id}")
         # Immediately change button state for better user experience
         self.test_container.set_test_state(test_id, "running", "Checking...")
         
@@ -330,6 +331,13 @@ class TestManagerView(QObject):
             success: Whether test passed
             message: Result message
         """
+        # Aggressively disconnect to prevent any rogue connections from re-triggering the test
+        try:
+            self.hw_test_manager.test_completed.disconnect()
+        except Exception as e:
+            logger.warning(f"Could not disconnect test_completed signal: {e}")
+        # Re-connect the legitimate slot so that subsequent tests in a sequence can be handled.
+        self.hw_test_manager.test_completed.connect(self._on_test_completed)
         # only handle the functionality tests
         if not test_id.startswith("functionality_"):
             return
@@ -739,7 +747,7 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             # Reset UI state to not started
             for test_id in test_ids:
@@ -793,7 +801,7 @@ class TestManagerView(QObject):
         """
         if self.test_container:
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             for test_id in self.test_container.get_all_test_ids():
                 test_widget = self.test_container.get_test_widget(test_id)
@@ -970,7 +978,7 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
             
             for test_id in test_ids:
                 if test_id in dev_tests:
