@@ -114,6 +114,8 @@ class TestItemWidget(QWidget):
     
     def _on_test_button_clicked(self):
         """Handle test button click"""
+        from util.logger import logger
+        logger.info(f"!!!!!!!! [{self.test_id}] _on_test_button_clicked TRIGGERED !!!!!!!!")
         # Don't emit signal if test is always disabled
         if not self.always_disabled:
             self.test_started.emit(self.test_id)
@@ -126,6 +128,9 @@ class TestItemWidget(QWidget):
             state: State ('not_started', 'running', 'pass', 'fail')
             message: Optional status message
         """
+        from util.logger import logger
+        logger.debug(f"[{self.test_id}] set_state called with state: {state}")
+
         self.current_status = state
         self.status_message = message
         
@@ -133,30 +138,35 @@ class TestItemWidget(QWidget):
         if state in self.status_colors:
             self.status_indicator.setStyleSheet(f"background-color: {self.status_colors[state].name()}; border-radius: 8px;")
         
+        logger.debug(f"[{self.test_id}] Blocking signals for test_button")
+        self.test_button.blockSignals(True)
+
         # Update button state based on test state
         if state == "running":
             self.test_button.setEnabled(False)
             if not message:
                 self.test_button.setText("Running...")
             else:
-                # if there is a message, it may contain progress information
                 self.test_button.setText(message)
         elif state == "pass" or state == "fail":
-            # If test is always disabled, keep it disabled
             if self.always_disabled:
                 self.test_button.setEnabled(False)
                 self.test_button.setText("In Dev")
             else:
+                logger.debug(f"[{self.test_id}] Setting button to Re-Test and enabling.")
                 self.test_button.setEnabled(True)
                 self.test_button.setText("Re-Test")
         else:  # not_started
-            # If test is always disabled, keep it disabled
             if self.always_disabled:
                 self.test_button.setEnabled(False)
                 self.test_button.setText("In Dev")
             else:
                 self.test_button.setEnabled(True)
                 self.test_button.setText("Start Test")
+        
+        logger.debug(f"[{self.test_id}] Unblocking signals for test_button")
+        self.test_button.blockSignals(False)
+        logger.debug(f"[{self.test_id}] set_state method finished")
     
     def set_enabled(self, enabled):
         """
@@ -325,4 +335,4 @@ class TestContainer(QScrollArea):
             widget = self.test_widgets[test_id]
             if widget.current_status == "running":
                 # according to the user's requirement, the button only displays "Running", not the specific progress
-                widget.set_state("running", "Running") 
+                widget.set_state("running", "Running")

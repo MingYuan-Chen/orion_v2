@@ -978,7 +978,7 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_usb", "USB Test")
         
         # Set specific tests to "In Dev" and disable them
-        dev_tests = ["functionality_audio", "functionality_camera", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
         for test_id in dev_tests:
             test_widget = test_container.get_test_widget(test_id)
             if test_widget:
@@ -3591,12 +3591,12 @@ class MainWindowController(QObject):
                                         break
                             
                             # If no exact match found, try description-based matching for camera tests
-                            if not matching_step and test_id == "functionality_camera":
-                                for step in test_steps:
-                                    step_test_desc = step.get('description', '')
-                                    if step_test_desc == step_desc:
-                                        matching_step = step
-                                        break
+                            # if not matching_step and test_id == "functionality_camera":
+                            #     for step in test_steps:
+                            #         step_test_desc = step.get('description', '')
+                            #         if step_test_desc == step_desc:
+                            #             matching_step = step
+                            #             break
                             
                             if matching_step:
                                 test_step_message = matching_step.get('message', '')
@@ -3649,9 +3649,9 @@ class MainWindowController(QObject):
                                 continue
                             
                             # For camera tests, only export steps that actually have matching execution results
-                            if test_id == "functionality_camera" and not matching_step:
-                                logger.debug(f"Skipping camera step without execution match: {step_desc}")
-                                continue
+                            # if test_id == "functionality_camera" and not matching_step:
+                            #     logger.debug(f"Skipping camera step without execution match: {step_desc}")
+                            #     continue
                             
                             # Skip duplicate steps
                             template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
