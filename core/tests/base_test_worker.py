@@ -477,26 +477,8 @@ class BaseTestWorker(QObject):
             self.wait_timer.setInterval(step.wait_time)
             self.wait_timer.start()
             return
-
-        # Handle manual_only steps
-        if step.manual_only:
-            logger.info(f"[{getattr(self, 'test_id', 'N/A')}] Step {self.current_step_index + 1} is manual_only. Proceeding without sending command.")
-            logger.debug(f"Manual-only step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
-            step.response = "Manual interaction step - no command executed"
-            step.result = "Manual interaction step"
-
-            if hasattr(step, 'log_to_system'):
-                step.log_to_system("INFO", f"[Manual Step] {step.description}")
-
-            if step.post_check:
-                self.interaction_state = InteractionState.POST_CHECK
-                self.post_check_required.emit(self.current_step_index, step.post_check)
-            else:
-                # No post_check, so the step is immediately considered passed.
-                self._handle_step_result(True, "Manual step completed without verification")
-            return  # IMPORTANT: return after handling manual step
         
-        logger.debug(f"Executing non-manual step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
+        logger.debug(f"Executing step {self.current_step_index+1}/{len(self.steps)}: {step.description}")
         
         # Check if command is empty before executing
         if not step.command:

@@ -332,13 +332,7 @@ class TestManagerView(QObject):
             success: Whether test passed
             message: Result message
         """
-        # Aggressively disconnect to prevent any rogue connections from re-triggering the test
-        try:
-            self.hw_test_manager.test_completed.disconnect()
-        except Exception as e:
-            logger.warning(f"Could not disconnect test_completed signal: {e}")
-        # Re-connect the legitimate slot so that subsequent tests in a sequence can be handled.
-        self.hw_test_manager.test_completed.connect(self._on_test_completed)
+        
         # only handle the functionality tests
         if not test_id.startswith("functionality_"):
             return
