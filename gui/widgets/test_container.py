@@ -14,6 +14,7 @@ class TestItemWidget(QWidget):
     
     # Define signals
     test_started = Signal(str)  # Emitted when test button is clicked, passes test_id
+    test_aborted = Signal(str)  # Emitted when abort button is clicked, passes test_id
     
     def __init__(self, test_id, test_name, parent=None):
         """
@@ -118,7 +119,10 @@ class TestItemWidget(QWidget):
         logger.info(f"!!!!!!!! [{self.test_id}] _on_test_button_clicked TRIGGERED !!!!!!!!")
         # Don't emit signal if test is always disabled
         if not self.always_disabled:
-            self.test_started.emit(self.test_id)
+            if self.current_status == "running":
+                self.test_aborted.emit(self.test_id)
+            else:
+                self.test_started.emit(self.test_id)
     
     def set_state(self, state, message=""):
         """
@@ -143,11 +147,8 @@ class TestItemWidget(QWidget):
 
         # Update button state based on test state
         if state == "running":
-            self.test_button.setEnabled(False)
-            if not message:
-                self.test_button.setText("Running...")
-            else:
-                self.test_button.setText(message)
+            self.test_button.setEnabled(True)
+            self.test_button.setText("Abort")
         elif state == "pass" or state == "fail":
             if self.always_disabled:
                 self.test_button.setEnabled(False)
@@ -189,6 +190,7 @@ class TestContainer(QScrollArea):
     
     # Define signals
     test_selected = Signal(str)  # Emitted when a test is selected, passes test_id
+    test_aborted_by_user = Signal(str)  # Emitted when a test is aborted by the user, passes test_id
     
     def __init__(self, parent=None):
         """
@@ -260,6 +262,7 @@ class TestContainer(QScrollArea):
         
         # Connect test started signal
         test_widget.test_started.connect(lambda tid: self.test_selected.emit(tid))
+        test_widget.test_aborted.connect(lambda tid: self.test_aborted_by_user.emit(tid))
         
         # Add to layout before the stretch
         self.content_layout.insertWidget(self.content_layout.count() - 1, test_widget)

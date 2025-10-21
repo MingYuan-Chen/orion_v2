@@ -113,6 +113,7 @@ class TestManagerView(QObject):
         
         # Connect test container signals
         self.test_container.test_selected.connect(self.start_test)
+        self.test_container.test_aborted_by_user.connect(self.abort_test)
         
         # Connect test all button
         self.test_all_button.clicked.connect(self.start_test_all)
@@ -191,12 +192,12 @@ class TestManagerView(QObject):
             worker = self.hw_test_manager.test_workers[test_id]
             worker.log_function = self.add_system_log
         
-        # Start the test
-        self.hw_test_manager.start_test(self.device_id, test_id)
-        
         # Show abort button
         if self.abort_button:
             self.abort_button.setVisible(True)
+
+        # Start the test
+        self.hw_test_manager.start_test(self.device_id, test_id)
         
         # Record the test start
         logger.info(f"Starting {test_id} test for device {self.device_id}")
