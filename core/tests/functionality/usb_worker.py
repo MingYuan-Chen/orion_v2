@@ -85,18 +85,50 @@ class UsbWorker(BaseTestWorker):
     
     def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
         """
-        Find valid usb path
+        Find valid usb path from response.
+        The response may contain device names separated by multiple spaces,
+        and the names themselves can contain spaces.
+        e.g., 'Main Data Partition-sdb1   sda1'
         """
         try:
-            devices = response.split(" ")
-            for device in devices:
-                if "sda1" in device:
-                    self.usb1_path = f"/run/media/{device}"
-                elif "sdb1" in device:
-                    self.usb2_path = f"/run/media/{device}"
-            return True, f"Find valid usb path: {self.usb1_path} and {self.usb2_path}"
+            import re
+            # Split by two or more whitespace characters. This assumes device names are separated thusly.
+            device_names = [name.strip("' ") for name in re.split(r'\s{2,}', response.strip()) if name]
+            
+            self.usb1_path = None
+            self.usb2_path = None
+            
+            # Prioritize assignment based on 'sda1' and 'sdb1'
+            unassigned_names = []
+            for name in device_names:
+                if 'sda1' in name:
+                    self.usb1_path = f"/run/media/{name}"
+                elif 'sdb1' in name:
+                    self.usb2_path = f"/run/media/{name}"
+                else:
+                    unassigned_names.append(name)
+            
+            # If paths are still unassigned, use the remaining names
+            if not self.usb1_path and unassigned_names:
+                self.usb1_path = f"/run/media/{unassigned_names.pop(0)}"
+            
+            if not self.usb2_path and unassigned_names:
+                self.usb2_path = f"/run/media/{unassigned_names.pop(0)}"
+
+            if self.usb1_path or self.usb2_path:
+                paths = []
+                if self.usb1_path:
+                    paths.append(self.usb1_path)
+                if self.usb2_path:
+                    paths.append(self.usb2_path)
+                return True, f"Found valid usb path(s): {', '.join(paths)}"
+            else:
+                logger.warning(f"Could not find any valid usb paths in response: {response}")
+                return False, f"Could not find any valid usb paths in response: {response}"
+            
         except Exception as e:
             logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
+            return False, f"Find valid usb path error: {str(e)}"
     
     def _validate_usb_write(self, response: str) -> Tuple[bool, str]:
         """

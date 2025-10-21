@@ -113,12 +113,12 @@
   "functionality_usb": {
     "commands": [
       "ls /run/media",
-      "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
-      "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
-      "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
-      "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb1_path}/usb_throughput",
-      "rm -f {usb2_path}/usb_throughput"
+      "dd if=/dev/zero of='{usb1_path}/usb_throughput' bs=1M count=200 status=progress",
+      "dd if='{usb1_path}/usb_throughput' of=/dev/null bs=1M",
+      "dd if=/dev/zero of='{usb2_path}/usb_throughput' bs=1M count=200 status=progress",
+      "dd if='{usb2_path}/usb_throughput' of=/dev/null bs=1M",
+      "rm -f '{usb1_path}/usb_throughput'",
+      "rm -f '{usb2_path}/usb_throughput'"
     ]
   },
   "functionality_touch": {
