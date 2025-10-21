@@ -34,7 +34,7 @@ class RebootHandler(QObject):
         self.rebooting_devices = {}  # device_id -> reboot_info
         
         # Configuration parameters
-        self.login_check_interval = 2000  # Check interval 2 seconds
+        self.login_check_interval = 5000  # Check interval 2 seconds
         self.max_login_attempts = 30      # Maximum attempts (60 seconds timeout)
         self.command_timeout = 3          # Single command timeout
         self.login_check_command = "root"  # Login check command
