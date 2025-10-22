@@ -77,6 +77,15 @@ class TestManagerView(QObject):
         
         logger.info("Test manager view initialized")
     
+    def get_dev_tests_for_platform(self, platform_name):
+        """根據平台名稱返回對應的開發中測試清單"""
+        if platform_name in ["argo"]:
+            return ["functionality_audio"]
+        elif platform_name in ["odin"]:
+            return ["functionality_camera"]
+        else:
+            return []  # 預設沒有 In Dev 測試
+    
     def _connect_signals(self):
         """Connect hardware test manager signals"""
         # connect hardware test manager signals
@@ -137,7 +146,9 @@ class TestManagerView(QObject):
             
         # Set initial state for all tests
         # Define the tests that should remain disabled (In Dev tests)
-        dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        # 根據平台名稱設定不同的 dev_tests
+        platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
+        dev_tests = self.get_dev_tests_for_platform(platform_name)
         
         for test_id in test_ids:
             # Skip the dev tests - they should always remain disabled
@@ -742,7 +753,8 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
+            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             # Reset UI state to not started
             for test_id in test_ids:
@@ -796,7 +808,8 @@ class TestManagerView(QObject):
         """
         if self.test_container:
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
+            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             for test_id in self.test_container.get_all_test_ids():
                 test_widget = self.test_container.get_test_widget(test_id)
@@ -973,7 +986,8 @@ class TestManagerView(QObject):
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
             # Define the tests that should remain disabled (In Dev tests)
-            dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
+            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             for test_id in test_ids:
                 if test_id in dev_tests:
