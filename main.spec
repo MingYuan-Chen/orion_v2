@@ -8,10 +8,7 @@ a = Analysis(
         ('resources/icons/header.png', 'resources/icons'), 
         ('resources/icons/header.ico', 'resources/icons'),
         ('resources/commands', 'resources/commands'),
-        ('gui/ui/main_window.ui', 'gui/ui'),
-        ('gui/ui/login_dialog.ui', 'gui/ui'),
-        ('gui/ui/device_manager_widget.ui', 'gui/ui'),
-        ('gui/ui/device_connection_dialog.ui', 'gui/ui')
+        ('gui/ui', 'gui/ui'),
         ],
     hiddenimports=[],
     hookspath=[],
