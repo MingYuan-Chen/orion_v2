@@ -80,6 +80,15 @@ class TestManagerView(QObject):
         
         logger.info("Test manager view initialized")
     
+    def get_dev_tests_for_platform(self, platform_name):
+        """根據平台名稱返回對應的開發中測試清單"""
+        if platform_name in ["argo"]:
+            return ["functionality_audio"]
+        elif platform_name in ["odin"]:
+            return ["functionality_camera"]
+        else:
+            return []  # 預設沒有 In Dev 測試
+    
     def _connect_signals(self):
         """Connect hardware test manager signals"""
         # connect hardware test manager signals

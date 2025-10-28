@@ -2,7 +2,7 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /unit_tests/ASRC/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
@@ -121,8 +121,8 @@
   },
   "functionality_usb": {
     "commands": [
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x19; sleep 0.1;",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x00",
       "ls /run/media",
       "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",

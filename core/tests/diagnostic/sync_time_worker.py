@@ -198,6 +198,7 @@ class SyncTimeWorker(BaseTestWorker):
         """
         Validate date command by checking if key time components match
         """
+        logger.debug(f"[SyncTimeWorker] ntpdate response repr: {repr(response)}")
         try:
             if not hasattr(self, 'time_components') or not self.time_components:
                 return False, "No time components available from previous hwclock step"

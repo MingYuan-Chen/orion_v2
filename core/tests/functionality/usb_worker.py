@@ -92,8 +92,11 @@ class UsbWorker(BaseTestWorker):
         """
         try:
             import re
-            # Split by two or more whitespace characters. This assumes device names are separated thusly.
-            device_names = [name.strip("' ") for name in re.split(r'\s{2,}', response.strip()) if name]
+            # Split by whitespace characters to get device names
+            # Handle both single and multiple spaces, tabs, and newlines
+            device_names = [name.strip() for name in re.split(r'\s+', response.strip()) if name]
+            logger.debug(f"Original response: '{response}'")
+            logger.debug(f"Parsed device names: {device_names}")
             
             self.usb1_path = None
             self.usb2_path = None

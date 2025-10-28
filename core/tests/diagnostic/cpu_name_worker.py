@@ -20,7 +20,8 @@ class CpuNameWorker(BaseTestWorker):
             "gemini_fhd": "i.MX6",
             "gemini": "i.MX6",
             "argo": "i.MX6",
-            "athena": " Cortex-A53"
+            "athena": " Cortex-A53",
+            "odin": "i.MX8"
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -30,6 +31,7 @@ class CpuNameWorker(BaseTestWorker):
         Returns:
             diagnostic cpu name test steps list
         """
+        logger.debug(f"[CpuNameWorker] platform_name raw repr = {repr(self.platform_name)}")
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         

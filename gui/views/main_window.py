@@ -982,7 +982,9 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_usb", "USB Test")
         
         # Set specific tests to "In Dev" and disable them
-        dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        # 根據平台名稱設定不同的 dev_tests
+        platform_name = getattr(self, 'platform_name', 'hydra')
+        dev_tests = self.test_manager.get_dev_tests_for_platform(platform_name)
         for test_id in dev_tests:
             test_widget = test_container.get_test_widget(test_id)
             if test_widget:
