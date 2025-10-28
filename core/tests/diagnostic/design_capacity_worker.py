@@ -19,7 +19,8 @@ class DesignCapacityWorker(BaseTestWorker):
             "gemini_fhd": 3350,  # Same as gemini
             "gemini": 3350,
             "argo": 3250,
-            "athena": 3250
+            "athena": 3250,
+            "odin": 6800,
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -52,4 +53,3 @@ class DesignCapacityWorker(BaseTestWorker):
                 retry_delay=500
             )
         ]
-

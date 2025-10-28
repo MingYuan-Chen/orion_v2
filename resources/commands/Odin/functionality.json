@@ -80,26 +80,26 @@
   },
   "functionality_emmc": {
     "commands": [
-      "mount -o remount,rw /",
       "dd if=/dev/zero of=/emmc_througtput oflag=direct bs=1MiB count=100",
       "sync",
       "echo 3 > /proc/sys/vm/drop_caches",
-      "dd if=/emmc_througtput of=/dev/null iflag=direct bs=1MiB count=100"
+      "dd if=/emmc_througtput of=/dev/null iflag=direct bs=1MiB count=100",
+      "mount -o remount,rw /"
     ]
   },
   "functionality_lcd": {
     "commands": [
-      "/unit_tests/drawfb.out red",
-      "/unit_tests/drawfb.out green",
-      "/unit_tests/drawfb.out blue",
-      "/unit_tests/drawfb.out black",
-      "/unit_tests/drawfb.out white",
-      "/unit_tests/drawfb.out colorbar",
-      "/unit_tests/drawfb.out gradient",
-      "/unit_tests/drawfb.out frame",
-      "/unit_tests/drawfb.out gray16",
-      "/unit_tests/drawfb.out gray64",
-      "/unit_tests/drawfb.out gray256"
+      "/usr/bin/drawfb -p red",
+      "/usr/bin/drawfb -p green",
+      "/usr/bin/drawfb -p blue",
+      "/usr/bin/drawfb -p black",
+      "/usr/bin/drawfb -p white",
+      "/usr/bin/drawfb -p colorbar",
+      "/usr/bin/drawfb -p gradient",
+      "/usr/bin/drawfb -p frame",
+      "/usr/bin/drawfb -p gray16",
+      "/usr/bin/drawfb -p gray64",
+      "/usr/bin/drawfb -p gray256"
     ]
   },
   "functionality_led": {
@@ -121,15 +121,18 @@
   },
   "functionality_usb": {
     "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x19; sleep 0.1;",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x00",
       "ls /run/media",
       "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
       "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
       "rm -f {usb1_path}/usb_throughput",
-      "rm -f {usb2_path}/usb_throughput"
+      "rm -f {usb2_path}/usb_throughput",
+      "dmesg -n 3",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && sleep 3",
+      "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
+      "rm -f {usb3_path}/usb_throughput"
     ]
   },
   "functionality_touch": {

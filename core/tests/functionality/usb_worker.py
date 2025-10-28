@@ -2,6 +2,7 @@
 USB worker module
 Implement USB port function test for device
 """
+from sys import platform
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
@@ -19,6 +20,8 @@ class UsbWorker(BaseTestWorker):
         
         self.usb_write_speed_threshold = 30.0  # unit: MB/s
         self.usb_read_speed_threshold = 200.0  # unit: MB/s
+
+        self.platform_name = platform_name
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -28,60 +31,151 @@ class UsbWorker(BaseTestWorker):
             USB test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
-        return [
-            TestStep(
-                command=commands[0], 
-                validation_func=self._find_valid_usb_path,
-                timeout=5, 
-                description="find valid usb path"
-            ),
-            TestStep(
-                command=commands[1], 
-                validation_func=self._validate_usb_write,
-                timeout=5, 
-                description="Write to usb_throughput on usb 1",
-                criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[2], 
-                validation_func=self._validate_usb_read,
-                timeout=10, 
-                description="Read from usb_throughput on usb 1",
-                criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
-                max_retries=3,
-                retry_delay=1000
-            ),
-            TestStep(
-                command=commands[3], 
-                validation_func=self._validate_usb_write, 
-                timeout=10, 
-                description="Write to usb_throughput on usb 2",
-                criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
-                max_retries=2,
-                retry_delay=1500
-            ),
-            TestStep(
-                command=commands[4], 
-                validation_func=self._validate_usb_read,
-                timeout=10, 
-                description="Read from usb_throughput on usb 2",
-                criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
-                max_retries=2,
-                retry_delay=1500
-            ),
-            TestStep(
-                command=commands[5],  
-                timeout=5,
-                description="Remove usb_throughput on usb 1",
-            ),
-            TestStep(
-                command=commands[6],  
-                timeout=5,
-                description="Remove usb_throughput on usb 2",
-            )
-        ]
+        
+        logger.info(f"{self.test_id} - Detected platform: {self.platform_name}")
+        if self.platform_name == "odin":
+            return [
+                TestStep(
+                    command=commands[7], 
+                    timeout=5, 
+                    description="Close the kernel dmesg displayed when plugging in USB-C"
+                ),
+                TestStep(
+                    command=commands[8], 
+                    timeout=5, 
+                    description="Enable the USB Power"
+                ),
+                TestStep(
+                    command=commands[0], 
+                    validation_func=self._find_valid_usb_path,
+                    timeout=5, 
+                    description="find valid usb path"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    validation_func=self._validate_usb_write,
+                    timeout=5, 
+                    description="Write to usb_throughput on usb 1",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[2], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 1",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[3], 
+                    validation_func=self._validate_usb_write, 
+                    timeout=10, 
+                    description="Write to usb_throughput on usb 2",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[4], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 2",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[9], 
+                    validation_func=self._validate_usb_write,
+                    timeout=10, 
+                    description="Write to usb_throughput on USB-C",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[10], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on USB-C",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[5],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 1",
+                ),
+                TestStep(
+                    command=commands[6],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 2",
+                ),
+                TestStep(
+                    command=commands[11],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-C",
+                )
+            ]
+        else:
+            return [
+                TestStep(
+                    command=commands[0], 
+                    validation_func=self._find_valid_usb_path,
+                    timeout=5, 
+                    description="find valid usb path"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    validation_func=self._validate_usb_write,
+                    timeout=5, 
+                    description="Write to usb_throughput on usb 1",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[2], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 1",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[3], 
+                    validation_func=self._validate_usb_write, 
+                    timeout=10, 
+                    description="Write to usb_throughput on usb 2",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[4], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 2",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[5],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 1",
+                ),
+                TestStep(
+                    command=commands[6],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 2",
+                )
+            ]
     
     def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
         """
@@ -100,7 +194,8 @@ class UsbWorker(BaseTestWorker):
             
             self.usb1_path = None
             self.usb2_path = None
-            
+            self.usb3_path = None
+
             # Prioritize assignment based on 'sda1' and 'sdb1'
             unassigned_names = []
             for name in device_names:
@@ -108,22 +203,26 @@ class UsbWorker(BaseTestWorker):
                     self.usb1_path = f"/run/media/{name}"
                 elif 'sdb1' in name:
                     self.usb2_path = f"/run/media/{name}"
+                elif 'sdb2' in name:
+                    self.usb3_path = f"/run/media/{name}"
                 else:
-                    unassigned_names.append(name)
+                    logger.debug(f"Ignored device: {name}")
             
             # If paths are still unassigned, use the remaining names
-            if not self.usb1_path and unassigned_names:
-                self.usb1_path = f"/run/media/{unassigned_names.pop(0)}"
+            #if not self.usb1_path and unassigned_names:
+            #    self.usb1_path = f"/run/media/{unassigned_names.pop(0)}"
             
-            if not self.usb2_path and unassigned_names:
-                self.usb2_path = f"/run/media/{unassigned_names.pop(0)}"
+            #if not self.usb2_path and unassigned_names:
+            #    self.usb2_path = f"/run/media/{unassigned_names.pop(0)}"
 
-            if self.usb1_path or self.usb2_path:
+            if self.usb1_path or self.usb2_path or self.usb3_path:
                 paths = []
                 if self.usb1_path:
                     paths.append(self.usb1_path)
                 if self.usb2_path:
                     paths.append(self.usb2_path)
+                if self.usb3_path:
+                    paths.append(self.usb3_path)
                 return True, f"Found valid usb path(s): {', '.join(paths)}"
             else:
                 logger.warning(f"Could not find any valid usb paths in response: {response}")
