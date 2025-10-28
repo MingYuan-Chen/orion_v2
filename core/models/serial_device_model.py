@@ -177,6 +177,27 @@ class SerialDeviceModel(DeviceModel):
         self.device.reset_input_buffer()
         self.device.reset_output_buffer()
         self.device.close()
+
+    def _clear_serial_buffer(self):
+        """
+        Actively clear any lingering data in the serial input buffer.
+        """
+        try:
+            if self.device and self.device.is_open:
+                # Set a very short, non-blocking timeout
+                original_timeout = self.device.timeout
+                self.device.timeout = 0.01  # 10ms
+                
+                # Read and discard data until the buffer is empty
+                while self.device.in_waiting > 0:
+                    self.device.read(self.device.in_waiting)
+                    time.sleep(0.01) # Give a moment for more data to arrive if it's coming in chunks
+                
+                # Restore original timeout
+                self.device.timeout = original_timeout
+                logger.debug("Serial input buffer cleared actively.")
+        except Exception as e:
+            logger.warning(f"Could not actively clear serial buffer: {e}")
         
     def send_command(self, command: str, timeout: int = 10) -> str:
         """
@@ -190,33 +211,15 @@ class SerialDeviceModel(DeviceModel):
             logger.error(f"{self.device_id}: {error_msg}")
             return error_msg
 
+        # Actively clear buffer before sending a new command
+        self._clear_serial_buffer()
+
         try:
             # Identify command types for specialized handling
             is_i2c_command = "i2ctransfer" in command
             is_eeprog_command = "eeprog" in command
             is_md5_command = "md5sum" in command
             is_simple_command = command.strip() in ["sync", "ls", "pwd", "whoami", "root", "cat", "echo", "reboot", "top"]
-            
-            # Conservative buffer clearing - only when necessary
-            if is_i2c_command:
-                # i2c commands need more careful buffer management (optimized)
-                for _ in range(1):  # Reduced from 3 to 1 iteration for better performance
-                    self.device.reset_input_buffer()
-                    self.device.reset_output_buffer()
-                    time.sleep(0.001)  # Reduced from 0.01 to 0.005
-                time.sleep(0.001)  # Allow i2c device to settle (reduced from 0.01)
-            elif is_eeprog_command:
-                # EEPROM operations need careful preparation
-                for _ in range(2):
-                    self.device.reset_input_buffer()
-                    self.device.reset_output_buffer()
-                    time.sleep(0.2)
-                time.sleep(1.0)  # Extra wait for EEPROM operations
-            else:
-                # Standard commands - minimal clearing
-                self.device.reset_input_buffer()
-                self.device.reset_output_buffer()
-                time.sleep(0.1)
 
             # Send command
             command_bytes = f"{command}\n".encode()
