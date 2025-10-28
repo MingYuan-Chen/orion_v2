@@ -79,10 +79,8 @@ class TestManagerView(QObject):
     
     def get_dev_tests_for_platform(self, platform_name):
         """根據平台名稱返回對應的開發中測試清單"""
-        if platform_name in ["argo"]:
-            return ["functionality_audio"]
-        elif platform_name in ["odin"]:
-            return ["functionality_camera"]
+        if platform_name in ["odin"]:
+            return ["functionality_camera, functionality_hdmi"]
         else:
             return []  # 預設沒有 In Dev 測試
     

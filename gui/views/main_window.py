@@ -124,7 +124,8 @@ class MainWindowController(QObject):
         "hydra": "Hydra",
         "gemini_fhd": "Gemini FHD",
         "gemini": "Gemini",
-        "athena": "Athena"
+        "athena": "Athena",
+        "odin": "Odin"
     }
     
     def __init__(self, device_id, view_model, platform_name=None):

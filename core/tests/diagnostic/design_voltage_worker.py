@@ -19,7 +19,8 @@ class DesignVoltageWorker(BaseTestWorker):
             "gemini_fhd": 7200,  # Same as gemini
             "gemini": 7200,
             "argo": 7200,
-            "athena": 10800
+            "athena": 10800,
+            "odin" : 10800
         }
     
     def prepare_test_steps(self) -> List[TestStep]:

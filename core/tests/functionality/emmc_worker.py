@@ -19,6 +19,8 @@ class EmmcWorker(BaseTestWorker):
         self.emmc_write_speed_threshold = 50.0  # unit: MB/s
         # set emmc read speed threshold
         self.emmc_read_speed_threshold = 200.0  # unit: MB/s
+
+        self.platform_name = platform_name
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
@@ -28,7 +30,17 @@ class EmmcWorker(BaseTestWorker):
             emmc test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY) 
-        return [
+        steps = []
+        logger.info(f"{self.test_id} - Detected platform: {self.platform_name}")
+        if self.platform_name.lower() == "odin":
+            steps.append(
+                TestStep(
+                    command=commands[4],
+                    timeout=5,
+                    description="Remount the root filesystem in read-write mode"
+                )
+            )
+        steps.extend([
             TestStep(
                 command=commands[0], 
                 validation_func=self._validate_emmc_write,
@@ -59,7 +71,8 @@ class EmmcWorker(BaseTestWorker):
                 max_retries=2,
                 retry_delay=1500
             )
-        ]
+        ])
+        return steps
     
     def _validate_emmc_write(self, response: str) -> Tuple[bool, str]:
         """
