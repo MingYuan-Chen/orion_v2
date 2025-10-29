@@ -76,6 +76,8 @@ class TestManagerView(QObject):
         
         if "athena" in platform_name.lower():
             self.dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        if "odin" in platform_name.lower():
+            self.dev_tests = ["functionality_hdmi", "functionality_camera"]    
         
         # connect signals
         self._connect_signals()
