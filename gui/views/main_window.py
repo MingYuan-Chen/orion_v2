@@ -864,6 +864,9 @@ class MainWindowController(QObject):
         if self.platform_name == "Athena":
             diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
             diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
+        if self.platform_name == "Odin":
+            diagnostic_tests.pop("diagnostic_nor_flash_size")
+            diagnostic_tests.pop("diagnostic_panel_id_resolution")
 
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
