@@ -180,15 +180,22 @@ class UsbWorker(BaseTestWorker):
     def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
         """
         Find valid usb path from response.
-        The response may contain device names separated by multiple spaces,
-        and the names themselves can contain spaces.
-        e.g., 'Main Data Partition-sdb1   sda1'
+        The response is from 'ls -l /run/media', so we need to parse the last column.
+        e.g., 
+        total 12
+        drwxrwx---  3 root disk 4096 Jan  1  1970 'Main Data Partition-sdb1'
+        drwxrwx--- 13 root disk 8192 Jan  1  1970  sda1
         """
         try:
-            import re
-            # Split by whitespace characters to get device names
-            # Handle both single and multiple spaces, tabs, and newlines
-            device_names = [name.strip() for name in re.split(r'\s+', response.strip()) if name]
+            device_names = []
+            for line in response.strip().split('\n'):
+                if not line or line.startswith('total'):
+                    continue
+                parts = line.split(None, 8)
+                if len(parts) == 9:
+                    device_name = parts[8].strip("'")
+                    device_names.append(device_name)
+
             logger.debug(f"Original response: '{response}'")
             logger.debug(f"Parsed device names: {device_names}")
             
@@ -201,10 +208,13 @@ class UsbWorker(BaseTestWorker):
             for name in device_names:
                 if 'sda1' in name:
                     self.usb1_path = f"/run/media/{name}"
+                    logger.info(f"Found usb1 path: {self.usb1_path}")
                 elif 'sdb1' in name:
                     self.usb2_path = f"/run/media/{name}"
+                    logger.info(f"Found usb2 path: {self.usb2_path}")
                 elif 'sdb2' in name:
                     self.usb3_path = f"/run/media/{name}"
+                    logger.info(f"Found usb3 path: {self.usb3_path}")
                 else:
                     logger.debug(f"Ignored device: {name}")
             
@@ -231,6 +241,7 @@ class UsbWorker(BaseTestWorker):
         except Exception as e:
             logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
             return False, f"Find valid usb path error: {str(e)}"
+
     
     def _validate_usb_write(self, response: str) -> Tuple[bool, str]:
         """

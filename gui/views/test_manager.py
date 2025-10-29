@@ -146,11 +146,6 @@ class TestManagerView(QObject):
             self.local_temp_progress[test_id] = []
             
         # Set initial state for all tests
-        # Define the tests that should remain disabled (In Dev tests)
-        # 根據平台名稱設定不同的 dev_tests
-        platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-        dev_tests = self.get_dev_tests_for_platform(platform_name)
-        
         for test_id in test_ids:
             # Skip the dev tests - they should always remain disabled
             if test_id in self.dev_tests:
@@ -754,9 +749,6 @@ class TestManagerView(QObject):
         # Get all test IDs from the test container
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             # Reset UI state to not started
             for test_id in test_ids:
@@ -809,10 +801,6 @@ class TestManagerView(QObject):
             enabled: Whether to enable the buttons
         """
         if self.test_container:
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
-            
             for test_id in self.test_container.get_all_test_ids():
                 test_widget = self.test_container.get_test_widget(test_id)
                 if test_widget:
@@ -987,9 +975,6 @@ class TestManagerView(QObject):
         # reset the UI status of all the test items
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             for test_id in test_ids:
                 if test_id in self.dev_tests:
