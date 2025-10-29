@@ -112,7 +112,7 @@
   },
   "functionality_usb": {
     "commands": [
-      "ls /run/media",
+      "ls -l /run/media",
       "dd if=/dev/zero of='{usb1_path}/usb_throughput' bs=1M count=200 status=progress",
       "dd if='{usb1_path}/usb_throughput' of=/dev/null bs=1M",
       "dd if=/dev/zero of='{usb2_path}/usb_throughput' bs=1M count=200 status=progress",

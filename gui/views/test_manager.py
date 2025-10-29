@@ -72,6 +72,9 @@ class TestManagerView(QObject):
         self.local_temp_results = {}
         self.local_temp_progress = {}
         
+        # Define the tests that should remain disabled (In Dev tests)
+        self.dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        
         # connect signals
         self._connect_signals()
         
@@ -143,19 +146,14 @@ class TestManagerView(QObject):
             self.local_temp_progress[test_id] = []
             
         # Set initial state for all tests
-        # Define the tests that should remain disabled (In Dev tests)
-        # 根據平台名稱設定不同的 dev_tests
-        platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-        dev_tests = self.get_dev_tests_for_platform(platform_name)
-        
         for test_id in test_ids:
             # Skip the dev tests - they should always remain disabled
-            if test_id in dev_tests:
+            if test_id in self.dev_tests:
                 continue
             self.test_container.set_test_state(test_id, "not_started")
         
         # Ensure dev tests remain disabled after any state changes
-        for test_id in dev_tests:
+        for test_id in self.dev_tests:
             test_widget = self.test_container.get_test_widget(test_id)
             if test_widget:
                 test_widget.set_always_disabled(True)
@@ -237,8 +235,9 @@ class TestManagerView(QObject):
         """Directly start executing selected test modules in sequence without pre-check"""
         # Button state should already be changed in start_test_all()
         
-        # create the test selection dialog - always use the original test sequence
-        test_mapping = {test_id: test_id.replace("functionality_", "").capitalize() for test_id in self.original_test_sequence}
+        # create the test selection dialog - filter out dev tests
+        available_tests = [t for t in self.original_test_sequence if t not in self.dev_tests]
+        test_mapping = {test_id: test_id.replace("functionality_", "").capitalize() for test_id in available_tests}
         dialog = TestSelectionDialog(test_mapping, self.parent_widget)
         
         # show the dialog and wait for user selection
@@ -750,13 +749,10 @@ class TestManagerView(QObject):
         # Get all test IDs from the test container
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             # Reset UI state to not started
             for test_id in test_ids:
-                if test_id in dev_tests:
+                if test_id in self.dev_tests:
                     # Ensure dev tests remain disabled and show "In Dev"
                     test_widget = self.test_container.get_test_widget(test_id)
                     if test_widget:
@@ -805,14 +801,10 @@ class TestManagerView(QObject):
             enabled: Whether to enable the buttons
         """
         if self.test_container:
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
-            
             for test_id in self.test_container.get_all_test_ids():
                 test_widget = self.test_container.get_test_widget(test_id)
                 if test_widget:
-                    if test_id in dev_tests:
+                    if test_id in self.dev_tests:
                         # Ensure dev tests remain disabled and show "In Dev"
                         test_widget.set_always_disabled(True)
                     else:
@@ -983,12 +975,9 @@ class TestManagerView(QObject):
         # reset the UI status of all the test items
         if self.test_container:
             test_ids = self.test_container.get_all_test_ids()
-            # Define the tests that should remain disabled (In Dev tests)
-            platform_name = getattr(self.hw_test_manager, 'platform_name', 'hydra')
-            dev_tests = self.get_dev_tests_for_platform(platform_name)
             
             for test_id in test_ids:
-                if test_id in dev_tests:
+                if test_id in self.dev_tests:
                     # Ensure dev tests remain disabled and show "In Dev"
                     test_widget = self.test_container.get_test_widget(test_id)
                     if test_widget:
