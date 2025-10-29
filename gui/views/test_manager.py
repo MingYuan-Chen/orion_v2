@@ -26,7 +26,7 @@ class TestManagerView(QObject):
     # define a signal for all tests completed
     all_tests_completed = Signal()
     
-    def __init__(self, device_id: str, hw_test_manager: HardwareTestManagerService):
+    def __init__(self, device_id: str, hw_test_manager: HardwareTestManagerService, platform_name: str):
         """
         Initialize test manager view
         
@@ -73,19 +73,21 @@ class TestManagerView(QObject):
         self.local_temp_progress = {}
         
         # Define the tests that should remain disabled (In Dev tests)
-        self.dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+        
+        if "athena" in platform_name.lower():
+            self.dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
         
         # connect signals
         self._connect_signals()
         
         logger.info("Test manager view initialized")
     
-    def get_dev_tests_for_platform(self, platform_name):
-        """根據平台名稱返回對應的開發中測試清單"""
-        if platform_name in ["odin"]:
-            return ["functionality_camera, functionality_hdmi"]
-        else:
-            return []  # 預設沒有 In Dev 測試
+    # def get_dev_tests_for_platform(self, platform_name):
+    #     """根據平台名稱返回對應的開發中測試清單"""
+    #     if platform_name in ["odin"]:
+    #         return ["functionality_camera, functionality_hdmi"]
+    #     else:
+    #         return []  # 預設沒有 In Dev 測試
     
     def _connect_signals(self):
         """Connect hardware test manager signals"""

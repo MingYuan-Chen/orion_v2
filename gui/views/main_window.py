@@ -278,7 +278,7 @@ class MainWindowController(QObject):
         self._init_logs_view()
         
         # Create the test manager view and auto diagnostic view
-        self.test_manager = TestManagerView(self.device_id, self.view_model.hardware_test_manager)
+        self.test_manager = TestManagerView(self.device_id, self.view_model.hardware_test_manager, self.platform_name)
         self.auto_diagnostic_view = AutoDiagnosticView(self.device_id, self.view_model.hardware_test_manager)
         
         # set the reference to the test manager
@@ -982,16 +982,6 @@ class MainWindowController(QObject):
         test_container.add_test_group("functionality_touch", "Touch Test")
         test_container.add_test_group("functionality_usb", "USB Test")
         
-        # Set specific tests to "In Dev" and disable them
-        # 根據平台名稱設定不同的 dev_tests
-        platform_name = getattr(self, 'platform_name', 'hydra')
-        dev_tests = self.test_manager.get_dev_tests_for_platform(platform_name)
-        for test_id in dev_tests:
-            test_widget = test_container.get_test_widget(test_id)
-            if test_widget:
-                test_widget.set_always_disabled(True)
-        
-        # add the test container to the layout
         content_layout.addWidget(test_container)
         
         # add the spacing
