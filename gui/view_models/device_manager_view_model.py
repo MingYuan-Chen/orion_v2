@@ -245,6 +245,12 @@ class DeviceManagerViewModel(QObject):
 
         # Check if this device is in platform detection process
         if device_id in self.platform_detection_status:
+            if response == "":
+                if worker and hasattr(worker, 'send_ctrl_c'):
+                    worker.send_ctrl_c(device_id)
+                worker.send_command(device_id, "root", 10)
+                return
+            
             status = self.platform_detection_status[device_id]['status']
             response_lower = response.strip().lower()
             

@@ -188,7 +188,7 @@ class UsbWorker(BaseTestWorker):
             import re
             # Split by whitespace characters to get device names
             # Handle both single and multiple spaces, tabs, and newlines
-            device_names = [name.strip() for name in re.split(r'\s+', response.strip()) if name]
+            device_names = [name.strip("' ") for name in re.split(r'\s{2,}', response.strip()) if name]
             logger.debug(f"Original response: '{response}'")
             logger.debug(f"Parsed device names: {device_names}")
             
