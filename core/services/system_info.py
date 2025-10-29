@@ -788,7 +788,7 @@ class SystemInfoService(QObject):
                         elif command_name == "battery_model":
                             # Convert hex values to ASCII string
                             # Expected format: response has additional bytes, actual data starts from third byte
-                            if len(target_hex_values) >= 10:
+                            if len(target_hex_values) >= 4:
                                 # Skip first two bytes (status/length bytes), use next 8 bytes for data
                                 data_hex_values = target_hex_values[2:10]  # Take bytes 3-10
                                 # Convert hex values to ASCII characters
