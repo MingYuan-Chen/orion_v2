@@ -968,23 +968,6 @@ class MainWindowController(QObject):
         scroll_height = item_height * visible_items + 20  # add some extra space
         test_container.set_fixed_height(scroll_height)
         
-        # create the test items
-        test_container.add_test_group("functionality_audio", "Audio Test")
-        test_container.add_test_group("functionality_backlight", "Backlight Test")
-        test_container.add_test_group("functionality_battery", "Battery Test")
-        test_container.add_test_group("functionality_camera", "Camera Test")
-        charge_test_name = "Charge Test" if self.platform_name != "Athena" else "Charge Setting Test"
-        logger.debug(f"Charge test name set as {charge_test_name}")
-        test_container.add_test_group("functionality_charge", charge_test_name)
-        test_container.add_test_group("functionality_eeprom", "EEPROM Test")
-        test_container.add_test_group("functionality_emmc", "eMMC Test")
-        test_container.add_test_group("functionality_hdmi", "HDMI Test")
-        test_container.add_test_group("functionality_lcd", "LCD Test")
-        test_container.add_test_group("functionality_led", "LED Test")
-        test_container.add_test_group("functionality_power_button", "Power Button Test")
-        test_container.add_test_group("functionality_touch", "Touch Test")
-        test_container.add_test_group("functionality_usb", "USB Test")
-        
         content_layout.addWidget(test_container)
         
         # add the spacing
@@ -1046,7 +1029,7 @@ class MainWindowController(QObject):
                     label.setVisible(False)
                     label.deleteLater()
         
-        # set the UI components
+        # set the UI components first, so we can register tests
         self.test_manager.set_ui_components(
             test_container,
             self.window.button_test_all,
@@ -1055,6 +1038,23 @@ class MainWindowController(QObject):
             self.window,
             self.window.button_abort_test
         )
+
+        # Register the test items through the test manager
+        self.test_manager.register_test("functionality_audio", "Audio Test")
+        self.test_manager.register_test("functionality_backlight", "Backlight Test")
+        self.test_manager.register_test("functionality_battery", "Battery Test")
+        self.test_manager.register_test("functionality_camera", "Camera Test")
+        charge_test_name = "Charge Test" if self.platform_name != "Athena" else "Charge Setting Test"
+        logger.debug(f"Charge test name set as {charge_test_name}")
+        self.test_manager.register_test("functionality_charge", charge_test_name)
+        self.test_manager.register_test("functionality_eeprom", "EEPROM Test")
+        self.test_manager.register_test("functionality_emmc", "eMMC Test")
+        self.test_manager.register_test("functionality_hdmi", "HDMI Test")
+        self.test_manager.register_test("functionality_lcd", "LCD Test")
+        self.test_manager.register_test("functionality_led", "LED Test")
+        self.test_manager.register_test("functionality_power_button", "Power Button Test")
+        self.test_manager.register_test("functionality_touch", "Touch Test")
+        self.test_manager.register_test("functionality_usb", "USB Test")
         
         # set the log recorder
         self.test_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
