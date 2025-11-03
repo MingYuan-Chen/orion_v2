@@ -51,10 +51,8 @@ class TestManagerView(QObject):
         self.abort_button = None  # abort button reference
         
         # test sequence related
-        self.original_test_sequence = ["functionality_audio", "functionality_backlight", "functionality_battery", "functionality_camera",
-                                       "functionality_charge", "functionality_eeprom", "functionality_emmc", "functionality_hdmi",
-                                       "functionality_lcd", "functionality_led", "functionality_power_button", "functionality_touch", "functionality_usb"]
-        self.test_sequence = self.original_test_sequence.copy()
+        self.original_test_sequence = []
+        self.test_sequence = []
         self.current_test_index = -1
         self.is_test_all_running = False
         
@@ -73,23 +71,21 @@ class TestManagerView(QObject):
         self.local_temp_progress = {}
         
         # Define the tests that should remain disabled (In Dev tests)
+        self.dev_tests = []
         
         if "athena" in platform_name.lower():
-            self.dev_tests = ["functionality_audio", "functionality_hdmi", "functionality_lcd", "functionality_power_button"]
+            self.dev_tests.append("functionality_audio")
+            self.dev_tests.append("functionality_hdmi")
+            self.dev_tests.append("functionality_lcd")
+            self.dev_tests.append("functionality_power_button")
         if "odin" in platform_name.lower():
-            self.dev_tests = ["functionality_hdmi", "functionality_camera"]    
+            self.dev_tests.append("functionality_hdmi")
+            self.dev_tests.append("functionality_camera")    
         
         # connect signals
         self._connect_signals()
         
         logger.info("Test manager view initialized")
-    
-    # def get_dev_tests_for_platform(self, platform_name):
-    #     """根據平台名稱返回對應的開發中測試清單"""
-    #     if platform_name in ["odin"]:
-    #         return ["functionality_camera, functionality_hdmi"]
-    #     else:
-    #         return []  # 預設沒有 In Dev 測試
     
     def _connect_signals(self):
         """Connect hardware test manager signals"""
@@ -103,6 +99,21 @@ class TestManagerView(QObject):
         # Connect new interaction signals
         self.hw_test_manager.test_pre_condition_required.connect(self._on_test_pre_condition_required)
         self.hw_test_manager.test_post_check_required.connect(self._on_test_post_check_required)
+
+    def register_test(self, test_id: str, display_name: str):
+        """
+        Register a new functionality test.
+        This adds the test to the UI and the 'Test All' sequence.
+        """
+        if self.test_container:
+            self.test_container.add_test_group(test_id, display_name)
+            if test_id not in self.original_test_sequence:
+                self.original_test_sequence.append(test_id)
+                self.test_sequence = self.original_test_sequence.copy()
+            logger.info(f"Registered functionality test: {test_id} ('{display_name}')")
+        else:
+            logger.error("Test container is not set, cannot register test.")
+
     
     def set_ui_components(self, test_container: TestContainer, test_all_button: QPushButton,
                           result_table: QTableWidget, progress_bar: QProgressBar, 
