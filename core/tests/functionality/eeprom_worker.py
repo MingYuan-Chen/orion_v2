@@ -84,10 +84,15 @@ class EepromWorker(BaseTestWorker):
                 TestStep(
                     command=commands[8],
                     timeout=5, 
-                    description="reset eeprom e"
+                    description="interrupt hexdump command"
                 ),
                 TestStep(
                     command=commands[9],
+                    timeout=5, 
+                    description="reset eeprom e"
+                ),
+                TestStep(
+                    command=commands[10],
                     timeout=5, 
                     description="reset eeprom 1",
                 )

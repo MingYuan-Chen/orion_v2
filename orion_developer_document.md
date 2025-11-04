@@ -622,124 +622,176 @@ graph TD
 
 ## 10. 開發指南：建立新測試模組
 
-要建立一個新的測試模組，請按照以下步驟操作：
+Orion 系統的架構已更新，新增測試模組的流程已大幅簡化。開發者不再需要手動修改 `TestManagerView` 中的測試序列。
+
+新的流程分為兩種類型：**自動診斷 (Auto Diagnostic)** 和 **功能測試 (Functionality Test)**。
+
+### 10.1 新增 Auto Diagnostic 測試
+
+自動診斷測試用於快速檢查硬體關鍵參數，流程如下：
 
 ```mermaid
 graph TD
-    A[步驟1: 建立測試類別]
-    B[步驟2: 註冊測試模組]
-    C[步驟3: 添加到TestContainer]
-    D[步驟4: 更新測試序列]
-    E[步驟5: 測試和驗證]
-    
-    A --> B
-    B --> C
-    C --> D
-    D --> E
+    A[步驟1: 新增命令 JSON 檔案] --> B[步驟2: 建立測試 Worker]
+    B --> C[步驟3: 註冊 Worker]
+    C --> D[步驟4: 在 MainWindow 中註冊]
+    D --> E[步驟5: 測試與驗證]
 ```
 
-1. **建立測試工作執行緒類別**：
-   
-   在`core/tests/`目錄下建立新的測試工作執行緒類別，繼承自`BaseTestWorker`：
+1.  **新增命令 JSON 檔案**:
+    所有測試指令都儲存在 `resources/commands/` 目錄下，根據不同平台（如 `athena`, `hydra`）進行分類。首先，為你的新測試在對應平台的 `auto_diagnostic.json` 檔案中新增一個條目。
 
-   ```python
-   from core.tests.base_test_worker import BaseTestWorker, TestStep
+    *   **檔案路徑**: `resources/commands/{platform_name}/auto_diagnostic.json`
+    *   **格式**: JSON 物件的 `key` 是測試的唯一 ID (例如 `"diagnostic_new"`)，`value` 是要執行的 shell 命令或命令列表。
 
-   class NewModuleTestWorker(BaseTestWorker):
-       """新模組測試工作執行緒"""
-       
-       def prepare_test_steps(self):
-           """準備測試步驟"""
-           steps = []
-           
-           # 新增測試步驟
-           steps.append(TestStep(
-               command="test_command_1",
-               expected_response="expected_result_1",
-               description="第一個測試步驟",
-               timeout=5,
-               max_retries=2
-           ))
-           
-           # 新增帶有自訂驗證函數的測試步驟
-           steps.append(TestStep(
-               command="test_command_2",
-               validation_func=self._validate_step_2,
-               description="第二個測試步驟",
-               timeout=10
-           ))
-           
-           return steps
-           
-       def _validate_step_2(self, response):
-           """驗證第二個測試步驟的結果"""
-           if "success" in response:
-               return True, "測試通過"
-           else:
-               return False, f"測試失敗: {response}"
-   ```
+    **範例**:
+    ```json
+    {
+        "diagnostic_cpu_name": "lscpu | grep 'Model name'",
+        "diagnostic_new": "echo 'hello world'"
+    }
+    ```
 
-2. **在測試管理程式中註冊**：
+2.  **建立測試 Worker 類別**:
+    在 `core/tests/diagnostic/` 目錄下建立新的測試 Worker 類別，繼承自 `BaseTestWorker`。此類別需實現 `prepare_test_steps` 方法來定義測試步驟。
 
-   在`HardwareTestManagerService`類別的`_register_test_workers`方法中註冊新的測試工作執行緒：
+    ```python
+    # 位於 core/tests/diagnostic/new_diagnostic_worker.py
+    from core.tests.base_test_worker import BaseTestWorker, TestStep
+    from core.models.platform_command_set import CommandType
 
-   ```python
-   def _register_test_workers(self):
-       """註冊所有模組測試工作執行緒"""
-       # 現有測試模組
-       from core.tests.usb_ports_test_worker import UsbPortsTestWorker
-       self._register_worker("usb_ports", UsbPortsTestWorker, continue_on_failure=True)
-       
-       # 新增新的測試模組
-       from core.tests.new_module_test_worker import NewModuleTestWorker
-       self._register_worker("new_module", NewModuleTestWorker, continue_on_failure=True)
-   ```
+    class NewDiagnosticWorker(BaseTestWorker):
+        def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+            super().__init__(device_worker, continue_on_failure, platform_name)
+            self.test_id = "diagnostic_new" # 必須與 JSON 中的 key 一致
 
-3. **將測試模組添加到TestContainer**：
+        def prepare_test_steps(self):
+            # 透過 self.test_id 和 CommandType 獲取命令
+            commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
+            return [
+                TestStep(
+                    command=commands[0],
+                    validation_func=self._validate_result,
+                    description="執行新的診斷測試"
+                )
+            ]
 
-   在`main_window.py`文件的`_init_functionality_test_ui`方法中，將新的測試模組添加到TestContainer：
+        def _validate_result(self, response):
+            if "hello world" in response:
+                return True, "診斷通過"
+            return False, f"診斷失敗: {response}"
+    ```
 
-   ```python
-   def _init_functionality_test_ui(self):
-       """Initialize functionality test UI elements"""
-       # ... 原有程式碼 ...
-       
-       # 創建測試容器
-       test_container = TestContainer()
-       
-       # ... 原有測試模組 ...
-       
-       # 添加新測試模組
-       test_container.add_test_group("new_module", "New Module Test")
-       
-       # ... 原有程式碼 ...
-   ```
+3.  **註冊測試 Worker**:
+    打開 `core/services/hardware_test_manager.py`，在 `_register_test_workers` 方法中註冊你新建立的 Worker。
 
-4. **更新測試序列（如需要）**：
+    ```python
+    # 位於 core/services/hardware_test_manager.py
+    def _register_test_workers(self):
+        # ...
+        from core.tests.diagnostic.new_diagnostic_worker import NewDiagnosticWorker
+        self._register_worker("diagnostic_new", NewDiagnosticWorker)
+        # ...
+    ```
 
-   如果希望將新測試模組添加到"測試全部"功能中，需要在`TestManagerView`類中更新`test_sequence`列表：
+4.  **在 MainWindow 中註冊測試**:
+    打開 `gui/views/main_window.py`，在 `_init_functionality_test_ui` 方法中，找到 `diagnostic_tests` 字典，並加入新的測試項目。
 
-   ```python
-   def __init__(self, device_id: str, hw_test_manager: HardwareTestManagerService):
-       """初始化測試管理視圖"""
-       # ... 其他初始化程式碼 ...
-       
-       # 更新測試序列，包含新模組
-       self.test_sequence = [
-           "usb_ports", "emmc", "eeprom", "battery", 
-           "backlight", "led", "audio", "new_module"
-       ]
-   ```
+    ```python
+    # 位於 gui/views/main_window.py
+    def _init_functionality_test_ui(self):
+        # ...
+        diagnostic_tests = {
+            "diagnostic_cpu_name": "Check CPU Name",
+            # ... 其他測試 ...
+            "diagnostic_new": "新的診斷測試"  # <-- 在此處新增
+        }
+        self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
+        # ...
+    ```
 
-5. **測試和驗證**：
+5.  **測試與驗證**:
+    重新啟動應用程式，新的診斷測試將會自動出現在 "Auto Diagnostic" 區塊中。點擊 "Run All Tests" 進行驗證。
 
-   - 確保新模組按預期工作
-   - 驗證測試步驟的執行和結果處理
-   - 測試異常情況和邊界條件
-   - 確認"測試全部"功能能正確包含新模組
-   - 確保測試狀態和進度顯示正常
+### 10.2 新增 Functionality Test
 
-通過使用`TestContainer`的這種簡化方式，你可以更輕鬆地擴充Orion系統，無需修改UI設計文件，只需少量代碼即可添加新的測試功能。這種模塊化設計大大提高了系統的可維護性和擴展性。
+功能測試提供更詳細的互動式測試，流程也已簡化。
+
+```mermaid
+graph TD
+    A[步驟1: 新增命令 JSON 檔案] --> B[步驟2: 建立測試 Worker]
+    B --> C[步驟3: 註冊 Worker]
+    C --> D[步驟4: 在 MainWindow 中註冊]
+    D --> E[步驟5: 測試與驗證]
+```
+
+1.  **新增命令 JSON 檔案**:
+    與自動診斷測試類似，在對應平台的 `functionality.json` 檔案中為你的新測試新增命令。
+
+    *   **檔案路徑**: `resources/commands/{platform_name}/functionality.json`
+    *   **格式**: `key` 為測試 ID，`value` 為命令或命令列表。
+
+    **範例**:
+    ```json
+    {
+        "functionality_emmc": [
+            "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
+            "sync",
+            "echo 3 > /proc/sys/vm/drop_caches",
+            "dd if=/emmc_througtput of=/dev/null bs=1M"
+        ],
+        "functionality_new": "your_test_command"
+    }
+    ```
+
+2.  **建立測試 Worker 類別**:
+    在 `core/tests/functionality/` 目錄下建立新的測試 Worker 類別，繼承自 `BaseTestWorker`。
+
+    ```python
+    # 位於 core/tests/functionality/new_functionality_worker.py
+    from core.tests.base_test_worker import BaseTestWorker, TestStep
+    from core.models.platform_command_set import CommandType
+
+    class NewFunctionalityWorker(BaseTestWorker):
+        def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+            super().__init__(device_worker, continue_on_failure, platform_name)
+            self.test_id = "functionality_new" # 必須與 JSON 中的 key 一致
+
+        def prepare_test_steps(self):
+            commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
+            # ... 根據 commands 定義測試步驟 ...
+            pass
+    ```
+
+3.  **註冊測試 Worker**:
+    打開 `core/services/hardware_test_manager.py`，在 `_register_test_workers` 方法中註冊你新建立的 Worker。
+
+    ```python
+    # 位於 core/services/hardware_test_manager.py
+    def _register_test_workers(self):
+        # ...
+        from core.tests.functionality.new_functionality_worker import NewFunctionalityWorker
+        self._register_worker("functionality_new", NewFunctionalityWorker)
+        # ...
+    ```
+
+4.  **在 MainWindow 中註冊測試**:
+    打開 `gui/views/main_window.py`，在 `_init_functionality_test_ui` 方法中，找到 `self.test_manager.register_test(...)` 的區塊，並加入新的測試。
+
+    ```python
+    # 位於 gui/views/main_window.py
+    def _init_functionality_test_ui(self):
+        # ...
+        # Register the test items through the test manager
+        self.test_manager.register_test("functionality_audio", "Audio Test")
+        # ... 其他測試 ...
+        self.test_manager.register_test("functionality_new", "新的功能測試") # <-- 在此處新增
+        # ...
+    ```
+    `register_test` 方法會自動處理 UI 的建立以及將測試加入 "Test All" 的序列中。
+
+5.  **測試與驗證**:
+    重新啟動應用程式，新的功能測試按鈕將會出現在 "Functionality Test" 區塊。你可以單獨執行它，或是在 "Test All" 的選擇對話框中勾選並執行。
 
 ## 11. 將新測試模組整合至Auto Diagnostic介面
 

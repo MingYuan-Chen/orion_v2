@@ -197,9 +197,16 @@ class TcpIpDeviceModel(DeviceModel):
         control_map = {
             'ctrl+c': b'\x03',  # Interrupt (SIGINT)
             'ctrl+d': b'\x04',  # End of file (EOF)
-            'ctrl+z': b'\x1a',  # Suspend (SIGTSTP)
-            'esc':    b'\x1b',  # Escape
-            'enter':  b'\x0d',  # Carriage return
+            'ctrl+z': b'\x1a', # Suspend (SIGTSTP)
+            'ctrl+a': b'\x01', # Start of heading
+            'ctrl+e': b'\x05', # End of line
+            'ctrl+k': b'\x0b', # Kill line
+            'ctrl+l': b'\x0c', # Clear screen
+            'ctrl+u': b'\x15', # Kill line backward
+            'ctrl+w': b'\x17', # Kill word backward
+            'esc': b'\x1b',    # Escape
+            'tab': b'\x09',    # Horizontal tab
+            'enter': b'\x0d',  # Carriage return
         }
         
         control_bytes = control_map.get(control_char.lower().strip())
