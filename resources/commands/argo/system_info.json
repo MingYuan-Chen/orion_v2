@@ -1,5 +1,6 @@
 {
-  "os_version": ["uname -a"],
+  "kernel_version": ["uname -a"],
+  "os_version": ["cat /etc/os-release"],
   "cpu_info": ["grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \\t]*//'"],
   "memory_info": ["free -h | grep 'Mem:'"],
   "top_info": ["top -b -n 1 | head -n 5"],

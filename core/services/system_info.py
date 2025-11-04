@@ -274,7 +274,7 @@ class SystemInfoService(QObject):
             if command_name in ["uboot_version", "pic_firmware"] or "i2ctransfer" in command:
                 # Complex commands need more time
                 timeout = 8
-            elif command_name in ["os_version", "cpu_info", "memory_info"]:
+            elif command_name in ["os_version", "cpu_info", "memory_info", "kernel_version"]:
                 # Simple commands can use shorter timeout
                 timeout = 5
             else:
@@ -432,7 +432,7 @@ class SystemInfoService(QObject):
                     self.collected_info["battery"][command_name] = parsed_value
                     if command_name in self.valid_ranges:
                         logger.error(f"Max retries reached for {command_name}, storing invalid value: {parsed_value}")
-            elif command_name in ["uboot_version", "pic_firmware", "os_version"]:
+            elif command_name in ["uboot_version", "pic_firmware", "os_version", "kernel_version"]:
                 # Handle firmware and OS information commands
                 if "firmware_os" not in self.collected_info:
                     self.collected_info["firmware_os"] = {}
@@ -944,15 +944,20 @@ class SystemInfoService(QObject):
                     
                 return "Unknown PIC Version"
                 
-            elif command_name == "os_version":
+            elif command_name == "kernel_version":
                 # Parse OS version from uname -a output
                 for line in lines:
                     if 'Linux' in line and any(char.isdigit() for char in line):
                         # Extract kernel information, avoid command echoes
                         if not line.startswith('uname'):
                             return line.strip()
-                return "Unknown OS Version"
-                
+                return "Unknown Kernel Version"
+            elif command_name == "os_version":
+                # Parse OS version from uname -a output
+                for line in lines:
+                    if 'PRETTY_NAME' in line:
+                        return line.strip().replace('PRETTY_NAME=', '').replace('"', '')
+                return "Unknown OS Version"    
             else:
                 # Return original response for unknown commands
                 return clean_response[:100] if clean_response else "No response"
