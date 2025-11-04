@@ -23,7 +23,7 @@ class FirmwareOSManager(QObject):
             "uboot_version": "...",
             "pic_firmware": "...", 
             "os_version": "...",
-            "kernel": "6.2.0-36-generic"
+            "kernel_version": "..."
         }
         
         # Field label mapping
@@ -31,7 +31,7 @@ class FirmwareOSManager(QObject):
             "uboot_version": "U-Boot Version",
             "pic_firmware": "PIC Firmware",
             "os_version": "OS Version", 
-            "kernel": "Kernel"
+            "kernel_version": "Kernel"
         }
     
     def set_ui_components(self, window, edit_dialog_class=None):
@@ -58,7 +58,7 @@ class FirmwareOSManager(QObject):
                 "value_label": window.value_os_version,
                 "edit_button": window.button_edit_os_version
             },
-            "kernel": {
+            "kernel_version": {
                 "value_label": window.value_kernel,
                 "edit_button": window.button_edit_kernel
             }
