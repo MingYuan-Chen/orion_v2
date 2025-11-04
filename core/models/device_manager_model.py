@@ -67,11 +67,15 @@ class DeviceManagerModel:
             error_msg = f"Device {device_id} not found. Available devices: {list(self.devices.keys())}"
             logger.error(error_msg)
             return error_msg
-            
-        logger.debug(f"Sending command '{command}' to device {device_id}")
-        response = device.send_command(command, timeout)
-        logger.debug(f"Response from device {device_id}: {response}")
-        return response
+
+        if command.strip() in ["ctrl+c", "ctrl+d", "ctrl+z", "esc", "tab", "enter", "ctrl+a", "ctrl+e", "ctrl+k", "ctrl+l", "ctrl+u", "ctrl+w"]:
+            if device.send_control_sequence(command):
+                return f"Control sequence '{command}' sent successfully"
+            else:
+                return f"Failed to send control sequence '{command}'"
+        else: 
+            response = device.send_command(command, timeout)
+            return response
         
     def disconnect_all(self):
         """Disconnect all devices"""

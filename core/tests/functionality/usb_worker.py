@@ -206,13 +206,13 @@ class UsbWorker(BaseTestWorker):
             # Prioritize assignment based on 'sda1' and 'sdb1'
             unassigned_names = []
             for name in device_names:
-                if 'sda1' in name:
+                if 'sda1' in name and self.usb1_path is None:
                     self.usb1_path = f"/run/media/{name}"
                     logger.info(f"Found usb1 path: {self.usb1_path}")
-                elif 'sdb1' in name:
+                elif 'sdb1' in name and self.usb2_path is None:
                     self.usb2_path = f"/run/media/{name}"
                     logger.info(f"Found usb2 path: {self.usb2_path}")
-                elif 'sdb2' in name:
+                elif 'sdb2' in name and self.usb3_path is None:
                     self.usb3_path = f"/run/media/{name}"
                     logger.info(f"Found usb3 path: {self.usb3_path}")
                 else:
