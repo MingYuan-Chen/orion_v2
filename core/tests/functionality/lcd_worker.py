@@ -22,6 +22,128 @@ class LcdWorker(BaseTestWorker):
             lcd test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
+        if self.platform_name == "odin":
+            return [
+                TestStep(
+                    command=commands[0], 
+                    timeout=5, 
+                    description="Make root filesystem writable"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    timeout=5, 
+                    description="Stop Weston from auto-starting on boot"
+                ),
+                TestStep(
+                    command=commands[2], 
+                    timeout=5, 
+                    description="Reboot system to apply Weston disable"
+                ),
+                TestStep(
+                    command=commands[3], 
+                    timeout=5, 
+                    description="Validate red color",
+                    post_check="Is the LCD display red?",
+                    criteria="Screen display a red color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[4], 
+                    timeout=5, 
+                    description="Validate green color",
+                    post_check="Is the LCD display green?",
+                    criteria="Screen display a green color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[5],
+                    timeout=5, 
+                    description="Validate blue color",
+                    post_check="Is the LCD display blue?",
+                    criteria="Screen display a blue color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[6],
+                    timeout=5, 
+                    description="Validate black color",
+                    post_check="Is the LCD display black?",
+                    criteria="Screen display a black color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[7], 
+                    timeout=5, 
+                    description="Validate white color",
+                    post_check="Is the LCD display white?",
+                    criteria="Screen display a white color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[8],
+                    timeout=5, 
+                    description="Validate colorbar color",
+                    post_check="Is the LCD display colorbar?",
+                    criteria="Screen display a colorbar color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[9],
+                    timeout=5, 
+                    description="Validate gradient256 color",
+                    post_check="Is the LCD display gradient256?",
+                    criteria="Screen display a gradient256 color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[10], 
+                    timeout=5, 
+                    description="Validate frame color",
+                    post_check="Is the LCD display frame?",
+                    criteria="Screen display a frame color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[11],
+                    timeout=5, 
+                    description="Validate gray16 color",
+                    post_check="Is the LCD display gray16?",
+                    criteria="Screen display a gray16 color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[12],
+                    timeout=5, 
+                    description="Validate gray64 color",
+                    post_check="Is the LCD display gray64?",
+                    criteria="Screen display a gray64 color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[13],
+                    timeout=5, 
+                    description="Validate gray256 color",
+                    post_check="Is the LCD display gray256?",
+                    criteria="Screen display a gray256 color",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[14],
+                    timeout=5, 
+                    description="Enable the Weston service"
+                )
+            ]
         return [
             TestStep(
                 command=commands[0], 
