@@ -1043,13 +1043,15 @@ class MainWindowController(QObject):
         self.test_manager.register_test("functionality_audio", "Audio Test")
         self.test_manager.register_test("functionality_backlight", "Backlight Test")
         self.test_manager.register_test("functionality_battery", "Battery Test")
-        self.test_manager.register_test("functionality_camera", "Camera Test")
+        if self.platform_name != "Odin":
+            self.test_manager.register_test("functionality_camera", "Camera Test")
         charge_test_name = "Charge Test" if self.platform_name != "Athena" else "Charge Setting Test"
         logger.debug(f"Charge test name set as {charge_test_name}")
         self.test_manager.register_test("functionality_charge", charge_test_name)
         self.test_manager.register_test("functionality_eeprom", "EEPROM Test")
         self.test_manager.register_test("functionality_emmc", "eMMC Test")
-        self.test_manager.register_test("functionality_hdmi", "HDMI Test")
+        if self.platform_name != "Odin":
+            self.test_manager.register_test("functionality_hdmi", "HDMI Test")
         self.test_manager.register_test("functionality_lcd", "LCD Test")
         self.test_manager.register_test("functionality_led", "LED Test")
         self.test_manager.register_test("functionality_power_button", "Power Button Test")

@@ -2,6 +2,7 @@
 Diagnostic memory size test worker module
 Implement diagnostic memory size test for device
 """
+import re
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
 from util.logger import logger
@@ -27,6 +28,7 @@ class MemorySizeWorker(BaseTestWorker):
         return [
             TestStep(
                 command=commands[0], 
+                validation_func=self._validate_memory_size,
                 expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check Memory Size by proc/meminfo",
@@ -36,3 +38,16 @@ class MemorySizeWorker(BaseTestWorker):
             )
         ]
 
+    def _validate_memory_size(self, response: str) -> Tuple[bool, str]:
+        match = re.search(r'\d+', response)
+        if not match:
+            return False, f"No numeric memory size found in response: {response}"
+        mem_size = int(match.group())
+
+        if self.platform_name.lower() == "odin":
+            if mem_size in [3074220, 3074232]:
+                return True, f"Memory size {mem_size} is valid for odin"
+            else:
+                return False, f"Memory size {mem_size} is invalid for odin"
+        else:
+            return True, f"No specific validation for platform {self.platform_name}, received {mem_size}"

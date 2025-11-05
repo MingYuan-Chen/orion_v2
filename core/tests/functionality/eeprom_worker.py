@@ -30,7 +30,7 @@ class EepromWorker(BaseTestWorker):
         """
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.FUNCTIONALITY)
-        
+        logger.debug(f"[DEBUG] Dexter platform detect {self.platform_name}")
         if self.platform_name == "athena":
             return [
                 TestStep(
@@ -90,6 +90,61 @@ class EepromWorker(BaseTestWorker):
                     command=commands[9],
                     timeout=5, 
                     description="reset eeprom 1",
+                )
+            ]
+        if self.platform_name == "odin":
+            logger.info("[DEBUG] Entered Odin-specific EEPROM test flow")
+            return [
+                 # Step 1: 產生測試資料
+                TestStep(
+                    command=commands[0],
+                    timeout=5,
+                    description="Generate EEPROM 24c04 test data for Odin"
+                ),
+                # Step 2: 計算原始資料 MD5
+                TestStep(
+                    command=commands[1],
+                    validation_func=self._store_to_eeprom0_md5,
+                    timeout=5,
+                    description="Calculate MD5 of EEPROM 24c04 test data"
+                ),
+
+                # Step 3: 寫入 EEPROM (位址 0x4c)
+                TestStep(
+                    command=commands[2],
+                    timeout=800,
+                    description="Write data to EEPROM 24c04 (addr 0x4c)"
+                ),
+
+                # Step 4: 讀出 EEPROM 資料
+                TestStep(
+                    command=commands[3],
+                    timeout=10,
+                    description="Read data from EEPROM 24c04 (addr 0x4c)"
+                ),
+
+                # Step 5: 計算讀回資料的 MD5
+                TestStep(
+                    command=commands[4],
+                    validation_func=self._store_from_eeprom0_md5,
+                    timeout=5,
+                    description="Calculate MD5 of read data from EEPROM 24c04"
+                ),
+
+                # Step 6: 驗證 MD5 是否一致
+                TestStep(
+                    command=commands[5],
+                    validation_func=self._validate_md5_values,
+                    timeout=3,
+                    description="Validate EEPROM 24c04 read/write consistency",
+                    criteria="MD5 checksum matches"
+                ),
+
+                # Step 7: 清理暫存檔案
+                TestStep(
+                    command=commands[6],
+                    timeout=3,
+                    description="Clean up EEPROM 24c04 temp files"
                 )
             ]
         else:
@@ -228,6 +283,7 @@ class EepromWorker(BaseTestWorker):
     
     def _store_to_eeprom0_md5(self, response: str) -> Tuple[bool, str]:
         """Store the MD5 value of EEPROM 24c04 test data"""
+        logger.debug(f"[DEBUG] Raw response: {response}")
         if not response.strip():
             return False, "Failed to get the MD5 value of EEPROM 24c04 test data"
         
