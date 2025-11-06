@@ -519,7 +519,6 @@ class DeviceManagerViewModel(QObject):
         logger.debug(f"Analyzing panel_id response: '{response}'")
         error_patterns = ["error", "no response", "no such file", "not found", "permission denied", "command not found"]
         if response == "" or any(pattern in response for pattern in error_patterns):
-            logger.warning(f"Invalid panel_id response: '{panel_id_response}', platform detection failed")
             return None
         if "01" in response:
             logger.debug("panel_id = 01 detected, need PIC version check to distinguish argo vs hydra_fhd")
