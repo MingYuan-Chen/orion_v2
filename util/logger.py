@@ -14,7 +14,7 @@ class Logger:
             cls._instance._initialized = False
         return cls._instance
     
-    def __init__(self, project_name='VT_HYDRA_2504', log_level=logging.DEBUG):
+    def __init__(self, project_name='VT_HYDRA_2504', log_level=logging.WARNING):
         """Initialize logger with project name and log level"""
         # Only initialize once
         if self._initialized:

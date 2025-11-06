@@ -127,13 +127,6 @@ class BatteryMonitorManager(QObject):
         if "interval_spinbox" in components:
             interval_spinbox = components["interval_spinbox"]
             
-            # Disconnect any existing connections first
-            try:
-                interval_spinbox.valueChanged.disconnect()
-                logger.debug("Disconnected existing interval spinbox connections")
-            except:
-                pass  # No existing connections
-            
             # Connect to interval change method
             interval_spinbox.valueChanged.connect(self._on_interval_changed)
             
