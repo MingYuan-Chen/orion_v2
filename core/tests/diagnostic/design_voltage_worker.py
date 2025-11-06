@@ -34,20 +34,22 @@ class DesignVoltageWorker(BaseTestWorker):
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         if self.platform_name == "odin":
-            TestStep(
-                command=commands[0],           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
-                validation_func=self._save_design_capacity,
-                timeout=5, 
-                description="Check battery design capacity by i2c"
-            ),
-            TestStep(
-                command=commands[1], 
-                validation_func=self._validate_design_voltage,
-                expected_response=expected_responses[0] if expected_responses else None,           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
-                timeout=5, 
-                description="Check Design Voltage by i2c",
-                criteria=f"The design voltage is {self.expected_design_voltage_mapping[self.platform_name]} mV"
-            )
+            return [
+                TestStep(
+                    command=commands[0],           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
+                    validation_func=self._save_design_capacity,
+                    timeout=5, 
+                    description="Check battery design capacity by i2c"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    validation_func=self._validate_design_voltage,
+                    expected_response=expected_responses[0] if expected_responses else None,           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
+                    timeout=5, 
+                    description="Check Design Voltage by i2c",
+                    criteria=f"The design voltage is {self.expected_design_voltage_mapping[self.platform_name]} mV"
+                )
+            ]
         else:
             return [
                 TestStep(

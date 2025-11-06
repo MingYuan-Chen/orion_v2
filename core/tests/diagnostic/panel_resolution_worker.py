@@ -55,7 +55,7 @@ class PanelResolutionWorker(BaseTestWorker):
             return "Panel resolution is 1920x1080"
         elif self.platform_name in ["hydra"]:
             return "Panel resolution is 1366x768"
-        elif self.platform_name in ["gemini"]:
+        elif self.platform_name in ["gemini", "odin"]:
             return "Panel resolution is 1280x800"
         else:
             return "Panel resolution is 1920x1080"  # Default
@@ -79,7 +79,7 @@ class PanelResolutionWorker(BaseTestWorker):
             expected_x = "1366"
             expected_y = "768"
             resolution_desc = "1366x768"
-        elif self.platform_name in ["gemini"]:
+        elif self.platform_name in ["gemini", "odin"]:
             expected_x = "1280"
             expected_y = "800"
             resolution_desc = "1280x800"
