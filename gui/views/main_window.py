@@ -226,16 +226,6 @@ class MainWindowController(QObject):
         self._update_dashboard_title()
         
         # create the system info manager
-        # First disconnect any existing signals to avoid conflicts when reopening window
-        if hasattr(self.view_model, 'system_info_service') and self.view_model.system_info_service:
-            try:
-                self.view_model.system_info_service.info_received.disconnect()
-                self.view_model.system_info_service.info_error.disconnect()
-                self.view_model.system_info_service.command_executed.disconnect()
-                logger.debug("Disconnected existing system info service signals")
-            except Exception as e:
-                logger.debug(f"No existing signals to disconnect: {e}")
-        
         self.system_info_manager = SystemInfoManagerView(self.device_id, self.view_model.system_info_service)
         
         # create the HW/SW configuration manager
@@ -1552,16 +1542,6 @@ class MainWindowController(QObject):
     def _connect_usb_deployment_signals(self):
         """Connect USB package deployment signals"""
         try:
-            # First disconnect any existing connections to avoid duplicates
-            try:
-                self.view_model.usb_deployment_started.disconnect(self._on_usb_deployment_started)
-                self.view_model.usb_deployment_progress.disconnect(self._on_usb_deployment_progress)
-                self.view_model.usb_deployment_completed.disconnect(self._on_usb_deployment_completed)
-                self.view_model.usb_deployment_ready_for_system_info.disconnect(self._on_usb_deployment_ready_for_system_info)
-                logger.debug("Disconnected existing USB deployment signals")
-            except Exception:
-                pass  # Ignore if not connected
-                
             # Connect USB deployment signals
             self.view_model.usb_deployment_started.connect(self._on_usb_deployment_started)
             self.view_model.usb_deployment_progress.connect(self._on_usb_deployment_progress)
