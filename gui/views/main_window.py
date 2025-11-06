@@ -834,30 +834,33 @@ class MainWindowController(QObject):
         content_layout.addWidget(self.auto_diagnostic_widget)
         
         # set the auto diagnostic test items
-        diagnostic_tests = {
-            "diagnostic_cpu_name": "Check CPU Name",
-            "diagnostic_cpu_processor": "Check CPU Processor",
-            "diagnostic_emmc_size": "Check eMMC Size",
-            "diagnostic_mac_address": "Check MAC Address",
-            "diagnostic_memory_size": "Check Memory Size",
-            "diagnostic_nor_flash_size": "Check NOR Flash Size",
-            "diagnostic_pic_version": "Check PIC Version",
-            # "diagnostic_set_get_rtc_time": "Check Set and Get RTC Time",
-            "diagnostic_sync_time": "Check Sync Time",
-            "diagnostic_design_capacity": "Check Design Capacity",
-            "diagnostic_design_voltage": "Check Design Voltage",
-            "diagnostic_uboot_version": "Check U-Boot Version",
-            "diagnostic_kernal_name": "Check Kernal Name",
-            "diagnostic_panel_id_resolution": "Check Panel ID and Resolution",
-            "diagnostic_wifi_bt": "Check Wifi and Bluetooth"
-        }
+        diagnostic_tests = {}
+        diagnostic_tests["diagnostic_cpu_name"] = "Check CPU Name"
+        diagnostic_tests["diagnostic_cpu_processor"] = "Check CPU Processor"
+        diagnostic_tests["diagnostic_design_capacity"] = "Check Design Capacity"
+        diagnostic_tests["diagnostic_design_voltage"] = "Check Design Voltage"
+        diagnostic_tests["diagnostic_emmc_size"] = "Check eMMC Size"
+        diagnostic_tests["diagnostic_kernal_name"] = "Check Kernal Name"
+        diagnostic_tests["diagnostic_mac_address"] = "Check MAC Address"
+        diagnostic_tests["diagnostic_memory_size"] = "Check Memory Size"
+        diagnostic_tests["diagnostic_nor_flash_size"] = "Check NOR Flash Size"
+        diagnostic_tests["diagnostic_panel_id"] = "Check Panel ID"
+        diagnostic_tests["diagnostic_panel_resolution"] = "Check Panel Resolution"
+        diagnostic_tests["diagnostic_pic_version"] = "Check PIC Version"
+        diagnostic_tests["diagnostic_sync_time"] = "Check Sync Time"
+        diagnostic_tests["diagnostic_uboot_version"] = "Check U-Boot Version"
+        diagnostic_tests["diagnostic_wifi_bt"] = "Check Wifi and Bluetooth"
+        # diagnostic_tests["diagnostic_set_get_rtc_time"] = "Check Set and Get RTC Time"
+        
         if self.platform_name == "Athena":
             diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
             diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
             diagnostic_tests.pop("diagnostic_nor_flash_size")
+            diagnostic_tests.pop("diagnostic_panel_id")
         if self.platform_name == "Odin":
             diagnostic_tests.pop("diagnostic_nor_flash_size")
-            diagnostic_tests.pop("diagnostic_panel_id_resolution")
+            diagnostic_tests.pop("diagnostic_panel_id")
+            diagnostic_tests.pop("diagnostic_panel_resolution")
 
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         

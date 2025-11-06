@@ -1,6 +1,6 @@
 """
-Panel ID resolution test worker module
-Implement panel ID resolution test for device
+Panel resolution test worker module
+Implement panel resolution test for device
 """
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
@@ -8,22 +8,21 @@ from util.logger import logger
 from core.models.platform_command_set import CommandType
 
 
-class PanelIdResolutionWorker(BaseTestWorker):
-    """Panel ID resolution worker, implement panel ID resolution test for device"""
+class PanelResolutionWorker(BaseTestWorker):
+    """Panel resolution worker, implement panel resolution test for device"""
     
     def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
         super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
         self.process_id = None
-        self.test_id = "diagnostic_panel_id_resolution"
+        self.test_id = "diagnostic_panel_resolution"
     
     def prepare_test_steps(self) -> List[TestStep]:
         """
-        Prepare panel ID resolution test steps
+        Prepare panel resolution test steps
         
         Returns:
-            panel ID resolution test steps list
+            panel resolution test steps list
         """
-        logger.info("Preparing panel ID resolution test steps")
         
         # Get commands from the platform command set
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
@@ -40,18 +39,6 @@ class PanelIdResolutionWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check panel resolution",
                 criteria=self._get_expected_resolution_criteria()
-            ),
-            # 01: hydra_fhd
-            # 00: hydra
-            # 10: gemini_fhd
-            # 11: gemini
-            # 01 + PIC=114: argo
-            TestStep(
-                command=commands[1],
-                expected_response=expected_responses[4] if len(expected_responses) > 4 else None,
-                timeout=5,
-                description="Check panel ID",
-                criteria=f"Panel ID is {self.platform_name}",
             )
         ]
         

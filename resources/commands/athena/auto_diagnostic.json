@@ -48,10 +48,13 @@
     "commands": ["uname -a"],
     "expected_response": ["Linux verathon-athena"]
   },
-  "diagnostic_panel_id_resolution": {
-    "commands": ["fbset | grep geometry", "cat /proc/panel_id"],
-    "expected_response": ["", "01"],
-    "ignore_commands": ["False", "True"]
+  "diagnostic_panel_id": {
+    "commands": ["cat /proc/panel_id"],
+    "expected_response": ["01"]
+  },
+  "diagnostic_panel_resolution": {
+    "commands": ["fbset | grep geometry"],
+    "expected_response": [""]
   },
   "diagnostic_wifi_bt": {
     "commands": ["lsusb", "lspci"],

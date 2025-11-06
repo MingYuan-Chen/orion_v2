@@ -160,8 +160,7 @@ class PlatformCommandSet:
                 return {"commands": cmd_data}
             elif isinstance(cmd_data, str):
                 return {"commands": [cmd_data]}
-                
-        logger.warning(f"Command not found: {command_type} {command_name}")
+        
         return None
     
     def get_all_commands(self, command_type: CommandType) -> Dict[str, str]:
