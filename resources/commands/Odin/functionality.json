@@ -58,24 +58,14 @@
   },
   "functionality_eeprom": {
     "commands": [
-      "dd if=/dev/urandom of=to_eeprom0_data bs=1K count=16",
-      "dd if=/dev/urandom of=to_eeprom1_data bs=1 count=128",
-      "sync",
-      "md5sum to_eeprom0_data | cut -d' ' -f1",
-      "md5sum to_eeprom1_data | cut -d' ' -f1",
-      "cat to_eeprom0_data | eeprog -f -16 /dev/i2c-0 0x55 -w 0x0",
-      "cat to_eeprom1_data | eeprog -f -8 /dev/i2c-0 0x57 -w 0x0",
-      "sync",
-      "eeprog /dev/i2c-0 0x55 -16 -f -q -r 0x0:16384 > from_eeprom0_data",
-      "eeprog /dev/i2c-0 0x57 -8 -f -q -r 0x0:128 > from_eeprom1_data",
-      "sync",
-      "md5sum from_eeprom0_data | cut -d' ' -f1",
-      "md5sum from_eeprom1_data | cut -d' ' -f1",
+      "dd if=/dev/urandom of=/tmp/to_eeprom0_data bs=1K count=16",
+      "md5sum /tmp/to_eeprom0_data | cut -d' ' -f1",
+      "cat /tmp/to_eeprom0_data | eeprog -f -8 /dev/i2c-2 0x4c -w 0x00",
+      "eeprog -f -8 /dev/i2c-2 0x4c -r 0x00:16384 > /tmp/from_eeprom0_data",
+      "md5sum /tmp/from_eeprom0_data | cut -d' ' -f1",
       "echo 'Comparing MD5 values'",
-      "rm -f to_eeprom0_data from_eeprom0_data",
-      "rm -f to_eeprom1_data from_eeprom1_data",
-      "sync"
-    ],
+      "rm -f to_eeprom0_data from_eeprom0_data"
+    ],  
     "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
   },
   "functionality_emmc": {
@@ -89,17 +79,21 @@
   },
   "functionality_lcd": {
     "commands": [
+      "mount -o remount,rw /",
+      "systemctl disable weston",
+      "reboot",
       "/usr/bin/drawfb -p red",
       "/usr/bin/drawfb -p green",
       "/usr/bin/drawfb -p blue",
       "/usr/bin/drawfb -p black",
       "/usr/bin/drawfb -p white",
       "/usr/bin/drawfb -p colorbar",
-      "/usr/bin/drawfb -p gradient",
+      "/usr/bin/drawfb -p gradient256",
       "/usr/bin/drawfb -p frame",
       "/usr/bin/drawfb -p gray16",
       "/usr/bin/drawfb -p gray64",
-      "/usr/bin/drawfb -p gray256"
+      "/usr/bin/drawfb -p gray256",
+      "systemctl restart weston"
     ]
   },
   "functionality_led": {
