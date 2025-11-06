@@ -49,5 +49,10 @@ class MemorySizeWorker(BaseTestWorker):
                 return True, f"Memory size {mem_size} is valid for odin"
             else:
                 return False, f"Memory size {mem_size} is invalid for odin"
+        if self.platform_name.lower() == "argo":
+            if mem_size in [3074232, 3886520]:
+                return True, f"Memory size {mem_size} is valid for argo"
+            else:
+                return False, f"Memory size {mem_size} is invalid for argo"
         else:
             return True, f"No specific validation for platform {self.platform_name}, received {mem_size}"
