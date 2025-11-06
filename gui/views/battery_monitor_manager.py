@@ -5,6 +5,7 @@ Manages battery monitoring UI updates and data display
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 from PySide6.QtWidgets import QMessageBox, QProgressBar, QLabel, QPushButton
 from typing import Dict, Any, Optional
+from collections import deque
 from util.logger import logger
 import datetime
 import csv
@@ -42,8 +43,8 @@ class BatteryMonitorManager(QObject):
         
         # Battery data storage
         self.current_battery_data = {}
-        self.battery_history = []  # Store historical data for trending
         self.max_history_entries = 100  # Limit history size
+        self.battery_history = deque(maxlen=self.max_history_entries)  # Store historical data for trending
         
         # Monitoring state
         self.is_monitoring = False
@@ -126,13 +127,6 @@ class BatteryMonitorManager(QObject):
         # Connect interval spinbox if provided
         if "interval_spinbox" in components:
             interval_spinbox = components["interval_spinbox"]
-            
-            # Disconnect any existing connections first
-            try:
-                interval_spinbox.valueChanged.disconnect()
-                logger.debug("Disconnected existing interval spinbox connections")
-            except:
-                pass  # No existing connections
             
             # Connect to interval change method
             interval_spinbox.valueChanged.connect(self._on_interval_changed)
@@ -624,51 +618,26 @@ class BatteryMonitorManager(QObject):
         if battery_info.get("relative_state") == 100 and battery_info.get("current") == 0:
             battery_info["led_status"] = "Green"
         
-        logger.info(f"Battery info received: {battery_info}")
-        
-        # Store current data
-        self.current_battery_data = battery_info.copy()
-        
-        # Check if this is from a single reading operation
-        is_single_reading = getattr(self, '_single_reading_mode', False)
-        
-        # Sync monitoring state with battery service, but only for continuous monitoring
-        if hasattr(self.battery_service, 'is_monitoring') and not is_single_reading:
-            service_monitoring = self.battery_service.is_monitoring
-            if self.is_monitoring != service_monitoring:
-                logger.debug(f"Syncing monitoring state: manager={self.is_monitoring}, service={service_monitoring}")
-                self.is_monitoring = service_monitoring
-                self._set_monitoring_ui_state(self.is_monitoring)
-                
-                # If service stopped monitoring, emit completion signal
-                if not service_monitoring and not self.is_monitoring:
-                    logger.debug("Continuous monitoring completed, service monitoring stopped")
-                    self.monitoring_completed.emit()
-        elif is_single_reading:
-            # For single reading, ensure we don't switch to monitoring mode
-            logger.debug("Single reading completed, maintaining non-monitoring state")
-            self._single_reading_mode = False  # Reset the flag
+        # Compare with current data to see if an update is needed
+        if battery_info != self.current_battery_data:
+            logger.info(f"Battery info received (data changed): {battery_info}")
             
-            # Force service to stop monitoring after single reading
-            if hasattr(self.battery_service, 'is_monitoring') and self.battery_service.is_monitoring:
-                logger.debug("Forcing service to stop monitoring after single reading")
-                self.battery_service.stop_battery_monitoring(self.device_id)
-        
-        # Add timestamp and store in history
+            # Store current data
+            self.current_battery_data = battery_info.copy()
+            
+            # Update chart if available (only when data changes)
+            if self.chart_widget:
+                self.chart_widget.add_data_point(battery_info)
+        else:
+            logger.debug("Battery info received (data unchanged), skipping chart update.")
+
+        # Add timestamp and store in history (always)
         timestamped_data = battery_info.copy()
         timestamped_data["timestamp"] = datetime.datetime.now()
         self.battery_history.append(timestamped_data)
         
-        # Limit history size
-        if len(self.battery_history) > self.max_history_entries:
-            self.battery_history.pop(0)
-        
         # Update UI display
         self._update_battery_display(battery_info)
-        
-        # Update chart if available
-        if self.chart_widget:
-            self.chart_widget.add_data_point(battery_info)
         
         # Log to CSV if enabled
         self._log_battery_data_to_csv(battery_info)

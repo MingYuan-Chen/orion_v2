@@ -944,7 +944,7 @@ class BaseTestWorker(QObject):
         if not hasattr(self, 'test_id'):
             logger.debug("No test_id found, skipping ignore filter")
             return steps
-        
+              
         try:
             # Get metadata from configuration
             metadata = self.get_command_metadata(self.test_id, CommandType.FUNCTIONALITY)

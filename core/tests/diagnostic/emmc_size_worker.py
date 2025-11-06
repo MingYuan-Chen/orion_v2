@@ -19,7 +19,8 @@ class EmmcSizeWorker(BaseTestWorker):
             "gemini_fhd": [125069950976, 116.48],  # Same as gemini
             "gemini": [125069950976, 116.48],
             "argo": [125069950976, 116.48],
-            "odin": [61120512, 31.26]
+            "odin": [61120512, 31.26],
+            "athena": [125074145280, 116.48]
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
