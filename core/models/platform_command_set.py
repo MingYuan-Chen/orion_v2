@@ -135,7 +135,6 @@ class PlatformCommandSet:
             # Handle legacy format (direct list or string)
             return cmd_data
             
-        logger.warning(f"Command not found: {command_type} {command_name}")
         return None
     
     def get_command_metadata(self, command_type: CommandType, command_name: str) -> Optional[Dict[str, Any]]:

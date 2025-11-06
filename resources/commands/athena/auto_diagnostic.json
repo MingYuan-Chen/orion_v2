@@ -20,8 +20,7 @@
   },
   "diagnostic_nor_flash_size": {
     "commands": ["cat /proc/mtd | grep 'mtd0"],
-    "expected_response": ["04000000"],
-    "ignore_commands": ["True"]
+    "expected_response": ["04000000"]
   },
   "diagnostic_pic_version": {
     "commands": ["i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/device-tree/model"],
