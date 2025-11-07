@@ -978,7 +978,6 @@ class BatteryMonitorManager(QObject):
             ]
             
             self.csv_writer.writerow(row)
-            self.csv_file.flush()  # Ensure data is written immediately
             
             logger.debug(f"Battery data logged to CSV: {timestamp}")
             

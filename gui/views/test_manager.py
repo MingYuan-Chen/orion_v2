@@ -75,7 +75,6 @@ class TestManagerView(QObject):
         
         if "athena" in platform_name.lower():
             self.dev_tests.append("functionality_audio")
-            self.dev_tests.append("functionality_hdmi")
             self.dev_tests.append("functionality_lcd")
             self.dev_tests.append("functionality_power_button")
         if "odin" in platform_name.lower():
