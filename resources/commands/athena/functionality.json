@@ -132,10 +132,7 @@
   "functionality_hdmi": {
     "commands": [
       "gpioset `gpiofind IOEX_HDMI_EN`=1",
-      "",
-      "gst-launch-1.0 playbin uri=file:///dqa_package/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "",
-      "pkill -f gst-launch"
+      ""
     ]
   },
   "functionality_camera": {
