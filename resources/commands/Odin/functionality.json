@@ -43,10 +43,9 @@
   "functionality_power_button": { 
     "commands": [
       "mount -o remount,rw /",
-      "evtest /dev/input/event2 > evtlog &",
-      "cat evtlog",
-      "kill {process_id}",
-      "rm -f evtlog"
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "sh /run/media/sda1/dqa_package/odin_power_key_monitor.sh",
+      ""
     ]
   },
   "functionality_charge": {
@@ -152,64 +151,10 @@
       "pkill -f gst-launch"
     ]
   },
-  "functionality_camera": {
+  "functionality_probe": {
     "commands": [
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
-
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
-
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
-
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
-      "done",
-      "killall /unit_tests/mxc_v4l2_overlay.out",
-      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
-      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
-
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
-      "done",
-      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
-      "done",
+      "mount -o remount,rw /",
+      "tar zxvf odin_probe-tools.tgz -C /home/root",
       "killall /unit_tests/mxc_v4l2_overlay.out"
     ]
   }
