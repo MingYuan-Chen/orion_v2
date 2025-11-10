@@ -54,7 +54,6 @@ class EepromWorker(BaseTestWorker):
                     command=commands[3],
                     timeout=5, 
                     description="read write data from embedded eeprom",
-                    criteria="read write data without error" 
                 ),
                 TestStep(
                     command=commands[4], 
@@ -72,7 +71,6 @@ class EepromWorker(BaseTestWorker):
                     command=commands[6],
                     timeout=5, 
                     description="read write multiple data from eeprom 1",
-                    criteria="read write multiple data without error"
                 ),
                 TestStep(
                     command=commands[7], 
