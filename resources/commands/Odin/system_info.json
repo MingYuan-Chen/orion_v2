@@ -5,7 +5,7 @@
   "memory_info": ["free -h | grep 'Mem:'"], 
   "top_info": ["top -b -n 1 | head -n 5"], 
   "disk_usage": ["cat /sys/block/mmcblk0/size"], 
-  "uboot_version": ["dd if=/dev/mmcblk0boot0 bs=1M count=4 2>/dev/null | strings | grep \"U-Boot\" | grep -v \"SPL\" | tail -1"],
+  "uboot_version": ["strings /dev/mmcblk0boot0 | grep 'U-Boot 2018.03-VT_ODIN_050_BSP_R3' | head -n 1"],
   "relative_state": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2"], 
   "charging_voltage": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x15 r2"], 
   "charging_current": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x14 r2"], 
