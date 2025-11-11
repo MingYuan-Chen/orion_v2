@@ -23,36 +23,58 @@ class PowerButtonWorker(BaseTestWorker):
             power button test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
-        return [
-            TestStep(
-                command=commands[0], 
-                validation_func=self._validate_evtest_process_is_running,
-                timeout=5, 
-                description="Check evtest process is running",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[1],
-                validation_func=self._validate_evtlog,
-                pre_condition="Please press the power button then release it then click 'Confirm and Continue' button",
-                timeout=5,
-                description="Check button event",
-                criteria="Power button event triggered",
-                max_retries=1,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[2],
-                timeout=5,
-                description="Kill evtest process",
-            ),
-            TestStep(
-                command=commands[3],
-                timeout=5,
-                description="Remove evtlog",
-            )
-        ]
+        if self.platform_name == "odin":
+            return [
+                TestStep(
+                    command=commands[0], 
+                    timeout=5, 
+                    description="Make root filesystem writable"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    timeout=5, 
+                    description="Enable USB ports power"
+                ),
+                TestStep(
+                    command=commands[2], 
+                    timeout=5, 
+                    description="Power button detection",
+                    criteria="The power button can be detected",
+                    pre_condition='1.Click "Confirm and Continue" button then press the power button on the panel \n2.Test fails if the power button is not pressed within 10 seconds.',
+                    validation_func=self._validate_script_result
+                )
+            ]
+        else:
+            return [
+                TestStep(
+                    command=commands[0], 
+                    validation_func=self._validate_evtest_process_is_running,
+                    timeout=5, 
+                    description="Check evtest process is running",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[1],
+                    validation_func=self._validate_evtlog,
+                    pre_condition="Please press the power button then release it then click 'Confirm and Continue' button",
+                    timeout=5,
+                    description="Check button event",
+                    criteria="Power button event triggered",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[2],
+                    timeout=5,
+                    description="Kill evtest process",
+                ),
+                TestStep(
+                    command=commands[3],
+                    timeout=5,
+                    description="Remove evtlog",
+                )
+            ]
     
     def _validate_evtest_process_is_running(self, response: str) -> Tuple[bool, str]:
         """
@@ -88,3 +110,18 @@ class PowerButtonWorker(BaseTestWorker):
             return True, "Power button event triggered"
         else:
             return False, "Power button event triggered failed"
+    def _validate_script_result(self, response: str):
+        """
+        Validate power button script result based on PASS/FAIL output on odin platform
+        """
+        try:
+            response_lower = response.strip().lower()
+
+            if "pass" in response_lower:
+                return True, "Power button test passed"
+            elif "fail" in response_lower:
+                return False, "Power button test failed"
+            else:
+                return False, f"Unexpected script output: {response.strip()}"
+        except Exception as e:
+            return False, f"Error validating script output: {str(e)}"

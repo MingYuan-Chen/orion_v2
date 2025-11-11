@@ -862,7 +862,6 @@ class MainWindowController(QObject):
         if self.platform_name == "Odin":
             diagnostic_tests.pop("diagnostic_nor_flash_size")
             diagnostic_tests.pop("diagnostic_panel_id")
-            diagnostic_tests.pop("diagnostic_panel_resolution")
 
         self.auto_diagnostic_view.setup_diagnostic_items(diagnostic_tests)
         
