@@ -11,6 +11,7 @@ import sys
 import csv
 import re
 import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
@@ -3456,6 +3457,24 @@ class MainWindowController(QObject):
             sheet.append(["Tool Version", "v2.0.1_20251104"])
             sheet.append(["Config Version", "v2.0.1_20251104"])
             sheet.append(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
+            
+            font_setting_list = [(1,1), (2,1), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7), (3,8), (3,9)]
+            for row, col in font_setting_list:
+                cell = sheet.cell(row, col)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            sheet.column_dimensions['A'].width = 25
+            sheet.column_dimensions['B'].width = 50
+            sheet.column_dimensions['C'].width = 60
+            sheet.column_dimensions['D'].width = 8
+            sheet.column_dimensions['D'].alignment = Alignment(horizontal='center')
+            sheet.column_dimensions['E'].width = 55
+            for row in range(4, 63):
+                sheet.row_dimensions[row].height = 33
+                sheet.row_dimensions[row].alignment = Alignment(vertical='center')
+                target_row = f"E{row}"
+                sheet[target_row].alignment = Alignment(wrapText=True)
+            sheet.freeze_panes = 'E4'
             
             exported_test_steps = set()
             data_exported = False

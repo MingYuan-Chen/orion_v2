@@ -20,7 +20,7 @@ class DesignCapacityWorker(BaseTestWorker):
             "gemini": 3350,
             "argo": 3250,
             "athena": 3250,
-            "odin": 6800,
+            "odin": "6400/6800",
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
