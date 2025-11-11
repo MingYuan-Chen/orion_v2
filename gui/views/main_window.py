@@ -3319,475 +3319,111 @@ class MainWindowController(QObject):
             logger.warning(f"Error cleaning response text: {e}")
             return response
 
-    def _export_diagnostic_results(self, writer, diagnostic_results, exported_test_steps):
-        """Export diagnostic test results in a standardized format"""
+    def _export_results_by_type(self, writer, test_type, results, progress_records, exported_test_steps):
+        """
+        Export test results of a specific type (diagnostic or functionality) in a standardized format.
+        
+        Args:
+            writer: CSV writer object.
+            test_type: 'diagnostic' or 'functionality'.
+            results: Dictionary of test results.
+            progress_records: Dictionary of test progress records (for functionality tests).
+            exported_test_steps: Set to track exported steps to avoid duplicates.
+        """
         data_exported = False
         
-        # Sort diagnostic results by test_id for consistent ordering
-        sorted_diagnostic_tests = sorted(diagnostic_results.items())
+        # Combine all test IDs from results and progress for consistent sorting
+        all_test_ids = set(results.keys())
+        if progress_records:
+            all_test_ids.update(progress_records.keys())
         
-        for test_id, result_data in sorted_diagnostic_tests:
+        sorted_test_ids = sorted(list(all_test_ids))
+        
+        for test_id in sorted_test_ids:
             try:
-                # get the step templates of the diagnostic test
-                step_templates = self.test_step_templates.get("diagnostic", {}).get(test_id, [])
-                logger.info(f"Processing diagnostic test: {test_id}, step templates: {len(step_templates)}")
-                
-                # get the step data of the diagnostic test
-                test_steps = result_data.get("steps", [])
-                
-                # if there are step templates, export all steps with criteria based on the step templates
-                if step_templates:
-                    logger.info(f"Using step templates to export diagnostic {test_id}")
-                    
-                    for template_index, template in enumerate(step_templates):
-                        try:
-                            # export only the steps with criteria
-                            step_criteria = template.get('criteria', '')
-                            if not step_criteria:
-                                logger.debug(f"Skipping diagnostic template step {template_index} for {test_id} - no criteria")
-                                continue
-                            
-                            # get the basic step information
-                            step_desc = template.get('description', 'Diagnostic Test')
-                            step_command = template.get('command', '')
-                            
-                            # initialize the result variables
-                            step_message = "NOT_EXECUTED"
-                            step_response = ""
-                            step_time = "--:--:--"
-                            
-                            # try to get the execution result from test_steps
-                            for step in test_steps:
-                                if step.get('index') == template_index:
-                                    step_message = step.get('message', 'NOT_EXECUTED')
-                                    step_response = step.get('response', '')
-                                    step_time = step.get('time', '--:--:--')
-                                    if step.get('command'):
-                                        step_command = step.get('command', step_command)
-                                    break
-                            
-                            # Skip NOT_EXECUTED items
-                            if step_message == "NOT_EXECUTED":
-                                logger.debug(f"Skipping NOT_EXECUTED diagnostic step: {step_desc}")
-                                continue
-                            
-                            # Skip duplicate steps
-                            template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
-                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                            
-                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                logger.debug(f"Skipping duplicate diagnostic step: {step_desc} (template={template_index})")
-                                continue
-                            exported_test_steps.add(template_signature)
-                            exported_test_steps.add(execution_signature)
-                            
-                            # process the response text, filter out the useless information
-                            step_response = self._clean_response_text(step_response)
-                            
-                            # process the skipped steps
-                            if isinstance(step_message, str) and "skip" in step_message.lower():
-                                step_message = "SKIPPED"
-                            
-                            # Convert response for better readability
-                            response_converted = self._convert_response_for_display(
-                                step_response, step_criteria, step_command, step_desc
-                            )
-                            
-                            # get the timestamp
-                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            # create the data row
-                            row_data = [
-                                test_id,                    # module
-                                step_desc,                  # step
-                                step_criteria,              # criteria
-                                step_message,               # result
-                                step_command,               # command
-                                step_response,              # response
-                                response_converted,         # response_converted
-                                timestamp,                  # timestamp
-                                step_time                   # duration
-                            ]
-                            
-                            writer.writerow(row_data)
-                            data_exported = True
-                            logger.debug(f"Exported diagnostic step from template: {step_desc} (result: {step_message})")
-                            
-                        except Exception as ex:
-                            logger.warning(f"Error processing diagnostic template step {template_index}: {str(ex)}")
-                            continue
-                
-                # if there are no step templates, use the original logic
-                elif test_steps:
-                    for step in test_steps:
-                        step_desc = step.get("description", "Diagnostic Test")
-                        step_message = step.get("message", "")
-                        step_command = step.get("command", "")
-                        step_response = step.get("response", "")
-                        step_time = step.get("time", "--:--:--")
-                        step_criteria = step.get("criteria", "")
-                        
-                        # Skip steps with empty criteria - diagnostic tests must have criteria to be valid
-                        if not step_criteria:
-                            logger.debug(f"Skipping diagnostic step {step.get('index', -1)} for {test_id} - no criteria")
-                            continue
-                        
-                        # process the response text
-                        step_response = self._clean_response_text(step_response)
-                        
-                        if isinstance(step_message, str) and "skip" in step_message.lower():
-                            step_message = "SKIPPED"
-
-                        # Convert response for better readability
-                        response_converted = self._convert_response_for_display(
-                            step_response, step_criteria, step_command, step_desc
-                        )
-
-                        # create the data row of the diagnostic step
-                        row_data = [
-                            test_id,                # module
-                            step_desc,              # step
-                            step_criteria,          # criteria
-                            step_message,           # result
-                            step_command,           # command
-                            step_response,          # response
-                            response_converted,     # response_converted
-                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                            step_time               # time
-                        ]
-                        
-                        writer.writerow(row_data)
-                        data_exported = True
-                        logger.debug(f"Exported diagnostic step: {step_desc} (result: {step_message})")
-                else:
-                    # if there is no step data, use the basic information
-                    status = result_data.get("status", "")
-                    time_str = result_data.get("time", "--:--:--")
-                    details = result_data.get("details", {})
-                    if not isinstance(details, dict):
-                        details = {}
-                        
-                    message = details.get("message", "")
-                    
-                    # Skip this entry if there are no criteria or validation results
-                    if not message or message.strip() == "":
-                        logger.debug(f"Skipping diagnostic {test_id} - no message or validation results")
-                        continue
-                    
-                    # Convert response for better readability (empty in this case)
-                    response_converted = self._convert_response_for_display(
-                        "", "", "", "Diagnostic Test"
-                    )
-                    
-                    # create the data row of the diagnostic result
-                    row_data = [
-                        test_id,                # module
-                        "Diagnostic Test",      # step
-                        "",                     # criteria
-                        f"{status}: {message}", # result
-                        "",                     # command
-                        "",                     # response
-                        response_converted,     # response_converted
-                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                        time_str                # time
-                    ]
-                    
-                    writer.writerow(row_data)
-                    data_exported = True
-                    logger.debug(f"Exported diagnostic basic info: {test_id} (status: {status})")
-            except Exception as ex:
-                logger.warning(f"Error processing diagnostic result for {test_id}: {str(ex)}")
-                continue
-        
-        return data_exported
-
-    def _export_functionality_results_sorted(self, writer, test_results, test_progress_records, exported_test_steps):
-        """Export functionality test results in sorted order"""
-        data_exported = False
-        
-        # Combine all functionality test IDs and sort them
-        all_functionality_tests = set()
-        all_functionality_tests.update(test_results.keys())
-        all_functionality_tests.update(test_progress_records.keys())
-        
-        # Sort test IDs for consistent ordering
-        sorted_functionality_tests = sorted(all_functionality_tests)
-        
-        for test_id in sorted_functionality_tests:
-            try:
-                # Skip diagnostic tests (they should be handled separately)
-                if test_id.startswith("diagnostic_"):
+                # Skip tests that don't belong to the current type being processed
+                if test_type == "diagnostic" and not test_id.startswith("diagnostic_"):
                     continue
-                
-                # Get test data
-                records = test_progress_records.get(test_id, [])
-                
-                # determine the test type
-                test_type = "functionality"
+                if test_type == "functionality" and test_id.startswith("diagnostic_"):
+                    continue
+
                 step_templates = self.test_step_templates.get(test_type, {}).get(test_id, [])
-                logger.info(f"Processing functionality test: {test_id}, progress records: {len(records)}, step templates: {len(step_templates)}")
+                test_steps = results.get(test_id, {}).get("steps", [])
                 
-                # get the step details of the test
-                test_steps = []
-                overall_test_time = "--:--:--"
-                if test_id in test_results:
-                    test_steps = test_results[test_id].get("steps", [])
-                    overall_test_time = test_results[test_id].get("time", "--:--:--")
-                
-                # try to get the step details and execution status from the test worker
-                worker_steps = []
-                worker = None
-                if hasattr(self.view_model.hardware_test_manager, 'test_workers'):
-                    worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
-                    if worker and hasattr(worker, 'steps'):
-                        worker_steps = worker.steps
-                
-                # if there are step templates, export all steps with criteria based on the step templates
+                if not step_templates and test_type == "functionality":
+                    logger.warning(f"No step templates for functionality test {test_id}, skipping.")
+                    continue
+
                 if step_templates:
-                    logger.info(f"Using step templates to export {len(step_templates)} steps for {test_id}")
-                    
                     for template_index, template in enumerate(step_templates):
-                        try:
-                            # export only the steps with criteria
-                            step_criteria = template.get('criteria', '')
-                            if not step_criteria:
-                                logger.debug(f"Skipping template step {template_index} for {test_id} - no criteria")
-                                continue
-                            
-                            # get the basic step information
-                            step_desc = template.get('description', '')
-                            step_command = template.get('command', '')
-                            is_manual_step = template.get('manual_only', False)
-                            
-                            # initialize the result variables
-                            step_message = "NOT_EXECUTED"
-                            step_response = ""
-                            step_time = "--:--:--"
-                            
-                            # try to get more detailed information from test_steps
-                            matching_step = None
-                            
-                            # First try exact index matching
-                            for step in test_steps:
-                                if step.get('index') == template_index:
-                                    step_test_desc = step.get('description', '')
-                                    if step_test_desc == step_desc:
-                                        matching_step = step
-                                        break
-                            
-                            # If no exact match found, try description-based matching for camera tests
-                            # if not matching_step and test_id == "functionality_camera":
-                            #     for step in test_steps:
-                            #         step_test_desc = step.get('description', '')
-                            #         if step_test_desc == step_desc:
-                            #             matching_step = step
-                            #             break
-                            
-                            if matching_step:
-                                test_step_message = matching_step.get('message', '')
-                                
-                                if test_step_message and test_step_message != "No command specified":
-                                    step_message = test_step_message
-                                elif test_step_message == "No command specified" and is_manual_step:
-                                    if worker and template_index < len(worker_steps):
-                                        worker_step = worker_steps[template_index]
-                                        if hasattr(worker_step, 'passed') and worker_step.passed is not None:
-                                            step_message = "PASS" if worker_step.passed else "FAIL"
-                                
-                                if matching_step.get('response'):
-                                    step_response = matching_step.get('response', step_response)
-                                if matching_step.get('command'):
-                                    step_command = matching_step.get('command', step_command)
-                                
-                                # Get step time
-                                step_time_from_match = matching_step.get('time')
-                                if step_time_from_match and step_time_from_match != "--:--:--":
-                                    step_time = step_time_from_match
-                                else:
-                                    # Try to calculate time from start_time and end_time
-                                    start_time = matching_step.get('start_time')
-                                    end_time = matching_step.get('end_time')
-                                    if start_time and end_time:
-                                        try:
-                                            if isinstance(start_time, str):
-                                                start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                                            if isinstance(end_time, str):
-                                                end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                                            
-                                            duration = end_time - start_time
-                                            step_time = f"{duration.total_seconds():.2f}s"
-                                        except Exception as e:
-                                            logger.warning(f"Error calculating step time for {template_index}: {e}")
-                                            step_time = "--:--:--"
-                            
-                            # if no suitable result is found in test_steps, then get it from the worker
-                            if step_message == "NOT_EXECUTED" and worker and template_index < len(worker_steps):
-                                worker_step = worker_steps[template_index]
+                        step_criteria = template.get('criteria', '')
+                        if not step_criteria:
+                            continue
+
+                        step_desc = template.get('description', f'{test_type.title()} Test')
+                        step_command = template.get('command', '')
+                        is_manual_step = template.get('manual_only', False)
+                        
+                        step_message = "NOT_EXECUTED"
+                        step_response = ""
+                        step_time = "--:--:--"
+                        
+                        # Find matching executed step
+                        matching_step = next((s for s in test_steps if s.get('index') == template_index and s.get('description') == step_desc), None)
+
+                        if matching_step:
+                            step_message = matching_step.get('message', 'NOT_EXECUTED')
+                            step_response = matching_step.get('response', '')
+                            step_command = matching_step.get('command', step_command)
+                            step_time = matching_step.get('time', step_time)
+                        
+                        # Special handling for manual functionality steps
+                        if test_type == "functionality" and step_message == "NOT_EXECUTED":
+                            worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
+                            if worker and template_index < len(worker.steps):
+                                worker_step = worker.steps[template_index]
                                 if hasattr(worker_step, 'passed') and worker_step.passed is not None:
                                     step_message = "PASS" if worker_step.passed else "FAIL"
                                     if is_manual_step:
                                         step_response = f"Manual interaction step - {step_message} (verified by user)"
-                            
-                            # Skip NOT_EXECUTED items
-                            if step_message == "NOT_EXECUTED":
-                                logger.debug(f"Skipping NOT_EXECUTED step: {step_desc}")
-                                continue
-                            
-                            # For camera tests, only export steps that actually have matching execution results
-                            # if test_id == "functionality_camera" and not matching_step:
-                            #     logger.debug(f"Skipping camera step without execution match: {step_desc}")
-                            #     continue
-                            
-                            # Skip duplicate steps
-                            template_signature = f"{test_id}_{template_index}_{step_desc}_{step_command}"
-                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                            
-                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                logger.debug(f"Skipping duplicate step: {step_desc} (template={template_index})")
-                                continue
-                            exported_test_steps.add(template_signature)
-                            exported_test_steps.add(execution_signature)
-                            
-                            # process the response text
-                            step_response = self._clean_response_text(step_response)
-                            
-                            # process the skipped steps
-                            if isinstance(step_message, str) and "skip" in step_message.lower():
-                                step_message = "SKIPPED"
-                            
-                            # Convert response for better readability
-                            response_converted = self._convert_response_for_display(
-                                step_response, step_criteria, step_command, step_desc
-                            )
-                            
-                            # get the timestamp
-                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            # create the data row
-                            row_data = [
-                                test_id,                    # module
-                                step_desc,                  # step
-                                step_criteria,              # criteria
-                                step_message,               # result
-                                step_command,               # command
-                                step_response,              # response
-                                response_converted,         # response_converted
-                                timestamp,                  # timestamp
-                                step_time                   # duration
-                            ]
-                            
-                            writer.writerow(row_data)
-                            data_exported = True
-                            logger.debug(f"Exported functionality step from template: {step_desc} (result: {step_message})")
-                            
-                        except Exception as ex:
-                            logger.warning(f"Error processing functionality template step {template_index}: {str(ex)}")
+
+                        if step_message == "NOT_EXECUTED":
                             continue
+
+                        # Skip duplicates
+                        execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
+                        if execution_signature in exported_test_steps:
+                            continue
+                        exported_test_steps.add(execution_signature)
+
+                        step_response = self._clean_response_text(step_response)
+                        step_message = "SKIPPED" if isinstance(step_message, str) and "skip" in step_message.lower() else step_message
+                        
+                        response_converted = self._convert_response_for_display(step_response, step_criteria, step_command, step_desc)
+                        
+                        row_data = [
+                            test_id, step_desc, step_criteria, step_message, step_command,
+                            step_response, response_converted,
+                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), step_time
+                        ]
+                        writer.writerow(row_data)
+                        data_exported = True
                 
-                # if there are no step templates, fall back to progress records
-                elif records:
-                    for record in records:
-                        try:
-                            # ensure record is a dictionary and has current_step
-                            if not isinstance(record, dict) or 'current_step' not in record:
-                                continue
-                                
-                            # find the corresponding step information
-                            current_step = record['current_step'] - 1  # convert to 0-based index
-                            if current_step < 0:
-                                continue
-                            
-                            # get the step status, message and time from the test results
-                            step_desc = ""
-                            step_message = ""
-                            step_command = ""
-                            step_response = ""
-                            step_time = "--:--:--"
-                            step_criteria = ""
-                            
-                            # get the step information from the test results
-                            for step in test_steps:
-                                if step.get('index') == current_step:
-                                    step_message = step.get('message', '')
-                                    step_desc = step.get('description', '')
-                                    step_criteria = step.get('criteria', '')
-                                    step_command = step.get('command', '')
-                                    step_response = step.get('response', '')
-                                    
-                                    # Get step time
-                                    step_time_from_step = step.get('time')
-                                    if step_time_from_step and step_time_from_step != "--:--:--":
-                                        step_time = step_time_from_step
-                                    else:
-                                        # Try to calculate time from start_time and end_time
-                                        start_time = step.get('start_time')
-                                        end_time = step.get('end_time')
-                                        if start_time and end_time:
-                                            try:
-                                                if isinstance(start_time, str):
-                                                    start_time = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                                                if isinstance(end_time, str):
-                                                    end_time = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                                                
-                                                duration = end_time - start_time
-                                                step_time = f"{duration.total_seconds():.2f}s"
-                                            except Exception as e:
-                                                logger.warning(f"Error calculating step time from progress records: {e}")
-                                                step_time = "--:--:--"
-                                    break
-                            
-                            # Skip steps with empty criteria
-                            if not step_criteria:
-                                logger.debug(f"Skipping step {current_step} for {test_id} - no criteria")
-                                continue
-                            
-                            # Skip NOT_EXECUTED items
-                            if step_message == "NOT_EXECUTED":
-                                logger.debug(f"Skipping NOT_EXECUTED step from progress records: {step_desc}")
-                                continue
-                            
-                            # Skip duplicate steps
-                            template_signature = f"{test_id}_{current_step}_{step_desc}_{step_command}"
-                            execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
-                            
-                            if template_signature in exported_test_steps or execution_signature in exported_test_steps:
-                                logger.debug(f"Skipping duplicate step from progress records: {step_desc} (step={current_step})")
-                                continue
-                            exported_test_steps.add(template_signature)
-                            exported_test_steps.add(execution_signature)
-                            
-                            # process the response text
-                            step_response = self._clean_response_text(step_response)
-                            
-                            if isinstance(step_message, str) and "skip" in step_message.lower():
-                                step_message = "SKIPPED"
+                elif test_type == "diagnostic" and not step_templates and test_id in results: # Fallback for diagnostics without templates
+                    result_data = results[test_id]
+                    status = result_data.get("status", "")
+                    message = result_data.get("details", {}).get("message", "")
+                    if not message: continue
+                    
+                    row_data = [
+                        test_id, "Diagnostic Test", "", f"{status}: {message}", "", "", "",
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), result_data.get("time", "--:--:--")
+                    ]
+                    writer.writerow(row_data)
+                    data_exported = True
 
-                            # Convert response for better readability
-                            response_converted = self._convert_response_for_display(
-                                step_response, step_criteria, step_command, step_desc
-                            )
-
-                            # create the data row
-                            row_data = [
-                                test_id,                # module
-                                step_desc,              # step
-                                step_criteria,          # criteria
-                                step_message,           # result
-                                step_command,           # command
-                                step_response,          # response
-                                response_converted,     # response_converted
-                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # timestamp
-                                step_time               # time
-                            ]
-
-                            writer.writerow(row_data)
-                            data_exported = True
-                            logger.debug(f"Exported functionality step from progress records: {step_desc}")
-                        except Exception as ex:
-                            logger.warning(f"Error processing functionality test record: {str(ex)}")
-                            continue
             except Exception as ex:
-                logger.warning(f"Error processing functionality test {test_id}: {str(ex)}")
+                logger.warning(f"Error processing {test_type} result for {test_id}: {str(ex)}")
                 continue
         
         return data_exported
@@ -3795,89 +3431,56 @@ class MainWindowController(QObject):
     def _export_results(self):
         """Export test results to a CSV file with optimized ordering"""
         try:
-            # set the flag to prevent repeated execution
-            if hasattr(self, '_export_in_progress') and self._export_in_progress:
+            if getattr(self, '_export_in_progress', False):
                 return
             self._export_in_progress = True
             
-            # set the file name
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             default_filename = f"test_results_{self.device_id}_{timestamp}.csv"
             
             file_path, _ = QFileDialog.getSaveFileName(
-                self.window,
-                "Export Test Results",
-                default_filename,
-                "CSV Files (*.csv)"
-            )
+                self.window, "Export Test Results", default_filename, "CSV Files (*.csv)")
             
             if not file_path:
                 self._export_in_progress = False
                 return
                 
-            # get the test results and progress records from the unified storage
-            test_results = self.unified_test_results.get("functionality", {})
-            test_progress_records = self.unified_test_progress.get("functionality", {})
-            diagnostic_results = self.unified_test_results.get("diagnostic", {})
-            
-            # Debug: Display the step template storage status
-            # logger.info(f"Export debug - Step templates stored:")
-            # for test_type, templates in self.test_step_templates.items():
-            #     logger.info(f"  {test_type}: {list(templates.keys())}")
-            #     for test_id, step_list in templates.items():
-            #         logger.info(f"    {test_id}: {len(step_list)} steps")
-            
-            # Debug: Display the progress record status
-            # logger.info(f"Export debug - Progress records:")
-            # for test_type, progress in self.unified_test_progress.items():
-            #     logger.info(f"  {test_type}: {list(progress.keys())}")
-            
-            # check if there is data to export
-            data_exported = False
-            
-            # write to the CSV file
             with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 
                 writer.writerow(["Tool Version", "v2.0.1_20251104"])
                 writer.writerow(["Config Version", "v2.0.1_20251104"])
-                # write the title row
                 writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
                 
-                # Track exported steps to avoid duplicates
                 exported_test_steps = set()
+                data_exported = False
                 
-                # STEP 1: Export Auto Diagnostic results first (if any)
-                logger.info("Step 1: Exporting Auto Diagnostic results...")
-                diagnostic_exported = self._export_diagnostic_results(writer, diagnostic_results, exported_test_steps)
-                if diagnostic_exported:
+                # Export Diagnostic results
+                logger.info("Exporting Auto Diagnostic results...")
+                diagnostic_results = self.unified_test_results.get("diagnostic", {})
+                if self._export_results_by_type(writer, "diagnostic", diagnostic_results, {}, exported_test_steps):
                     data_exported = True
                 
-                # STEP 2: Export Functionality Test results in sorted order
-                logger.info("Step 2: Exporting Functionality Test results...")
-                functionality_exported = self._export_functionality_results_sorted(writer, test_results, test_progress_records, exported_test_steps)
-                if functionality_exported:
+                # Export Functionality Test results
+                logger.info("Exporting Functionality Test results...")
+                functionality_results = self.unified_test_results.get("functionality", {})
+                functionality_progress = self.unified_test_progress.get("functionality", {})
+                if self._export_results_by_type(writer, "functionality", functionality_results, functionality_progress, exported_test_steps):
                     data_exported = True
             
             if data_exported:
                 logger.info(f"Test results exported to: {file_path}")
             else:
-                logger.warning(f"No data was exported to the CSV file")
+                logger.warning("No data was exported to the CSV file")
             
-            # clear all the test results
             self.clear_all_test_results()
             
-            # also reset the related UI
-            # reset the test steps table
             if hasattr(self.window, 'tableWidget_hardware_test_steps'):
                 self.window.tableWidget_hardware_test_steps.setRowCount(0)
-            
-            # reset the progress bar
             if hasattr(self.window, 'progressBar_hardware_test'):
                 self.window.progressBar_hardware_test.setValue(0)
                 self.window.progressBar_hardware_test.setVisible(False)
             
-            # add the log of clearing the test records
             self.log_manager.add_log_entry("INFO", "Test and diagnostic records were cleared after exporting")
             
         except Exception as e:
@@ -3885,7 +3488,6 @@ class MainWindowController(QObject):
             logger.error(error_msg)
             self.log_manager.add_log_entry("ERROR", error_msg)
         finally:
-            # reset the flag
             self._export_in_progress = False
 
     @Slot(str, str, str)
