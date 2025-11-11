@@ -21,7 +21,7 @@ class DesignVoltageWorker(BaseTestWorker):
             "gemini": 7200,
             "argo": 7200,
             "athena": 10800,
-            "odin" : 10800
+            "odin" : "10800 or 10950"
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
@@ -43,8 +43,7 @@ class DesignVoltageWorker(BaseTestWorker):
                 ),
                 TestStep(
                     command=commands[1], 
-                    validation_func=self._validate_design_voltage,
-                    expected_response=expected_responses[0] if expected_responses else None,           # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
+                    validation_func=self._validate_design_voltage,          # concatenate the two bytes as 0x1c20 then convert to decimal: 7200
                     timeout=5, 
                     description="Check Design Voltage by i2c",
                     criteria=f"The design voltage is {self.expected_design_voltage_mapping[self.platform_name]} mV"

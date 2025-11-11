@@ -24,12 +24,12 @@ class MemorySizeWorker(BaseTestWorker):
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
-        
+        self.expected_response = expected_responses[0]
+
         return [
             TestStep(
                 command=commands[0], 
                 validation_func=self._validate_memory_size,
-                expected_response=expected_responses[0] if expected_responses else None, 
                 timeout=5, 
                 description="Check Memory Size by proc/meminfo",
                 criteria="The memory size can be found in the response",
@@ -55,4 +55,7 @@ class MemorySizeWorker(BaseTestWorker):
             else:
                 return False, f"Memory size {mem_size} is invalid for argo"
         else:
-            return True, f"No specific validation for platform {self.platform_name}, received {mem_size}"
+            if self.expected_response in response:
+                return True, f"No specific validation for platform {self.platform_name}, received {mem_size}"
+            else:
+                return False, f"Memory size {mem_size} is invalid"
