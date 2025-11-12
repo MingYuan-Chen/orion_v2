@@ -100,30 +100,6 @@ class BatteryMonitorManager(QObject):
         """
         self.ui_components = components
         
-        # Connect refresh button only if provided and no main_controller is set
-        # (main_controller handles pre-check connections)
-        if "refresh_button" in components and (not hasattr(self, 'main_controller') or not self.main_controller):
-            refresh_button = components["refresh_button"]
-            
-            # Disconnect any existing connections first
-            try:
-                refresh_button.clicked.disconnect()
-                logger.debug("Disconnected existing refresh button connections")
-            except:
-                pass  # No existing connections
-            
-            # Connect to refresh_once method
-            refresh_button.clicked.connect(self.refresh_once)
-            logger.info(f"Refresh button connected to refresh_once method: {refresh_button}")
-            logger.info(f"Button text: '{refresh_button.text()}'")
-            logger.info(f"Button enabled: {refresh_button.isEnabled()}")
-            logger.info(f"Button visible: {refresh_button.isVisible()}")
-            
-        elif "refresh_button" in components and hasattr(self, 'main_controller') and self.main_controller:
-            logger.info("Refresh button connection handled by main_controller (with pre-check)")
-        else:
-            logger.warning("No refresh_button found in UI components")
-        
         # Connect interval spinbox if provided
         if "interval_spinbox" in components:
             interval_spinbox = components["interval_spinbox"]

@@ -10,6 +10,8 @@ import os
 import sys
 import csv
 import re
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment
 from PySide6.QtCore import QFile
 from core.services.hardware_test_manager import HardwareTestManagerService
 from PySide6.QtWidgets import QApplication
@@ -3291,10 +3293,17 @@ class MainWindowController(QObject):
             return response
     
     def _clean_response_text(self, response):
-        """Clean up response text by removing command echoes, prompts, and duplicate lines"""
+        """Clean up response text by removing command echoes, prompts, duplicate lines, and illegal XML characters."""
         try:
+            # First, remove illegal XML characters that openpyxl cannot handle.
+            # This regex removes most control characters except for tab, newline, and carriage return.
+            if response and isinstance(response, str):
+                response = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', response)
+            else:
+                return ""
+
             cleaned_lines = []
-            seen_lines = set()  # Track seen lines to remove duplicates
+            seen_lines = set()
             lines = response.split('\n')
             
             for line in lines:
@@ -3317,14 +3326,14 @@ class MainWindowController(QObject):
             return '\n'.join(cleaned_lines) if cleaned_lines else response
         except Exception as e:
             logger.warning(f"Error cleaning response text: {e}")
-            return response
+            return response if isinstance(response, str) else ""
 
-    def _export_results_by_type(self, writer, test_type, results, progress_records, exported_test_steps):
+    def _export_results_by_type(self, sheet, test_type, results, progress_records, exported_test_steps):
         """
-        Export test results of a specific type (diagnostic or functionality) in a standardized format.
+        Export test results of a specific type to an openpyxl worksheet.
         
         Args:
-            writer: CSV writer object.
+            sheet: openpyxl worksheet object.
             test_type: 'diagnostic' or 'functionality'.
             results: Dictionary of test results.
             progress_records: Dictionary of test progress records (for functionality tests).
@@ -3332,7 +3341,6 @@ class MainWindowController(QObject):
         """
         data_exported = False
         
-        # Combine all test IDs from results and progress for consistent sorting
         all_test_ids = set(results.keys())
         if progress_records:
             all_test_ids.update(progress_records.keys())
@@ -3341,7 +3349,6 @@ class MainWindowController(QObject):
         
         for test_id in sorted_test_ids:
             try:
-                # Skip tests that don't belong to the current type being processed
                 if test_type == "diagnostic" and not test_id.startswith("diagnostic_"):
                     continue
                 if test_type == "functionality" and test_id.startswith("diagnostic_"):
@@ -3368,7 +3375,6 @@ class MainWindowController(QObject):
                         step_response = ""
                         step_time = "--:--:--"
                         
-                        # Find matching executed step
                         matching_step = next((s for s in test_steps if s.get('index') == template_index and s.get('description') == step_desc), None)
 
                         if matching_step:
@@ -3377,7 +3383,6 @@ class MainWindowController(QObject):
                             step_command = matching_step.get('command', step_command)
                             step_time = matching_step.get('time', step_time)
                         
-                        # Special handling for manual functionality steps
                         if test_type == "functionality" and step_message == "NOT_EXECUTED":
                             worker = self.view_model.hardware_test_manager.test_workers.get(test_id)
                             if worker and template_index < len(worker.steps):
@@ -3390,7 +3395,6 @@ class MainWindowController(QObject):
                         if step_message == "NOT_EXECUTED":
                             continue
 
-                        # Skip duplicates
                         execution_signature = f"{test_id}_{step_desc}_{step_response}_{step_message}"
                         if execution_signature in exported_test_steps:
                             continue
@@ -3406,10 +3410,10 @@ class MainWindowController(QObject):
                             step_response, response_converted,
                             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), step_time
                         ]
-                        writer.writerow(row_data)
+                        sheet.append(row_data)
                         data_exported = True
                 
-                elif test_type == "diagnostic" and not step_templates and test_id in results: # Fallback for diagnostics without templates
+                elif test_type == "diagnostic" and not step_templates and test_id in results:
                     result_data = results[test_id]
                     status = result_data.get("status", "")
                     message = result_data.get("details", {}).get("message", "")
@@ -3419,7 +3423,7 @@ class MainWindowController(QObject):
                         test_id, "Diagnostic Test", "", f"{status}: {message}", "", "", "",
                         datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), result_data.get("time", "--:--:--")
                     ]
-                    writer.writerow(row_data)
+                    sheet.append(row_data)
                     data_exported = True
 
             except Exception as ex:
@@ -3429,49 +3433,84 @@ class MainWindowController(QObject):
         return data_exported
 
     def _export_results(self):
-        """Export test results to a CSV file with optimized ordering"""
+        """Export test results to an XLSX file with optimized ordering"""
         try:
             if getattr(self, '_export_in_progress', False):
                 return
             self._export_in_progress = True
             
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"test_results_{self.device_id}_{timestamp}.csv"
+            default_filename = f"test_results_{self.device_id}_{timestamp}.xlsx"
             
             file_path, _ = QFileDialog.getSaveFileName(
-                self.window, "Export Test Results", default_filename, "CSV Files (*.csv)")
+                self.window, "Export Test Results", default_filename, "Excel Files (*.xlsx)")
             
             if not file_path:
                 self._export_in_progress = False
                 return
-                
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                
-                writer.writerow(["Tool Version", "v2.0.1_20251104"])
-                writer.writerow(["Config Version", "v2.0.1_20251104"])
-                writer.writerow(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
-                
-                exported_test_steps = set()
-                data_exported = False
-                
-                # Export Diagnostic results
-                logger.info("Exporting Auto Diagnostic results...")
-                diagnostic_results = self.unified_test_results.get("diagnostic", {})
-                if self._export_results_by_type(writer, "diagnostic", diagnostic_results, {}, exported_test_steps):
-                    data_exported = True
-                
-                # Export Functionality Test results
-                logger.info("Exporting Functionality Test results...")
-                functionality_results = self.unified_test_results.get("functionality", {})
-                functionality_progress = self.unified_test_progress.get("functionality", {})
-                if self._export_results_by_type(writer, "functionality", functionality_results, functionality_progress, exported_test_steps):
-                    data_exported = True
+            
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            sheet.title = "Test Results"
+            
+            sheet.append(["Tool Version", "v2.0.1_20251104"])
+            sheet.append(["Config Version", "v2.0.1_20251104"])
+            sheet.append(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
+            
+            font_setting_list = [(1,1), (2,1), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7), (3,8), (3,9)]
+            for row, col in font_setting_list:
+                cell = sheet.cell(row, col)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            exported_test_steps = set()
+            data_exported = False
+            
+            # Export Diagnostic results
+            logger.info("Exporting Auto Diagnostic results...")
+            diagnostic_results = self.unified_test_results.get("diagnostic", {})
+            if self._export_results_by_type(sheet, "diagnostic", diagnostic_results, {}, exported_test_steps):
+                data_exported = True
+            
+            # Export Functionality Test results
+            logger.info("Exporting Functionality Test results...")
+            functionality_results = self.unified_test_results.get("functionality", {})
+            functionality_progress = self.unified_test_progress.get("functionality", {})
+            if self._export_results_by_type(sheet, "functionality", functionality_results, functionality_progress, exported_test_steps):
+                data_exported = True
+            
+            # cell format setting should apply after data writed
+            sheet.column_dimensions['A'].width = 25
+            sheet.column_dimensions['B'].width = 40
+            sheet.column_dimensions['C'].width = 48
+            sheet.column_dimensions['D'].width = 8
+            sheet.column_dimensions['E'].width = 55
+            sheet.column_dimensions['F'].width = 69
+            sheet.column_dimensions['G'].width = 55
+            sheet.column_dimensions['H'].width = 18
+            sheet.column_dimensions['I'].width = 15
+            for row in range(4, 64):
+                for col in range(1, 10):
+                    cell = sheet.cell(row, col)
+                    cell.alignment = Alignment(vertical='center', wrapText=True)
+                    if col == 4:
+                        result_value = str(cell.value).strip().upper()
+                        if result_value == "PASS":
+                            cell.font = Font(color="00B050", bold=True) # Green
+                        elif result_value == "FAIL":
+                            cell.font = Font(color="FF0000", bold=True) # Red
+                        else:
+                            cell.font = Font(bold=True) # Default
+
+                        cell.alignment = Alignment(vertical='center', horizontal='center')
+            sheet.freeze_panes = 'E4'
+            
+            workbook.save(file_path)
             
             if data_exported:
                 logger.info(f"Test results exported to: {file_path}")
             else:
-                logger.warning("No data was exported to the CSV file")
+                logger.warning("No data was exported to the XLSX file")
             
             self.clear_all_test_results()
             
