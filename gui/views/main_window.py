@@ -3462,18 +3462,6 @@ class MainWindowController(QObject):
                 cell = sheet.cell(row, col)
                 cell.font = Font(bold=True)
                 cell.alignment = Alignment(horizontal='center', vertical='center')
-            sheet.column_dimensions['A'].width = 25
-            sheet.column_dimensions['B'].width = 50
-            sheet.column_dimensions['C'].width = 60
-            sheet.column_dimensions['D'].width = 8
-            sheet.column_dimensions['D'].alignment = Alignment(horizontal='center')
-            sheet.column_dimensions['E'].width = 55
-            for row in range(4, 63):
-                sheet.row_dimensions[row].height = 33
-                sheet.row_dimensions[row].alignment = Alignment(vertical='center')
-                target_row = f"E{row}"
-                sheet[target_row].alignment = Alignment(wrapText=True)
-            sheet.freeze_panes = 'E4'
             
             exported_test_steps = set()
             data_exported = False
@@ -3490,6 +3478,32 @@ class MainWindowController(QObject):
             functionality_progress = self.unified_test_progress.get("functionality", {})
             if self._export_results_by_type(sheet, "functionality", functionality_results, functionality_progress, exported_test_steps):
                 data_exported = True
+            
+            # cell format setting should apply after data writed
+            sheet.column_dimensions['A'].width = 25
+            sheet.column_dimensions['B'].width = 40
+            sheet.column_dimensions['C'].width = 48
+            sheet.column_dimensions['D'].width = 8
+            sheet.column_dimensions['E'].width = 55
+            sheet.column_dimensions['F'].width = 69
+            sheet.column_dimensions['G'].width = 55
+            sheet.column_dimensions['H'].width = 18
+            sheet.column_dimensions['I'].width = 15
+            for row in range(4, 64):
+                for col in range(1, 10):
+                    cell = sheet.cell(row, col)
+                    cell.alignment = Alignment(vertical='center', wrapText=True)
+                    if col == 4:
+                        result_value = str(cell.value).strip().upper()
+                        if result_value == "PASS":
+                            cell.font = Font(color="00B050", bold=True) # Green
+                        elif result_value == "FAIL":
+                            cell.font = Font(color="FF0000", bold=True) # Red
+                        else:
+                            cell.font = Font(bold=True) # Default
+
+                        cell.alignment = Alignment(vertical='center', horizontal='center')
+            sheet.freeze_panes = 'E4'
             
             workbook.save(file_path)
             
