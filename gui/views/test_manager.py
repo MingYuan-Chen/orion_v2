@@ -217,6 +217,12 @@ class TestManagerView(QObject):
         if self.abort_button:
             self.abort_button.setVisible(True)
 
+        # Scroll to the test widget to make it visible
+        if self.test_container:
+            test_widget = self.test_container.get_test_widget(test_id)
+            if test_widget:
+                self.test_container.ensureWidgetVisible(test_widget)
+
         # Start the test
         self.hw_test_manager.start_test(self.device_id, test_id)
         
