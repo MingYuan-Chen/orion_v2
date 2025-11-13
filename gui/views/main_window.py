@@ -162,6 +162,9 @@ class MainWindowController(QObject):
         # Add logged commands set to avoid duplicate logging
         self.logged_commands = set()
         
+        # Add a dictionary to store the latest system information for export
+        self.system_info_data = {}
+        
         # Load UI
         try:
             # Get UI file path - support PyInstaller
@@ -352,6 +355,17 @@ class MainWindowController(QObject):
         # System info update will be triggered after USB deployment is completed
         # No need for initial auto-refresh to avoid conflicts with USB deployment commands
     
+    @Slot(dict)
+    def _on_system_info_updated_main(self, system_info: dict):
+        """
+        Slot to receive system info updates from SystemInfoManagerView.
+        
+        Args:
+            system_info: A dictionary containing the latest system information.
+        """
+        self.system_info_data = system_info
+        logger.debug(f"Main window received and stored system info update: {list(system_info.keys())}")
+
     def _on_initial_system_info_refresh(self):
         """initial system info refresh (after the main window is loaded)"""
         # check if the update is already in progress, avoid duplicate execution
@@ -449,6 +463,9 @@ class MainWindowController(QObject):
         
         # when the update is error, add the error log, and close the waiting icon
         self.system_info_manager.info_update_error.connect(self._on_system_info_update_error)
+        
+        # Connect the new signal to store system info data for export
+        self.system_info_manager.system_info_updated.connect(self._on_system_info_updated_main)
     
     def _init_hw_sw_config_view(self):
         """Initialize HW/SW configuration view"""
@@ -3505,6 +3522,42 @@ class MainWindowController(QObject):
                         cell.alignment = Alignment(vertical='center', horizontal='center')
             sheet.freeze_panes = 'E4'
             
+            # Export System Info to a new sheet if data is available
+            if self.system_info_data:
+                try:
+                    info_sheet = workbook.create_sheet(title="System Info")
+                    info_sheet.append(["Category", "Item", "Value"])
+                    
+                    # Style the header
+                    for cell in info_sheet["1:1"]:
+                        cell.font = Font(bold=True)
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                    # Define the order of categories for a structured output
+                    category_order = ['cpu', 'memory', 'storage', 'battery', 'firmware_os']
+                    
+                    # Flatten the nested dictionary and write to the sheet
+                    for category in category_order:
+                        if category in self.system_info_data:
+                            info_dict = self.system_info_data[category]
+                            if isinstance(info_dict, dict):
+                                for key, value in info_dict.items():
+                                    # Clean the value before writing
+                                    display_value = self._clean_response_text(str(value))
+                                    info_sheet.append([category.replace('_', ' ').title(), key, display_value])
+
+                    # Auto-size columns for the new sheet for better readability
+                    for column_cells in info_sheet.columns:
+                        try:
+                            length = max(len(str(cell.value)) for cell in column_cells if cell.value)
+                            info_sheet.column_dimensions[column_cells[0].column_letter].width = length + 2
+                        except (ValueError, TypeError):
+                            # Handle empty columns or other issues
+                            pass
+                    logger.info("System Info sheet created successfully.")
+                except Exception as ex:
+                    logger.error(f"Error creating System Info sheet: {str(ex)}")
+
             workbook.save(file_path)
             
             if data_exported:

@@ -21,6 +21,7 @@ class SystemInfoManagerView(QObject):
     info_update_started = Signal()
     info_update_completed = Signal()
     info_update_error = Signal(str)  # error_message
+    system_info_updated = Signal(dict)
     
     def __init__(self, device_id: str, system_info_service: SystemInfoService):
         """
@@ -244,6 +245,9 @@ class SystemInfoManagerView(QObject):
         
         # only record detailed information at debug level
         logger.debug(f"System info received for {device_id} - CPU: {cpu_model}")
+        
+        # Emit the signal with the system info data
+        self.system_info_updated.emit(system_info)
         
         # Mark update as completed
         self._handle_update_completed()
