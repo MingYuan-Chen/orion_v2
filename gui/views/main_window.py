@@ -1069,7 +1069,7 @@ class MainWindowController(QObject):
         self.test_manager.register_test("functionality_power_button", "Power Button Test")
         self.test_manager.register_test("functionality_touch", "Touch Test")
         self.test_manager.register_test("functionality_usb", "USB Test")
-        if self.platform_name in ["Athena", "Argo", "Hydra", "Gemini"]:
+        if self.platform_name not in ["Athena", "Argo", "Hydra", "Gemini"]:
             self.test_manager.register_test("functionality_probe", "Probe Test")
         
         # set the log recorder

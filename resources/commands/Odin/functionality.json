@@ -156,7 +156,7 @@
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
       "",
       "/dqa_package/odin_res/configure_console.sh",
-      "LD_LIBRARY_PATH=/run/media/sda1/dqa_package/odin_res /run/media/sda1/dqa_package/odin_res/probe-capture",
+      "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
       "/dqa_package/odin_res/check_crc.sh"
     ]
   }
