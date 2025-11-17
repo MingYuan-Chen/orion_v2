@@ -1,0 +1,148 @@
+
+import sys
+from typing import Optional
+from PySide6.QtCore import QObject, Signal, Slot, Qt
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel
+)
+from PySide6.QtGui import QKeyEvent
+from core.view_models.device_view_model import DeviceViewModel
+
+class CommandInputLineEdit(QLineEdit):
+    """
+    A custom QLineEdit that detects common interrupt signals.
+    The supported keys are defined in the INTERRUPT_KEYS dictionary.
+    """
+    interrupt_signal_pressed = Signal(bytes)
+
+    # Defines the mapping from key combinations to the bytes to be emitted.
+    # Format: (Qt.Key, Qt.KeyboardModifier): (bytes_to_emit, needs_no_autorepeat_check)
+    INTERRUPT_KEYS = {
+        (Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier): (b'\x03', False),
+        (Qt.Key.Key_D, Qt.KeyboardModifier.ControlModifier): (b'\x04', False),
+        (Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier): (b'\x1b', True),
+    }
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        key_tuple = (event.key(), event.modifiers())
+
+        if key_tuple in self.INTERRUPT_KEYS:
+            byte_to_emit, needs_no_autorepeat = self.INTERRUPT_KEYS[key_tuple]
+
+            if needs_no_autorepeat and event.isAutoRepeat():
+                # Absorb auto-repeat events for keys that shouldn't have them (e.g., ESC)
+                event.accept()
+                return
+
+            self.interrupt_signal_pressed.emit(byte_to_emit)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+class MainView(QWidget):
+    """
+    The main view (UI) of the application.
+    It is a "dumb" view that only displays data from the ViewModel and forwards user actions to it.
+    """
+    def __init__(self, view_model: DeviceViewModel):
+        super().__init__()
+        self._vm = view_model
+        self.setWindowTitle("PSC Orion")
+        self.setGeometry(100, 100, 500, 400)
+
+        # --- UI Widgets ---
+        self.port_label = QLabel("Available Ports:")
+        self.port_combo = QComboBox()
+        self.baud_label = QLabel("Baudrate:")
+        self.baud_combo = QComboBox()
+        self.baud_combo.addItems(['9600', '19200', '38400', '57600', '115200'])
+        self.baud_combo.setCurrentText('115200')
+        self.refresh_button = QPushButton("Refresh")
+        self.connect_button = QPushButton("Connect")
+        self.cmd_input = CommandInputLineEdit()
+        self.send_button = QPushButton("Send")
+        self.log_view = QTextEdit()
+        self.log_view.setReadOnly(True)
+
+        # --- Layouts ---
+        main_layout = QVBoxLayout(self)
+        top_layout = QHBoxLayout()
+        cmd_layout = QHBoxLayout()
+
+        top_layout.addWidget(self.port_label)
+        top_layout.addWidget(self.port_combo, 1)
+        top_layout.addWidget(self.baud_label)
+        top_layout.addWidget(self.baud_combo)
+        top_layout.addWidget(self.refresh_button)
+        top_layout.addWidget(self.connect_button)
+
+        self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
+        cmd_layout.addWidget(self.cmd_input, 1)
+        cmd_layout.addWidget(self.send_button)
+
+        main_layout.addLayout(top_layout)
+        main_layout.addLayout(cmd_layout)
+        main_layout.addWidget(QLabel("Log & Received Data:"))
+        main_layout.addWidget(self.log_view, 1)
+
+        # --- Data Binding and Event Connections ---
+        self._setup_bindings()
+
+        # --- Initial State from ViewModel ---
+        self.on_is_connected_changed() # Set initial UI state based on VM
+
+    def _setup_bindings(self):
+        """Set up connections between UI widgets and the ViewModel."""
+        # --- Bind View actions to ViewModel slots ---
+        self.refresh_button.clicked.connect(self._vm.refresh_ports)
+        self.connect_button.clicked.connect(
+            lambda: self._vm.toggle_connection(self.port_combo.currentText(), self.baud_combo.currentText())
+        )
+        self.send_button.clicked.connect(self._vm.send_command)
+        self.cmd_input.returnPressed.connect(self._vm.send_command)
+        self.cmd_input.textChanged.connect(self.on_command_input_changed)
+        self.cmd_input.interrupt_signal_pressed.connect(self._vm.send_interrupt_bytes)
+
+        # --- Bind ViewModel property changes to View update slots ---
+        self._vm.log_text_changed.connect(self.on_log_text_changed)
+        self._vm.is_connected_changed.connect(self.on_is_connected_changed)
+        self._vm.command_text_changed.connect(self.on_command_text_changed)
+
+        # --- Bind data model for the port list ---
+        self.port_combo.setModel(self._vm.port_list_model)
+
+    @Slot(str)
+    def on_command_input_changed(self, text: str):
+        """Update the ViewModel's command_text property whenever the input changes."""
+        self._vm.command_text = text
+
+    # --- Slots to update the View when ViewModel properties change ---
+    @Slot()
+    def on_log_text_changed(self):
+        self.log_view.setPlainText(self._vm.log_text)
+        self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()) # Auto-scroll
+
+    @Slot()
+    def on_is_connected_changed(self):
+        connected = self._vm.is_connected
+        self.port_combo.setEnabled(not connected)
+        self.baud_combo.setEnabled(not connected)
+        self.refresh_button.setEnabled(not connected)
+        self.send_button.setEnabled(connected)
+        self.cmd_input.setEnabled(connected)
+        self.connect_button.setText("Disconnect" if connected else "Connect")
+
+    @Slot()
+    def on_command_text_changed(self):
+        """Update the command input field if the VM changes it (e.g., clears it)."""
+        if self.cmd_input.text() != self._vm.command_text:
+            self.cmd_input.setText(self._vm.command_text)
+
+    def closeEvent(self, event):
+        """Ensure clean-up is called on window close."""
+        self._vm.clean_up()
+        super().closeEvent(event)
