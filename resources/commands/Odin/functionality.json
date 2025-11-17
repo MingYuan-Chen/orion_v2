@@ -44,7 +44,7 @@
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "sh /run/media/sda1/dqa_package/odin_power_key_monitor.sh",
+      "sh /dqa_package/odin_power_key_monitor.sh",
       ""
     ]
   },
@@ -130,24 +130,18 @@
   "functionality_touch": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl disable weston",
-      "reboot",
+      "systemctl stop weston && systemctl stop odin-production.service",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
       "mount /dev/sda1 /run/media/sda1",
       "/dqa_package/TouchTestQt",
       "ts_test_mt -j 2 -v",
       "", "",
-      "systemctl restart weston"
+      "systemctl restart weston && systemctl start odin-production.service"
     ]
   },
   "functionality_hdmi": {
     "commands": [
-      "echo 0 > /sys/class/graphics/fb2/blank",
-      "",
-      "gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "",
-      "pkill -f gst-launch"
+      ""
     ]
   },
   "functionality_probe": {
