@@ -2,7 +2,7 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /unit_tests/ASRC/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /dqa_package/odin_audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
@@ -154,8 +154,11 @@
   "functionality_probe": {
     "commands": [
       "mount -o remount,rw /",
-      "tar zxvf odin_probe-tools.tgz -C /home/root",
-      "killall /unit_tests/mxc_v4l2_overlay.out"
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "",
+      "/dqa_package/odin_res/configure_console.sh",
+      "LD_LIBRARY_PATH=/run/media/sda1/dqa_package/odin_res /run/media/sda1/dqa_package/odin_res/probe-capture",
+      "/dqa_package/odin_res/check_crc.sh"
     ]
   }
 }
