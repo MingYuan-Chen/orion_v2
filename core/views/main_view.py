@@ -63,28 +63,37 @@ class MainView(QWidget):
         self.baud_combo.setCurrentText('115200')
         self.refresh_button = QPushButton("Refresh")
         self.connect_button = QPushButton("Connect")
+        self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.cmd_input = CommandInputLineEdit()
         self.send_button = QPushButton("Send")
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
 
+        # Set fixed sizes for buttons
+        self.refresh_button.setFixedSize(100, 30)
+        self.connect_button.setFixedSize(100, 30)
+
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
         top_layout = QHBoxLayout()
+        second_layout = QHBoxLayout()
         cmd_layout = QHBoxLayout()
 
         top_layout.addWidget(self.port_label)
         top_layout.addWidget(self.port_combo, 1)
         top_layout.addWidget(self.baud_label)
         top_layout.addWidget(self.baud_combo)
-        top_layout.addWidget(self.refresh_button)
-        top_layout.addWidget(self.connect_button)
+        second_layout.addWidget(self.platform_label)
+        second_layout.addStretch() # Add stretch to push platform_label to the right
+        second_layout.addWidget(self.refresh_button)
+        second_layout.addWidget(self.connect_button)
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
         cmd_layout.addWidget(self.cmd_input, 1)
         cmd_layout.addWidget(self.send_button)
 
         main_layout.addLayout(top_layout)
+        main_layout.addLayout(second_layout)
         main_layout.addLayout(cmd_layout)
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)
@@ -111,6 +120,7 @@ class MainView(QWidget):
         self._vm.log_text_changed.connect(self.on_log_text_changed)
         self._vm.is_connected_changed.connect(self.on_is_connected_changed)
         self._vm.command_text_changed.connect(self.on_command_text_changed)
+        self._vm.platform_name_changed.connect(self.on_platform_name_changed)
 
         # --- Bind data model for the port list ---
         self.port_combo.setModel(self._vm.port_list_model)
@@ -135,6 +145,11 @@ class MainView(QWidget):
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
+
+    @Slot()
+    def on_platform_name_changed(self):
+        """Update the platform name label when the VM notifies of a change."""
+        self.platform_label.setText(f"Platform: {self._vm.platform_name}")
 
     @Slot()
     def on_command_text_changed(self):

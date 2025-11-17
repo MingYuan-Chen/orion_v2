@@ -3,6 +3,7 @@ import sys
 from typing import List, Optional
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel
 from core.models.serial_device_model import SerialDeviceModel
+from core.services.platform_detection_service import PlatformDetectionService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -15,10 +16,15 @@ class DeviceViewModel(QObject):
         self._log_text = ""
         self._command_text = ""
         self._is_connected = False
+        self._platform_name = "Unknown"
 
         # --- Port list management ---
         self._port_list_model = QStringListModel()
         self.refresh_ports()
+
+        # --- Services ---
+        self._detection_service = PlatformDetectionService(serial_model=self._model)
+        self._detection_service.platform_detected.connect(self.on_platform_detected)
 
         # --- Connect signals from the model to ViewModel slots ---
         self._model.connection_result.connect(self.on_connection_result)
@@ -31,6 +37,7 @@ class DeviceViewModel(QObject):
     log_text_changed = Signal()
     is_connected_changed = Signal()
     command_text_changed = Signal()
+    platform_name_changed = Signal()
 
     # =================================================================================
     # Properties accessible by the View
@@ -56,6 +63,10 @@ class DeviceViewModel(QObject):
     @Property(QObject, constant=True)
     def port_list_model(self) -> QStringListModel:
         return self._port_list_model
+
+    @Property(str, notify=platform_name_changed)
+    def platform_name(self) -> str:
+        return self._platform_name
 
     # =================================================================================
     # Slots (public methods) callable from the View
@@ -124,7 +135,7 @@ class DeviceViewModel(QObject):
         self._model.disconnect_device()
 
     # =================================================================================
-    # Private slots to handle signals from the Model
+    # Private slots to handle signals from the Model and Services
     # =================================================================================
     @Slot(bool, str)
     def on_connection_result(self, success: bool, message: str):
@@ -132,19 +143,36 @@ class DeviceViewModel(QObject):
         if success != self._is_connected:
             self._is_connected = success
             self.is_connected_changed.emit()
+        
+        if success:
+            self._detection_service.start_detection()
+        else:
+            # If connection failed, ensure platform name is reset
+            self.on_platform_detected("Unknown")
 
     @Slot(bool, str)
     def on_disconnection_result(self, success: bool, message: str):
         self._append_log(message)
+        # Stop detection service regardless of disconnection success
+        self._detection_service.stop_detection()
+        
         # Only update state if disconnection was successful or wasn't already disconnected
         if success and self._is_connected:
             self._is_connected = False
             self.is_connected_changed.emit()
-            self.refresh_ports()
+        
+        # Reset platform name on disconnect
+        self.on_platform_detected("Unknown")
 
     @Slot(str)
     def on_data_received(self, data: str):
         self._append_log(data)
+
+    @Slot(str)
+    def on_platform_detected(self, platform_name: str):
+        if self._platform_name != platform_name:
+            self._platform_name = platform_name
+            self.platform_name_changed.emit()
 
     # =================================================================================
     # Helper methods
