@@ -1,0 +1,37 @@
+#!/bin/sh
+
+#one row is 5888*2
+ROW=11776
+DIR=$1
+
+if [ -f all_crc ]; then
+    rm all_crc
+fi
+
+## Start from plane02, cause plane01 sometimes fail.
+## VT Probe test tool issue.
+for j in $(seq -w 02 14);
+do
+	FILE=${DIR}/plane${j};
+
+	for i in $(seq 1 80);
+	do
+		START=$(($i * $ROW - 4));
+		hexdump -s $START -n 4 -Cv $FILE | cut -d ' ' -f 5 | head -n 1 >> all_crc;
+	done
+
+	MD5=`md5sum all_crc | cut -d ' ' -f 1`;
+	echo $MD5;
+
+	#80 lines all return 01
+	if [ "$MD5" != "76f2263cf1720e1fb469c81e1fd953ce" ]; then
+                echo "Check sum error"
+                exit 1;
+        fi
+
+	rm all_crc
+
+done
+
+echo "Successful"
+exit 0
