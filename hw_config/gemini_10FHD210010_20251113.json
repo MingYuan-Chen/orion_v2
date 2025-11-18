@@ -1,0 +1,42 @@
+{
+  "platform_name": "gemini",
+  "config_name": "10FHD210010",
+  "created_date": "2025-11-13T10:45:20.762553",
+  "components": [
+    {
+      "id": "touch",
+      "component": "Touch",
+      "part_number": "101YF6A1",
+      "serial_number": "4460182",
+      "note": "Model: XH8712C01A"
+    },
+    {
+      "id": "display",
+      "component": "Display",
+      "part_number": "Can't not be verify",
+      "serial_number": "24706020061",
+      "note": "Model: TM10JDHG30"
+    },
+    {
+      "id": "main_board",
+      "component": "Main Board",
+      "part_number": "98PMHYDRA00F-020",
+      "serial_number": "HYFHD22180021",
+      "note": "Model: Can't not be verify"
+    },
+    {
+      "id": "edp_board",
+      "component": "eDP Board",
+      "part_number": "N/A",
+      "serial_number": "N/A",
+      "note": "N/A"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "Can't not be verify",
+      "serial_number": "240500734",
+      "note": "Model: MD-BAT"
+    }
+  ]
+}

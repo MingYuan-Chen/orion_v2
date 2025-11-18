@@ -1,0 +1,42 @@
+{
+  "platform_name": "hydra_fhd",
+  "config_name": "2025-1111_FHD 10.1 Gemini",
+  "created_date": "2025-11-11T14:01:51.657140",
+  "components": [
+    {
+      "id": "touch",
+      "component": "Touch",
+      "part_number": "156YF3A3",
+      "serial_number": "101YF6A5",
+      "note": "Model: XH8712C01A"
+    },
+    {
+      "id": "display",
+      "component": "Display",
+      "part_number": "Can't not be verify",
+      "serial_number": "2X2BBJU2EYZZ-PS0100",
+      "note": "Model: AUO G101UAN01.0"
+    },
+    {
+      "id": "main_board",
+      "component": "Main Board",
+      "part_number": "98PMHYDRA00F-020",
+      "serial_number": "GEFHD24480373",
+      "note": "Model: Can't not be verify"
+    },
+    {
+      "id": "edp_board",
+      "component": "eDP Board",
+      "part_number": "99GLCNB002F V.203",
+      "serial_number": "224600114",
+      "note": "Model : GL108_518234192 REV:D"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "MD-BAT",
+      "serial_number": "243400017",
+      "note": "Model: Can't not be verify"
+    }
+  ]
+}

@@ -233,12 +233,12 @@ class SystemInfoManagerView(QObject):
         if device_id != self.device_id:
             return
         
-        # Update UI with received data
-        self._update_system_info_display(system_info)
-        
         # Update firmware and OS information if available
         if "firmware_os" in system_info:
             self._update_firmware_os_display(system_info["firmware_os"])
+        
+        # Update UI with received data
+        self._update_system_info_display(system_info)
         
         # get the cpu model information
         cpu_model = system_info.get('cpu', {}).get('model', 'N/A')
