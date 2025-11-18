@@ -2,7 +2,7 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /unit_tests/ASRC/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /dqa_package/odin_audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
@@ -44,7 +44,7 @@
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "sh /run/media/sda1/dqa_package/odin_power_key_monitor.sh",
+      "sh /dqa_package/odin_power_key_monitor.sh",
       ""
     ]
   },
@@ -79,8 +79,7 @@
   "functionality_lcd": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl disable weston",
-      "reboot",
+      "systemctl stop weston & systemctl stop odin-production.service",
       "/usr/bin/drawfb -p red",
       "/usr/bin/drawfb -p green",
       "/usr/bin/drawfb -p blue",
@@ -92,7 +91,7 @@
       "/usr/bin/drawfb -p gray16",
       "/usr/bin/drawfb -p gray64",
       "/usr/bin/drawfb -p gray256",
-      "systemctl restart weston"
+      "systemctl restart weston & systemctl start odin-production.service"
     ]
   },
   "functionality_led": {
@@ -131,31 +130,28 @@
   "functionality_touch": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl disable weston",
-      "reboot",
+      "systemctl stop weston && systemctl stop odin-production.service",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
       "mount /dev/sda1 /run/media/sda1",
       "/dqa_package/TouchTestQt",
       "ts_test_mt -j 2 -v",
       "", "",
-      "systemctl restart weston"
+      "systemctl restart weston && systemctl start odin-production.service"
     ]
   },
   "functionality_hdmi": {
     "commands": [
-      "echo 0 > /sys/class/graphics/fb2/blank",
-      "",
-      "gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
-      "",
-      "pkill -f gst-launch"
+      ""
     ]
   },
   "functionality_probe": {
     "commands": [
       "mount -o remount,rw /",
-      "tar zxvf odin_probe-tools.tgz -C /home/root",
-      "killall /unit_tests/mxc_v4l2_overlay.out"
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "",
+      "/dqa_package/odin_res/configure_console.sh",
+      "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
+      "/dqa_package/odin_res/check_crc.sh"
     ]
   }
 }

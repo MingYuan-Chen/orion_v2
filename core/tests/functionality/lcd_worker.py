@@ -32,15 +32,10 @@ class LcdWorker(BaseTestWorker):
                 TestStep(
                     command=commands[1], 
                     timeout=5, 
-                    description="Stop Weston from auto-starting on boot"
+                    description="Stop the service to disable display on the screen"
                 ),
                 TestStep(
                     command=commands[2], 
-                    timeout=5, 
-                    description="Reboot system to apply Weston disable"
-                ),
-                TestStep(
-                    command=commands[3], 
                     timeout=5, 
                     description="Validate red color",
                     post_check="Is the LCD display red?",
@@ -49,7 +44,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[4], 
+                    command=commands[3], 
                     timeout=5, 
                     description="Validate green color",
                     post_check="Is the LCD display green?",
@@ -58,7 +53,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[5],
+                    command=commands[4],
                     timeout=5, 
                     description="Validate blue color",
                     post_check="Is the LCD display blue?",
@@ -67,7 +62,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[6],
+                    command=commands[5],
                     timeout=5, 
                     description="Validate black color",
                     post_check="Is the LCD display black?",
@@ -76,7 +71,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[7], 
+                    command=commands[6], 
                     timeout=5, 
                     description="Validate white color",
                     post_check="Is the LCD display white?",
@@ -85,7 +80,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[8],
+                    command=commands[7],
                     timeout=5, 
                     description="Validate colorbar color",
                     post_check="Is the LCD display colorbar?",
@@ -94,7 +89,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[9],
+                    command=commands[8],
                     timeout=5, 
                     description="Validate gradient256 color",
                     post_check="Is the LCD display gradient256?",
@@ -103,7 +98,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[10], 
+                    command=commands[9], 
                     timeout=5, 
                     description="Validate frame color",
                     post_check="Is the LCD display frame?",
@@ -112,7 +107,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[11],
+                    command=commands[10],
                     timeout=5, 
                     description="Validate gray16 color",
                     post_check="Is the LCD display gray16?",
@@ -121,7 +116,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[12],
+                    command=commands[11],
                     timeout=5, 
                     description="Validate gray64 color",
                     post_check="Is the LCD display gray64?",
@@ -130,7 +125,7 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[13],
+                    command=commands[12],
                     timeout=5, 
                     description="Validate gray256 color",
                     post_check="Is the LCD display gray256?",
@@ -139,9 +134,9 @@ class LcdWorker(BaseTestWorker):
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[14],
+                    command=commands[13],
                     timeout=5, 
-                    description="Enable the Weston service"
+                    description="Restart the service to enable display on the screen"
                 )
             ]
         return [
