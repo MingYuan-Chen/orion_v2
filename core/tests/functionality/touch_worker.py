@@ -33,25 +33,20 @@ class TouchWorker(BaseTestWorker):
                 TestStep(
                     command=commands[1], 
                     timeout=5, 
-                    description="Stop Weston from auto-starting on boot"
+                    description="Stop the service to disable display on the screen"
                 ),
                 TestStep(
-                        command=commands[2], 
-                        timeout=5, 
-                        description="Reboot system to apply Weston disable"
-                    ),
-                TestStep(
-                    command=commands[3], 
+                    command=commands[2], 
                     timeout=5, 
                     description="Enable USB ports power"
                 ),
                 TestStep(
-                    command=commands[4], 
+                    command=commands[3], 
                     timeout=5, 
                     description="Mount USB storage device"
                 ),
                 TestStep(
-                    command=commands[5],
+                    command=commands[4],
                     timeout=5,
                     description="Touch the 9 red circles",
                     criteria="The 9 red circles should become green",
@@ -60,12 +55,12 @@ class TouchWorker(BaseTestWorker):
                     manual_only=True
                 ),
                 TestStep(
-                    command=commands[6],  
+                    command=commands[5],  
                     timeout=5,
                     description="Launch ts_test_mt",
                 ),
                 TestStep(
-                    command=commands[7],
+                    command=commands[6],
                     description="Draw along the edge of the screen with Single & double draw",
                     criteria="A line should be drawn along on the screen when drawing with a single finger and double finger",
                     pre_condition='1.Please click the "Draw" "button \n2.Draw along the edge of the screen with a single and double fingers on the screen',
@@ -73,7 +68,7 @@ class TouchWorker(BaseTestWorker):
                     manual_only=True
                 ),
                 TestStep(
-                    command=commands[8],
+                    command=commands[7],
                     timeout=5,
                     description="Quit touch test tool",
                     pre_condition='Please click the "Quit" button',
@@ -81,9 +76,9 @@ class TouchWorker(BaseTestWorker):
                     manual_only=True
                 ),
                 TestStep(
-                    command=commands[9],
+                    command=commands[8],
                     timeout=5,
-                    description="Enable the Weston service",
+                    description="Restart the service to enable display on the screen",
                 )
             ]
         else:
