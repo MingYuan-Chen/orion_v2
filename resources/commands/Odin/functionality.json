@@ -57,13 +57,9 @@
   },
   "functionality_eeprom": {
     "commands": [
-      "dd if=/dev/urandom of=/tmp/to_eeprom0_data bs=1K count=16",
-      "md5sum /tmp/to_eeprom0_data | cut -d' ' -f1",
-      "cat /tmp/to_eeprom0_data | eeprog -f -8 /dev/i2c-2 0x4c -w 0x00",
-      "eeprog -f -8 /dev/i2c-2 0x4c -r 0x00:16384 > /tmp/from_eeprom0_data",
-      "md5sum /tmp/from_eeprom0_data | cut -d' ' -f1",
-      "echo 'Comparing MD5 values'",
-      "rm -f to_eeprom0_data from_eeprom0_data"
+      "mount -o remount,rw /",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "/dqa_package/odin_eeprom_check.sh"
     ],  
     "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
   },
