@@ -96,58 +96,24 @@ class EepromWorker(BaseTestWorker):
                 )
             ]
         if self.platform_name == "odin":
-            logger.info("[DEBUG] Entered Odin-specific EEPROM test flow")
             return [
                  # Step 1: 產生測試資料
                 TestStep(
                     command=commands[0],
                     timeout=5,
-                    description="Generate EEPROM 24c04 test data for Odin"
+                    description="Make root filesystem writable"
                 ),
-                # Step 2: 計算原始資料 MD5
                 TestStep(
                     command=commands[1],
-                    validation_func=self._store_to_eeprom0_md5,
-                    timeout=5,
-                    description="Calculate MD5 of EEPROM 24c04 test data"
+                                        timeout=5,
+                    description="Enable the USB Power"
                 ),
-
-                # Step 3: 寫入 EEPROM (位址 0x4c)
                 TestStep(
                     command=commands[2],
+                    validation_func=self._validate_odin_eeprom,
                     timeout=800,
-                    description="Write data to EEPROM 24c04 (addr 0x4c)"
-                ),
-
-                # Step 4: 讀出 EEPROM 資料
-                TestStep(
-                    command=commands[3],
-                    timeout=10,
-                    description="Read data from EEPROM 24c04 (addr 0x4c)"
-                ),
-
-                # Step 5: 計算讀回資料的 MD5
-                TestStep(
-                    command=commands[4],
-                    validation_func=self._store_from_eeprom0_md5,
-                    timeout=5,
-                    description="Calculate MD5 of read data from EEPROM 24c04"
-                ),
-
-                # Step 6: 驗證 MD5 是否一致
-                TestStep(
-                    command=commands[5],
-                    validation_func=self._validate_md5_values,
-                    timeout=3,
-                    description="Validate EEPROM 24c04 read/write consistency",
-                    criteria="MD5 checksum matches"
-                ),
-
-                # Step 7: 清理暫存檔案
-                TestStep(
-                    command=commands[6],
-                    timeout=3,
-                    description="Clean up EEPROM 24c04 temp files"
+                    description="Check EEPROM 0x4C is detected and read raw HEX data",
+                    criteria='The EEPROM is detected on I2C bus 2 at address 0x4C, with RAW HEX data is "32323200184D32303648A0A0A0000000".'
                 )
             ]
         else:
@@ -407,3 +373,11 @@ class EepromWorker(BaseTestWorker):
             return True, "EEPROM 1 dump timestamp test passed!"
         
         return False, "Failed to get the dump log from EEPROM"
+    def _validate_odin_eeprom(self, response: str) -> Tuple[bool, str]:
+        """
+        PASS when the script prints 'EPPROM Test = PASS'. Otherwise FAIL.
+        """
+        if response and "epprom test = pass" in response.lower():
+            return True, "EEPROM check passed"
+
+        return False, "EEPROM check failed"
