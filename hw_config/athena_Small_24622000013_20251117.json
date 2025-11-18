@@ -34,7 +34,7 @@
     {
       "id": "battery",
       "component": "Battery",
-      "part_number": "Can NOT be verified",
+      "part_number": "--",
       "serial_number": "2503030",
       "note": "--"
     }

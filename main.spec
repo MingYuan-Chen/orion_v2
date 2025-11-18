@@ -9,6 +9,7 @@ a = Analysis(
         ('resources/icons/header.ico', 'resources/icons'),
         ('resources/commands', 'resources/commands'),
         ('gui/ui', 'gui/ui'),
+        ('hw_config', 'hw_config'),
         ],
     hiddenimports=[],
     hookspath=[],

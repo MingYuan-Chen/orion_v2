@@ -10,11 +10,15 @@ from gui.views.device_manager_widget import DeviceManagerWidget
 from util.logger import logger
 import os
 from PySide6.QtCore import Qt
+from util.resource_manager import ensure_default_hw_configs
 
 
 def main():
     """Main entry function"""
     try:
+        # Ensure default hardware configs are in place
+        ensure_default_hw_configs()
+        
         # Create application
         app = QApplication(sys.argv)
         
