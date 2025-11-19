@@ -4,6 +4,7 @@ from typing import List, Optional
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
+from core.services.sequence_execution_service import SequenceExecutionService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -25,6 +26,9 @@ class DeviceViewModel(QObject):
         # --- Services ---
         self._detection_service = PlatformDetectionService(serial_model=self._model)
         self._detection_service.platform_detected.connect(self.on_platform_detected)
+
+        self._sequence_executor = SequenceExecutionService(device_model=self._model)
+        self._sequence_executor.command_completed.connect(self.on_command_completed)
 
         # --- Connect signals from the model to ViewModel slots ---
         self._model.connection_result.connect(self.on_connection_result)
@@ -167,12 +171,25 @@ class DeviceViewModel(QObject):
     @Slot(str)
     def on_data_received(self, data: str):
         self._append_log(data)
+    
+    @Slot(str)
+    def on_command_completed(self, data: str):
+        self._append_log("[Sequence Command] ----------------")
+        self._append_log(data)
+        self._append_log("[Complete Response] ================")
 
     @Slot(str)
     def on_platform_detected(self, platform_name: str):
         if self._platform_name != platform_name:
             self._platform_name = platform_name
             self.platform_name_changed.emit()
+            # self._sequence_executor.execute_sequence_commands(
+            #     [
+            #         "uname -a",
+            #         "cat /etc/os-release",
+            #         "strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'"
+            #     ]
+            # )
 
     # =================================================================================
     # Helper methods

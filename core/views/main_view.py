@@ -1,7 +1,7 @@
 
 import sys
 from typing import Optional
-from PySide6.QtCore import QObject, Signal, Slot, Qt
+from PySide6.QtCore import QObject, Signal, Slot, Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel
@@ -134,7 +134,7 @@ class MainView(QWidget):
     @Slot()
     def on_log_text_changed(self):
         self.log_view.setPlainText(self._vm.log_text)
-        self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()) # Auto-scroll
+        QTimer.singleShot(20, lambda: self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()))
 
     @Slot()
     def on_is_connected_changed(self):
