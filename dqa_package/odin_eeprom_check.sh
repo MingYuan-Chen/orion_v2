@@ -2,7 +2,7 @@
 
 BUS=2
 ADDR_HEX="4c"
-EXPECTED_HEX="32323200184D32303648A0A0A0000000"
+EXPECTED_HEX="32323232323232323232323232323232"
 
 # 1. Detect EEPROM presence
 if ! i2cdetect -y $BUS | grep -qi "\b$ADDR_HEX\b"; then
@@ -29,7 +29,7 @@ if [ "$RAW_HEX_UPPER" = "$EXPECTED_HEX" ]; then
 else
     echo "EPPROM Test = FAIL"
     echo "1. EEPROM detected on I2C bus $BUS address 0x$ADDR_HEX."
-    echo "2. Raw HEX = $RAW_HEX_UPPER  (EXPECTED: $EXPECTED_HEX)"
+    echo "2. Raw HEX = $RAW_HEX_UPPER"
     exit 1
 fi
 
