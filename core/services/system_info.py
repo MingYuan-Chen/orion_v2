@@ -762,7 +762,15 @@ class SystemInfoService(QObject):
                                     raise ValueError("No hex values found in response")
                             else:
                                 raise ValueError("Invalid response format")
-                        
+                        if "odin" in self.platform_name.lower():
+                            try:
+                                if isinstance(value, int) and value == 0xFFFF:
+                                    if command_name == "battery_model":
+                                        return "No Battery Detected"
+                                    else:
+                                        return "--"
+                            except:
+                                pass
                         # Convert format according to different types
                         if command_name == "capacity":
                             # Return capacity value directly
