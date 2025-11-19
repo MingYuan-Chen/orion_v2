@@ -85,16 +85,7 @@ class SystemInfoService(QObject):
         self.current_command_string = None
         
         # Define valid ranges for battery commands (after conversion)
-        self.valid_ranges = {
-            "relative_state": (0, 100),        # 0 ~ 100
-            "charging_voltage": (0.0, 9.0),    # 7 ~ 9 V
-            "charging_current": (0.0, 2.0),    # 1 ~ 2 A  
-            "voltage": (0.0, 9.0),            # 0 ~ 50 V
-            "current": (-4.0, 4.0),            # -4 ~ 4 A
-            "temperature": (0.0, 70.0),        # 0 ~ 70 °C
-            "design_voltage": (6.0, 12.0),     # 6 ~ 12 V
-            "design_capacity": (2000, 5000)    # 2000 ~ 5000 mAh
-        }
+        self.valid_ranges = self._get_valid_ranges(platform_name)
         
         # Connect command result signal
         self.serial_worker.command_result.connect(self._on_command_completed)
@@ -109,7 +100,37 @@ class SystemInfoService(QObject):
             6: ("Orange", "orange"), 14: ("Orange Blinking", "orange"),
             7: ("White", "white"), 15: ("White Blinking", "white")
         }
-    
+    def _get_valid_ranges(self, platform_name: str):
+        """
+        Get valid ranges based on platform/project.
+        """
+        if "odin" in platform_name.lower():
+            return {
+                "relative_state": (0, 100),
+                "charging_voltage": (0.0, 12.6),
+                "charging_current": (0.0, 3.25),
+                "voltage": (0.0, 12.6),
+                "current": (-4.0, 4.0),
+                "temperature": (0.0, 65.0),
+                "design_voltage": (10.8, 10.95),
+                "design_capacity": (6400, 6800)
+            }
+
+        if "hydra"or "argo" or "athena" or "gemini" in platform_name.lower():
+            return {
+                "relative_state": (0, 100),
+                "charging_voltage": (6.0, 13.0),
+                "charging_current": (0.0, 3.0),
+                "voltage": (0.0, 15.0),
+                "current": (-6.0, 6.0),
+                "temperature": (0.0, 80.0),
+                "design_voltage": (10.0, 15.0),
+                "design_capacity": (3000, 8000)
+            }
+
+        # Default fallback
+        return {}
+
     def _get_commands_from_platform(self):
         """
         Get commands from platform command set
