@@ -1,10 +1,11 @@
 
+from ast import Dict
 import sys
 from typing import List, Optional
-from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel
+from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
-from core.services.sequence_execution_service import SequenceExecutionService
+from core.services.system_info_service import SystemInfoService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -24,16 +25,14 @@ class DeviceViewModel(QObject):
         self.refresh_ports()
 
         # --- Services ---
-        self._detection_service = PlatformDetectionService(serial_model=self._model)
-        self._detection_service.platform_detected.connect(self.on_platform_detected)
-
-        self._sequence_executor = SequenceExecutionService(device_model=self._model)
-        self._sequence_executor.command_completed.connect(self.on_command_completed)
+        self._detection_service = PlatformDetectionService(device_model=self._model)
 
         # --- Connect signals from the model to ViewModel slots ---
         self._model.connection_result.connect(self.on_connection_result)
         self._model.disconnection_result.connect(self.on_disconnection_result)
         self._model.data_received.connect(self.on_data_received)
+
+        self._detection_service.platform_detected.connect(self.on_platform_detected)
 
     # =================================================================================
     # Signals to notify the View of property changes
@@ -113,8 +112,8 @@ class DeviceViewModel(QObject):
     def send_command(self):
         """Sends the command from the command_text property."""
         if self._command_text:
-            self._append_log(f"--> SEND: {self._command_text}")
-            self._model.send_command(self._command_text)
+            self._append_log(f"[SEND]: {self._command_text}")
+            self._model.send_command_queued(self._command_text)
             self.command_text = "" # Clear input after sending
 
     @Slot(bytes)
@@ -122,13 +121,13 @@ class DeviceViewModel(QObject):
         """Sends an interrupt byte sequence from the view."""
         if self._is_connected:
             # For logging purposes, map bytes to a friendly name
-            log_message = f"--> SEND: Interrupt ({interrupt_bytes.hex()})"
+            log_message = f"[SEND]: Interrupt ({interrupt_bytes.hex()})"
             if interrupt_bytes == b'\x03':
-                log_message = "--> SEND: Ctrl+C (Interrupt)"
+                log_message = "[SEND]: Ctrl+C (Interrupt)"
             elif interrupt_bytes == b'\x04':
-                log_message = "--> SEND: Ctrl+D (EOF)"
+                log_message = "[SEND]: Ctrl+D (EOF)"
             elif interrupt_bytes == b'\x1b':
-                log_message = "--> SEND: ESC"
+                log_message = "[SEND]: ESC"
             
             self._append_log(log_message)
             self._model.send_command(interrupt_bytes)
@@ -151,7 +150,6 @@ class DeviceViewModel(QObject):
         if success:
             self._detection_service.start_detection()
         else:
-            # If connection failed, ensure platform name is reset
             self.on_platform_detected("Unknown")
 
     @Slot(bool, str)
@@ -171,25 +169,21 @@ class DeviceViewModel(QObject):
     @Slot(str)
     def on_data_received(self, data: str):
         self._append_log(data)
-    
-    @Slot(str)
-    def on_command_completed(self, data: str):
-        self._append_log("[Sequence Command] ----------------")
-        self._append_log(data)
-        self._append_log("[Complete Response] ================")
 
     @Slot(str)
     def on_platform_detected(self, platform_name: str):
         if self._platform_name != platform_name:
             self._platform_name = platform_name
             self.platform_name_changed.emit()
-            # self._sequence_executor.execute_sequence_commands(
-            #     [
-            #         "uname -a",
-            #         "cat /etc/os-release",
-            #         "strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'"
-            #     ]
-            # )
+        
+        self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
+        self._system_info_service.info_updated.connect(self.on_info_updated)
+        self._system_info_service.collect_system_info()
+    
+    @Slot(bool, str)
+    def on_info_updated(self, key: str, result: str):
+        self._append_log("[System Info Update] ========")
+        self._append_log(f"{key}: {result}")
 
     # =================================================================================
     # Helper methods
