@@ -105,7 +105,7 @@ class EepromWorker(BaseTestWorker):
                 ),
                 TestStep(
                     command=commands[1],
-                                        timeout=5,
+                    timeout=5,
                     description="Enable the USB Power"
                 ),
                 TestStep(

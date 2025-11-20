@@ -19,7 +19,8 @@ class PicVersionWorker(BaseTestWorker):
             "gemini": 100,
             "gemini_fhd": 100,  # Same as gemini
             "argo": 114,
-            "athena": 4
+            "athena": 4,
+            "odin": 24,
         }
     
     def prepare_test_steps(self) -> List[TestStep]:
