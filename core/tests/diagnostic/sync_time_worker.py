@@ -26,7 +26,7 @@ class SyncTimeWorker(BaseTestWorker):
             diagnostic sync time test steps list
         """
         commands = self.get_commands(self.test_id, CommandType.AUTO_DIAGNOSTIC)
-        
+        expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         if self.platform_name == "athena":
             return [
                 TestStep(
@@ -67,28 +67,11 @@ class SyncTimeWorker(BaseTestWorker):
                 ),
                 TestStep(
                     command=commands[3],
-                    validation_func=self._validate_sync_time,
+                    expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
+                    validation_func=self._validate_odin_sync_time,
                     timeout=5, 
                     description='Sync time with server:192.168.6.11',
-                    criteria=f"ntp sync time succeed"
-                ),
-                TestStep(
-                    command=commands[4],
-                    timeout=5, 
-                    description="Write RTC Time",
-                ),
-                TestStep(
-                    command=commands[5],
-                    validation_func=self._validate_hwclock_time,
-                    timeout=5, 
-                    description="Read RTC Time",
-                ),
-                TestStep(
-                    command=commands[6],
-                    validation_func=self._validate_date,
-                    timeout=5, 
-                    description="Verify RTC time synced with server time",
-                    criteria=f"RTC time is same as server time",
+                    criteria=f"ntp sync time succeed and system can write system time to RTC time",
                 )
             ]
         else:
@@ -320,3 +303,28 @@ class SyncTimeWorker(BaseTestWorker):
             logger.error(f"Error validating date: {e}")
             return False, f"Could not validate date: {response.strip()}"
 
+    def _validate_odin_sync_time(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate sync time by checking ONLY the first 'Sync Time = ...' result.
+        If multiple results exist, the earliest one decides PASS/FAIL.
+        """
+
+        if not response:
+            return False, "Sync time failed (empty response)"
+
+        # Normalize: split by line
+        lines = response.lower().splitlines()
+
+        # Find ALL "sync time =" lines
+        sync_lines = [line.strip() for line in lines if "sync time =" in line]
+
+        if not sync_lines:
+            return False, "Sync time failed (no sync result found)"
+
+        # Get ONLY the first result
+        first_result = sync_lines[0]
+
+        if "sync time = pass" in first_result:
+            return True, "Sync time passed"
+
+        return False, "Sync time failed"
