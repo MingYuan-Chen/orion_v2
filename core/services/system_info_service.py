@@ -95,9 +95,9 @@ class SystemInfoService(QObject):
                         "available": f"{round(float(parts[6])/(1024*1024), 1)} MB",
                         "usage_percent": f"{round((int(parts[2]) / int(parts[1])) * 100, 1)} %"
                     }
-                self.info_updated.emit('memory_info', self.collected_info['memory_info']["total"])
-                self.info_updated.emit('memory_info', self.collected_info['memory_info']["used"])
-                self.info_updated.emit('memory_info', self.collected_info['memory_info']["usage_percent"])
+                self.info_updated.emit('memory total', self.collected_info['memory_info']["total"])
+                self.info_updated.emit('memory used', self.collected_info['memory_info']["used"])
+                self.info_updated.emit('memory usage percent', self.collected_info['memory_info']["usage_percent"])
 
         except Exception as e:
             error_msg = f"An unexpected error occurred during response processing: {e}"

@@ -5,7 +5,7 @@ import serial
 import serial.tools.list_ports
 from collections import deque
 from typing import Optional, List, Union, Tuple
-from PySide6.QtCore import QObject, QThread, Signal, Slot, QTimer
+from PySide6.QtCore import QObject, QThread, Signal, Slot, QTimer, QEventLoop
 
 class SerialListener(QThread):
     received = Signal(str)
@@ -46,6 +46,7 @@ class SerialDeviceModel(QObject):
     
     # 新增訊號：通知外部某個指令序列已經全部執行完畢
     queue_finished = Signal() 
+    command_finished = Signal(str, list)  # command, response_lines
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -61,6 +62,9 @@ class SerialDeviceModel(QObject):
         self.timeout_timer.setSingleShot(True)
         self.timeout_timer.timeout.connect(self._on_command_timeout)
         self.current_timeout_sec = 3.0
+
+        self.current_cmd = None
+        self.current_response_lines = []
 
     @staticmethod
     def get_available_ports() -> List[serial.tools.list_ports_common.ListPortInfo]:
@@ -150,8 +154,29 @@ class SerialDeviceModel(QObject):
         # 取出下一個指令
         item = self.command_queue.popleft()
         cmd = item['cmd']
-        self.current_wait_token = item['wait_for']
+        wait_for = item['wait_for']
+
+        # --- normalize wait token ---
+        if isinstance(wait_for, str):
+            # 若字串以 "r/" 之類的形式要 regex，可加條件，但目前直接解析為 "一般字串"
+            try:
+                # 嘗試將字串編譯成 regex，但如果是純字串也能正常工作
+                pattern = re.compile(wait_for)
+                wait_token = pattern
+            except re.error:
+                # 如果不是合法 regex，則視為一般字串
+                wait_token = wait_for
+        elif isinstance(wait_for, re.Pattern):
+            wait_token = wait_for
+        else:
+            raise TypeError("wait_for must be str or re.Pattern")
+
+        self.current_wait_token = wait_token
+
         timeout = item['timeout']
+
+        self.current_cmd = item['cmd']
+        self.current_response_lines = []
 
         self.is_processing = True
         
@@ -184,17 +209,39 @@ class SerialDeviceModel(QObject):
         # 先通知 UI 顯示原始資料
         self.data_received.emit(data)
 
-        # 檢查佇列邏輯
-        if self.is_processing and self.current_wait_token:
-            # 判斷條件：接收到的字串是否包含等待的關鍵字
-            # 您可以依據需求修改為 == 或者 regex match
-            if self.current_wait_token in data:
-                # print(f"Token '{self.current_wait_token}' found in '{data}'. Next.")
-                self.timeout_timer.stop()
-                self.is_processing = False
-                self.current_wait_token = None
-                # 稍微延遲一點點再發下一個，避免某些裝置處理不及 (可選)
-                QTimer.singleShot(50, self._process_next_command)
+        # 若目前沒在處理任何指令 → 不做匹配
+        if not self.is_processing:
+            return
+
+        # 累積回應
+        self.current_response_lines.append(data)
+
+        # 如果沒有 token（理論上不該發生，但避免 NoneType crash）
+        token = self.current_wait_token
+        if not token:
+            return
+
+        # === SAFE MATCH (先判斷類型，再 match) ===
+        if isinstance(token, str):
+            matched = token in data
+        elif isinstance(token, re.Pattern):
+            matched = bool(token.search(data))
+        else:
+            # 不支援的型態（不執行 match）
+            matched = False
+
+        # 如果匹配到 → 指令完成
+        if matched:
+            self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
+
+            self.timeout_timer.stop()
+            self.is_processing = False
+            self.current_wait_token = None
+            self.current_cmd = None
+            self.current_response_lines = []
+
+            # 避免裝置回應太快導致下一指令黏在一起
+            QTimer.singleShot(50, self._process_next_command)
 
     def _on_command_timeout(self):
         """當等待回應超時"""
@@ -202,6 +249,7 @@ class SerialDeviceModel(QObject):
             err_msg = f"[Timeout] Waiting for '{self.current_wait_token}' failed."
             self.data_received.emit(err_msg)
             
+            self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
             # 策略：超時後是「放棄後面所有指令」還是「繼續下一個」？
             # 這裡示範：繼續執行下一個 (標記目前這個結束)
             self.is_processing = False
@@ -211,6 +259,41 @@ class SerialDeviceModel(QObject):
     def on_error(self, msg):
         self.data_received.emit(msg)
         self.disconnect_device()
+    
+    def send_command_sync(self, cmd: str, wait_for: str = "#", timeout: float = 3.0) -> List[str]:
+        """
+        同步阻塞方式執行 command。
+        回傳：完整 response (list of lines)
+        """
+        if not self.is_connected():
+            return ["[ERROR] Device not connected"]
+
+        # --- 建立事件迴圈用來阻塞 ---
+        loop = QEventLoop()
+
+        # --- 暫存結果 ---
+        result_holder = {"response": []}
+
+        # --- 建立暫時性 slot ---
+        def on_finished(finished_cmd, response_lines):
+            if finished_cmd == cmd:  # 確保是我們的 command
+                result_holder["response"] = response_lines
+                loop.quit()
+
+        # --- 連接一次性的 signal ---
+        self.command_finished.connect(on_finished)
+
+        # --- 將指令放進 queue ---
+        self.send_command_queued(cmd, wait_for, timeout)
+
+        # --- 阻塞直到 command_finished 發生或 timeout ---
+        # 如果 timeout，QTimer 會觸發 command_finished，自動 quit()
+        loop.exec()
+
+        # --- 拔掉 signal（避免 memory leak） ---
+        self.command_finished.disconnect(on_finished)
+
+        return result_holder["response"]
 
 
 if __name__ == "__main__":
@@ -233,21 +316,25 @@ if __name__ == "__main__":
             
             cmds = [
                 ("fdisk -l /dev/mmcblk0", "~#"),
-                ("uname -a", "~#"),
+                ("uname -a", "Linux"),
                 ("cat /etc/os-release", "PRETTY_NAME="),
                 ("strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'", ")"),
                 ("lscpu | grep 'Model name'", "name:"),
-                ("free -h | grep 'Mem:'", "~#"),
+                ("free -h | grep 'Mem:'", r"Mem:\s+\S+\s+\S+\s+\S+"),
                 ("top -b -n 1 | head -n 5", "Swap:")
             ]
             for cmd, wait_for in cmds:
-                self.model.send_command_queued(cmd, wait_for, 10)
+                response = self.model.send_command_sync(cmd, wait_for, 10)
+                print(f"[Command] {cmd}")
+                for res in response:
+                    print(f"[R] {res}")
             
 
         @Slot(str)
         def on_data_received(self, data):
             # 這裡顯示從裝置收到的所有原始資料
-            print(f"[Device] >> {data}")
+            # print(f"[Device] >> {data}")
+            pass
 
         @Slot()
         def on_all_finished(self):

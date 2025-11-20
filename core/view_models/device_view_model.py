@@ -182,8 +182,7 @@ class DeviceViewModel(QObject):
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
-        self._append_log("[System Info Update] ========")
-        self._append_log(f"{key}: {result}")
+        self._append_log(f"[System Info Update] {key}: {result}")
 
     # =================================================================================
     # Helper methods
