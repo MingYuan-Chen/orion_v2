@@ -67,7 +67,6 @@ class SyncTimeWorker(BaseTestWorker):
                 ),
                 TestStep(
                     command=commands[3],
-                    expected_response=expected_responses[0] if len(expected_responses) > 0 else None, 
                     validation_func=self._validate_odin_sync_time,
                     timeout=5, 
                     description='Sync time with server:192.168.6.11',

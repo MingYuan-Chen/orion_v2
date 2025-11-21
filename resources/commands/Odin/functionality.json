@@ -75,7 +75,7 @@
   "functionality_lcd": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl stop weston & systemctl stop odin-production.service",
+      "systemctl stop weston & systemctl stop odin-production.service && sleep 1",
       "/usr/bin/drawfb -p red",
       "/usr/bin/drawfb -p green",
       "/usr/bin/drawfb -p blue",

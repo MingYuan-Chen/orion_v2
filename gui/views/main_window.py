@@ -2771,6 +2771,10 @@ class MainWindowController(QObject):
             if "version" in step_desc.lower() and "u-boot" in step_desc.lower():
                 return self._convert_uboot_version_response(response_str)
             
+            # Handle synctime information
+            if "sync time" in criteria.lower():
+                return self._convert_sync_time_response(response_str)
+            
             # Clean up response text
             return self._clean_response_text(response_str)
             
@@ -3311,6 +3315,28 @@ class MainWindowController(QObject):
             logger.warning(f"Error converting lspci response: {e}")
             return response
     
+    def _convert_sync_time_response(self, response):
+        """Convert sync time script output and ensure only the FIRST result is used."""
+        try:
+            lines = response.strip().split("\n")
+            output_lines = []
+            found = False
+
+            for line in lines:
+                output_lines.append(line)  # keep collecting until first PASS/FAIL
+                
+                low = line.lower()
+                if "sync time = pass" in low or "sync time = fail" in low:
+                    found = True
+                    break  # stop immediately
+            if found:
+                # Join back only the first block
+                return "\n".join(output_lines)
+            return response  # No sync result found → return raw
+        except Exception as e:
+            logger.warning(f"Error converting sync time response: {e}")
+            return response
+
     def _clean_response_text(self, response):
         """Clean up response text by removing command echoes, prompts, duplicate lines, and illegal XML characters."""
         try:
@@ -3508,7 +3534,7 @@ class MainWindowController(QObject):
             sheet.column_dimensions['G'].width = 55
             sheet.column_dimensions['H'].width = 18
             sheet.column_dimensions['I'].width = 15
-            for row in range(4, 64):
+            for row in range(4, 200):
                 for col in range(1, 10):
                     cell = sheet.cell(row, col)
                     cell.alignment = Alignment(vertical='center', wrapText=True)
