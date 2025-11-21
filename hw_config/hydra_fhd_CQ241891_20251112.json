@@ -1,0 +1,42 @@
+{
+  "platform_name": "hydra_fhd",
+  "config_name": "hw_config",
+  "created_date": "2025-11-12T11:51:41.906666",
+  "components": [
+    {
+      "id": "touch",
+      "component": "Touch",
+      "part_number": "156YF3A3",
+      "serial_number": "9AK0685",
+      "note": "Touch Sensor Model: XH8678S01B"
+    },
+    {
+      "id": "display",
+      "component": "Display",
+      "part_number": "Can NOT be Verified",
+      "serial_number": "S156VDUARRSA1SA13CT00F7",
+      "note": "Model : TIANMA TM156VDSG16"
+    },
+    {
+      "id": "main_board",
+      "component": "Main Board",
+      "part_number": "98PMHYDRA00F-020",
+      "serial_number": "HYFHD24160599",
+      "note": "--"
+    },
+    {
+      "id": "edp_board",
+      "component": "eDP Board",
+      "part_number": "99GLCNB000F V1.00",
+      "serial_number": "2418192588",
+      "note": "Model : GL108_518234192 REV:D"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "Can NOT be Verified",
+      "serial_number": "243400017",
+      "note": "Model : MD-BAT"
+    }
+  ]
+}

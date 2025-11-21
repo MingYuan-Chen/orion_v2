@@ -1,0 +1,42 @@
+{
+  "platform_name": "argo",
+  "config_name": "VN240018_20251112",
+  "created_date": "2025-11-12T17:47:19.688473",
+  "components": [
+    {
+      "id": "touch",
+      "component": "Touch",
+      "part_number": "156YF4A0",
+      "serial_number": "A710017",
+      "note": "Touch Sensor Model : XH8678A01B"
+    },
+    {
+      "id": "display",
+      "component": "Display",
+      "part_number": "Can NOT be verified",
+      "serial_number": "S156VDUARRSA1SA142N0063",
+      "note": "Model : TIANMA TM156VDSG16"
+    },
+    {
+      "id": "main_board",
+      "component": "Main Board",
+      "part_number": "98PMHYDRA00F-020",
+      "serial_number": "ARFHD24360014 ",
+      "note": "--"
+    },
+    {
+      "id": "edp_board",
+      "component": "eDP Board",
+      "part_number": "99GLCNB000F V1.00",
+      "serial_number": "2422192102",
+      "note": "Model : GL108_518234192 REV:D"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "BN2013250-001LML-01",
+      "serial_number": "243300004",
+      "note": "Model : MD-BAT02"
+    }
+  ]
+}
