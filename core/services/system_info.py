@@ -124,8 +124,8 @@ class SystemInfoService(QObject):
                 "voltage": (0.0, 15.0),
                 "current": (-6.0, 6.0),
                 "temperature": (0.0, 80.0),
-                "design_voltage": (10.0, 15.0),
-                "design_capacity": (3000, 8000)
+                "design_voltage": (7.2, 10.8),
+                "design_capacity": (3250, 3350)
             }
 
         # Default fallback
