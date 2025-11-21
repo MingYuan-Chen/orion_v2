@@ -3319,20 +3319,21 @@ class MainWindowController(QObject):
         """Convert sync time script output and ensure only the FIRST result is used."""
         try:
             lines = response.strip().split("\n")
+            # ① 先找有無 Sync Time = PASS/FAIL
             output_lines = []
-            found = False
-
             for line in lines:
-                output_lines.append(line)  # keep collecting until first PASS/FAIL
-                
+                output_lines.append(line)
                 low = line.lower()
+
                 if "sync time = pass" in low or "sync time = fail" in low:
-                    found = True
-                    break  # stop immediately
-            if found:
-                # Join back only the first block
-                return "\n".join(output_lines)
-            return response  # No sync result found → return raw
+                    return "\n".join(output_lines)   # 回傳第一段完整區塊
+            # ② 如果沒有 PASS/FAIL → 找第一個 ntpdate 行
+            for line in lines:
+                if "ntpdate[" in line:
+                    return line.strip()
+            # ③ 若以上都沒有 → fallback 原始內容
+            return response
+
         except Exception as e:
             logger.warning(f"Error converting sync time response: {e}")
             return response

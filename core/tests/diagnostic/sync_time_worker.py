@@ -67,6 +67,13 @@ class SyncTimeWorker(BaseTestWorker):
                 ),
                 TestStep(
                     command=commands[3],
+                    validation_func=self._validate_hwclock_time,
+                    timeout=5, 
+                    description='Check if the system can handle leap-year dates',
+                    criteria=f"System can handle leap-year dates",
+                ),
+                TestStep(
+                    command=commands[4],
                     validation_func=self._validate_odin_sync_time,
                     timeout=5, 
                     description='Sync time with server:192.168.6.11',
