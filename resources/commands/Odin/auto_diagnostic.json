@@ -27,7 +27,13 @@
     "expected_response": ["0x18", "PSC Odin"]
   },
   "diagnostic_sync_time": {
-    "commands": ["ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"] 
+    "commands": [
+        "mount -o remount,rw /",
+        "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+        "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync", 
+        "sh /dqa_package/odin_ntpd/sync_time.sh"
+      ],
+    "expected_response": ["Syns Time = PASS"]
   },
   "diagnostic_set_get_rtc_time": {
     "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],

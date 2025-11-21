@@ -124,8 +124,8 @@ class SystemInfoService(QObject):
                 "voltage": (0.0, 15.0),
                 "current": (-6.0, 6.0),
                 "temperature": (0.0, 80.0),
-                "design_voltage": (10.0, 15.0),
-                "design_capacity": (3000, 8000)
+                "design_voltage": (7.2, 10.8),
+                "design_capacity": (3250, 3350)
             }
 
         # Default fallback
@@ -586,54 +586,117 @@ class SystemInfoService(QObject):
         return memory_info
     
     def _parse_disk_info(self, response: str, platform_name: str) -> Dict[str, str]:
-        """Parse disk information from response.
-        
-        Args:
-            response: Response from df command
-            
-        Returns:
-            Dict containing disk information
+        """
+        Parse disk information from response.
+        Supports:
+        - cat /sys/block/mmcblkX/size (Odin / Hydra / Gemini)
+        - fdisk -l output (Athena)
+        - Automatically maps real capacity to spec capacity (32/64/128 GB)
         """
         disk_info = {}
-        
+
         try:
-            if platform_name == "athena":
-                # For Athena platform, handle fdisk -l output format
-                # "Disk /dev/mmcblk0: 116.48 GiB, 125074145280 bytes, 244285440 sectors"
+            # --- ATHENA: special fdisk parsing ---
+            if "athena" in platform_name.lower():
                 first_line = response.strip().split('\n')[0]
-                if "Disk" in first_line and "sectors" in first_line:
-                    # Extract sectors from the end of the line
+
+                # Case 1: "Disk /dev/mmcblk0: 116.48 GiB, 125074145280 bytes, 244285440 sectors"
+                if "sectors" in first_line:
                     sectors_part = first_line.split(',')[-1].strip()  # "244285440 sectors"
-                    total_sectors = int(sectors_part.split()[0])  # Extract "244285440"
+                    total_sectors = int(sectors_part.split()[0])
                     total_bytes = total_sectors * 512
-                    total_gb = total_bytes / (1024 ** 3)
+                    actual_gb = total_bytes / 1_000_000_000
+
+                # Case 2: "Disk /dev/mmcblk0: 116.48 GiB"
                 elif "GiB" in first_line:
-                    # Fallback: try to extract GiB value directly
-                    gib_part = first_line.split(',')[0].split(':')[1].strip()  # "116.48 GiB"
-                    total_gb = float(gib_part.split()[0])  # Extract "116.48"
+                    gib_value = float(first_line.split()[3])  # "116.48"
+                    actual_gb = gib_value * (1024**3) / 1_000_000_000
+
                 else:
-                    # If neither format matches, set to 0
-                    total_gb = 0.0
+                    actual_gb = 0.0
+
+            # --- OTHER PLATFORMS: use /sys/block/mmcblkX/size result ---
             else:
-                # For other platforms, handle cat /sys/block/mmcblk2/size output (just a number)
-                clean_response = response.strip().split('\n')[0]
-                if clean_response.isdigit():
-                    total_sectors = int(clean_response)
+                clean = response.strip().split('\n')[0]
+
+                if clean.isdigit():
+                    total_sectors = int(clean)
                     total_bytes = total_sectors * 512
-                    total_gb = total_bytes / (1024 ** 3)
+                    actual_gb = total_bytes / 1_000_000_000
                 else:
-                    total_gb = 0.0
-            
-            disk_info["total"] = f"128G"
-            disk_info["available"] = f"{total_gb:.2f}G"
+                    actual_gb = 0.0
+
+            # --- Map actual capacity to real-world product spec ---
+            if actual_gb < 40:
+                fixed_total = "32G"
+            elif actual_gb < 80:
+                fixed_total = "64G"
+            elif actual_gb < 150:
+                fixed_total = "128G"
+            else:
+                fixed_total = f"{round(actual_gb)}G"  # fallback (256G / 512G 等)
+
+            # --- Final Output ---
+            disk_info["total"] = fixed_total
+            disk_info["available"] = f"{actual_gb:.2f}G"
             disk_info["type"] = "eMMC"
-            
-            # Removed debug logger for performance: Parsed disk info
+
             return disk_info
-            
+
         except Exception as e:
             logger.warning(f"Failed to parse disk information: {e}")
             return disk_info
+
+
+    # def _parse_disk_info(self, response: str, platform_name: str) -> Dict[str, str]:
+    #     """Parse disk information from response.
+        
+    #     Args:
+    #         response: Response from df command
+            
+    #     Returns:
+    #         Dict containing disk information
+    #     """
+    #     disk_info = {}
+        
+    #     try:
+    #         if platform_name == "athena":
+    #             # For Athena platform, handle fdisk -l output format
+    #             # "Disk /dev/mmcblk0: 116.48 GiB, 125074145280 bytes, 244285440 sectors"
+    #             first_line = response.strip().split('\n')[0]
+    #             if "Disk" in first_line and "sectors" in first_line:
+    #                 # Extract sectors from the end of the line
+    #                 sectors_part = first_line.split(',')[-1].strip()  # "244285440 sectors"
+    #                 total_sectors = int(sectors_part.split()[0])  # Extract "244285440"
+    #                 total_bytes = total_sectors * 512
+    #                 total_gb = total_bytes / (1024 ** 3)
+    #             elif "GiB" in first_line:
+    #                 # Fallback: try to extract GiB value directly
+    #                 gib_part = first_line.split(',')[0].split(':')[1].strip()  # "116.48 GiB"
+    #                 total_gb = float(gib_part.split()[0])  # Extract "116.48"
+    #             else:
+    #                 # If neither format matches, set to 0
+    #                 total_gb = 0.0
+    #         else:
+    #             # For other platforms, handle cat /sys/block/mmcblk2/size output (just a number)
+    #             clean_response = response.strip().split('\n')[0]
+    #             if clean_response.isdigit():
+    #                 total_sectors = int(clean_response)
+    #                 total_bytes = total_sectors * 512
+    #                 total_gb = total_bytes / (1024 ** 3)
+    #             else:
+    #                 total_gb = 0.0
+            
+    #         disk_info["total"] = f"128G"
+    #         disk_info["available"] = f"{total_gb:.2f}G"
+    #         disk_info["type"] = "eMMC"
+            
+    #         # Removed debug logger for performance: Parsed disk info
+    #         return disk_info
+            
+    #     except Exception as e:
+    #         logger.warning(f"Failed to parse disk information: {e}")
+    #         return disk_info
     
     def _parse_battery_info(self, command_name: str, response: str) -> Any:
         """
