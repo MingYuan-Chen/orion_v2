@@ -130,7 +130,7 @@ class DeviceViewModel(QObject):
                 log_message = "[SEND]: ESC"
             
             self._append_log(log_message)
-            self._model.send_command(interrupt_bytes)
+            self._model.send_command_queued(interrupt_bytes)
 
     @Slot()
     def clean_up(self):
@@ -181,8 +181,10 @@ class DeviceViewModel(QObject):
         self._system_info_service.collect_system_info()
     
     @Slot(bool, str)
-    def on_info_updated(self, key: str, result: str):
-        self._append_log(f"[System Info Update] {key}: {result}")
+    def on_info_updated(self, cmd: str, response):
+        self._append_log(f"[System Info Update][Command] {cmd}")
+        for res in response:
+            self._append_log(f"[Response] {res}")
 
     # =================================================================================
     # Helper methods

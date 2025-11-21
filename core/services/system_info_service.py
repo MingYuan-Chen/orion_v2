@@ -10,7 +10,7 @@ class SystemInfoService(QObject):
     by executing a series of commands and parsing the output.
     Works asynchronously with SequenceExecutionService.
     """
-    info_updated = Signal(str, str)  # Emits (info_key, info_value)
+    info_updated = Signal(str, list)  # Emits (info_key, info_value)
     collection_finished = Signal()
     collection_error = Signal(str)
 
@@ -43,8 +43,8 @@ class SystemInfoService(QObject):
         super().__init__(parent)
         self._model = device_model
         self.platform_name = platform_name
+        self._is_running = False
         
-        self._model.data_received.connect(self._on_data_received)
         self._model.queue_finished.connect(self.collection_finished)
         self.collected_info = {}
 
@@ -57,49 +57,49 @@ class SystemInfoService(QObject):
         :param end_marker: The device's command prompt, used to detect the end of a command's output.
         :param timeout_ms: The maximum time (in milliseconds) to wait for a response.
         """
-        logger.info("Starting system information collection...")
         
-        commands_to_execute = list(self.COMMANDS.values())
-        
-        for cmd in commands_to_execute:
-            self._model.send_command_queued(cmd, "#", 10.0)
+        if self._is_running:
+            return
 
+        self._is_running = True
 
-    @Slot(list)
-    def _on_data_received(self, data: str):
+        cmds = [
+            ("uname -a", "#"),
+            ("cat /etc/os-release", "#"),
+            ("strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'", "#"),
+            ("lscpu | grep 'Model name'", "#"),
+            ("free -h | grep 'Mem:'", "#"),
+            ("fdisk -l /dev/mmcblk0", "#"),
+            ("top -b -n 1 | head -n 5", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0d r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x15 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x14 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x19 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x09 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0a r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x14 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x11 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x11 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x08 r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x1c r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x1c r2", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9", "#"),
+            ("i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2", "#")
+        ]
+        for cmd, wait_for in cmds:
+            response = self._model.send_command_sync(cmd, wait_for, 10)
+            self.info_updated.emit(cmd, response)
+    
+    def stop_collection(self):
         """
-        Slot to handle the completed sequence of responses from the executor.
+        Stops the collection and disconnects signals.
         """
+        if not self._is_running:
+            return
 
+        self._is_running = False
         try:
-            
-            # grep cpu info =======================================
-            if any(keyword in data.lower() for keyword in ['freescale', 'imx', 'mx6', 'cortex', 'arm', 'intel', 'amd']):
-                if self.platform_name == "Athena":
-                    self.collected_info['cpu_info'] = {"model": data.split(':')[1].strip()}
-                else:
-                    self.collected_info['cpu_info'] = {"model": data.strip()}
-                self.info_updated.emit('cpu_info', self.collected_info['cpu_info']["model"])
-            
-            # grep memory info =======================================
-            if 'Mem:' in data:
-                parts = data.split()
-                if len(parts) >= 7:
-
-                    self.collected_info['memory_info'] = {
-                        "total": f"{round(float(parts[1])/(1024*1024), 1)} MB",
-                        "used": f"{round(float(parts[2])/(1024*1024), 1)} MB",
-                        "free": f"{round(float(parts[3])/(1024*1024), 1)} MB",
-                        "shared": f"{round(float(parts[4])/(1024*1024), 1)} MB",
-                        "buffers": f"{round(float(parts[5])/(1024*1024), 1)} MB",
-                        "available": f"{round(float(parts[6])/(1024*1024), 1)} MB",
-                        "usage_percent": f"{round((int(parts[2]) / int(parts[1])) * 100, 1)} %"
-                    }
-                self.info_updated.emit('memory total', self.collected_info['memory_info']["total"])
-                self.info_updated.emit('memory used', self.collected_info['memory_info']["used"])
-                self.info_updated.emit('memory usage percent', self.collected_info['memory_info']["usage_percent"])
-
-        except Exception as e:
-            error_msg = f"An unexpected error occurred during response processing: {e}"
-            logger.error(error_msg)
-            self.collection_error.emit(error_msg)
+            # Disconnect from all signals from the sequence executor
+            self._model.queue_finished.disconnect(self.collection_finished)
+        except RuntimeError:
+            logger.warning("Error disconnecting signals from SerialDeviceModel.")

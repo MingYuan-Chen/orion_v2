@@ -4,12 +4,21 @@ import time
 import serial
 import serial.tools.list_ports
 from collections import deque
-from typing import Optional, List, Union, Tuple
+from typing import Optional, List, Union
 from PySide6.QtCore import QObject, QThread, Signal, Slot, QTimer, QEventLoop
+
 
 class SerialListener(QThread):
     received = Signal(str)
     error = Signal(str)
+
+    CONTROL_CHARS = re.compile(
+        r'[\x00-\x08\x0B\x0C\x0E\x0F\x10-\x1F\x7F]'
+    )
+
+    ANSI_ESCAPE = re.compile(
+        r'\x1b\[[0-?]*[ -/]*[@-~]'
+    )
 
     def __init__(self, device: serial.Serial, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -20,14 +29,27 @@ class SerialListener(QThread):
         try:
             while self.running and self.device and self.device.is_open:
                 if self.device.in_waiting:
-                    # Read line by line
-                    data = self.device.readline().decode('utf-8', errors='ignore').strip()
+                    raw = self.device.readline()
+                    try:
+                        data = raw.decode('utf-8', errors='ignore').strip()
+                    except:
+                        continue
+
                     if data:
-                        ansi_csi_pattern = r'\x1b\[[0-?]*[ -/]*[@-~]'
-                        data = re.sub(ansi_csi_pattern, '', data)
+                        # 移除 ANSI CSI sequences
+                        data = re.sub(self.ANSI_ESCAPE, '', data)
+
+                        # 移除 C0 控制字符（除了 tab、newline、carriage return）
+                        data = re.sub(self.CONTROL_CHARS, '', data)
+
+                        # 移除 NULL（如果有殘留）
                         data = data.replace('\x00', '')
-                        self.received.emit(data)
-                self.msleep(20)
+
+                        if data:
+                            self.received.emit(data)
+
+                self.msleep(15)
+
         except Exception as e:
             self.error.emit(str(e))
 
@@ -36,36 +58,50 @@ class SerialListener(QThread):
         self.quit()
         self.wait(500)
 
-# ============================
-# Modified SerialDeviceModel
-# ============================
+
 class SerialDeviceModel(QObject):
     connection_result = Signal(bool, str)
     disconnection_result = Signal(bool, str)
     data_received = Signal(str)
-    
-    # 新增訊號：通知外部某個指令序列已經全部執行完畢
-    queue_finished = Signal() 
-    command_finished = Signal(str, list)  # command, response_lines
+
+    queue_finished = Signal()
+    # 單一指令完成：command, response_lines
+    command_finished = Signal(str, list)
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
         self.device: Optional[serial.Serial] = None
         self.listener: Optional[SerialListener] = None
-        
-        # --- 新增：佇列控制變數 ---
-        self.command_queue = deque()  # 儲存 (command, wait_token) 的 Tuple
-        self.is_processing = False    # 是否正在處理指令中
-        self.current_wait_token = None # 當前正在等待的結束關鍵字
-        
+
+        # 佇列控制
+        self.command_queue = deque()   # 每個 item: {cmd, wait_for, timeout}
+        self.is_processing = False
+        self.current_wait_token = None  # str or re.Pattern
+
+        # 外層 timeout：整個指令最大存活時間
         self.timeout_timer = QTimer(self)
         self.timeout_timer.setSingleShot(True)
         self.timeout_timer.timeout.connect(self._on_command_timeout)
         self.current_timeout_sec = 3.0
 
-        self.current_cmd = None
-        self.current_response_lines = []
+        # 內層 settle timer：輸出穩定偵測
+        self.settle_timer = QTimer(self)
+        self.settle_timer.setSingleShot(True)
+        self.settle_timer.timeout.connect(self._on_settle_timeout)
+        self.settle_delay_ms = 80  # 基本延遲，可動態調整
 
+        # Prompt 偵測與狀態
+        self.prompt_regex = re.compile(r"^[\w@:\-\.]+[:~][\w/]*[>#\$] ?")
+        self.has_matched_token = False
+        self.line_times: List[float] = []
+
+        # 當前指令狀態
+        self.current_cmd: Optional[str] = None
+        self.current_response_lines: List[str] = []
+
+    # ============================
+    # Utilities
+    # ============================
     @staticmethod
     def get_available_ports() -> List[serial.tools.list_ports_common.ListPortInfo]:
         return serial.tools.list_ports.comports()
@@ -73,6 +109,9 @@ class SerialDeviceModel(QObject):
     def is_connected(self) -> bool:
         return self.device is not None and self.device.is_open
 
+    # ============================
+    # Connection management
+    # ============================
     def connect_device(self, port: str, baudrate: int = 115200, timeout: float = 1.0) -> bool:
         if self.is_connected():
             self.disconnect_device()
@@ -80,9 +119,8 @@ class SerialDeviceModel(QObject):
 
         try:
             self.device = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
-            
+
             self.listener = SerialListener(self.device, self)
-            # 修改：這裡連線到新的處理函數 _handle_incoming_data
             self.listener.received.connect(self._handle_incoming_data)
             self.listener.error.connect(self.on_error)
             self.listener.start()
@@ -96,11 +134,19 @@ class SerialDeviceModel(QObject):
             return False
 
     def disconnect_device(self) -> bool:
-        # 斷線時清空佇列與重置狀態
+        # 清所有狀態
         self.command_queue.clear()
         self.is_processing = False
+
         self.timeout_timer.stop()
-        
+        self.settle_timer.stop()
+
+        self.current_cmd = None
+        self.current_wait_token = None
+        self.current_response_lines = []
+        self.has_matched_token = False
+        self.line_times.clear()
+
         if not self.is_connected():
             return True
         try:
@@ -118,20 +164,24 @@ class SerialDeviceModel(QObject):
             return False
 
     # ==========================================
-    #  核心邏輯：佇列處理與發送
+    #  Command queue & execution
     # ==========================================
-
-    def send_command_queued(self, command: str, wait_for: str = "#", timeout: float = 3.0):
+    def send_command_queued(self, command: str, wait_for: Union[str, re.Pattern] = "#", timeout: float = 3.0):
         """
         將指令加入佇列。
-        :param command: 要發送的指令
-        :param wait_for: 發送後，必須收到此字串才算完成 (例如 "OK", ">", "DONE")
-        :param timeout: 等待該指令回應的最大秒數
+        :param command: 要發送的指令 (例如 "fdisk -l /dev/mmcblk0")
+        :param wait_for:
+            判斷指令是否進入收尾狀態的 token，支援：
+              - str: 直接字串比對 (in data)
+              - re.Pattern: 正規表示式比對 (search)
+            當首次 match 到 wait_for 時，啟動 settle_timer，
+            並在「一段時間內沒有新資料」後才真正結束該指令。
+        :param timeout: 整個指令的最大執行秒數 (外層 timeout)
         """
         self.command_queue.append({
-            'cmd': command, 
-            'wait_for': wait_for, 
-            'timeout': timeout
+            "cmd": command,
+            "wait_for": wait_for,
+            "timeout": timeout,
         })
         self._process_next_command()
 
@@ -142,47 +192,47 @@ class SerialDeviceModel(QObject):
             self.is_processing = False
             return
 
-        # 如果目前正在忙碌 (等待上一個指令的回應)，則不動作
         if self.is_processing:
             return
 
-        # 如果佇列空了，發出結束訊號
         if not self.command_queue:
             self.queue_finished.emit()
             return
 
-        # 取出下一個指令
-        item = self.command_queue.popleft()
-        cmd = item['cmd']
-        wait_for = item['wait_for']
+        # 確保上一個指令相關的 settle 狀態清乾淨
+        self.settle_timer.stop()
+        self.has_matched_token = False
+        self.line_times.clear()
 
-        # --- normalize wait token ---
+        item = self.command_queue.popleft()
+        cmd = item["cmd"]
+        wait_for = item["wait_for"]
+        timeout = item["timeout"]
+
+        # normalize wait token
         if isinstance(wait_for, str):
-            # 若字串以 "r/" 之類的形式要 regex，可加條件，但目前直接解析為 "一般字串"
-            try:
-                # 嘗試將字串編譯成 regex，但如果是純字串也能正常工作
-                pattern = re.compile(wait_for)
-                wait_token = pattern
-            except re.error:
-                # 如果不是合法 regex，則視為一般字串
-                wait_token = wait_for
+            wait_token = wait_for
         elif isinstance(wait_for, re.Pattern):
             wait_token = wait_for
         else:
             raise TypeError("wait_for must be str or re.Pattern")
 
         self.current_wait_token = wait_token
-
-        timeout = item['timeout']
-
-        self.current_cmd = item['cmd']
+        self.current_cmd = cmd
         self.current_response_lines = []
-
         self.is_processing = True
-        
-        # 設定 Timeout (避免裝置當機導致整個佇列卡死)
+
+        # 外層 timeout
         self.timeout_timer.start(int(timeout * 1000))
-        
+
+        # Pre-flush：清掉可能存在的殘留資料，避免前一個指令的背景 noise 汙染
+        try:
+            if self.device and self.device.in_waiting:
+                _ = self.device.read(self.device.in_waiting)
+        except Exception:
+            # 若 flush 出錯，不要讓整個流程掛掉
+            pass
+
         # 發送指令
         self._raw_send(cmd)
 
@@ -190,77 +240,154 @@ class SerialDeviceModel(QObject):
         """底層發送邏輯"""
         try:
             if isinstance(data, str):
-                # 這裡可以依照需求加入 debug print
-                # print(f"Sending: {data}") 
-                payload = (data + "\r\n").encode('utf-8')
+                payload = (data + "\r\n").encode("utf-8")
             elif isinstance(data, bytes):
                 payload = data
+            else:
+                raise TypeError("data must be str or bytes")
             self.device.write(payload)
         except serial.SerialException as e:
             self.data_received.emit(f"Failed to send data: {e}")
             self.disconnect_device()
 
+    # ==========================================
+    #  Incoming data handling + advanced settle
+    # ==========================================
     def _handle_incoming_data(self, data: str):
         """
         處理接收到的資料。
-        1. 將資料透過 Signal 傳給 UI 顯示。
-        2. 檢查是否包含 current_wait_token，若有則觸發下一條指令。
+        1. 先透過 data_received 送給 UI。
+        2. 若有正在處理的指令，則累積到 current_response_lines。
+        3. 利用 wait_for + settle_timer 決定指令何時真正完成。
         """
         # 先通知 UI 顯示原始資料
         self.data_received.emit(data)
 
-        # 若目前沒在處理任何指令 → 不做匹配
         if not self.is_processing:
             return
 
-        # 累積回應
+        # -----------------------------
+        # Echo 過濾：排除 "prompt + command" 那一行
+        # 例如: "root@box:~# fdisk -l /dev/mmcblk0"
+        # -----------------------------
+        if self.prompt_regex.match(data):
+            if isinstance(self.current_cmd, str) and self.current_cmd and self.current_cmd in data:
+                return
+
+        # 累積這一行輸出
         self.current_response_lines.append(data)
 
-        # 如果沒有 token（理論上不該發生，但避免 NoneType crash）
+        # 記錄時間，用來判斷 burst 輸出
+        now = time.time()
+        self.line_times.append(now)
+        if len(self.line_times) > 16:
+            self.line_times.pop(0)
+
+        # 若已經進入「收尾階段」（也就是已 match 過一次 token）
+        # 則每次有新資料都重新啟動 settle_timer
+        if self.has_matched_token:
+            self._restart_settle_timer()
+            return
+
+        # 尚未 match wait_for → 嘗試 match
         token = self.current_wait_token
         if not token:
             return
 
-        # === SAFE MATCH (先判斷類型，再 match) ===
         if isinstance(token, str):
             matched = token in data
         elif isinstance(token, re.Pattern):
             matched = bool(token.search(data))
         else:
-            # 不支援的型態（不執行 match）
             matched = False
 
-        # 如果匹配到 → 指令完成
         if matched:
-            self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
+            # 第一次 match 到 wait_for，進入「收尾階段」
+            self.has_matched_token = True
+            self._restart_settle_timer()
 
-            self.timeout_timer.stop()
-            self.is_processing = False
-            self.current_wait_token = None
-            self.current_cmd = None
-            self.current_response_lines = []
+    def _restart_settle_timer(self):
+        """
+        智慧型重新啟動 settle_timer，包含簡單的 adaptive 調整：
+        - 如果最近幾行輸出非常密集，代表是 burst output，則延長 settle time。
+        """
+        adaptive_delay = self.settle_delay_ms
 
-            # 避免裝置回應太快導致下一指令黏在一起
-            QTimer.singleShot(50, self._process_next_command)
+        if len(self.line_times) >= 4:
+            dt = self.line_times[-1] - self.line_times[-4]
+            # 例如 30ms 內連續 4 行 → 視為 burst，延長 settle 時間
+            if dt < 0.03:
+                adaptive_delay = max(adaptive_delay, 150)
+
+        self.settle_timer.start(adaptive_delay)
+
+    def _on_settle_timeout(self):
+        """
+        當在「收尾階段」中一段時間沒有新資料時，判斷輸出已經穩定，
+        宣告該指令完成。
+        """
+        if not self.is_processing:
+            return
+
+        # 如果是以 prompt 為 wait_for 的情境，最後一行若不像 prompt，可以再等一下
+        last_line = self.current_response_lines[-1] if self.current_response_lines else ""
+
+        want_prompt_check = (
+            isinstance(self.current_wait_token, str)
+            and any(ch in self.current_wait_token for ch in ["#", "$", ">"])
+        )
+
+        if want_prompt_check and self.prompt_regex and not self.prompt_regex.match(last_line):
+            # 看起來還沒回到 prompt，再給一點時間
+            self.settle_timer.start(self.settle_delay_ms)
+            return
+
+        # 走到這裡，代表輸出已經穩定，可以宣告指令完成
+        self.timeout_timer.stop()
+        self.is_processing = False
+
+        self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
+
+        # Reset state
+        self.current_cmd = None
+        self.current_wait_token = None
+        self.current_response_lines = []
+        self.has_matched_token = False
+        self.line_times.clear()
+
+        QTimer.singleShot(50, self._process_next_command)
 
     def _on_command_timeout(self):
-        """當等待回應超時"""
-        if self.is_processing:
-            err_msg = f"[Timeout] Waiting for '{self.current_wait_token}' failed."
-            self.data_received.emit(err_msg)
-            
-            self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
-            # 策略：超時後是「放棄後面所有指令」還是「繼續下一個」？
-            # 這裡示範：繼續執行下一個 (標記目前這個結束)
-            self.is_processing = False
-            self.current_wait_token = None
-            self._process_next_command()
+        """當整個指令等待超時（外層 timeout）"""
+        if not self.is_processing:
+            return
+
+        # 無論有沒有收到部分資料，都回傳現在的 buffer
+        self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
+
+        # 停掉相關 timer，重置狀態
+        self.timeout_timer.stop()
+        self.settle_timer.stop()
+
+        self.is_processing = False
+        self.current_cmd = None
+        self.current_wait_token = None
+        self.current_response_lines = []
+        self.has_matched_token = False
+        self.line_times.clear()
+
+        QTimer.singleShot(50, self._process_next_command)
 
     def on_error(self, msg):
         self.data_received.emit(msg)
         self.disconnect_device()
-    
-    def send_command_sync(self, cmd: str, wait_for: str = "#", timeout: float = 3.0) -> List[str]:
+
+    # ==========================================
+    #  Synchronous API
+    # ==========================================
+    def send_command_sync(self, cmd: str,
+                          wait_for: Union[str, re.Pattern] = "#",
+                          timeout: float = 10.0) -> List[str]:
         """
         同步阻塞方式執行 command。
         回傳：完整 response (list of lines)
@@ -268,29 +395,22 @@ class SerialDeviceModel(QObject):
         if not self.is_connected():
             return ["[ERROR] Device not connected"]
 
-        # --- 建立事件迴圈用來阻塞 ---
         loop = QEventLoop()
-
-        # --- 暫存結果 ---
         result_holder = {"response": []}
 
-        # --- 建立暫時性 slot ---
         def on_finished(finished_cmd, response_lines):
-            if finished_cmd == cmd:  # 確保是我們的 command
+            if finished_cmd == cmd:
                 result_holder["response"] = response_lines
                 loop.quit()
 
-        # --- 連接一次性的 signal ---
         self.command_finished.connect(on_finished)
 
-        # --- 將指令放進 queue ---
+        # 將指令排入佇列
         self.send_command_queued(cmd, wait_for, timeout)
 
-        # --- 阻塞直到 command_finished 發生或 timeout ---
-        # 如果 timeout，QTimer 會觸發 command_finished，自動 quit()
+        # 阻塞直到該指令完成（或 timeout）
         loop.exec()
 
-        # --- 拔掉 signal（避免 memory leak） ---
         self.command_finished.disconnect(on_finished)
 
         return result_holder["response"]

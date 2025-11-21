@@ -12,12 +12,6 @@ class PlatformDetectionService(QObject):
     """
     platform_detected = Signal(str)
 
-    DETECTION_COMMANDS: List[str] = [
-        "cat /proc/device-tree/model",
-        "strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\\.'",
-        "cat /proc/panel_id",
-    ]
-
     def __init__(self, device_model: SerialDeviceModel, parent: Optional[QObject] = None):
         """
         Initializes the detection service.
@@ -26,8 +20,6 @@ class PlatformDetectionService(QObject):
         super().__init__(parent)
         self._model = device_model
         self._is_running = False
-        
-        self._model.data_received.connect(self._on_data_received)
 
     def start_detection(self):
         """
@@ -38,8 +30,17 @@ class PlatformDetectionService(QObject):
 
         self._is_running = True
         
-        for cmd in self.DETECTION_COMMANDS:
-            self._model.send_command_queued(cmd)
+        cmds = [
+            "cat /proc/device-tree/model",
+            "strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\\.'",
+            "cat /proc/panel_id",
+        ]
+        for cmd in cmds:
+            if not self._is_running:
+                break
+            
+            response = self._model.send_command_sync(cmd)
+            self._check_platform(response)
 
     def stop_detection(self):
         """
@@ -49,37 +50,31 @@ class PlatformDetectionService(QObject):
             return
 
         self._is_running = False
-        try:
-            # Disconnect from all signals from the sequence executor
-            self._model.data_received.disconnect(self._on_data_received)
-        except RuntimeError:
-            logger.warning("Error disconnecting signals from SerialDeviceModel.")
 
-    @Slot(str)
-    def _on_data_received(self, data: str):
+    def _check_platform(self, data):
         """
         Analyzes the full response from a completed command to identify the platform.
         """
         if not self._is_running:
             return
         
-        logger.debug(f"Detection service received response: {data}")
-        
         final_detection = None
-        if "Athena" in data:
-            final_detection = "Athena"
-        elif "Odin" in data:
-            final_detection = "Odin"
-        elif "00" == data.strip():
-            final_detection = "Hydra"
-        elif "10" == data.strip():
-            final_detection = "Gemini FHD"
-        elif "11" == data.strip():
-            final_detection = "Gemini"
-        elif "01" == data.strip():
-            final_detection = "Hydra FHD"
-        elif "argo" in data:
-            final_detection = "Argo"
+
+        for res in data:
+            if "Athena" in res:
+                final_detection = "Athena"
+            elif "Odin" in res:
+                final_detection = "Odin"
+            elif "00" == res.strip():
+                final_detection = "Hydra"
+            elif "10" == res.strip():
+                final_detection = "Gemini FHD"
+            elif "11" == res.strip():
+                final_detection = "Gemini"
+            elif "01" == res.strip():
+                final_detection = "Hydra FHD"
+            elif "argo" in res:
+                final_detection = "Argo"
         
         if final_detection:
             logger.info(f"Platform detected: {final_detection}")
