@@ -19,6 +19,7 @@ class DeviceViewModel(QObject):
         self._command_text = ""
         self._is_connected = False
         self._platform_name = "Unknown"
+        self._system_info = {}
 
         # --- Port list management ---
         self._port_list_model = QStringListModel()
@@ -31,7 +32,6 @@ class DeviceViewModel(QObject):
         self._model.connection_result.connect(self.on_connection_result)
         self._model.disconnection_result.connect(self.on_disconnection_result)
         self._model.data_received.connect(self.on_data_received)
-
         self._detection_service.platform_detected.connect(self.on_platform_detected)
 
     # =================================================================================
@@ -41,6 +41,8 @@ class DeviceViewModel(QObject):
     is_connected_changed = Signal()
     command_text_changed = Signal()
     platform_name_changed = Signal()
+    system_info_changed = Signal(str, str)
+    open_system_info_requested = Signal()
 
     # =================================================================================
     # Properties accessible by the View
@@ -70,6 +72,10 @@ class DeviceViewModel(QObject):
     @Property(str, notify=platform_name_changed)
     def platform_name(self) -> str:
         return self._platform_name
+
+    @Property(dict, notify=system_info_changed)
+    def system_info(self) -> dict:
+        return self._system_info
 
     # =================================================================================
     # Slots (public methods) callable from the View
@@ -107,6 +113,12 @@ class DeviceViewModel(QObject):
                 self._model.connect_device(port=port_device, baudrate=baud_rate)
             except ValueError:
                 self._append_log(f"Invalid baud rate: {baud_rate_text}")
+
+    @Slot()
+    def open_system_info_view(self):
+        """Opens the system info view and starts data collection."""
+        self.open_system_info_requested.emit()
+        self._system_info_service.collect_system_info()
 
     @Slot()
     def send_command(self):
@@ -176,15 +188,14 @@ class DeviceViewModel(QObject):
             self._platform_name = platform_name
             self.platform_name_changed.emit()
         
-        self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
-        self._system_info_service.info_updated.connect(self.on_info_updated)
-        self._system_info_service.collect_system_info()
+            # Reinitialize system info service with the new platform name
+            self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
+            self._system_info_service.info_updated.connect(self.on_info_updated)
     
     @Slot(bool, str)
-    def on_info_updated(self, cmd: str, response):
-        self._append_log(f"[System Info Update][Command] {cmd}")
-        for res in response:
-            self._append_log(f"[Response] {res}")
+    def on_info_updated(self, key: str, result: str):
+        self._system_info[key] = result
+        self.system_info_changed.emit(key, result)
 
     # =================================================================================
     # Helper methods
@@ -192,5 +203,5 @@ class DeviceViewModel(QObject):
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""
         self._log_text += message + "\n"
-        logger.debug(message)
+        # logger.debug(message)
         self.log_text_changed.emit()

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QKeyEvent
 from core.view_models.device_view_model import DeviceViewModel
+from core.views.system_info_view import SystemInfoView
 
 class CommandInputLineEdit(QLineEdit):
     """
@@ -54,6 +55,8 @@ class MainView(QWidget):
         self.setWindowTitle("PSC Orion")
         self.setGeometry(100, 100, 500, 400)
 
+        self._system_info_view = SystemInfoView(self._vm)
+
         # --- UI Widgets ---
         self.port_label = QLabel("Available Ports:")
         self.port_combo = QComboBox()
@@ -63,6 +66,7 @@ class MainView(QWidget):
         self.baud_combo.setCurrentText('115200')
         self.refresh_button = QPushButton("Refresh")
         self.connect_button = QPushButton("Connect")
+        self.system_info_button = QPushButton("System Info")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.cmd_input = CommandInputLineEdit()
         self.send_button = QPushButton("Send")
@@ -72,6 +76,7 @@ class MainView(QWidget):
         # Set fixed sizes for buttons
         self.refresh_button.setFixedSize(100, 30)
         self.connect_button.setFixedSize(100, 30)
+        self.system_info_button.setFixedSize(100, 30)
 
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
@@ -85,6 +90,7 @@ class MainView(QWidget):
         top_layout.addWidget(self.baud_combo)
         second_layout.addWidget(self.platform_label)
         second_layout.addStretch() # Add stretch to push platform_label to the right
+        second_layout.addWidget(self.system_info_button)
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
 
@@ -115,12 +121,14 @@ class MainView(QWidget):
         self.cmd_input.returnPressed.connect(self._vm.send_command)
         self.cmd_input.textChanged.connect(self.on_command_input_changed)
         self.cmd_input.interrupt_signal_pressed.connect(self._vm.send_interrupt_bytes)
+        self.system_info_button.clicked.connect(self._vm.open_system_info_view)
 
         # --- Bind ViewModel property changes to View update slots ---
         self._vm.log_text_changed.connect(self.on_log_text_changed)
         self._vm.is_connected_changed.connect(self.on_is_connected_changed)
         self._vm.command_text_changed.connect(self.on_command_text_changed)
         self._vm.platform_name_changed.connect(self.on_platform_name_changed)
+        self._vm.open_system_info_requested.connect(self._system_info_view.show)
 
         # --- Bind data model for the port list ---
         self.port_combo.setModel(self._vm.port_list_model)
@@ -142,6 +150,7 @@ class MainView(QWidget):
         self.port_combo.setEnabled(not connected)
         self.baud_combo.setEnabled(not connected)
         self.refresh_button.setEnabled(not connected)
+        self.system_info_button.setEnabled(connected)
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
@@ -159,5 +168,6 @@ class MainView(QWidget):
 
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
+        self._system_info_view.close()
         self._vm.clean_up()
         super().closeEvent(event)
