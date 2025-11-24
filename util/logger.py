@@ -50,8 +50,6 @@ class Logger:
         
         self._initialized = True
         
-        # Log initialization
-        self.logger.info(f"Logger initialized for project: {self.project_name}")
         
     def _add_file_handler(self):
         """Add file handler to logger"""

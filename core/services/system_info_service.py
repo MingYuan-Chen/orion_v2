@@ -16,7 +16,7 @@ class SystemInfoService(QObject):
     collection_error = Signal(str)
 
     COMMANDS = {
-        "cpu_info": "lscpu | grep 'Model name'",
+        "cpu_info": "lscpu",
         "memory_info": "free -b | grep 'Mem:'",
         "disk_usage": "fdisk -l /dev/mmcblk0",
         "kernel_version": "uname -a",
@@ -75,15 +75,24 @@ class SystemInfoService(QObject):
     
     def _parse_info(self, key, response):
 
+        model = None
+        cpu_count = None
+        max_mhz_raw = None
+        
         for line in response:
             line.strip()
             if key == "cpu_info":
                 cpu_model = "Unknown"
-                if any(keyword in line.lower() for keyword in ['freescale', 'imx', 'mx6', 'cortex', 'arm', 'intel', 'amd']):
-                    if self.platform_name == "Athena":     
-                        cpu_model = line.split(':')[1].strip()
-                    else:
-                        cpu_model = line.strip()
+                if ":" in line:
+                    result = line.split(":", 1)
+                    if result[0] == "Model name":
+                        model = result[1].strip()
+                    if result[0] == "CPU(s)":
+                        cpu_count = result[1].strip()
+                    if result[0] == "CPU max MHz":
+                        max_mhz_raw = round(float(result[1].strip())/1000, 2)
+                if model and cpu_count and max_mhz_raw:
+                    cpu_model = f"{model} @ {max_mhz_raw} GHz ({cpu_count} cores)"
                     self.info_updated.emit(key, cpu_model)
             elif key == "memory_info":
                 memo = "Unknown"

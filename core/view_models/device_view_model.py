@@ -42,6 +42,7 @@ class DeviceViewModel(QObject):
     command_text_changed = Signal()
     platform_name_changed = Signal()
     system_info_changed = Signal(str, str)
+    system_info_reset = Signal()
     open_system_info_requested = Signal()
 
     # =================================================================================
@@ -169,11 +170,14 @@ class DeviceViewModel(QObject):
         self._append_log(message)
         # Stop detection service regardless of disconnection success
         self._detection_service.stop_detection()
+        self._system_info_service.stop_collection()
         
         # Only update state if disconnection was successful or wasn't already disconnected
         if success and self._is_connected:
             self._is_connected = False
             self.is_connected_changed.emit()
+            self._system_info.clear()
+            self.system_info_reset.emit()
         
         # Reset platform name on disconnect
         self.on_platform_detected("Unknown")

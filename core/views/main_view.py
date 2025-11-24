@@ -4,9 +4,9 @@ from typing import Optional
 from PySide6.QtCore import QObject, Signal, Slot, Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel
+    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
 )
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeyEvent, QFont
 from core.view_models.device_view_model import DeviceViewModel
 from core.views.system_info_view import SystemInfoView
 
@@ -53,11 +53,14 @@ class MainView(QWidget):
         super().__init__()
         self._vm = view_model
         self.setWindowTitle("PSC Orion")
-        self.setGeometry(100, 100, 500, 400)
+        self.setGeometry(100, 100, 500, 600)
 
         self._system_info_view = SystemInfoView(self._vm)
 
         # --- UI Widgets ---
+        font_bold = QFont()
+        font_bold.setBold(True)
+
         self.port_label = QLabel("Available Ports:")
         self.port_combo = QComboBox()
         self.baud_label = QLabel("Baudrate:")
@@ -68,10 +71,13 @@ class MainView(QWidget):
         self.connect_button = QPushButton("Connect")
         self.system_info_button = QPushButton("System Info")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
+        self.platform_label.setStyleSheet("font-size: 16px;")
+        self.platform_label.setFont(font_bold)
         self.cmd_input = CommandInputLineEdit()
         self.send_button = QPushButton("Send")
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
+        self.log_view.setStyleSheet("font-size: 14px;")
 
         # Set fixed sizes for buttons
         self.refresh_button.setFixedSize(100, 30)
@@ -82,6 +88,15 @@ class MainView(QWidget):
         main_layout = QVBoxLayout(self)
         top_layout = QHBoxLayout()
         second_layout = QHBoxLayout()
+
+        
+        # Create a frame for the system info section
+        self.functionality_frame = QFrame()
+        self.functionality_frame.setFrameShape(QFrame.StyledPanel)
+        self.functionality_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
+        functionality_layout = QHBoxLayout(self.functionality_frame)
+        functionality_layout.setContentsMargins(10, 5, 10, 10)
+        
         cmd_layout = QHBoxLayout()
 
         top_layout.addWidget(self.port_label)
@@ -90,9 +105,10 @@ class MainView(QWidget):
         top_layout.addWidget(self.baud_combo)
         second_layout.addWidget(self.platform_label)
         second_layout.addStretch() # Add stretch to push platform_label to the right
-        second_layout.addWidget(self.system_info_button)
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
+        functionality_layout.addWidget(self.system_info_button)
+        functionality_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
         cmd_layout.addWidget(self.cmd_input, 1)
@@ -100,6 +116,7 @@ class MainView(QWidget):
 
         main_layout.addLayout(top_layout)
         main_layout.addLayout(second_layout)
+        main_layout.addWidget(self.functionality_frame)
         main_layout.addLayout(cmd_layout)
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)

@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
 from typing import Dict
@@ -16,55 +16,66 @@ class SystemInfoView(QWidget):
         self._labels: Dict[str, QLabel] = {}
 
         self.setWindowTitle("System Information")
-        self.setMinimumSize(600, 800)
+        self.setMinimumSize(700, 600)
 
         self._setup_ui()
         self._setup_bindings()
         self.update_labels(self._vm.system_info)
 
     def _setup_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.NoFrame)
-
-        content_widget = QWidget()
-        layout = QVBoxLayout(content_widget)
-        layout.setSpacing(10)
+        left_layout = QVBoxLayout()
+        left_layout.setSpacing(10)
         
+        right_layout = QVBoxLayout()
+        right_layout.setSpacing(10)
+
         font_bold = QFont()
         font_bold.setBold(True)
 
-        for key in SystemInfoService.COMMANDS.keys():
+        commands = list(SystemInfoService.COMMANDS.keys())
+        mid_point = 6 # Split point for 2 columns
+
+        for i, key in enumerate(commands):
             # Title Label (e.g., "Kernel Version")
             title_label = QLabel(key.replace("_", " ").title())
             title_label.setFont(font_bold)
-            title_label.setStyleSheet("color: #F5F5F5; padding-top: 10px;")
+            title_label.setStyleSheet("color: #F5F5F5; padding-top: 5px;")
             
             # Content Label
             content_label = QLabel("N/A")
             content_label.setWordWrap(True)
             content_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            content_label.setStyleSheet("background-color: #2E2E2E; border-radius: 4px; padding: 5px; color: #CCCCCC;")
+            content_label.setStyleSheet("background-color: #2E2E2E; border-radius: 4px; padding: 10px; color: #CCCCCC; font-size: 14px;")
             
             self._labels[key] = content_label
             
-            layout.addWidget(title_label)
-            layout.addWidget(content_label)
+            target_layout = left_layout if i < mid_point else right_layout
+            target_layout.addWidget(title_label)
+            target_layout.addWidget(content_label)
 
-        layout.addStretch()
-        scroll_area.setWidget(content_widget)
-        main_layout.addWidget(scroll_area)
+        left_layout.addStretch()
+        right_layout.addStretch()
+
+        main_layout.addLayout(left_layout, 1)
+        main_layout.addLayout(right_layout, 1)
 
     def _setup_bindings(self):
         self._vm.system_info_changed.connect(self.on_system_info_changed)
+        self._vm.system_info_reset.connect(self.on_system_info_reset)
 
     @Slot(str, str)
     def on_system_info_changed(self, key: str, value: str):
         if key in self._labels:
             self._labels[key].setText(value or "N/A")
+
+    @Slot()
+    def on_system_info_reset(self):
+        for label in self._labels.values():
+            label.setText("N/A")
 
     @Slot(dict)
     def update_labels(self, info: Dict[str, str]):
