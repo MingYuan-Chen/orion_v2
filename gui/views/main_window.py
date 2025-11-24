@@ -2875,18 +2875,18 @@ class MainWindowController(QObject):
             
             # Apply unit conversions based on step description
             if "0x51 0x00 0x19" in command.lower() or "0x81 0x00 0x15" in command.lower():
-                return f"{combined_value} = {round(combined_value, 2)}mV"
+                return f"{round(combined_value, 2)}mV"
             elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower() or "0x81 0x00 0x14" in command.lower():
-                return f"{combined_value} = {round(combined_value/1000, 2)}A"
+                return f"{round(combined_value/1000, 2)}A"
             elif "0x51 0x00 0x08" in command.lower():
                 temp_celsius = round(combined_value/10 - 273.15, 2)
-                return f"{combined_value} = {temp_celsius}C"
+                return f"{temp_celsius}C"
             elif "0x51 0x00 0x18" in command.lower():
-                return f"{combined_value} = {combined_value}mAh"
+                return f"{combined_value}mAh"
             elif "0x51 0x00 0x0d" in command.lower():
-                return f"{combined_value} = {combined_value}%"
+                return f"{combined_value}%"
             elif "0x21 0x00 0x10" in command.lower():
-                return f"{combined_value} = v{combined_value}"
+                return f"v{combined_value}"
             elif "0x51 0x00 0x21" in command.lower():
                 return f"{data_hex_values} = {combined_value}"
             else:
