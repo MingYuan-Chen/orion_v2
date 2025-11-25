@@ -4,7 +4,9 @@ from typing import List, Optional, Dict
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
+from core.services.platform_detection_service import PlatformDetectionService
 from core.services.system_info_service import SystemInfoService
+from core.services.hw_config_service import HWConfigService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -20,6 +22,10 @@ class DeviceViewModel(QObject):
         self._platform_name = "Unknown"
         self._system_info = {}
         self._system_info_service = None
+        
+        self._hw_config_list = []
+        self._current_hw_config = {}
+        self._hw_config_service = HWConfigService()
 
         # --- Port list management ---
         self._port_list_model = QStringListModel()
@@ -45,6 +51,10 @@ class DeviceViewModel(QObject):
     system_info_reset = Signal()
     system_info_keys_changed = Signal()
     open_system_info_requested = Signal()
+    open_hw_config_requested = Signal()
+    hw_config_list_changed = Signal()
+    current_hw_config_changed = Signal()
+    hw_config_reset = Signal()
 
     # =================================================================================
     # Properties accessible by the View
@@ -85,6 +95,14 @@ class DeviceViewModel(QObject):
             return list(self._system_info_service.commands.keys())
         return []
 
+    @Property(list, notify=hw_config_list_changed)
+    def hw_config_list(self) -> list:
+        return self._hw_config_list
+
+    @Property(dict, notify=current_hw_config_changed)
+    def current_hw_config(self) -> dict:
+        return self._current_hw_config
+
     @Slot()
     def refresh_ports(self):
         """Refreshes the list of available serial ports."""
@@ -124,6 +142,48 @@ class DeviceViewModel(QObject):
         """Opens the system info view and starts data collection."""
         self.open_system_info_requested.emit()
         self._system_info_service.collect_system_info()
+    
+    @Slot()
+    def open_hw_config_view(self):
+        """Opens the hardware config view and starts data collection."""
+        self.refresh_hw_config_list()
+        self.open_hw_config_requested.emit()
+
+    @Slot()
+    def refresh_hw_config_list(self):
+        """Refreshes the list of available HW config files for the current platform."""
+        # Map platform name if needed, similar to system_info_service
+        mapper_folder_name = {
+            "Athena": "athena",
+            "Odin": "odin",
+            "Gemini FHD": "gemini_fhd",
+            "Gemini": "gemini",
+            "Hydra FHD": "hydra_fhd",
+            "Hydra": "hydra",
+            "Argo": "argo"
+        }
+        mapped_name = mapper_folder_name.get(self._platform_name, self._platform_name.lower())
+        self._hw_config_list = self._hw_config_service.get_config_files(mapped_name)
+        self.hw_config_list_changed.emit()
+
+    @Slot(str)
+    def load_hw_config(self, filename: str):
+        """Loads a specific HW config file."""
+        self._current_hw_config = self._hw_config_service.load_config(filename)
+        self.current_hw_config_changed.emit()
+
+    @Slot(str, dict)
+    def save_hw_config(self, filename: str, data: dict):
+        """Saves the HW config data to a file."""
+        if self._hw_config_service.save_config(filename, data):
+            self.refresh_hw_config_list() # Refresh list in case it's a new file
+            # If we saved to the current file, update the current config data in memory too
+            # But usually the view sends the data that is already "current" in UI terms.
+            # Let's update our internal state to match what was saved.
+            self._current_hw_config = data
+            self.current_hw_config_changed.emit()
+        else:
+            self._append_log(f"Failed to save HW config to {filename}")
 
     @Slot()
     def send_command(self):
@@ -182,6 +242,7 @@ class DeviceViewModel(QObject):
             self.is_connected_changed.emit()
             self._system_info.clear()
             self.system_info_reset.emit()
+            self.hw_config_reset.emit()
         
         # Reset platform name on disconnect
         self.on_platform_detected("Unknown")
@@ -202,6 +263,9 @@ class DeviceViewModel(QObject):
             self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
             self._system_info_service.info_updated.connect(self.on_info_updated)
             self.system_info_keys_changed.emit()
+            
+            # Refresh HW config list for the new platform
+            self.refresh_hw_config_list()
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):

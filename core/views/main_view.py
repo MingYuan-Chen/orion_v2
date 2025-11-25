@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QKeyEvent, QFont
 from core.view_models.device_view_model import DeviceViewModel
 from core.views.system_info_view import SystemInfoView
+from core.views.hw_config_view import HWConfigView
 
 class CommandInputLineEdit(QLineEdit):
     """
@@ -56,6 +57,7 @@ class MainView(QWidget):
         self.setGeometry(100, 100, 500, 600)
 
         self._system_info_view = SystemInfoView(self._vm)
+        self._hw_config_view = HWConfigView(self._vm)
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -70,6 +72,7 @@ class MainView(QWidget):
         self.refresh_button = QPushButton("Refresh")
         self.connect_button = QPushButton("Connect")
         self.system_info_button = QPushButton("System Info")
+        self.hw_config_button = QPushButton("HW Config")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
         self.platform_label.setFont(font_bold)
@@ -83,6 +86,7 @@ class MainView(QWidget):
         self.refresh_button.setFixedSize(100, 30)
         self.connect_button.setFixedSize(100, 30)
         self.system_info_button.setFixedSize(100, 30)
+        self.hw_config_button.setFixedSize(100, 30)
 
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
@@ -108,6 +112,7 @@ class MainView(QWidget):
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
         functionality_layout.addWidget(self.system_info_button)
+        functionality_layout.addWidget(self.hw_config_button)
         functionality_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
@@ -139,15 +144,164 @@ class MainView(QWidget):
         self.cmd_input.textChanged.connect(self.on_command_input_changed)
         self.cmd_input.interrupt_signal_pressed.connect(self._vm.send_interrupt_bytes)
         self.system_info_button.clicked.connect(self._vm.open_system_info_view)
+import sys
+from typing import Optional
+from PySide6.QtCore import QObject, Signal, Slot, Qt, QTimer
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
+)
+from PySide6.QtGui import QKeyEvent, QFont
+from core.view_models.device_view_model import DeviceViewModel
+from core.views.system_info_view import SystemInfoView
+from core.views.hw_config_view import HWConfigView
+
+class CommandInputLineEdit(QLineEdit):
+    """
+    A custom QLineEdit that detects common interrupt signals.
+    The supported keys are defined in the INTERRUPT_KEYS dictionary.
+    """
+    interrupt_signal_pressed = Signal(bytes)
+
+    # Defines the mapping from key combinations to the bytes to be emitted.
+    # Format: (Qt.Key, Qt.KeyboardModifier): (bytes_to_emit, needs_no_autorepeat_check)
+    INTERRUPT_KEYS = {
+        (Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier): (b'\x03', False),
+        (Qt.Key.Key_D, Qt.KeyboardModifier.ControlModifier): (b'\x04', False),
+        (Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier): (b'\x1b', True),
+    }
+
+    def __init__(selfs, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        key_tuple = (event.key(), event.modifiers())
+
+        if key_tuple in self.INTERRUPT_KEYS:
+            byte_to_emit, needs_no_autorepeat = self.INTERRUPT_KEYS[key_tuple]
+
+            if needs_no_autorepeat and event.isAutoRepeat():
+                # Absorb auto-repeat events for keys that shouldn't have them (e.g., ESC)
+                event.accept()
+                return
+
+            self.interrupt_signal_pressed.emit(byte_to_emit)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+class MainView(QWidget):
+    """
+    The main view (UI) of the application.
+    It is a "dumb" view that only displays data from the ViewModel and forwards user actions to it.
+    """
+    def __init__(self, view_model: DeviceViewModel):
+        super().__init__()
+        self._vm = view_model
+        self.setWindowTitle("PSC Orion")
+        self.setGeometry(100, 100, 500, 600)
+
+        self._system_info_view = SystemInfoView(self._vm)
+        self._hw_config_view = HWConfigView(self._vm)
+
+        # --- UI Widgets ---
+        font_bold = QFont()
+        font_bold.setBold(True)
+
+        self.port_label = QLabel("Available Ports:")
+        self.port_combo = QComboBox()
+        self.baud_label = QLabel("Baudrate:")
+        self.baud_combo = QComboBox()
+        self.baud_combo.addItems(['9600', '19200', '38400', '57600', '115200'])
+        self.baud_combo.setCurrentText('115200')
+        self.refresh_button = QPushButton("Refresh")
+        self.connect_button = QPushButton("Connect")
+        self.system_info_button = QPushButton("System Info")
+        self.hw_config_button = QPushButton("HW Config")
+        self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
+        self.platform_label.setStyleSheet("font-size: 16px;")
+        self.platform_label.setFont(font_bold)
+        self.cmd_input = CommandInputLineEdit()
+        self.send_button = QPushButton("Send")
+        self.log_view = QTextEdit()
+        self.log_view.setReadOnly(True)
+        self.log_view.setStyleSheet("font-size: 14px;")
+
+        # Set fixed sizes for buttons
+        self.refresh_button.setFixedSize(100, 30)
+        self.connect_button.setFixedSize(100, 30)
+        self.system_info_button.setFixedSize(100, 30)
+        self.hw_config_button.setFixedSize(100, 30)
+
+        # --- Layouts ---
+        main_layout = QVBoxLayout(self)
+        top_layout = QHBoxLayout()
+        second_layout = QHBoxLayout()
+
+        
+        # Create a frame for the system info section
+        self.functionality_frame = QFrame()
+        self.functionality_frame.setFrameShape(QFrame.StyledPanel)
+        self.functionality_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
+        functionality_layout = QHBoxLayout(self.functionality_frame)
+        functionality_layout.setContentsMargins(10, 5, 10, 10)
+        
+        cmd_layout = QHBoxLayout()
+
+        top_layout.addWidget(self.port_label)
+        top_layout.addWidget(self.port_combo, 1)
+        top_layout.addWidget(self.baud_label)
+        top_layout.addWidget(self.baud_combo)
+        second_layout.addWidget(self.platform_label)
+        second_layout.addStretch() # Add stretch to push platform_label to the right
+        second_layout.addWidget(self.refresh_button)
+        second_layout.addWidget(self.connect_button)
+        functionality_layout.addWidget(self.system_info_button)
+        functionality_layout.addWidget(self.hw_config_button)
+        functionality_layout.addStretch()
+
+        self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
+        cmd_layout.addWidget(self.cmd_input, 1)
+        cmd_layout.addWidget(self.send_button)
+
+        main_layout.addLayout(top_layout)
+        main_layout.addLayout(second_layout)
+        main_layout.addWidget(self.functionality_frame)
+        main_layout.addLayout(cmd_layout)
+        main_layout.addWidget(QLabel("Log & Received Data:"))
+        main_layout.addWidget(self.log_view, 1)
+
+        # --- Data Binding and Event Connections ---
+        self._setup_bindings()
+
+        # --- Initial State from ViewModel ---
+        self.on_is_connected_changed() # Set initial UI state based on VM
+
+    def _setup_bindings(self):
+        """Set up connections between UI widgets and the ViewModel."""
+        # --- Bind View actions to ViewModel slots ---
+        self.refresh_button.clicked.connect(self._vm.refresh_ports)
+        self.connect_button.clicked.connect(
+            lambda: self._vm.toggle_connection(self.port_combo.currentText(), self.baud_combo.currentText())
+        )
+        self.send_button.clicked.connect(self._vm.send_command)
+        self.cmd_input.returnPressed.connect(self._vm.send_command)
+        self.cmd_input.textChanged.connect(self.on_command_input_changed)
+        self.cmd_input.interrupt_signal_pressed.connect(self._vm.send_interrupt_bytes)
+        self.system_info_button.clicked.connect(self._vm.open_system_info_view)
+        self.hw_config_button.clicked.connect(self._vm.open_hw_config_view)
 
         # --- Bind ViewModel property changes to View update slots ---
         self._vm.log_text_changed.connect(self.on_log_text_changed)
         self._vm.is_connected_changed.connect(self.on_is_connected_changed)
         self._vm.command_text_changed.connect(self.on_command_text_changed)
         self._vm.platform_name_changed.connect(self.on_platform_name_changed)
+        
+        # --- Connect ViewModel signals to View slots (for opening sub-views) ---
         self._vm.open_system_info_requested.connect(self._system_info_view.show)
+        self._vm.open_hw_config_requested.connect(self._hw_config_view.show)
 
-        # --- Bind data model for the port list ---
+        # --- Enable/Disable UI elements based on connection status ---
         self.port_combo.setModel(self._vm.port_list_model)
 
     @Slot(str)
@@ -168,6 +322,7 @@ class MainView(QWidget):
         self.baud_combo.setEnabled(not connected)
         self.refresh_button.setEnabled(not connected)
         self.system_info_button.setEnabled(connected)
+        self.hw_config_button.setEnabled(connected)
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
@@ -186,5 +341,6 @@ class MainView(QWidget):
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
         self._system_info_view.close()
+        self._hw_config_view.close()
         self._vm.clean_up()
         super().closeEvent(event)
