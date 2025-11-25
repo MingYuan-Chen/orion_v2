@@ -2860,11 +2860,16 @@ class MainWindowController(QObject):
                 high_byte = int(hex_values[1], 16)  # Second hex value
                 low_byte = int(hex_values[2], 16)   # Third hex value
                 combined_value = (high_byte << 8) + low_byte
+             # --- signed 16-bit conversion ---
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000       
             elif len(hex_values) == 2:
                 # Two values: use both as data (high byte + low byte)
                 high_byte = int(hex_values[0], 16)
                 low_byte = int(hex_values[1], 16)
                 combined_value = (high_byte << 8) + low_byte
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000
             elif len(hex_values) == 1:
                 # Single value
                 combined_value = int(hex_values[0], 16)
@@ -3200,7 +3205,7 @@ class MainWindowController(QObject):
             # Look up LED status
             if value in BATTERY_STATUS_MAP:
                 battery_status_text = BATTERY_STATUS_MAP[value]
-                return f"{value} = {battery_status_text}"
+                return f"{battery_status_text}"
             else:
                 return f"{value} = Unknown Battery Status"
                 
