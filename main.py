@@ -22,10 +22,10 @@ def main():
 
     # Set application name
     app.setApplicationName("Orion")
-    app.setApplicationDisplayName("Serial Tool v2.0.2 20251113")
+    app.setApplicationDisplayName("Serial Tool v3.0.0 20251124")
     app.setOrganizationName("Orion")
     app.setOrganizationDomain("orion.com")
-    app.setApplicationVersion("2.0.2.0")
+    app.setApplicationVersion("3.0.0.0")
 
     # 2. Create the Model, ViewModel, and View instances (MVVM setup)
     serial_model = SerialDeviceModel()

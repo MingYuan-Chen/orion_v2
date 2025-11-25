@@ -3,6 +3,7 @@ import collections
 from PySide6.QtCore import QObject, Signal, Slot
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
+from util.command_loader import CommandLoader
 from typing import Dict, Optional, List
 
 class SystemInfoService(QObject):
@@ -15,22 +16,6 @@ class SystemInfoService(QObject):
     collection_finished = Signal()
     collection_error = Signal(str)
 
-    COMMANDS = {
-        "cpu_info": "lscpu",
-        "memory_info": "free -b | grep 'Mem:'",
-        "disk_usage": "fdisk -l /dev/mmcblk0",
-        "kernel_version": "uname -a",
-        "os_version": "cat /etc/os-release",
-        "uboot_version": "strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'",
-        "charging_voltage": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x15 r2",
-        "charging_current": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x14 r2",
-        "design_voltage": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x19 r2",
-        "design_capacity": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2",
-        "battery_serial": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x1c r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x1c r2",
-        "battery_model": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9",
-        "pic_firmware": "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-    }
-
     def __init__(self, device_model: SerialDeviceModel, parent: Optional[QObject] = None, platform_name: str = "Unknown"):
         super().__init__(parent)
         self._model = device_model
@@ -39,6 +24,21 @@ class SystemInfoService(QObject):
         
         self._model.queue_finished.connect(self.collection_finished)
         self.collected_info = {}
+        
+        # Load commands dynamically
+        mapper_folder_name = {
+            "Athena": "athena",
+            "Odin": "odin",
+            "Gemini FHD": "gemini_fhd",
+            "Gemini": "gemini",
+            "Hydra FHD": "hydra_fhd",
+            "Hydra": "hydra",
+            "Argo": "argo"
+        }
+        _mapped_folder_name = mapper_folder_name.get(self.platform_name, "Unknown")
+        self.commands = CommandLoader.load_commands(_mapped_folder_name, "system_info")
+        if not self.commands:
+            logger.warning(f"No system info commands found for platform: {self.platform_name}")
 
     @Slot()
     def collect_system_info(self):
@@ -55,7 +55,8 @@ class SystemInfoService(QObject):
 
         self._is_running = True
 
-        for key, cmd in self.COMMANDS.items():
+        for key, cmd_list in self.commands.items():
+            cmd = cmd_list[0] if isinstance(cmd_list, list) and cmd_list else str(cmd_list)
             response = self._model.send_command_sync(cmd)
             self._parse_info(key, response)
     
@@ -98,12 +99,25 @@ class SystemInfoService(QObject):
                 memo = "Unknown"
                 if 'Mem:' in line:
                     parts = line.split()
-                    total = round(float(parts[1])/(1024*1024), 1)
-                    used = round(float(parts[2])/(1024*1024), 1)
-                    percent = round((used/total)*100, 1)
-                    memo = f"Total: {total} MB | Used: {used} MB | Usage: {percent} %"
-                    self.info_updated.emit(key, memo)
-            
+                    try:
+                        total_bytes = self._parse_memory_value(parts[1])
+                        used_bytes = self._parse_memory_value(parts[2])
+                        
+                        total_mb = round(total_bytes / (1024 * 1024), 1)
+                        used_mb = round(used_bytes / (1024 * 1024), 1)
+                        
+                        if total_bytes > 0:
+                            percent = round((used_bytes / total_bytes) * 100, 1)
+                        else:
+                            percent = 0.0
+                            
+                        memo = f"Total: {total_mb} MB | Used: {used_mb} MB | Usage: {percent} %"
+                        self.info_updated.emit(key, memo)
+                    except Exception as e:
+                        logger.error(f"Error parsing memory info: {e}")
+                        self.info_updated.emit(key, f"Error: {line}")
+
+
             elif key == "disk_usage":
                 disk = "Unknown"
                 if self.platform_name == "Athena" and "Disk /dev/mmcblk0:" in line:
@@ -176,5 +190,27 @@ class SystemInfoService(QObject):
                         self.info_updated.emit(key, model)
                     elif key == "pic_firmware":
                         firmware = hex_value
-                        self.info_updated.emit(key, f"v{hex_value}")
-                
+                        self.info_updated.emit(key, f"v{firmware}")
+
+    def _parse_memory_value(self, value_str: str) -> float:
+        """Parses a memory string (e.g., '3.8Gi', '1024', '500M') into bytes."""
+        value_str = value_str.strip()
+        units = {
+            'Ti': 1024**4, 'Gi': 1024**3, 'Mi': 1024**2, 'Ki': 1024,
+            'T': 1024**4, 'G': 1024**3, 'M': 1024**2, 'K': 1024,
+            'B': 1
+        }
+        
+        for unit, factor in units.items():
+            if value_str.endswith(unit):
+                try:
+                    number_part = value_str[:-len(unit)]
+                    return float(number_part) * factor
+                except ValueError:
+                    continue
+        
+        # If no unit found or parsing failed, try parsing as raw number (bytes)
+        try:
+            return float(value_str)
+        except ValueError:
+            return 0.0

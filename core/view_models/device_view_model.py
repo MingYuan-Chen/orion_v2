@@ -1,7 +1,6 @@
 
-from ast import Dict
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
@@ -20,6 +19,7 @@ class DeviceViewModel(QObject):
         self._is_connected = False
         self._platform_name = "Unknown"
         self._system_info = {}
+        self._system_info_service = None
 
         # --- Port list management ---
         self._port_list_model = QStringListModel()
@@ -43,6 +43,7 @@ class DeviceViewModel(QObject):
     platform_name_changed = Signal()
     system_info_changed = Signal(str, str)
     system_info_reset = Signal()
+    system_info_keys_changed = Signal()
     open_system_info_requested = Signal()
 
     # =================================================================================
@@ -78,9 +79,12 @@ class DeviceViewModel(QObject):
     def system_info(self) -> dict:
         return self._system_info
 
-    # =================================================================================
-    # Slots (public methods) callable from the View
-    # =================================================================================
+    @Property(list, notify=system_info_keys_changed)
+    def system_info_keys(self) -> list:
+        if self._system_info_service and hasattr(self._system_info_service, 'commands'):
+            return list(self._system_info_service.commands.keys())
+        return []
+
     @Slot()
     def refresh_ports(self):
         """Refreshes the list of available serial ports."""
@@ -192,9 +196,12 @@ class DeviceViewModel(QObject):
             self._platform_name = platform_name
             self.platform_name_changed.emit()
         
-            # Reinitialize system info service with the new platform name
+            if self.platform_name == "Unknown":
+                return  
+            # Initialize system info service with the detected platform name
             self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
             self._system_info_service.info_updated.connect(self.on_info_updated)
+            self.system_info_keys_changed.emit()
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):

@@ -1,0 +1,209 @@
+{
+  "functionality_audio": {
+    "commands": [
+      "amixer -c 0 set PCM 100%",
+      "(aplay /unit_tests/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "aplay mic.wav",
+      "rm -f mic.wav"
+    ]
+  },
+  "functionality_backlight": {
+    "commands": [
+      "echo 0 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 1 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 2 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 3 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 4 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 5 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 6 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 7 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 1 > /sys/class/backlight/backlight/bl_power",
+      "cat /sys/class/backlight/backlight/bl_power",
+      "echo 0 > /sys/class/backlight/backlight/bl_power",
+      "cat /sys/class/backlight/backlight/bl_power"
+    ]
+  },
+  "functionality_battery": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x08 r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x14 r2"
+    ]
+  },
+  "functionality_power_button": {
+    "commands": [
+      "evtest /dev/input/event2 > evtlog &",
+      "cat evtlog",
+      "kill {process_id}",
+      "rm -f evtlog"
+    ]
+  },
+  "functionality_charge": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+    ]
+  },
+  "functionality_eeprom": {
+    "commands": [
+      "dd if=/dev/urandom of=to_eeprom0_data bs=1K count=16",
+      "dd if=/dev/urandom of=to_eeprom1_data bs=1 count=128",
+      "sync",
+      "md5sum to_eeprom0_data | cut -d' ' -f1",
+      "md5sum to_eeprom1_data | cut -d' ' -f1",
+      "cat to_eeprom0_data | eeprog -f -16 /dev/i2c-0 0x55 -w 0x0",
+      "cat to_eeprom1_data | eeprog -f -8 /dev/i2c-0 0x57 -w 0x0",
+      "sync",
+      "eeprog /dev/i2c-0 0x55 -16 -f -q -r 0x0:16384 > from_eeprom0_data",
+      "eeprog /dev/i2c-0 0x57 -8 -f -q -r 0x0:128 > from_eeprom1_data",
+      "sync",
+      "md5sum from_eeprom0_data | cut -d' ' -f1",
+      "md5sum from_eeprom1_data | cut -d' ' -f1",
+      "echo 'Comparing MD5 values'",
+      "rm -f to_eeprom0_data from_eeprom0_data",
+      "rm -f to_eeprom1_data from_eeprom1_data",
+      "sync"
+    ],
+    "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
+  },
+  "functionality_emmc": {
+    "commands": [
+      "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
+      "sync",
+      "echo 3 > /proc/sys/vm/drop_caches",
+      "dd if=/emmc_througtput of=/dev/null bs=1M"
+    ]
+  },
+  "functionality_lcd": {
+    "commands": [
+      "/unit_tests/drawfb.out red",
+      "/unit_tests/drawfb.out green",
+      "/unit_tests/drawfb.out blue",
+      "/unit_tests/drawfb.out black",
+      "/unit_tests/drawfb.out white",
+      "/unit_tests/drawfb.out colorbar",
+      "/unit_tests/drawfb.out gradient",
+      "/unit_tests/drawfb.out frame",
+      "/unit_tests/drawfb.out gray16",
+      "/unit_tests/drawfb.out gray64",
+      "/unit_tests/drawfb.out gray256"
+    ]
+  },
+  "functionality_led": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x01 r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x02 r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x04 r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x09 r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x0a r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x0c r2",
+      "",
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x22 0x00 0x10 r2"
+    ]
+  },
+  "functionality_usb": {
+    "commands": [
+      "ls -l /run/media",
+      "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
+      "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
+      "rm -f {usb1_path}/usb_throughput",
+      "rm -f {usb2_path}/usb_throughput"
+    ]
+  },
+  "functionality_touch": {
+    "commands": [
+      "/dqa_package/TouchTestQt", "",
+      "ts_test_mt -j 2 -v",
+      "", "", "", "", "", "", ""
+    ]
+  },
+  "functionality_hdmi": {
+    "commands": [
+      "echo 0 > /sys/class/graphics/fb2/blank",
+      "",
+      "gst-launch-1.0 playbin uri=file:///run/media/sda1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
+      "gst-launch-1.0 playbin uri=file:///run/media/sdb1/demo.mp4 video-sink='overlaysink display-master=true display-slave=true' &",
+      "",
+      "pkill -f gst-launch"
+    ]
+  },
+  "functionality_camera": {
+    "commands": [
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
+
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
+
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
+
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe1_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video0 -bg -r 1 &",
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out",
+      "echo 0 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "echo 1 >  /sys/class/gpio/vfe2_ov788_rst/value",
+      "/unit_tests/mxc_v4l2_overlay.out \\n -iw 1280 -ih 720 -it 0 -il 0 \\n -ow 1280 -oh 800 -ot 0 -ol 0 \\n -di /dev/video1 -bg -r 1 &",
+
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe1_blade_det$i/value",
+      "done",
+      "for i in 0 1 2 3; do cat /sys/class/gpio/vfe2_blade_det$i/value",
+      "done",
+      "killall /unit_tests/mxc_v4l2_overlay.out"
+    ]
+  }
+}

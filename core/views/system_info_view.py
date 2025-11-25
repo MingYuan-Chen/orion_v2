@@ -4,7 +4,6 @@ from PySide6.QtGui import QFont
 from typing import Dict
 
 from core.view_models.device_view_model import DeviceViewModel
-from core.services.system_info_service import SystemInfoService
 
 class SystemInfoView(QWidget):
     """
@@ -16,16 +15,28 @@ class SystemInfoView(QWidget):
         self._labels: Dict[str, QLabel] = {}
 
         self.setWindowTitle("System Information")
-        self.setMinimumSize(700, 600)
+        self.setMinimumSize(800, 600)
 
-        self._setup_ui()
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+        
         self._setup_bindings()
-        self.update_labels(self._vm.system_info)
+        # Initial setup if keys are already available
+        self.rebuild_ui()
 
-    def _setup_ui(self):
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(20)
+    def rebuild_ui(self):
+        # Clear existing layout items
+        self._labels.clear()
+        
+        # Remove all items from the main layout
+        while self.main_layout.count():
+            item = self.main_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
+                item.layout().deleteLater()
 
         left_layout = QVBoxLayout()
         left_layout.setSpacing(10)
@@ -36,8 +47,8 @@ class SystemInfoView(QWidget):
         font_bold = QFont()
         font_bold.setBold(True)
 
-        commands = list(SystemInfoService.COMMANDS.keys())
-        mid_point = 6 # Split point for 2 columns
+        commands = self._vm.system_info_keys
+        mid_point = (len(commands)) // 2
 
         for i, key in enumerate(commands):
             # Title Label (e.g., "Kernel Version")
@@ -60,12 +71,29 @@ class SystemInfoView(QWidget):
         left_layout.addStretch()
         right_layout.addStretch()
 
-        main_layout.addLayout(left_layout, 1)
-        main_layout.addLayout(right_layout, 1)
+        self.main_layout.addLayout(left_layout, 1)
+        self.main_layout.addLayout(right_layout, 1)
+        
+        # Update with any existing data
+        self.update_labels(self._vm.system_info)
+
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
+                item.layout().deleteLater()
 
     def _setup_bindings(self):
         self._vm.system_info_changed.connect(self.on_system_info_changed)
         self._vm.system_info_reset.connect(self.on_system_info_reset)
+        self._vm.system_info_keys_changed.connect(self.on_system_info_keys_changed)
+
+    @Slot()
+    def on_system_info_keys_changed(self):
+        self.rebuild_ui()
 
     @Slot(str, str)
     def on_system_info_changed(self, key: str, value: str):
