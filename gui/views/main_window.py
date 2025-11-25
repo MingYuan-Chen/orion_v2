@@ -2861,14 +2861,25 @@ class MainWindowController(QObject):
                 combined_value = ''.join(ascii_chars).rstrip('\x00').rstrip()
             elif len(hex_values) >= 3:
                 # Skip the first byte (status byte 0x02) and use the next 2 bytes as data
-                high_byte = int(hex_values[1], 16)  # Second hex value
-                low_byte = int(hex_values[2], 16)   # Third hex value
+                high_byte = int(hex_values[1], 16)
+                low_byte = int(hex_values[2], 16)
                 combined_value = (high_byte << 8) + low_byte
+
+                # --- signed 16-bit conversion ---
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000
+                
+                # high_byte = int(hex_values[1], 16)  # Second hex value
+                # low_byte = int(hex_values[2], 16)   # Third hex value
+                # combined_value = (high_byte << 8) + low_byte
             elif len(hex_values) == 2:
                 # Two values: use both as data (high byte + low byte)
                 high_byte = int(hex_values[0], 16)
                 low_byte = int(hex_values[1], 16)
                 combined_value = (high_byte << 8) + low_byte
+
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000
             elif len(hex_values) == 1:
                 # Single value
                 combined_value = int(hex_values[0], 16)
