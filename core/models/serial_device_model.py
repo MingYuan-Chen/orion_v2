@@ -397,20 +397,52 @@ class SerialDeviceModel(QObject):
         loop = QEventLoop()
         result_holder = {"response": []}
 
+        # 1. Normal completion handler
         def on_finished(finished_cmd, response_lines):
             if finished_cmd == cmd:
                 result_holder["response"] = response_lines
+                if loop.isRunning():
+                    loop.quit()
+
+        # 2. Disconnection handler
+        def on_disconnected(success, msg):
+            result_holder["response"] = ["[ERROR] Device disconnected during command execution"]
+            if loop.isRunning():
+                loop.quit()
+        
+        # 3. Safety timer (fallback)
+        # Set slightly longer than the command timeout to give the command logic a chance to timeout first
+        safety_timer = QTimer()
+        safety_timer.setSingleShot(True)
+        
+        def on_safety_timeout():
+            if loop.isRunning():
+                # If we hit this, it means the model's internal timeout logic failed or hung
+                # We should try to stop the command manually
+                result_holder["response"] = ["[ERROR] Command execution timed out (Safety Timer)"]
                 loop.quit()
 
+        safety_timer.timeout.connect(on_safety_timeout)
+
+        # Connect signals
         self.command_finished.connect(on_finished)
+        self.disconnection_result.connect(on_disconnected)
 
         # Enqueue the command
         self.send_command_queued(cmd, wait_for, timeout)
+        
+        # Start safety timer (timeout + 0.5s buffer)
+        safety_timer.start(int((timeout + 0.5) * 1000))
 
-        # Block until the command is finished (or timeout)
+        # Block until the command is finished (or timeout/disconnect)
         loop.exec()
 
+        # Cleanup
+        if safety_timer.isActive():
+            safety_timer.stop()
+            
         self.command_finished.disconnect(on_finished)
+        self.disconnection_result.disconnect(on_disconnected)
 
         return result_holder["response"]
 

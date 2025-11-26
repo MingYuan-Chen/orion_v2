@@ -105,7 +105,6 @@ class DiagnosticService(QObject):
             response_lines = self._model.send_command_sync(cmd)
             output_str = "\n".join(response_lines)
             full_output.append(output_str)
-        
         if not self._running:
             return
 
