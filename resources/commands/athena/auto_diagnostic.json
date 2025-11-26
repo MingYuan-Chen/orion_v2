@@ -64,9 +64,7 @@
       "hwclock -r",
       "date"
     ],
-    "expected_response": [
-      "2025"
-    ]
+    "validate_function": "validate_sync_time_for_athena"
   },
   "diagnostic_design_capacity": {
     "commands": [
@@ -89,7 +87,7 @@
       "strings /dev/mtd5 | grep -E 'U-Boot'"
     ],
     "expected_response": [
-      "U-Boot"
+      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
     ]
   },
   "diagnostic_kernal_name": {

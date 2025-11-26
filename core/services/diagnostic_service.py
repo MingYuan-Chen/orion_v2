@@ -5,53 +5,35 @@ from typing import Dict, List, Tuple, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
+from datetime import datetime
 
 class DiagnosticValidator:
     """
     Contains static methods for custom validation of diagnostic command outputs.
     """
-    
-    @staticmethod
-    def validate_memory_size(output: str, expected: Any) -> Tuple[bool, str]:
-        """
-        Example validator: Checks if memory size is within a reasonable range of expected value.
-        Expected can be a specific number or a dict with min/max.
-        """
-        try:
-            # Extract number from output (assuming output contains the number in kB)
-            # Example output: "MemTotal:        3943740 kB"
-            match = re.search(r'(\d+)', output)
-            if not match:
-                return False, f"Could not parse number from output: {output.strip()}"
-            
-            actual_value = int(match.group(1))
-            
-            if isinstance(expected, dict):
-                min_val = expected.get('min')
-                max_val = expected.get('max')
-                if min_val is not None and actual_value < min_val:
-                    return False, f"Value {actual_value} < min {min_val}"
-                if max_val is not None and actual_value > max_val:
-                    return False, f"Value {actual_value} > max {max_val}"
-                return True, f"Value {actual_value} within range [{min_val}, {max_val}]"
-            else:
-                # Simple equality or close enough check? 
-                # For now let's assume expected is a string representation of the number
-                expected_val = int(expected)
-                if actual_value == expected_val:
-                    return True, f"Value {actual_value} matches expected {expected_val}"
-                else:
-                    return False, f"Value {actual_value} does not match expected {expected_val}"
-                    
-        except Exception as e:
-            return False, f"Validation error: {str(e)}"
-
     @staticmethod
     def validate_contains(output: str, expected: str) -> Tuple[bool, str]:
         """Simple validator to check if output contains expected string."""
         if expected in output:
             return True, f"Found expected output: {expected}"
         return False, f"All expected outputs not found"
+    
+    @staticmethod
+    def validate_sync_time_for_athena(output: str) -> Tuple[bool, str]:
+        """Validator for Athena sync time."""
+        
+        pattern = r"(?:\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
+        matches = re.findall(pattern, output)
+        if matches and len(matches) == 3:
+            hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
+            sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
+            time_difference = abs((hw_time - sw_time).total_seconds())
+            if time_difference < 5:
+                return True, f"HW time and System time is synced"
+            else:
+                return False, f"HW time and System time difference more then 5 seconds"
+
+        return False, "No matched time string found"
 
 class DiagnosticService(QObject):
     """
@@ -128,7 +110,7 @@ class DiagnosticService(QObject):
             return
 
         combined_output = "\n".join(full_output)
-        
+
         # Validate
         is_valid, msg = self.validate_result(key, combined_output)
         
@@ -145,36 +127,42 @@ class DiagnosticService(QObject):
         """
         Validates the output for a given diagnostic key.
         """
-        config = self._diagnostics.get(key)
-        if not config:
-            return False, "Unknown diagnostic key"
+        try:
+            config = self._diagnostics.get(key)
+            if not config:
+                return False, "Unknown diagnostic key"
 
-        validate_func_name = config.get("validate_function")
-        expected_response = config.get("expected_response")
+            validate_func_name = config.get("validate_function")
+            expected_response = config.get("expected_response")
 
-        if validate_func_name:
-            if hasattr(DiagnosticValidator, validate_func_name):
-                validator = getattr(DiagnosticValidator, validate_func_name)
-                # We might need to pass extra args from config if needed
-                # For now, pass expected_response as the second arg
-                return validator(output, expected_response)
-            else:
-                return False, f"Validator function '{validate_func_name}' not found"
-        
-        elif expected_response:
-            # Default validation: check if output contains expected response(s)
-            # expected_response can be a list or string
-            if isinstance(expected_response, list):
-                for expected in expected_response:
-                    if expected in output:
-                        return True, f"Found expected output: {expected}"
-                return False, "All expected outputs not found"
-            else:
-                return DiagnosticValidator.validate_contains(output, str(expected_response))
-        
-        return True, "No validation criteria defined"
+            if validate_func_name:
+                if hasattr(DiagnosticValidator, validate_func_name):
+                    validator = getattr(DiagnosticValidator, validate_func_name)
+                    # We might need to pass extra args from config if needed
+                    # For now, pass expected_response as the second arg
+                    return validator(output)
+                else:
+                    return False, f"Validator function '{validate_func_name}' not found"
+            
+            elif expected_response:
+                # Default validation: check if output contains expected response(s)
+                # expected_response can be a list or string
+                if isinstance(expected_response, list):
+                    for expected in expected_response:
+                        if expected in output:
+                            return True, f"Found expected output: {expected}"
+                    return False, "All expected outputs not found"
+                else:
+                    return DiagnosticValidator.validate_contains(output, str(expected_response))
+            
+            return True, "No validation criteria defined"
+        except Exception as e:
+            logger.error(f"Error validating diagnostic {key}: {e}")
+            return False, str(e)
     
     def disconnect(self):
         self._running = False
-        self._queue.clear()
-        self._model.command_queue.clear()
+        if hasattr(self, '_queue'):
+            self._queue.clear()
+        if hasattr(self, '_model'):
+            self._model.command_queue.clear()
