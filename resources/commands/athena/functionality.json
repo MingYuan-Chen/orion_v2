@@ -69,7 +69,14 @@
       "i2cset -f -y 1 0x57 0x1f {eeprom_e_orig}",
       "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 {eeprom_1_orig}"
     ],
-    "expected_response": ["", "0xaa", "", "", "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36", ""]
+    "expected_response": [
+      "",
+      "0xaa",
+      "",
+      "",
+      "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36",
+      ""
+    ]
   },
   "functionality_emmc": {
     "commands": [
@@ -124,9 +131,16 @@
   },
   "functionality_touch": {
     "commands": [
-      "/dqa_package/TouchTestQt64", "",
+      "/dqa_package/TouchTestQt64",
+      "",
       "ts_test_mt -j 2 -v",
-      "", "", "", "", "", "", ""
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
     ]
   },
   "functionality_hdmi": {
@@ -137,7 +151,14 @@
   },
   "functionality_camera": {
     "commands": [
-      "", "", "", "", "", "", "", ""
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
     ]
   }
 }

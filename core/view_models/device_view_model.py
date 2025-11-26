@@ -4,9 +4,9 @@ from typing import List, Optional, Dict
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
-from core.services.platform_detection_service import PlatformDetectionService
 from core.services.system_info_service import SystemInfoService
 from core.services.hw_config_service import HWConfigService
+from core.services.diagnostic_service import DiagnosticService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -22,6 +22,7 @@ class DeviceViewModel(QObject):
         self._platform_name = "Unknown"
         self._system_info = {}
         self._system_info_service = None
+        self._diagnostic_service = None
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -55,6 +56,11 @@ class DeviceViewModel(QObject):
     hw_config_list_changed = Signal()
     current_hw_config_changed = Signal()
     hw_config_reset = Signal()
+    diagnostic_reset = Signal()
+    
+    # Diagnostic signals
+    diagnostic_result = Signal(str, bool, str) # key, success, message
+    all_diagnostics_completed = Signal()
 
     # =================================================================================
     # Properties accessible by the View
@@ -148,6 +154,10 @@ class DeviceViewModel(QObject):
         """Opens the hardware config view and starts data collection."""
         self.refresh_hw_config_list()
         self.open_hw_config_requested.emit()
+    
+    @Slot()
+    def interrupt_diagnostic(self):
+        self._diagnostic_service.disconnect()
 
     @Slot()
     def refresh_hw_config_list(self):
@@ -184,6 +194,15 @@ class DeviceViewModel(QObject):
             self.current_hw_config_changed.emit()
         else:
             self._append_log(f"Failed to save HW config to {filename}")
+
+    @Slot()
+    def run_all_diagnostics(self):
+        """Runs all diagnostics for the current platform."""
+        if self._diagnostic_service:
+            self._append_log("Starting diagnostics...")
+            self._diagnostic_service.run_diagnostics()
+        else:
+            self._append_log("Diagnostic service not initialized.")
 
     @Slot()
     def send_command(self):
@@ -235,6 +254,7 @@ class DeviceViewModel(QObject):
         # Stop detection service regardless of disconnection success
         self._detection_service.stop_detection()
         self._system_info_service.stop_collection()
+        self._diagnostic_service.disconnect()
         
         # Only update state if disconnection was successful or wasn't already disconnected
         if success and self._is_connected:
@@ -243,6 +263,7 @@ class DeviceViewModel(QObject):
             self._system_info.clear()
             self.system_info_reset.emit()
             self.hw_config_reset.emit()
+            self.diagnostic_reset.emit()
         
         # Reset platform name on disconnect
         self.on_platform_detected("Unknown")
@@ -266,15 +287,26 @@ class DeviceViewModel(QObject):
             
             # Refresh HW config list for the new platform
             self.refresh_hw_config_list()
+            
+            # Initialize Diagnostic Service
+            self._diagnostic_service = DiagnosticService(self._model, self._platform_name)
+            self._diagnostic_service.diagnostic_finished.connect(self.on_diagnostic_finished)
+            self._diagnostic_service.all_diagnostics_finished.connect(self.on_all_diagnostics_finished)
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
         self._system_info[key] = result
         self.system_info_changed.emit(key, result)
 
-    # =================================================================================
-    # Helper methods
-    # =================================================================================
+    @Slot(str, bool, str)
+    def on_diagnostic_finished(self, key: str, success: bool, message: str):
+        self.diagnostic_result.emit(key, success, message)
+
+    @Slot()
+    def on_all_diagnostics_finished(self):
+        self._append_log("All diagnostics completed.")
+        self.all_diagnostics_completed.emit()
+        
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""
         self._log_text += message + "\n"
