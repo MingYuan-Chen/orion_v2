@@ -8,7 +8,7 @@ class DiagnosticView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Diagnostics")
-        self.resize(700, 500)
+        self.resize(700, 700)
         self._setup_ui()
         self._setup_bindings()
 

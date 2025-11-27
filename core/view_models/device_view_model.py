@@ -7,6 +7,7 @@ from core.services.platform_detection_service import PlatformDetectionService
 from core.services.system_info_service import SystemInfoService
 from core.services.hw_config_service import HWConfigService
 from core.services.diagnostic_service import DiagnosticService
+from core.services.battery_monitor_service import BatteryMonitorService
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -16,13 +17,13 @@ class DeviceViewModel(QObject):
     def __init__(self, model: SerialDeviceModel, parent: Optional[QObject] = None):
         super().__init__(parent)
         self._model = model
-        self._log_text = ""
         self._command_text = ""
         self._is_connected = False
         self._platform_name = "Unknown"
         self._system_info = {}
         self._system_info_service = None
         self._diagnostic_service = None
+        self._battery_monitor_service = None
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -62,13 +63,15 @@ class DeviceViewModel(QObject):
     diagnostic_result = Signal(str, bool, str) # key, success, message
     all_diagnostics_completed = Signal()
 
+    # Battery Monitor signals
+    battery_data_updated = Signal(dict)
+
+    # Signal to append log instead of full refresh
+    log_appended = Signal(str)
+
     # =================================================================================
     # Properties accessible by the View
     # =================================================================================
-    @Property(str, notify=log_text_changed)
-    def log_text(self) -> str:
-        return self._log_text
-
     @Property(bool, notify=is_connected_changed)
     def is_connected(self) -> bool:
         return self._is_connected
@@ -205,6 +208,20 @@ class DeviceViewModel(QObject):
             self._append_log("Diagnostic service not initialized.")
 
     @Slot()
+    def start_battery_monitor(self, interval_ms: int = 3000):
+        """Starts the battery monitor service."""
+        if self._battery_monitor_service:
+            self._battery_monitor_service.start_monitoring(interval_ms)
+        else:
+            self._append_log("Battery monitor service not initialized.")
+
+    @Slot()
+    def stop_battery_monitor(self):
+        """Stops the battery monitor service."""
+        if self._battery_monitor_service:
+            self._battery_monitor_service.stop_monitoring()
+
+    @Slot()
     def send_command(self):
         """Sends the command from the command_text property."""
         if self._command_text:
@@ -252,9 +269,14 @@ class DeviceViewModel(QObject):
     def on_disconnection_result(self, success: bool, message: str):
         self._append_log(message)
         # Stop detection service regardless of disconnection success
-        self._detection_service.stop_detection()
-        self._system_info_service.stop_collection()
-        self._diagnostic_service.disconnect()
+        if self._detection_service:
+            self._detection_service.stop_detection()
+        if self._system_info_service:
+            self._system_info_service.stop_collection()
+        if self._diagnostic_service:
+            self._diagnostic_service.disconnect()
+        if self._battery_monitor_service:
+            self._battery_monitor_service.stop_monitoring()
         
         # Only update state if disconnection was successful or wasn't already disconnected
         if success and self._is_connected:
@@ -292,6 +314,10 @@ class DeviceViewModel(QObject):
             self._diagnostic_service = DiagnosticService(self._model, self._platform_name)
             self._diagnostic_service.diagnostic_finished.connect(self.on_diagnostic_finished)
             self._diagnostic_service.all_diagnostics_finished.connect(self.on_all_diagnostics_finished)
+
+            # Initialize Battery Monitor Service
+            self._battery_monitor_service = BatteryMonitorService(self._model, self._platform_name)
+            self._battery_monitor_service.battery_data_updated.connect(self.on_battery_data_updated)
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
@@ -306,9 +332,11 @@ class DeviceViewModel(QObject):
     def on_all_diagnostics_finished(self):
         self._append_log("All diagnostics completed.")
         self.all_diagnostics_completed.emit()
+
+    @Slot(dict)
+    def on_battery_data_updated(self, data: dict):
+        self.battery_data_updated.emit(data)
         
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""
-        self._log_text += message + "\n"
-        # logger.debug(message)
-        self.log_text_changed.emit()
+        self.log_appended.emit(message)

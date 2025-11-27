@@ -10,6 +10,7 @@ from core.view_models.device_view_model import DeviceViewModel
 from core.views.system_info_view import SystemInfoView
 from core.views.hw_config_view import HWConfigView
 from core.views.diagnostic_view import DiagnosticView
+from core.views.battery_monitor_view import BatteryMonitorView
 
 class CommandInputLineEdit(QLineEdit):
     """
@@ -59,6 +60,7 @@ class MainView(QWidget):
         self._system_info_view = SystemInfoView(self._vm)
         self._hw_config_view = HWConfigView(self._vm)
         self._diagnostic_view = DiagnosticView(self._vm)
+        self._battery_monitor_view = BatteryMonitorView(self._vm)
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -75,6 +77,7 @@ class MainView(QWidget):
         self.system_info_button = QPushButton("System Info")
         self.hw_config_button = QPushButton("HW Config")
         self.diagnostic_button = QPushButton("Diagnostic")
+        self.battery_monitor_button = QPushButton("Battery Monitor")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
         self.platform_label.setFont(font_bold)
@@ -83,6 +86,7 @@ class MainView(QWidget):
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setStyleSheet("font-size: 14px;")
+        self.log_view.document().setMaximumBlockCount(2000) # Limit lines to prevent freeze
 
         # Set fixed sizes for buttons
         self.refresh_button.setFixedSize(100, 30)
@@ -90,6 +94,7 @@ class MainView(QWidget):
         self.system_info_button.setFixedSize(100, 30)
         self.hw_config_button.setFixedSize(100, 30)
         self.diagnostic_button.setFixedSize(100, 30)
+        self.battery_monitor_button.setFixedSize(120, 30)
 
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
@@ -117,6 +122,7 @@ class MainView(QWidget):
         functionality_layout.addWidget(self.system_info_button)
         functionality_layout.addWidget(self.hw_config_button)
         functionality_layout.addWidget(self.diagnostic_button)
+        functionality_layout.addWidget(self.battery_monitor_button)
         functionality_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
@@ -150,9 +156,10 @@ class MainView(QWidget):
         self.system_info_button.clicked.connect(self._vm.open_system_info_view)
         self.hw_config_button.clicked.connect(self._vm.open_hw_config_view)
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
+        self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         
         # --- Bind ViewModel property changes to View update slots ---
-        self._vm.log_text_changed.connect(self.on_log_text_changed)
+        self._vm.log_appended.connect(self.on_log_appended)
         self._vm.is_connected_changed.connect(self.on_is_connected_changed)
         self._vm.command_text_changed.connect(self.on_command_text_changed)
         self._vm.platform_name_changed.connect(self.on_platform_name_changed)
@@ -170,10 +177,11 @@ class MainView(QWidget):
         self._vm.command_text = text
 
     # --- Slots to update the View when ViewModel properties change ---
-    @Slot()
-    def on_log_text_changed(self):
-        self.log_view.setPlainText(self._vm.log_text)
-        QTimer.singleShot(20, lambda: self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()))
+    @Slot(str)
+    def on_log_appended(self, message: str):
+        self.log_view.append(message)
+        # Auto-scroll is usually handled by append, but we can ensure it
+        # QTimer.singleShot(20, lambda: self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()))
 
     @Slot()
     def on_is_connected_changed(self):
@@ -184,6 +192,7 @@ class MainView(QWidget):
         self.system_info_button.setEnabled(connected)
         self.hw_config_button.setEnabled(connected)
         self.diagnostic_button.setEnabled(connected)
+        self.battery_monitor_button.setEnabled(connected)
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
@@ -205,10 +214,15 @@ class MainView(QWidget):
         self._diagnostic_view.show()
         self._vm.run_all_diagnostics()
 
+    @Slot()
+    def open_battery_monitor_view(self):
+        self._battery_monitor_view.show()
+
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
         self._system_info_view.close()
         self._hw_config_view.close()
         self._diagnostic_view.close()
+        self._battery_monitor_view.close()
         self._vm.clean_up()
         super().closeEvent(event)

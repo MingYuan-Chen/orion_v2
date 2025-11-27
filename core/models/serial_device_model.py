@@ -386,7 +386,7 @@ class SerialDeviceModel(QObject):
     # ==========================================
     def send_command_sync(self, cmd: str,
                           wait_for: Union[str, re.Pattern] = "#",
-                          timeout: float = 10.0) -> List[str]:
+                          timeout: float = 5.0) -> List[str]:
         """
         Execute command synchronously.
         Returns: Complete response (list of lines)
