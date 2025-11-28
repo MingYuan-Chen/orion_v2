@@ -15,7 +15,7 @@ class BatteryMonitorView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Battery Monitor")
-        self.resize(950, 400)
+        self.resize(900, 400)
         self._setup_ui()
         self._setup_bindings()
 
@@ -26,7 +26,7 @@ class BatteryMonitorView(QWidget):
         title_label = QLabel("Battery Status History")
         title_font = QFont()
         title_font.setBold(True)
-        title_font.setPointSize(14)
+        title_font.setPointSize(16)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(title_label)
@@ -44,7 +44,6 @@ class BatteryMonitorView(QWidget):
         # Table styling
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        header.setStretchLastSection(True)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)

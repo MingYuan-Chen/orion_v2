@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
+from util.command_loader import CommandLoader
 
 class BatteryMonitorService(QObject):
     """
@@ -81,7 +82,6 @@ class BatteryMonitorService(QObject):
         if not self._running:
             self._running = True
             self._interval_ms = interval_ms
-            logger.info(f"Started battery monitoring with interval {interval_ms}ms")
             # Trigger immediately
             self.get_all_battery_info()
 
@@ -90,30 +90,27 @@ class BatteryMonitorService(QObject):
         if self._running:
             self._running = False
             self._timer.stop()
-            logger.info("Stopped battery monitoring")
 
     def _load_commands(self):
         """
         Load battery monitor commands from JSON configuration.
         """
         try:
-            if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
-            else:
-                base_path = os.getcwd()
-            
-            # Construct path: resources/commands/{platform}/battery_monitor.json
-            filepath = os.path.join(base_path, "resources", "commands", self._platform_name.lower(), "battery_monitor.json")
-            
-            if os.path.exists(filepath):
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    self._commands = json.load(f)
-                logger.info(f"Loaded battery commands from {filepath}")
-            else:
-                logger.warning(f"No battery monitor file found for {self._platform_name} at {filepath}")
-                self._commands = {}
+            # Load commands dynamically
+            mapper_folder_name = {
+                "Athena": "athena",
+                "Odin": "odin",
+                "Gemini FHD": "gemini_fhd",
+                "Gemini": "gemini",
+                "Hydra FHD": "hydra_fhd",
+                "Hydra": "hydra",
+                "Argo": "argo"
+            }
+            _mapped_folder_name = mapper_folder_name.get(self._platform_name, "Unknown")
+            self._commands = CommandLoader.load_commands(_mapped_folder_name, "battery_monitor")
+            if not self._commands:
+                logger.warning(f"No battery monitor commands found for platform: {self.platform_name}")
         except Exception as e:
-            logger.error(f"Error loading battery commands: {e}")
             self._commands = {}
 
     def get_all_battery_info(self) -> Dict[str, Any]:
@@ -185,7 +182,7 @@ class BatteryMonitorService(QObject):
                         if 0 <= voltage <= 15:
                             return f"{voltage}V ({combined_hex})"
                         else:
-                            return "N/A"
+                            return f"N/A ({combined_hex})"
                     elif key == "current":
                         if hex_value > 32767:
                             signed_value = hex_value - 65536  # Convert to signed
@@ -195,18 +192,18 @@ class BatteryMonitorService(QObject):
                         if -5 < current < 5:
                             return f"{current}A ({combined_hex})"
                         else:
-                            return "N/A"
+                            return f"N/A ({combined_hex})"
                     elif key == "relative_state":
                         if 0 <= hex_value <= 100:
                             return f"{hex_value}% ({combined_hex})" # Battery percentage (0-100)
                         else:
-                            return "N/A"
+                            return f"N/A ({combined_hex})"
                     elif key == "temperature":
                         temperature = round(float(hex_value/10)-273.2, 1)
                         if 0 < temperature < 120:
                             return f"{temperature}°C ({combined_hex})"  # Convert to Celsius
                         else:
-                            return "N/A"
+                            return f"N/A ({combined_hex})"
                     elif key == "battery_status":
                         status = self.BATTERY_STATUS_MAP.get(hex_value, "Unknown")
                         return f"{status} ({combined_hex})"

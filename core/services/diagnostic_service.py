@@ -7,6 +7,7 @@ import sys
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 from datetime import datetime
+from util.command_loader import CommandLoader
 
 class DiagnosticValidator:
     """
@@ -55,20 +56,21 @@ class DiagnosticService(QObject):
         # Load from resources/commands/{platform}/auto_diagnostic.json
         # Similar path logic as SystemInfoService/HWConfigService
         try:
-            if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
-            else:
-                base_path = os.getcwd()
-            filepath = os.path.join(base_path, "resources", "commands", self._platform_name.lower(), "auto_diagnostic.json")
-            
-            if os.path.exists(filepath):
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    self._diagnostics = json.load(f)
-            else:
-                logger.warning(f"No diagnostic file found for {self._platform_name}")
-                self._diagnostics = {}
+            # Load commands dynamically
+            mapper_folder_name = {
+                "Athena": "athena",
+                "Odin": "odin",
+                "Gemini FHD": "gemini_fhd",
+                "Gemini": "gemini",
+                "Hydra FHD": "hydra_fhd",
+                "Hydra": "hydra",
+                "Argo": "argo"
+            }
+            _mapped_folder_name = mapper_folder_name.get(self._platform_name, "Unknown")
+            self._diagnostics = CommandLoader.load_commands(_mapped_folder_name, "auto_diagnostic")
+            if not self._diagnostics:
+                logger.warning(f"No battery monitor commands found for platform: {self.platform_name}")
         except Exception as e:
-            logger.error(f"Error loading diagnostics: {e}")
             self._diagnostics = {}
 
     def run_diagnostics(self):
