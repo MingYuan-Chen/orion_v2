@@ -3,6 +3,8 @@ import os
 from typing import Dict, Any
 from util.logger import logger
 
+import sys
+
 class CommandLoader:
     """
     Utility class to load command configurations from JSON files.
@@ -21,9 +23,14 @@ class CommandLoader:
             Dict[str, Any]: A dictionary containing the loaded commands. Returns empty dict on failure.
         """
         # Construct the file path
-        # Assuming resources is at the root level, relative to the execution path or known location
-        # Adjust base path logic as needed. Here we assume running from project root.
-        base_path = os.path.join(os.getcwd(), "resources", "commands")
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            base_path = sys._MEIPASS
+        else:
+            # Running from source
+            base_path = os.getcwd()
+            
+        base_path = os.path.join(base_path, "resources", "commands")
         file_path = os.path.join(base_path, platform.lower(), f"{command_file}.json")
         
         if not os.path.exists(file_path):

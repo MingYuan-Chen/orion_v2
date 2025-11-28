@@ -24,6 +24,7 @@ class DeviceViewModel(QObject):
         self._system_info_service = None
         self._diagnostic_service = None
         self._battery_monitor_service = None
+        self._battery_monitor_is_running = False
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -160,7 +161,8 @@ class DeviceViewModel(QObject):
     
     @Slot()
     def interrupt_diagnostic(self):
-        self._diagnostic_service.disconnect()
+        if self._diagnostic_service:
+            self._diagnostic_service.disconnect()
 
     @Slot()
     def refresh_hw_config_list(self):
@@ -208,10 +210,12 @@ class DeviceViewModel(QObject):
             self._append_log("Diagnostic service not initialized.")
 
     @Slot()
-    def start_battery_monitor(self, interval_ms: int = 3000):
+    def start_battery_monitor(self, interval_ms: int = 2000):
         """Starts the battery monitor service."""
         if self._battery_monitor_service:
             self._battery_monitor_service.start_monitoring(interval_ms)
+            self._append_log(f"[Notification] Started battery monitoring service.\n[Notification] System will block command message until service stops.")
+            self._battery_monitor_is_running = True
         else:
             self._append_log("Battery monitor service not initialized.")
 
@@ -220,6 +224,7 @@ class DeviceViewModel(QObject):
         """Stops the battery monitor service."""
         if self._battery_monitor_service:
             self._battery_monitor_service.stop_monitoring()
+            self._battery_monitor_is_running = False
 
     @Slot()
     def send_command(self):
@@ -339,4 +344,5 @@ class DeviceViewModel(QObject):
         
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""
-        self.log_appended.emit(message)
+        if not self._battery_monitor_is_running:
+            self.log_appended.emit(message)

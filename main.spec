@@ -1,14 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import datetime
 a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
     datas=[
-        ('resources/icons/header.png', 'resources/icons'), 
         ('resources/icons/header.ico', 'resources/icons'),
         ('resources/commands', 'resources/commands'),
-        ('gui/ui', 'gui/ui'),
+        ('resources/themes', 'resources/themes'),
+        ('resources/hw_config', 'resources/hw_config')
         ],
     hiddenimports=[],
     hookspath=[],
@@ -26,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='orion_monitor',
+    name = f'orion_serial_tool_v2.1.0_{datetime.datetime.now().strftime("%Y%m%d")}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

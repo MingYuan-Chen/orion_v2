@@ -3,6 +3,7 @@ import os
 import re
 from typing import Dict, List, Tuple, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
+import sys
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 from datetime import datetime
@@ -54,7 +55,10 @@ class DiagnosticService(QObject):
         # Load from resources/commands/{platform}/auto_diagnostic.json
         # Similar path logic as SystemInfoService/HWConfigService
         try:
-            base_path = os.getcwd() # Or sys.frozen logic if needed
+            if getattr(sys, 'frozen', False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.getcwd()
             filepath = os.path.join(base_path, "resources", "commands", self._platform_name.lower(), "auto_diagnostic.json")
             
             if os.path.exists(filepath):

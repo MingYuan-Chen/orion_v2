@@ -28,6 +28,7 @@ class DiagnosticView(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
         self.table.setColumnWidth(1, 100)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setStyleSheet("font-size: 14px;")
         layout.addWidget(self.table)
 

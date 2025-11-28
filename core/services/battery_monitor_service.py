@@ -1,6 +1,8 @@
 import json
 import os
+import sys
 import time
+import datetime
 import re
 from typing import Dict, List, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
@@ -95,7 +97,11 @@ class BatteryMonitorService(QObject):
         Load battery monitor commands from JSON configuration.
         """
         try:
-            base_path = os.getcwd()
+            if getattr(sys, 'frozen', False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.getcwd()
+            
             # Construct path: resources/commands/{platform}/battery_monitor.json
             filepath = os.path.join(base_path, "resources", "commands", self._platform_name.lower(), "battery_monitor.json")
             
@@ -144,6 +150,8 @@ class BatteryMonitorService(QObject):
                 results[key] = "Error"
             
         if self._running:
+            timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+            results["timestamp"] = timestamp
             self.battery_data_updated.emit(results)
             
             # Calculate elapsed time and adjust next interval
@@ -173,23 +181,41 @@ class BatteryMonitorService(QObject):
 
                     # Dispatch to specific parsers based on key
                     if key == "voltage":
-                        return f"{round(hex_value / 1000, 1)}V"
+                        voltage = round(hex_value / 1000, 1)
+                        if 0 <= voltage <= 15:
+                            return f"{voltage}V ({combined_hex})"
+                        else:
+                            return "N/A"
                     elif key == "current":
                         if hex_value > 32767:
                             signed_value = hex_value - 65536  # Convert to signed
                         else:
                             signed_value = hex_value
-                        return f"{round(float(signed_value/1000), 1)}A"  # Convert to amperes
+                        current = round(float(signed_value/1000), 1)
+                        if -5 < current < 5:
+                            return f"{current}A ({combined_hex})"
+                        else:
+                            return "N/A"
                     elif key == "relative_state":
-                        return f"{hex_value}%" # Battery percentage (0-100)
+                        if 0 <= hex_value <= 100:
+                            return f"{hex_value}% ({combined_hex})" # Battery percentage (0-100)
+                        else:
+                            return "N/A"
                     elif key == "temperature":
-                        return f"{round(float(hex_value/10)-273.2, 1)}°C"  # Convert to Celsius
+                        temperature = round(float(hex_value/10)-273.2, 1)
+                        if 0 < temperature < 120:
+                            return f"{temperature}°C ({combined_hex})"  # Convert to Celsius
+                        else:
+                            return "N/A"
                     elif key == "battery_status":
-                        return self.BATTERY_STATUS_MAP.get(hex_value, "Unknown")
+                        status = self.BATTERY_STATUS_MAP.get(hex_value, "Unknown")
+                        return f"{status} ({combined_hex})"
                     elif key == "led_status":
-                        return self.LED_STATUS_MAP.get(hex_value, "Unknown")
+                        status = self.LED_STATUS_MAP.get(hex_value, "Unknown")
+                        return f"{status} ({combined_hex})"
                     elif key == "interrupt_status":
-                        return self.INTERRUPT_STATUS_MAP.get(hex_value, "Unknown")
+                        status = self.INTERRUPT_STATUS_MAP.get(hex_value, "Unknown")
+                        return f"{status} ({combined_hex})"
                 
                 if key == "top_info":
                     # Parse CPU usage from lines like: "CPU:  12.5% usr   2.1% sys   0.0% nic  84.4% idle"
@@ -213,7 +239,6 @@ class BatteryMonitorService(QObject):
                                 idle_cpu = float(idle_matches[0])
                                 cpu_usage = round(100.0 - idle_cpu, 1)
                             
-                            logger.debug(f"CPU Usage: {cpu_usage}%")
                     # Parse memory usage from lines like: "Mem:   1024000k total,   512000k used,   512000k free"
                     # Or: "KiB Mem :  2048000 total,  1024000 used,   1024000 free"
                     # Or: "MiB Mem :   3851.2 total,   3529.4 free,    193.9 used,    128.0 buff/cache"
@@ -241,7 +266,7 @@ class BatteryMonitorService(QObject):
                             
             
             # Default: return raw string stripped of whitespace
-            return response
+            return "Unknown"
             
         except Exception as e:
             logger.error(f"Error parsing {key}: {e}")

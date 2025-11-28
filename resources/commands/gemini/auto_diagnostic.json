@@ -1,63 +1,130 @@
 {
   "diagnostic_cpu_name": {
-    "commands": ["grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'"],
-    "expected_response": ["i.MX6"]
+    "commands": [
+      "grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'"
+    ],
+    "expected_response": [
+      "i.MX6"
+    ]
   },
   "diagnostic_cpu_processor": {
-    "commands": ["grep -c ^processor /proc/cpuinfo"],
-    "expected_response": ["4"]
+    "commands": [
+      "grep -c ^processor /proc/cpuinfo"
+    ],
+    "expected_response": [
+      "4"
+    ]
   },
   "diagnostic_emmc_size": {
-    "commands": ["cat /sys/block/mmcblk2/size"],
-    "expected_response": ["244277248"]
+    "commands": [
+      "cat /sys/block/mmcblk2/size"
+    ],
+    "expected_response": [
+      "244277248"
+    ]
   },
   "diagnostic_mac_address": {
-    "commands": ["cat /sys/class/net/eth0/address"]
+    "commands": [
+      "cat /sys/class/net/eth0/address"
+    ],
+    "expected_response": [
+      ""
+    ]
   },
   "diagnostic_memory_size": {
-    "commands": ["grep MemTotal /proc/meminfo"],
-    "expected_response": ["3886520"]
+    "commands": [
+      "grep MemTotal /proc/meminfo"
+    ],
+    "expected_response": [
+      "3886520"
+    ]
   },
   "diagnostic_nor_flash_size": {
-    "commands": ["cat /proc/mtd | grep 'mtd0"],
-    "expected_response": ["04000000"]
+    "commands": [
+      "cat /proc/mtd | grep 'mtd0"
+    ],
+    "expected_response": [
+      "04000000"
+    ]
   },
   "diagnostic_pic_version": {
-    "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2", "cat /proc/hw_rev"],
-    "expected_response": ["0x64", "100"]
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    ],
+    "expected_response": [
+      "0x64"
+    ]
   },
-  "diagnostic_sync_time": {
-    "commands": ["sudo ntpdate -u 192.168.6.11", "hwclock -w", "hwclock -r", "date"]
-  },
-  "diagnostic_set_get_rtc_time": {
-    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
+  "diagnostic_hw_version": {
+    "commands": [
+      "cat /proc/hw_rev"
+    ],
+    "expected_response": [
+      "100"
+    ]
   },
   "diagnostic_design_capacity": {
-    "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
-    "expected_response": ["0x0d 0x16"]
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+    ],
+    "expected_response": [
+      "0x0d 0x16"
+    ]
   },
   "diagnostic_design_voltage": {
-    "commands": ["i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
-    "expected_response": ["0x1c 0x20"]
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+    ],
+    "expected_response": [
+      "0x1c 0x20"
+    ]
   },
   "diagnostic_uboot_version": {
-    "commands": ["strings /dev/mtd0 | grep -E 'U-Boot'"]
+    "commands": [
+      "strings /dev/mtd0 | grep -E 'U-Boot'"
+    ],
+    "expected_response": [
+      "U-Boot"
+    ]
   },
   "diagnostic_kernal_name": {
-    "commands": ["uname -a"],
-    "expected_response": ["Linux gemini"]
+    "commands": [
+      "uname -a"
+    ],
+    "expected_response": [
+      "Linux"
+    ]
   },
   "diagnostic_panel_id": {
-    "commands": ["cat /proc/panel_id"],
-    "expected_response": ["11"]
+    "commands": [
+      "cat /proc/panel_id"
+    ],
+    "expected_response": [
+      "11"
+    ]
   },
   "diagnostic_panel_resolution": {
-    "commands": ["fbset | grep geometry"],
-    "expected_response": [""]
+    "commands": [
+      "fbset | grep geometry"
+    ],
+    "expected_response": [
+      "1280 800"
+    ]
   },
-  "diagnostic_wifi_bt": {
-    "commands": ["lsusb", "lspci"],
-    "expected_response": ["1286:2046", "Marvell"]
+  "diagnostic_wifi_module": {
+    "commands": [
+      "lsusb"
+    ],
+    "expected_response": [
+      "1286:204e"
+    ]
+  },
+  "diagnostic_bt_module": {
+    "commands": [
+      "lspci"
+    ],
+    "expected_response": [
+      "Marvell"
+    ]
   }
 }
