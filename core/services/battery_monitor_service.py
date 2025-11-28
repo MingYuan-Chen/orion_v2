@@ -213,6 +213,8 @@ class BatteryMonitorService(QObject):
                     elif key == "interrupt_status":
                         status = self.INTERRUPT_STATUS_MAP.get(hex_value, "Unknown")
                         return f"{status} ({combined_hex})"
+                    elif key == "remaining_capacity":
+                        return f"{hex_value}mAh ({combined_hex})"
                 
                 if key == "top_info":
                     # Parse CPU usage from lines like: "CPU:  12.5% usr   2.1% sys   0.0% nic  84.4% idle"

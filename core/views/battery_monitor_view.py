@@ -15,7 +15,7 @@ class BatteryMonitorView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Battery Monitor")
-        self.resize(900, 400)
+        self.resize(1100, 400)
         self._setup_ui()
         self._setup_bindings()
 
@@ -34,7 +34,7 @@ class BatteryMonitorView(QWidget):
         # Table Widget
         self.table = QTableWidget()
         self.columns = [
-            "Timestamp", "Voltage", "Current", "Rel. State", 
+            "Timestamp", "Voltage", "Current", "Rel. State", "Remaining Capacity",
             "Temp", "Battery Status", "LED Status", 
             "Interrupt", "CPU", "MEM."
         ]
@@ -60,6 +60,7 @@ class BatteryMonitorView(QWidget):
         voltage = str(data.get("voltage", "N/A"))
         current = str(data.get("current", "N/A"))
         rel_state = str(data.get("relative_state", "N/A"))
+        remaining_capacity = str(data.get("remaining_capacity", "N/A"))
         temp = str(data.get("temperature", "N/A"))
         batt_status = str(data.get("battery_status", "N/A"))
         led_status = str(data.get("led_status", "N/A"))
@@ -74,7 +75,7 @@ class BatteryMonitorView(QWidget):
 
         # Prepare row data
         row_data = [
-            timestamp, voltage, current, rel_state, 
+            timestamp, voltage, current, rel_state, remaining_capacity,
             temp, batt_status, led_status, 
             interrupt, cpu, mem
         ]
