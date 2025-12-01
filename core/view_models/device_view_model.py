@@ -264,19 +264,9 @@ class DeviceViewModel(QObject):
         return []
 
     # --- Backlight Control Slots ---
-    @Slot(int)
-    def set_backlight_brightness(self, brightness: int):
+    @Slot(str)
+    def set_backlight_brightness(self, brightness: str):
         """Sets the backlight brightness."""
-        if self._platform_name != "Athena":
-            brightness = 7 if brightness == 10 else brightness
-            brightness = 6 if brightness == 9 else brightness
-            brightness = 5 if brightness == 8 else brightness
-            brightness = 4 if brightness == 7 else brightness
-            brightness = 4 if brightness == 6 else brightness
-            brightness = 3 if brightness == 5 else brightness
-            brightness = 3 if brightness == 4 else brightness
-            brightness = 2 if brightness == 3 else brightness
-            brightness = 2 if brightness == 2 else brightness
         if self._backlight_worker:
             self._backlight_worker.set_backlight_brightness(brightness)
             self._append_log(f"Set Backlight brightness to: {brightness}")

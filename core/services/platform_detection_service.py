@@ -39,7 +39,7 @@ class PlatformDetectionService(QObject):
             if not self._is_running:
                 break
             
-            response = self._model.send_command_sync(cmd)
+            response = self._model.send_command_sync(cmd, timeout=20)
             self._check_platform(response)
 
     def stop_detection(self):

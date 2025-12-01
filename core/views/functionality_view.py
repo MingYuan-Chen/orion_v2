@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont, QColor
 from core.view_models.device_view_model import DeviceViewModel
+from util.logger import logger
 
 class FunctionalityView(QWidget):
     """
@@ -95,7 +96,6 @@ class FunctionalityView(QWidget):
         # Backlight Brightness
         bl_bright_layout = QHBoxLayout()
         self.bl_slider = QSlider(Qt.Horizontal)
-        self.bl_slider.setRange(0, 10)
         self.bl_slider.setTickPosition(QSlider.TicksBelow)
         self.bl_slider.setTickInterval(1)
         
@@ -132,6 +132,9 @@ class FunctionalityView(QWidget):
     @Slot()
     def refresh_buttons(self):
         """Re-generates buttons based on available commands for the current platform."""
+        max_range = 10 if self._vm.platform_name == "Athena" else 7
+        self.bl_slider.setRange(0, max_range)
+
         # Clear existing buttons
         while self.buttons_layout.count():
             item = self.buttons_layout.takeAt(0)
@@ -188,4 +191,3 @@ class FunctionalityView(QWidget):
             self.bl_status_label.setText(status_text)
         elif "%" in status_text:
             self.bl_value_label.setText(status_text)
-            self.bl_slider.setValue(int(float(status_text.strip("%"))/10))

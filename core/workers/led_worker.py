@@ -70,7 +70,7 @@ class LedWorker(QObject):
             18: "Blink Green", 50: "Blink Green",
             20: "Blink Red", 52: "Blink Red",
             24: "Blink Amber", 56: "Blink Amber",
-            0: "Off"
+            0: "Off", 32: "Off"
         },
         "odin": {
             1: "Blue", 17: "Blue",
@@ -79,7 +79,7 @@ class LedWorker(QObject):
             9: "Blink Blue", 25: "Blink Blue",
             10: "Blink Green", 26: "Blink Green",
             14: "Blink Yellow", 30: "Blink Yellow",
-            0: "Off"
+            0: "Off", 16: "Off"
         },
         "argo": {
             1: "Blue", 17: "Blue",
@@ -88,7 +88,7 @@ class LedWorker(QObject):
             9: "Blink Blue", 25: "Blink Blue",
             10: "Blink Green", 26: "Blink Green",
             12: "Blink Amber", 28: "Blink Amber",
-            0: "Off"
+            0: "Off", 16: "Off"
         },
         "other": {
             1: "Blue", 17: "Blue",
@@ -97,7 +97,7 @@ class LedWorker(QObject):
             9: "Blink Blue", 25: "Blink Blue",
             10: "Blink Green", 26: "Blink Green",
             12: "Blink Red", 28: "Blink Red",
-            0: "Off"
+            0: "Off", 16: "Off"
         }
     }
     # Signal to emit updated battery data

@@ -108,7 +108,10 @@ class DiagnosticService(QObject):
 
             # Send command synchronously
             # Note: send_command_sync returns a list of lines
-            response_lines = self._model.send_command_sync(cmd)
+            if "U-Boot" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
+            else:
+                response_lines = self._model.send_command_sync(cmd)
             output_str = "\n".join(response_lines)
             full_output.append(output_str)
         if not self._running:

@@ -57,7 +57,10 @@ class SystemInfoService(QObject):
 
         for key, cmd_list in self.commands.items():
             cmd = cmd_list[0] if isinstance(cmd_list, list) and cmd_list else str(cmd_list)
-            response = self._model.send_command_sync(cmd)
+            if key == "uboot_version":
+                response = self._model.send_command_sync(cmd, timeout=20)
+            else:
+                response = self._model.send_command_sync(cmd)
             self._parse_info(key, response)
     
     def stop_collection(self):
