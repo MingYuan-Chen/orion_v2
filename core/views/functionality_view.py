@@ -188,4 +188,4 @@ class FunctionalityView(QWidget):
             self.bl_status_label.setText(status_text)
         elif "%" in status_text:
             self.bl_value_label.setText(status_text)
-            self.bl_slider.setValue(int(status_text.strip("0%")))
+            self.bl_slider.setValue(int(float(status_text.strip("%"))/10))
