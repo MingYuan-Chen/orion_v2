@@ -1,13 +1,14 @@
 
 import sys
 from typing import List, Optional, Dict
-from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt
+from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt, QTimer
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
 from core.services.system_info_service import SystemInfoService
 from core.services.hw_config_service import HWConfigService
 from core.services.diagnostic_service import DiagnosticService
 from core.services.battery_monitor_service import BatteryMonitorService
+from core.workers.led_worker import LedWorker
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -24,6 +25,7 @@ class DeviceViewModel(QObject):
         self._system_info_service = None
         self._diagnostic_service = None
         self._battery_monitor_service = None
+        self._led_worker = None
         self._battery_monitor_is_running = False
         
         self._hw_config_list = []
@@ -69,6 +71,9 @@ class DeviceViewModel(QObject):
 
     # Signal to append log instead of full refresh
     log_appended = Signal(str)
+
+    # LED signals
+    led_status_updated = Signal(str)
 
     # =================================================================================
     # Properties accessible by the View
@@ -225,6 +230,33 @@ class DeviceViewModel(QObject):
         if self._battery_monitor_service:
             self._battery_monitor_service.stop_monitoring()
             self._battery_monitor_is_running = False
+    
+    @Slot(str)
+    def set_led_status(self, status: str):
+        """Sets the LED status via the worker."""
+        if self._led_worker:
+            self._led_worker.set_led_status(status)
+            self._append_log(f"Set LED status to: {status}")
+            QTimer.singleShot(2000, self.get_led_status)
+
+    @Slot()
+    def get_led_status(self):
+        """Requests the current LED status via the worker."""
+        if self._led_worker:
+            self._led_worker.get_led_status()
+
+    @Slot(result=list)
+    def get_available_led_commands(self) -> list:
+        """Returns a list of available LED commands for the current platform."""
+        if self._led_worker:
+            # Access the private dictionary in LedWorker to get keys
+            # This relies on LedWorker implementation details, but they are in the same module/package
+            platform = self._led_worker._platform_name
+            commands = self._led_worker.SET_LED_STATUS.get(platform, {})
+            if not commands:
+                 commands = self._led_worker.SET_LED_STATUS.get("other", {})
+            return list(commands.keys())
+        return []
 
     @Slot()
     def send_command(self):
@@ -323,6 +355,10 @@ class DeviceViewModel(QObject):
             # Initialize Battery Monitor Service
             self._battery_monitor_service = BatteryMonitorService(self._model, self._platform_name)
             self._battery_monitor_service.battery_data_updated.connect(self.on_battery_data_updated)
+            
+            # Initialize LED Worker
+            self._led_worker = LedWorker(self._model, self._platform_name)
+            self._led_worker.led_status_updated.connect(self.led_status_updated)
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
@@ -341,7 +377,7 @@ class DeviceViewModel(QObject):
     @Slot(dict)
     def on_battery_data_updated(self, data: dict):
         self.battery_data_updated.emit(data)
-        
+
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""
         if not self._battery_monitor_is_running:

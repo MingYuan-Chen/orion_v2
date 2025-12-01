@@ -43,6 +43,52 @@ class CommandInputLineEdit(QLineEdit):
 
             self.interrupt_signal_pressed.emit(byte_to_emit)
             event.accept()
+import sys
+from typing import Optional
+from PySide6.QtCore import QObject, Signal, Slot, Qt, QTimer
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
+)
+from PySide6.QtGui import QKeyEvent, QFont
+from core.view_models.device_view_model import DeviceViewModel
+from core.views.system_info_view import SystemInfoView
+from core.views.hw_config_view import HWConfigView
+from core.views.diagnostic_view import DiagnosticView
+from core.views.battery_monitor_view import BatteryMonitorView
+from core.views.functionality_view import FunctionalityView
+
+class CommandInputLineEdit(QLineEdit):
+    """
+    A custom QLineEdit that detects common interrupt signals.
+    The supported keys are defined in the INTERRUPT_KEYS dictionary.
+    """
+    interrupt_signal_pressed = Signal(bytes)
+
+    # Defines the mapping from key combinations to the bytes to be emitted.
+    # Format: (Qt.Key, Qt.KeyboardModifier): (bytes_to_emit, needs_no_autorepeat_check)
+    INTERRUPT_KEYS = {
+        (Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier): (b'\x03', False),
+        (Qt.Key.Key_D, Qt.KeyboardModifier.ControlModifier): (b'\x04', False),
+        (Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier): (b'\x1b', True),
+    }
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        key_tuple = (event.key(), event.modifiers())
+
+        if key_tuple in self.INTERRUPT_KEYS:
+            byte_to_emit, needs_no_autorepeat = self.INTERRUPT_KEYS[key_tuple]
+
+            if needs_no_autorepeat and event.isAutoRepeat():
+                # Absorb auto-repeat events for keys that shouldn't have them (e.g., ESC)
+                event.accept()
+                return
+
+            self.interrupt_signal_pressed.emit(byte_to_emit)
+            event.accept()
         else:
             super().keyPressEvent(event)
 
@@ -61,6 +107,7 @@ class MainView(QWidget):
         self._hw_config_view = HWConfigView(self._vm)
         self._diagnostic_view = DiagnosticView(self._vm)
         self._battery_monitor_view = BatteryMonitorView(self._vm)
+        self._functionality_view = FunctionalityView(self._vm)
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -78,6 +125,7 @@ class MainView(QWidget):
         self.hw_config_button = QPushButton("HW Config")
         self.diagnostic_button = QPushButton("Diagnostic")
         self.battery_monitor_button = QPushButton("Battery Monitor")
+        self.functionality_button = QPushButton("Functionality")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
         self.platform_label.setFont(font_bold)
@@ -95,6 +143,7 @@ class MainView(QWidget):
         self.hw_config_button.setFixedSize(100, 30)
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
+        self.functionality_button.setFixedSize(120, 30)
 
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
@@ -123,6 +172,7 @@ class MainView(QWidget):
         functionality_layout.addWidget(self.hw_config_button)
         functionality_layout.addWidget(self.diagnostic_button)
         functionality_layout.addWidget(self.battery_monitor_button)
+        functionality_layout.addWidget(self.functionality_button)
         functionality_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
@@ -157,6 +207,7 @@ class MainView(QWidget):
         self.hw_config_button.clicked.connect(self._vm.open_hw_config_view)
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
+        self.functionality_button.clicked.connect(self.open_functionality_view)
         
         # --- Bind ViewModel property changes to View update slots ---
         self._vm.log_appended.connect(self.on_log_appended)
@@ -181,7 +232,7 @@ class MainView(QWidget):
     def on_log_appended(self, message: str):
         self.log_view.append(message)
         # Auto-scroll is usually handled by append, but we can ensure it
-        # QTimer.singleShot(20, lambda: self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()))
+        QTimer.singleShot(20, lambda: self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum()))
 
     @Slot()
     def on_is_connected_changed(self):
@@ -193,6 +244,7 @@ class MainView(QWidget):
         self.hw_config_button.setEnabled(connected)
         self.diagnostic_button.setEnabled(connected)
         self.battery_monitor_button.setEnabled(connected)
+        self.functionality_button.setEnabled(connected)
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
@@ -218,11 +270,16 @@ class MainView(QWidget):
     def open_battery_monitor_view(self):
         self._battery_monitor_view.show()
 
+    @Slot()
+    def open_functionality_view(self):
+        self._functionality_view.show()
+
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
         self._system_info_view.close()
         self._hw_config_view.close()
         self._diagnostic_view.close()
         self._battery_monitor_view.close()
+        self._functionality_view.close()
         self._vm.clean_up()
         super().closeEvent(event)
