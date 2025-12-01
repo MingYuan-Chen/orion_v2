@@ -1,14 +1,6 @@
-import json
-import os
-import sys
-import time
-import datetime
-import re
-from typing import Dict, List, Any, Optional
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
-from util.command_loader import CommandLoader
 
 class LedWorker(QObject):
     _mapper_platform_name = {

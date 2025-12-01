@@ -9,6 +9,7 @@ from core.services.hw_config_service import HWConfigService
 from core.services.diagnostic_service import DiagnosticService
 from core.services.battery_monitor_service import BatteryMonitorService
 from core.workers.led_worker import LedWorker
+from core.workers.backlight_worker import BacklightWorker
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -26,6 +27,7 @@ class DeviceViewModel(QObject):
         self._diagnostic_service = None
         self._battery_monitor_service = None
         self._led_worker = None
+        self._backlight_worker = None
         self._battery_monitor_is_running = False
         
         self._hw_config_list = []
@@ -74,6 +76,9 @@ class DeviceViewModel(QObject):
 
     # LED signals
     led_status_updated = Signal(str)
+
+    # Backlight signals
+    backlight_updated = Signal(str)
 
     # =================================================================================
     # Properties accessible by the View
@@ -258,6 +263,46 @@ class DeviceViewModel(QObject):
             return list(commands.keys())
         return []
 
+    # --- Backlight Control Slots ---
+    @Slot(int)
+    def set_backlight_brightness(self, brightness: int):
+        """Sets the backlight brightness."""
+        if self._platform_name != "Athena":
+            brightness = 7 if brightness == 10 else brightness
+            brightness = 6 if brightness == 9 else brightness
+            brightness = 5 if brightness == 8 else brightness
+            brightness = 4 if brightness == 7 else brightness
+            brightness = 4 if brightness == 6 else brightness
+            brightness = 3 if brightness == 5 else brightness
+            brightness = 3 if brightness == 4 else brightness
+            brightness = 2 if brightness == 3 else brightness
+            brightness = 2 if brightness == 2 else brightness
+        if self._backlight_worker:
+            self._backlight_worker.set_backlight_brightness(brightness)
+            self._append_log(f"Set Backlight brightness to: {brightness}")
+            # Auto-refresh status after setting
+            QTimer.singleShot(500, self.get_backlight_brightness)
+
+    @Slot()
+    def get_backlight_brightness(self):
+        """Requests the current backlight brightness."""
+        if self._backlight_worker:
+            self._backlight_worker.get_backlight_brightness()
+
+    @Slot(bool)
+    def toggle_backlight(self, on: bool):
+        """Toggles the backlight on or off."""
+        if self._backlight_worker:
+            self._backlight_worker.toggle_backlight(on)
+            self._append_log(f"Toggled Backlight {'On' if on else 'Off'}")
+            QTimer.singleShot(500, self.get_backlight_status)
+
+    @Slot()
+    def get_backlight_status(self):
+        """Requests the current backlight power status."""
+        if self._backlight_worker:
+            self._backlight_worker.get_backlight_status()
+
     @Slot()
     def send_command(self):
         """Sends the command from the command_text property."""
@@ -359,6 +404,10 @@ class DeviceViewModel(QObject):
             # Initialize LED Worker
             self._led_worker = LedWorker(self._model, self._platform_name)
             self._led_worker.led_status_updated.connect(self.led_status_updated)
+
+            # Initialize Backlight Worker
+            self._backlight_worker = BacklightWorker(self._model, self._platform_name)
+            self._backlight_worker.backlight_updated.connect(self.backlight_updated)
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):

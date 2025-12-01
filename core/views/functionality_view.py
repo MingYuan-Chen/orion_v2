@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout, QScrollArea
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout, QScrollArea, QSlider
 )
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont, QColor
@@ -13,7 +13,7 @@ class FunctionalityView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Functionality Control")
-        self.resize(500, 400)
+        self.resize(500, 600) # Increased height for Backlight
         self._setup_ui()
         self._setup_bindings()
 
@@ -64,18 +64,70 @@ class FunctionalityView(QWidget):
         led_layout.addLayout(self.buttons_layout)
         
         main_layout.addWidget(led_group)
+
+        # --- Backlight Control Section ---
+        bl_group = QFrame()
+        bl_group.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        bl_group.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
+        bl_layout = QVBoxLayout(bl_group)
+        
+        bl_title = QLabel("Backlight Control")
+        bl_title.setStyleSheet("font-size: 16px;")
+        bl_title.setFont(font_bold)
+        bl_layout.addWidget(bl_title)
+
+        # Backlight Status
+        bl_status_layout = QHBoxLayout()
+        self.bl_status_label = QLabel("Unknown")
+        self.bl_status_label.setFont(QFont("Arial", 10))
+        
+        self.bl_on_btn = QPushButton("On")
+        self.bl_off_btn = QPushButton("Off")
+        
+        bl_status_layout.addWidget(QLabel("Power:"))
+        bl_status_layout.addWidget(self.bl_status_label)
+        bl_status_layout.addStretch()
+        bl_status_layout.addWidget(self.bl_on_btn)
+        bl_status_layout.addWidget(self.bl_off_btn)
+        
+        bl_layout.addLayout(bl_status_layout)
+
+        # Backlight Brightness
+        bl_bright_layout = QHBoxLayout()
+        self.bl_slider = QSlider(Qt.Horizontal)
+        self.bl_slider.setRange(0, 10)
+        self.bl_slider.setTickPosition(QSlider.TicksBelow)
+        self.bl_slider.setTickInterval(1)
+        
+        self.bl_value_label = QLabel("Unknown")
+
+        bl_bright_layout.addWidget(QLabel("Brightness:"))
+        bl_bright_layout.addWidget(self.bl_slider)
+        bl_bright_layout.addWidget(self.bl_value_label)
+        
+        bl_layout.addLayout(bl_bright_layout)
+        
+        main_layout.addWidget(bl_group)
         main_layout.addStretch()
 
     def _setup_bindings(self):
         self._vm.led_status_updated.connect(self.on_led_status_updated)
         self._vm.platform_name_changed.connect(self.refresh_buttons)
         self.get_status_btn.clicked.connect(self._vm.get_led_status)
+        
+        # Backlight bindings
+        self._vm.backlight_updated.connect(self.on_backlight_updated)
+        self.bl_on_btn.clicked.connect(lambda: self._vm.toggle_backlight(True))
+        self.bl_off_btn.clicked.connect(lambda: self._vm.toggle_backlight(False))
+        self.bl_slider.valueChanged.connect(self._vm.set_backlight_brightness)
 
     def showEvent(self, event):
         super().showEvent(event)
         self.refresh_buttons()
         # Auto-fetch status on show
         self._vm.get_led_status()
+        self._vm.get_backlight_status()
+        self._vm.get_backlight_brightness()
 
     @Slot()
     def refresh_buttons(self):
@@ -126,3 +178,14 @@ class FunctionalityView(QWidget):
         # Handle blinking (maybe striped or lighter color? For now just same color)
         
         self.led_indicator.setStyleSheet(f"background-color: {color}; border-radius: 10px; border: 1px solid black;")
+
+    @Slot(str)
+    def on_backlight_updated(self, status_text: str):
+        if "On" in status_text or "Off" in status_text:
+            text_background = "#00FF00" if "On" in status_text else "#FF0000"
+            status_text = "ON" if "On" in status_text else "OFF"
+            self.bl_status_label.setStyleSheet(f"color: black; background-color: {text_background}; border-radius: 10px; border: 1px solid black;")
+            self.bl_status_label.setText(status_text)
+        elif "%" in status_text:
+            self.bl_value_label.setText(status_text)
+            self.bl_slider.setValue(int(status_text.strip("0%")))

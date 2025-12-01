@@ -15,15 +15,55 @@ class BatteryMonitorService(QObject):
     Service to monitor battery status using commands defined in JSON.
     """
 
+    mapper_folder_name = {
+                "Athena": "athena",
+                "Odin": "odin",
+                "Gemini FHD": "gemini_fhd",
+                "Gemini": "gemini",
+                "Hydra FHD": "hydra_fhd",
+                "Hydra": "hydra",
+                "Argo": "argo"
+            }
+
     LED_STATUS_MAP = {
-        0: "Off",       8: "Off",               16: "Off",      24: "Off",              32: "Off",
-        1: "Blue",      9: "Blue Blinking",     17: "Blue",     25: "Blue Blinking",    33: "Blue",     49: "Blue Blinking",
-        2: "Green",     10: "Green Blinking",   18: "Green",    26: "Green Blinking",   34: "Green",    50: "Green Blinking",
-        3: "Cyan",      11: "Cyan Blinking",    19: "Cyan",     27: "Cyan Blinking",
-        4: "Red",       12: "Red Blinking",     20: "Red",      28: "Red Blinking",     36: "Red",      52: "Red Blinking",
-        5: "Fuchsia",   13: "Fuchsia Blinking", 21: "Fuchsia",  29: "Fuchsia Blinking",
-        6: "Orange",    14: "Orange Blinking",  22: "Orange",   30: "Orange Blinking",  38: "Orange",   54: "Orange Blinking",
-        7: "White",     15: "White Blinking",   23: "White",    31: "White Blinking",   40: "Yellow",   56: "Yellow Blinking",
+        "athena": {
+            1: "Blue", 33: "Blue",
+            2: "Green", 34: "Green",
+            4: "Red", 36: "Red",
+            8: "Amber", 40: "Amber",
+            17: "Blink Blue", 49: "Blink Blue",
+            18: "Blink Green", 50: "Blink Green",
+            20: "Blink Red", 52: "Blink Red",
+            24: "Blink Amber", 56: "Blink Amber",
+            0: "Off"
+        },
+        "odin": {
+            1: "Blue", 17: "Blue",
+            2: "Green", 18: "Green",
+            6: "Yellow", 22: "Yellow",
+            9: "Blink Blue", 25: "Blink Blue",
+            10: "Blink Green", 26: "Blink Green",
+            14: "Blink Yellow", 30: "Blink Yellow",
+            0: "Off"
+        },
+        "argo": {
+            1: "Blue", 17: "Blue",
+            2: "Green", 18: "Green",
+            4: "Amber", 20: "Amber",
+            9: "Blink Blue", 25: "Blink Blue",
+            10: "Blink Green", 26: "Blink Green",
+            12: "Blink Amber", 28: "Blink Amber",
+            0: "Off"
+        },
+        "other": {
+            1: "Blue", 17: "Blue",
+            2: "Green", 18: "Green",
+            4: "Red", 20: "Red",
+            9: "Blink Blue", 25: "Blink Blue",
+            10: "Blink Green", 26: "Blink Green",
+            12: "Blink Red", 28: "Blink Red",
+            0: "Off"
+        }
     }
 
     INTERRUPT_STATUS_MAP = {
@@ -97,16 +137,7 @@ class BatteryMonitorService(QObject):
         """
         try:
             # Load commands dynamically
-            mapper_folder_name = {
-                "Athena": "athena",
-                "Odin": "odin",
-                "Gemini FHD": "gemini_fhd",
-                "Gemini": "gemini",
-                "Hydra FHD": "hydra_fhd",
-                "Hydra": "hydra",
-                "Argo": "argo"
-            }
-            _mapped_folder_name = mapper_folder_name.get(self._platform_name, "Unknown")
+            _mapped_folder_name = self.mapper_folder_name.get(self._platform_name, "Unknown")
             self._commands = CommandLoader.load_commands(_mapped_folder_name, "battery_monitor")
             if not self._commands:
                 logger.warning(f"No battery monitor commands found for platform: {self.platform_name}")
@@ -208,7 +239,8 @@ class BatteryMonitorService(QObject):
                         status = self.BATTERY_STATUS_MAP.get(hex_value, "Unknown")
                         return f"{status} ({combined_hex})"
                     elif key == "led_status":
-                        status = self.LED_STATUS_MAP.get(hex_value, "Unknown")
+                        mapped_name = self.mapper_folder_name.get(self._platform_name, "Unknown")
+                        status = self.LED_STATUS_MAP.get(mapped_name, self.LED_STATUS_MAP.get("other")).get(hex_value, "Unknown")
                         return f"{status} ({combined_hex})"
                     elif key == "interrupt_status":
                         status = self.INTERRUPT_STATUS_MAP.get(hex_value, "Unknown")
