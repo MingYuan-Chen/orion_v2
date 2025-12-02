@@ -11,7 +11,7 @@ from core.views.system_info_view import SystemInfoView
 from core.views.hw_config_view import HWConfigView
 from core.views.diagnostic_view import DiagnosticView
 from core.views.battery_monitor_view import BatteryMonitorView
-from core.views.functionality_view import FunctionalityView
+from core.views.control_panel_view import ControlPanelView
 from util.logger import logger
 
 class CommandInputLineEdit(QLineEdit):
@@ -96,7 +96,7 @@ class MainView(QWidget):
         self._hw_config_view = HWConfigView(self._vm)
         self._diagnostic_view = DiagnosticView(self._vm)
         self._battery_monitor_view = BatteryMonitorView(self._vm)
-        self._functionality_view = FunctionalityView(self._vm)
+        self._control_panel_view = ControlPanelView(self._vm)
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -114,7 +114,7 @@ class MainView(QWidget):
         self.hw_config_button = QPushButton("HW Config")
         self.diagnostic_button = QPushButton("Diagnostic")
         self.battery_monitor_button = QPushButton("Battery Monitor")
-        self.functionality_button = QPushButton("Functionality")
+        self.control_panel_button = QPushButton("Control Panel")
         self.platform_detection_button = QPushButton("Start Platform Detection")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -133,7 +133,7 @@ class MainView(QWidget):
         self.hw_config_button.setFixedSize(100, 30)
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
-        self.functionality_button.setFixedSize(120, 30)
+        self.control_panel_button.setFixedSize(120, 30)
         self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
@@ -142,11 +142,11 @@ class MainView(QWidget):
         second_layout = QHBoxLayout()
         
         # Create a frame for the system info section
-        self.functionality_frame = QFrame()
-        self.functionality_frame.setFrameShape(QFrame.StyledPanel)
-        self.functionality_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
-        functionality_layout = QHBoxLayout(self.functionality_frame)
-        functionality_layout.setContentsMargins(10, 5, 10, 10)
+        self.control_panel_frame = QFrame()
+        self.control_panel_frame.setFrameShape(QFrame.StyledPanel)
+        self.control_panel_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
+        control_panel_layout = QHBoxLayout(self.control_panel_frame)
+        control_panel_layout.setContentsMargins(10, 5, 10, 10)
         platform_layout = QHBoxLayout()
         
         cmd_layout = QHBoxLayout()
@@ -161,12 +161,12 @@ class MainView(QWidget):
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
         second_layout.addStretch()
-        functionality_layout.addWidget(self.system_info_button)
-        functionality_layout.addWidget(self.hw_config_button)
-        functionality_layout.addWidget(self.diagnostic_button)
-        functionality_layout.addWidget(self.battery_monitor_button)
-        functionality_layout.addWidget(self.functionality_button)
-        functionality_layout.addStretch()
+        control_panel_layout.addWidget(self.system_info_button)
+        control_panel_layout.addWidget(self.hw_config_button)
+        control_panel_layout.addWidget(self.diagnostic_button)
+        control_panel_layout.addWidget(self.battery_monitor_button)
+        control_panel_layout.addWidget(self.control_panel_button)
+        control_panel_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
         cmd_layout.addWidget(self.cmd_input, 1)
@@ -178,7 +178,7 @@ class MainView(QWidget):
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)
         main_layout.addLayout(platform_layout)
-        main_layout.addWidget(self.functionality_frame)
+        main_layout.addWidget(self.control_panel_frame)
 
         # --- Data Binding and Event Connections ---
         self._setup_bindings()
@@ -201,7 +201,7 @@ class MainView(QWidget):
         self.hw_config_button.clicked.connect(self._vm.open_hw_config_view)
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
-        self.functionality_button.clicked.connect(self.open_functionality_view)
+        self.control_panel_button.clicked.connect(self.open_control_panel_view)
         self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
@@ -247,7 +247,7 @@ class MainView(QWidget):
         self.hw_config_button.setEnabled(connected and detected)
         self.diagnostic_button.setEnabled(connected and detected)
         self.battery_monitor_button.setEnabled(connected and detected)
-        self.functionality_button.setEnabled(connected and detected)
+        self.control_panel_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
@@ -272,8 +272,8 @@ class MainView(QWidget):
         self._battery_monitor_view.show()
 
     @Slot()
-    def open_functionality_view(self):
-        self._functionality_view.show()
+    def open_control_panel_view(self):
+        self._control_panel_view.show()
     
     @Slot()
     def on_platform_detection_button_clicked(self):
@@ -292,6 +292,6 @@ class MainView(QWidget):
         self._hw_config_view.close()
         self._diagnostic_view.close()
         self._battery_monitor_view.close()
-        self._functionality_view.close()
+        self._control_panel_view.close()
         self._vm.clean_up()
         super().closeEvent(event)

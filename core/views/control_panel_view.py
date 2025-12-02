@@ -6,14 +6,14 @@ from PySide6.QtGui import QFont, QColor
 from core.view_models.device_view_model import DeviceViewModel
 from util.logger import logger
 
-class FunctionalityView(QWidget):
+class ControlPanelView(QWidget):
     """
-    View to provide device functionality controls, such as LED status.
+    View to provide functionality controls, such as LED status.
     """
     def __init__(self, view_model: DeviceViewModel, parent=None):
         super().__init__(parent)
         self._vm = view_model
-        self.setWindowTitle("Functionality Control")
+        self.setWindowTitle("Control Panel")
         self.resize(500, 600) # Increased height for Backlight
         self._setup_ui()
         self._setup_bindings()
@@ -24,7 +24,7 @@ class FunctionalityView(QWidget):
         main_layout = QVBoxLayout(self)
 
         # Title
-        title_label = QLabel("Device Functionality")
+        title_label = QLabel("Control Panel")
         title_label.setStyleSheet("font-size: 20px;")
         title_label.setFont(font_bold)
         title_label.setAlignment(Qt.AlignCenter)
