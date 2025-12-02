@@ -23,8 +23,7 @@ class DiagnosticValidator:
     @staticmethod
     def validate_sync_time_for_athena(output: str) -> Tuple[bool, str]:
         """Validator for Athena sync time."""
-        
-        pattern = r"(?:\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
+        pattern = r"(?:\w{3}\s\w{3}\s{1,2}\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
         matches = re.findall(pattern, output)
         if matches and len(matches) == 3:
             hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
