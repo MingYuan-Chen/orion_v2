@@ -2,7 +2,6 @@
   "platform_name": "argo",
   "platform_model": "VN240014",
   "platform_serial": "24622000013",
-  "config_name": "2025-1111",
   "created_date": "2025-11-11T15:41:11.065498",
   "components": [
     {
@@ -31,14 +30,14 @@
       "component": "eDP Board",
       "part_number": "99GLCNB000F V1.00",
       "serial_number": "2422192100",
-      "note": "Model : GL108_518234192 REV:D"
+      "note": "GL108_518234192 REV:D"
     },
     {
       "id": "battery",
       "component": "Battery",
       "part_number": "MD-BAT02 ",
       "serial_number": "243300004",
-      "note": "Model: BN2013250-001LML-01"
+      "note": "BN2013250-001LML-01"
     }
   ]
 }

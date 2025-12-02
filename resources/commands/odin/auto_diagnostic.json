@@ -41,7 +41,7 @@
   },
   "diagnostic_nor_flash_size": {
     "commands": [
-      "cat /proc/mtd | grep 'mtd0"
+      "cat /proc/mtd | grep mtd0"
     ],
     "expected_response": [
       "04000000"

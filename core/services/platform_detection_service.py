@@ -21,6 +21,7 @@ class PlatformDetectionService(QObject):
         super().__init__(parent)
         self._model = device_model
         self._is_running = False
+        self._argo_ver = False
 
     def start_detection(self):
         """
@@ -37,15 +38,15 @@ class PlatformDetectionService(QObject):
         
         cmds = [
             "cat /proc/device-tree/model",
-            "strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\\.'",
+            "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2",
             "cat /proc/panel_id",
         ]
-        for cmd in cmds:
+        for idx, cmd in enumerate(cmds):
             if not self._is_running:
                 break
             
             response = self._model.send_command_sync(cmd, timeout=20)
-            self._check_platform(response)
+            self._check_platform(response, idx)
 
     def stop_detection(self):
         """
@@ -56,7 +57,7 @@ class PlatformDetectionService(QObject):
 
         self._is_running = False
 
-    def _check_platform(self, data):
+    def _check_platform(self, data, idx):
         """
         Analyzes the full response from a completed command to identify the platform.
         """
@@ -66,6 +67,8 @@ class PlatformDetectionService(QObject):
         final_detection = None
 
         for res in data:
+            if idx == 1 and "0x72" in res:
+                self._argo_ver = True
             if "Athena" in res:
                 final_detection = "Athena"
             elif "Odin" in res:
@@ -77,9 +80,10 @@ class PlatformDetectionService(QObject):
             elif "11" == res.strip():
                 final_detection = "Gemini"
             elif "01" == res.strip():
-                final_detection = "Hydra FHD"
-            elif "argo" in res:
-                final_detection = "Argo"
+                if self._argo_ver:
+                    final_detection = "Argo"
+                else:
+                    final_detection = "Hydra FHD"
         
         if final_detection:
             logger.info(f"Platform detected: {final_detection}")
