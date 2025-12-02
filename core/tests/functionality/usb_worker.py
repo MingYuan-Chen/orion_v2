@@ -46,6 +46,12 @@ class UsbWorker(BaseTestWorker):
                     description="Enable the USB Power"
                 ),
                 TestStep(
+                    command=commands[9],
+                    timeout=5, 
+                    post_check='Please remove the AC',
+                    description="Remove the AC",
+                ),
+                TestStep(
                     command=commands[0], 
                     validation_func=self._find_valid_usb_path,
                     timeout=5, 

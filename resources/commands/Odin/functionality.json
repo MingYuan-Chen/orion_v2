@@ -120,7 +120,8 @@
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && sleep 3",
       "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb3_path}/usb_throughput"
+      "rm -f {usb3_path}/usb_throughput",
+      ""
     ]
   },
   "functionality_touch": {
