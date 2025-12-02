@@ -28,7 +28,7 @@
       "cat /sys/class/net/eth0/address"
     ],
     "expected_response": [
-      ""
+      "aa:3b:12:c9:68:16"
     ]
   },
   "diagnostic_memory_size": {

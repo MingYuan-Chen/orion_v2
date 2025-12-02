@@ -78,6 +78,10 @@ class BatteryMonitorService(QObject):
         96: "Over Current & Temperature - Discharge",
     }
 
+    # [16 bit definitions]
+    # 15: Overcharged, 14: Terminate Charge, 13: Undifined, 12: Overtemperature, 11: Terminate Discharge,
+    # 10: Undifined, 9: Remaining Capacity, 8: Remaining Time, 7: Initialization, 6: Discharging,
+    # 5: Full Charged, 4: Full Discharged, 0-3: Error Code
     BATTERY_STATUS_MAP = {
         128: "Charging",
         192: "Discharging",
@@ -92,10 +96,11 @@ class BatteryMonitorService(QObject):
         20672: "Over Temperature, Terminate Charge",
         4224: "Over Temperature - Charge",
         4288: "Over Temperature - Discharge",
-        3008: "Remaining Capacity and Time Alarm, Terminate Discharge",
+        3024: "Terminate Discharge, Fully Discharged",
+        3008: "Terminate Discharge, Remaining Capacity and Time Alarm",
+        2688: "Terminate Discharge, Remaining Capacity Alarm",
+        2432: "Terminate Discharge, Remaining Time Alarm",
         2176: "Terminate Discharge",
-        2432: "Remaining Time Alarm, Terminate Discharge",
-        2688: "Remaining Capacity Alarm, Terminate Discharge",
         960: "Remaining Capacity and Time Alarm",
         704: "Remaining Capacity Alarm",
         448: "Remaining Time Alarm",

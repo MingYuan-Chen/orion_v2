@@ -45,7 +45,7 @@ class PlatformDetectionService(QObject):
             if not self._is_running:
                 break
             
-            response = self._model.send_command_sync(cmd, timeout=20)
+            response = self._model.send_command_sync(cmd)
             self._check_platform(response, idx)
 
     def stop_detection(self):
@@ -92,7 +92,7 @@ class PlatformDetectionService(QObject):
     
     def _ensure_login(self):
         
-        retry = 3
+        retry = 5
         for i in range(retry):
             response = self._model.send_command_sync("root", timeout=2)
             
