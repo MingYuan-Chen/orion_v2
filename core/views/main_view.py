@@ -202,13 +202,14 @@ class MainView(QWidget):
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         self.functionality_button.clicked.connect(self.open_functionality_view)
-        self.platform_detection_button.clicked.connect(self._vm.start_platform_detection)
+        self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
         self._vm.log_appended.connect(self.on_log_appended)
         self._vm.is_connected_changed.connect(self.on_is_connected_changed)
         self._vm.command_text_changed.connect(self.on_command_text_changed)
         self._vm.platform_name_changed.connect(self.on_platform_name_changed)
+        self._vm.login_required.connect(self.on_login_required)
         
         # --- Connect ViewModel signals to View slots (for opening sub-views) ---
         self._vm.open_system_info_requested.connect(self._system_info_view.show)
@@ -233,7 +234,6 @@ class MainView(QWidget):
     def on_is_connected_changed(self):
         connected = self._vm.is_connected
         detected = self._vm.platform_detected
-        logger.debug(f"Connected: {connected}, Detected: {detected}")
         self.port_combo.setEnabled(not connected)
         self.baud_combo.setEnabled(not connected)
         self.refresh_button.setEnabled(not connected)
@@ -241,6 +241,7 @@ class MainView(QWidget):
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
         self.platform_detection_button.setEnabled(connected and not detected)
+        self.platform_detection_button.setText("Start Platform Detection" if not detected else "Detected")
 
         self.system_info_button.setEnabled(connected and detected)
         self.hw_config_button.setEnabled(connected and detected)
@@ -273,6 +274,17 @@ class MainView(QWidget):
     @Slot()
     def open_functionality_view(self):
         self._functionality_view.show()
+    
+    @Slot()
+    def on_platform_detection_button_clicked(self):
+        self.platform_detection_button.setEnabled(False)
+        self.platform_detection_button.setText("Detecting...")
+        self._vm.start_platform_detection()
+    
+    @Slot()
+    def on_login_required(self):
+        self.platform_detection_button.setEnabled(True)
+        self.platform_detection_button.setText("Start Platform Detection")
 
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""

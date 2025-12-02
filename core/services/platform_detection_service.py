@@ -11,6 +11,7 @@ class PlatformDetectionService(QObject):
     and analyzing the aggregated responses.
     """
     platform_detected = Signal(str)
+    login_required = Signal(str)
 
     def __init__(self, device_model: SerialDeviceModel, parent: Optional[QObject] = None):
         """
@@ -25,6 +26,10 @@ class PlatformDetectionService(QObject):
         """
         Starts the platform detection sequence by running all detection commands.
         """
+        
+        if not self._ensure_login():
+            return
+
         if self._is_running:
             return
 
@@ -80,3 +85,17 @@ class PlatformDetectionService(QObject):
             logger.info(f"Platform detected: {final_detection}")
             self.platform_detected.emit(final_detection)
             self.stop_detection()
+    
+    def _ensure_login(self):
+        
+        retry = 3
+        for i in range(retry):
+            response = self._model.send_command_sync("root", timeout=2)
+            
+            for line in response:
+                if "root: command not found" in line:
+                    return True
+            self.login_required.emit(f"Login attempt {i+1} failed: {response}")
+        
+        self.login_required.emit(f"[ERROR] Device not logged in, stop detection.")
+        return False

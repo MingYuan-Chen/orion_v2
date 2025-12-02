@@ -270,7 +270,7 @@ class SerialDeviceModel(QObject):
         # Echo filtering: Exclude "prompt + command" line
         # Example: "root@box:~# fdisk -l /dev/mmcblk0"
         # -----------------------------
-        if self.prompt_regex.match(data):
+        if self.prompt_regex.match(data) and self.current_cmd != "root":
             if isinstance(self.current_cmd, str) and self.current_cmd and self.current_cmd in data:
                 return
 

@@ -47,6 +47,7 @@ class DeviceViewModel(QObject):
         self._model.disconnection_result.connect(self.on_disconnection_result)
         self._model.data_received.connect(self.on_data_received)
         self._detection_service.platform_detected.connect(self.on_platform_detected)
+        self._detection_service.login_required.connect(self.on_login_required)
 
     # =================================================================================
     # Signals to notify the View of property changes
@@ -54,6 +55,7 @@ class DeviceViewModel(QObject):
     log_text_changed = Signal()
     is_connected_changed = Signal()
     command_text_changed = Signal()
+    login_required = Signal()
     platform_name_changed = Signal()
     system_info_changed = Signal(str, str)
     system_info_reset = Signal()
@@ -361,7 +363,6 @@ class DeviceViewModel(QObject):
         if success and self._is_connected:
             self._is_connected = False
             self._platform_detected = False
-            logger.debug(f"Connected: {self._is_connected}, Detected: {self._platform_detected}")
             self.is_connected_changed.emit()
             self._system_info.clear()
             self.system_info_reset.emit()
@@ -375,6 +376,13 @@ class DeviceViewModel(QObject):
     def on_data_received(self, data: str):
         self._append_log(data)
 
+    @Slot(str)
+    def on_login_required(self, message: str):
+        self._append_log(message)
+
+        if "Device not logged in" in message:
+            self.login_required.emit()
+    
     @Slot(str)
     def on_platform_detected(self, platform_name: str):
         if self._platform_name != platform_name:
