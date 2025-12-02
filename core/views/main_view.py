@@ -11,6 +11,8 @@ from core.views.system_info_view import SystemInfoView
 from core.views.hw_config_view import HWConfigView
 from core.views.diagnostic_view import DiagnosticView
 from core.views.battery_monitor_view import BatteryMonitorView
+from core.views.functionality_view import FunctionalityView
+from util.logger import logger
 
 class CommandInputLineEdit(QLineEdit):
     """
@@ -43,20 +45,7 @@ class CommandInputLineEdit(QLineEdit):
 
             self.interrupt_signal_pressed.emit(byte_to_emit)
             event.accept()
-import sys
-from typing import Optional
-from PySide6.QtCore import QObject, Signal, Slot, Qt, QTimer
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
-)
-from PySide6.QtGui import QKeyEvent, QFont
-from core.view_models.device_view_model import DeviceViewModel
-from core.views.system_info_view import SystemInfoView
-from core.views.hw_config_view import HWConfigView
-from core.views.diagnostic_view import DiagnosticView
-from core.views.battery_monitor_view import BatteryMonitorView
-from core.views.functionality_view import FunctionalityView
+
 
 class CommandInputLineEdit(QLineEdit):
     """
@@ -126,6 +115,7 @@ class MainView(QWidget):
         self.diagnostic_button = QPushButton("Diagnostic")
         self.battery_monitor_button = QPushButton("Battery Monitor")
         self.functionality_button = QPushButton("Functionality")
+        self.platform_detection_button = QPushButton("Start Platform Detection")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
         self.platform_label.setFont(font_bold)
@@ -144,12 +134,12 @@ class MainView(QWidget):
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
         self.functionality_button.setFixedSize(120, 30)
+        self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
         main_layout = QVBoxLayout(self)
         top_layout = QHBoxLayout()
         second_layout = QHBoxLayout()
-
         
         # Create a frame for the system info section
         self.functionality_frame = QFrame()
@@ -157,6 +147,7 @@ class MainView(QWidget):
         self.functionality_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
         functionality_layout = QHBoxLayout(self.functionality_frame)
         functionality_layout.setContentsMargins(10, 5, 10, 10)
+        platform_layout = QHBoxLayout()
         
         cmd_layout = QHBoxLayout()
 
@@ -164,10 +155,12 @@ class MainView(QWidget):
         top_layout.addWidget(self.port_combo, 1)
         top_layout.addWidget(self.baud_label)
         top_layout.addWidget(self.baud_combo)
-        second_layout.addWidget(self.platform_label)
-        second_layout.addStretch() # Add stretch to push platform_label to the right
+        platform_layout.addWidget(self.platform_label)
+        platform_layout.addWidget(self.platform_detection_button)
+        platform_layout.addStretch()
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
+        second_layout.addStretch()
         functionality_layout.addWidget(self.system_info_button)
         functionality_layout.addWidget(self.hw_config_button)
         functionality_layout.addWidget(self.diagnostic_button)
@@ -181,10 +174,11 @@ class MainView(QWidget):
 
         main_layout.addLayout(top_layout)
         main_layout.addLayout(second_layout)
-        main_layout.addWidget(self.functionality_frame)
         main_layout.addLayout(cmd_layout)
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)
+        main_layout.addLayout(platform_layout)
+        main_layout.addWidget(self.functionality_frame)
 
         # --- Data Binding and Event Connections ---
         self._setup_bindings()
@@ -208,6 +202,7 @@ class MainView(QWidget):
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         self.functionality_button.clicked.connect(self.open_functionality_view)
+        self.platform_detection_button.clicked.connect(self._vm.start_platform_detection)
         
         # --- Bind ViewModel property changes to View update slots ---
         self._vm.log_appended.connect(self.on_log_appended)
@@ -237,22 +232,27 @@ class MainView(QWidget):
     @Slot()
     def on_is_connected_changed(self):
         connected = self._vm.is_connected
+        detected = self._vm.platform_detected
+        logger.debug(f"Connected: {connected}, Detected: {detected}")
         self.port_combo.setEnabled(not connected)
         self.baud_combo.setEnabled(not connected)
         self.refresh_button.setEnabled(not connected)
-        self.system_info_button.setEnabled(connected)
-        self.hw_config_button.setEnabled(connected)
-        self.diagnostic_button.setEnabled(connected)
-        self.battery_monitor_button.setEnabled(connected)
-        self.functionality_button.setEnabled(connected)
         self.send_button.setEnabled(connected)
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
+        self.platform_detection_button.setEnabled(connected and not detected)
+
+        self.system_info_button.setEnabled(connected and detected)
+        self.hw_config_button.setEnabled(connected and detected)
+        self.diagnostic_button.setEnabled(connected and detected)
+        self.battery_monitor_button.setEnabled(connected and detected)
+        self.functionality_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
         """Update the platform name label when the VM notifies of a change."""
         self.platform_label.setText(f"Platform: {self._vm.platform_name}")
+        self.on_is_connected_changed()
 
     @Slot()
     def on_command_text_changed(self):

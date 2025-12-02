@@ -22,6 +22,7 @@ class DeviceViewModel(QObject):
         self._command_text = ""
         self._is_connected = False
         self._platform_name = "Unknown"
+        self._platform_detected = False
         self._system_info = {}
         self._system_info_service = None
         self._diagnostic_service = None
@@ -86,6 +87,10 @@ class DeviceViewModel(QObject):
     @Property(bool, notify=is_connected_changed)
     def is_connected(self) -> bool:
         return self._is_connected
+    
+    @Property(bool)
+    def platform_detected(self) -> bool:
+        return self._platform_detected
 
     @Property(str, notify=command_text_changed)
     def command_text(self) -> str:
@@ -210,6 +215,13 @@ class DeviceViewModel(QObject):
         else:
             self._append_log(f"Failed to save HW config to {filename}")
 
+    def start_platform_detection(self):
+        """Starts the platform detection service."""
+        if self._detection_service:
+            self._detection_service.start_detection()
+        else:
+            logger.error("Detection service not initialized.")
+    
     @Slot()
     def run_all_diagnostics(self):
         """Runs all diagnostics for the current platform."""
@@ -331,11 +343,6 @@ class DeviceViewModel(QObject):
         if success != self._is_connected:
             self._is_connected = success
             self.is_connected_changed.emit()
-        
-        if success:
-            self._detection_service.start_detection()
-        else:
-            self.on_platform_detected("Unknown")
 
     @Slot(bool, str)
     def on_disconnection_result(self, success: bool, message: str):
@@ -353,6 +360,8 @@ class DeviceViewModel(QObject):
         # Only update state if disconnection was successful or wasn't already disconnected
         if success and self._is_connected:
             self._is_connected = False
+            self._platform_detected = False
+            logger.debug(f"Connected: {self._is_connected}, Detected: {self._platform_detected}")
             self.is_connected_changed.emit()
             self._system_info.clear()
             self.system_info_reset.emit()
@@ -370,10 +379,15 @@ class DeviceViewModel(QObject):
     def on_platform_detected(self, platform_name: str):
         if self._platform_name != platform_name:
             self._platform_name = platform_name
-            self.platform_name_changed.emit()
-        
+
             if self.platform_name == "Unknown":
-                return  
+                self._platform_detected = False
+                self.platform_name_changed.emit()
+                return
+            else:
+                self._platform_detected = True
+                self.platform_name_changed.emit()
+
             # Initialize system info service with the detected platform name
             self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)
             self._system_info_service.info_updated.connect(self.on_info_updated)
