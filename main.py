@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime
 from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
@@ -24,7 +25,7 @@ def main():
 
     # Set application name
     app.setApplicationName("Orion")
-    app.setApplicationDisplayName("Serial Tool v2.1.0 20251128")
+    app.setApplicationDisplayName(f'Serial Tool v2.1.0_{datetime.datetime.now().strftime("%Y%m%d")}')
     app.setOrganizationName("Orion")
     app.setOrganizationDomain("orion.com")
     app.setApplicationVersion("2.1.0.0")

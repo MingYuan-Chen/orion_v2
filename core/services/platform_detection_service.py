@@ -94,7 +94,7 @@ class PlatformDetectionService(QObject):
         
         retry = 5
         for i in range(retry):
-            response = self._model.send_command_sync("root", timeout=2)
+            response = self._model.send_command_sync("root",timeout=2)
             
             for line in response:
                 if "root: command not found" in line:

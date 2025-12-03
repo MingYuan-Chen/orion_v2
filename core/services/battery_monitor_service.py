@@ -4,6 +4,10 @@ import sys
 import time
 import datetime
 import re
+import csv
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.utils import get_column_letter
 from typing import Dict, List, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
 from core.models.serial_device_model import SerialDeviceModel
@@ -113,8 +117,18 @@ class BatteryMonitorService(QObject):
         self._model = device_model
         self._platform_name = platform_name
         self._commands = {}
+        self._last_results = {}
+        self._unknown_count = 0
         self._load_commands()
         self._running = False
+        
+        # Excel Logging
+        self._workbook = None
+        self._worksheet = None
+        self._excel_filename = None
+        self._log_dir = os.path.join(os.getcwd(), "logs")
+        if not os.path.exists(self._log_dir):
+            os.makedirs(self._log_dir)
         
         # Timer for polling
         self._timer = QTimer()
@@ -135,6 +149,16 @@ class BatteryMonitorService(QObject):
         if self._running:
             self._running = False
             self._timer.stop()
+            # Save and close Excel file
+            if self._workbook:
+                try:
+                    self._workbook.save(self._excel_filename)
+                    self._workbook.close()
+                except Exception as e:
+                    logger.error(f"Error saving Excel file on stop: {e}")
+                self._workbook = None
+                self._worksheet = None
+                self._excel_filename = None
 
     def _load_commands(self):
         """
@@ -176,6 +200,18 @@ class BatteryMonitorService(QObject):
                 
                 # Parse the value
                 parsed_value = self._parse_value(key, response)
+
+                # Optimization: Use last known good value if current is Unknown
+                if parsed_value == "Unknown" and key in self._last_results:
+                    if self._unknown_count < 3:
+                        parsed_value = self._last_results[key]
+                        self._unknown_count += 1
+                    else:
+                        parsed_value = "Unknown"
+                elif parsed_value != "Unknown":
+                    self._last_results[key] = parsed_value
+                    self._unknown_count = 0
+
                 results[key] = parsed_value
                 
             except Exception as e:
@@ -185,6 +221,10 @@ class BatteryMonitorService(QObject):
         if self._running:
             timestamp = datetime.datetime.now().strftime("%H:%M:%S")
             results["timestamp"] = timestamp
+            
+            # Save to Excel
+            self._save_to_excel(results)
+
             self.battery_data_updated.emit(results)
             
             # Calculate elapsed time and adjust next interval
@@ -196,6 +236,79 @@ class BatteryMonitorService(QObject):
             self._timer.start(next_interval)
             
         return results
+
+    def _save_to_excel(self, data: Dict[str, Any]):
+        """Appends data to an Excel file."""
+        try:
+            if not self._workbook:
+                self._workbook = openpyxl.Workbook()
+                self._worksheet = self._workbook.active
+                self._worksheet.title = "Battery Log"
+                
+                filename = f"battery_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                self._excel_filename = os.path.join(self._log_dir, filename)
+                
+                # Write Headers
+                headers = [
+                    "Timestamp", "Voltage", "Current", "Rel. State", "Remaining Capacity",
+                    "Temp", "Battery Status", "LED Status", 
+                    "Interrupt", "CPU", "MEM."
+                ]
+                self._worksheet.append(headers)
+                
+                # Style Headers
+                for cell in self._worksheet[1]:
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+                    cell.alignment = Alignment(horizontal="center")
+                
+                self._worksheet.freeze_panes = 'L2'
+                
+                # Initialize column widths
+                self._column_widths = {}
+                for i, header in enumerate(headers):
+                    width = len(header) + 4
+                    self._column_widths[i] = width
+                    self._worksheet.column_dimensions[get_column_letter(i+1)].width = width
+
+            timestamp = str(data.get("timestamp", "N/A"))
+            voltage = str(data.get("voltage", "N/A"))
+            current = str(data.get("current", "N/A"))
+            rel_state = str(data.get("relative_state", "N/A"))
+            remaining_capacity = str(data.get("remaining_capacity", "N/A"))
+            temp = str(data.get("temperature", "N/A"))
+            batt_status = str(data.get("battery_status", "N/A"))
+            led_status = str(data.get("led_status", "N/A"))
+            interrupt = str(data.get("interrupt_status", "N/A"))
+            
+            cpu = "N/A"
+            mem = "N/A"
+            top_info = data.get("top_info")
+            if isinstance(top_info, dict):
+                cpu = str(top_info.get("cpu_usage", "N/A"))
+                mem = str(top_info.get("memory_usage", "N/A"))
+
+            # Prepare row data
+            row_data = [
+                timestamp, voltage, current, rel_state, remaining_capacity,
+                temp, batt_status, led_status, 
+                interrupt, cpu, mem
+            ]
+
+            self._worksheet.append(row_data)
+            
+            # Auto-adjust column widths
+            for i, value in enumerate(row_data):
+                width = len(value) + 4
+                if width > self._column_widths.get(i, 0):
+                    self._column_widths[i] = width
+                    self._worksheet.column_dimensions[get_column_letter(i+1)].width = width
+
+            # Save after every write to ensure data persistence
+            self._workbook.save(self._excel_filename)
+            
+        except Exception as e:
+            logger.error(f"Error saving to Excel: {e}")
 
     def _parse_value(self, key: str, response) -> Any:
         """
@@ -218,7 +331,7 @@ class BatteryMonitorService(QObject):
                         if 0 <= voltage <= 15:
                             return f"{voltage}V ({combined_hex})"
                         else:
-                            return f"N/A ({combined_hex})"
+                            return "Unknown"
                     elif key == "current":
                         if hex_value > 32767:
                             signed_value = hex_value - 65536  # Convert to signed
@@ -228,18 +341,18 @@ class BatteryMonitorService(QObject):
                         if -5 < current < 5:
                             return f"{current}A ({combined_hex})"
                         else:
-                            return f"N/A ({combined_hex})"
+                            return "Unknown"
                     elif key == "relative_state":
                         if 0 <= hex_value <= 100:
                             return f"{hex_value}% ({combined_hex})" # Battery percentage (0-100)
                         else:
-                            return f"N/A ({combined_hex})"
+                            return "Unknown"
                     elif key == "temperature":
                         temperature = round(float(hex_value/10)-273.2, 1)
                         if 0 < temperature < 120:
                             return f"{temperature}°C ({combined_hex})"  # Convert to Celsius
                         else:
-                            return f"N/A ({combined_hex})"
+                            return "Unknown"
                     elif key == "battery_status":
                         status = self.BATTERY_STATUS_MAP.get(hex_value, "Unknown")
                         return f"{status} ({combined_hex})"
