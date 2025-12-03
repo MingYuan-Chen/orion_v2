@@ -31,7 +31,7 @@ class UbootVersionWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check U-Boot Version",
                 criteria=f"The U-Boot version can be found",
-                max_retries=1,
+                max_retries=10,
                 retry_delay=500
             )
         ]

@@ -110,19 +110,19 @@
   },
   "functionality_usb": {
     "commands": [
-      "ls -l /run/media",
+      "dmesg -n 3",
+      "",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
+      "for dev in /dev/sd?; do echo $dev; udevadm info -q path -n $dev; done && ls /run/media",
       "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
       "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb1_path}/usb_throughput",
-      "rm -f {usb2_path}/usb_throughput",
-      "dmesg -n 3",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && sleep 3",
       "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb3_path}/usb_throughput",
-      ""
+      "rm -f {usb1_path}/usb_throughput",
+      "rm -f {usb2_path}/usb_throughput",
+      "rm -f {usb3_path}/usb_throughput"
     ]
   },
   "functionality_touch": {
