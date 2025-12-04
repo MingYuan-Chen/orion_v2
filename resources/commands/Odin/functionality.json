@@ -132,7 +132,7 @@
       "systemctl stop weston & systemctl stop odin-production.service",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
       "mount /dev/sda1 /run/media/sda1",
-      "/dqa_package/TouchTestQt",
+      "/dqa_package/TouchTestQt64",
       "ts_test_mt -j 2 -v",
       "", "",
       "systemctl restart weston & systemctl start odin-production.service"
