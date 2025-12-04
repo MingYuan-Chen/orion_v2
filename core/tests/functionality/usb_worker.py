@@ -44,7 +44,7 @@ class UsbWorker(BaseTestWorker):
                 TestStep(
                     command=commands[1],
                     timeout=5, 
-                    post_check='Please remove the AC, and plug the 2 USB-A drive and 1 USB-C drive',
+                    post_check=f'1.Please remove the AC \n2.Plug 2 USB-A drive \n3.Plug 1 USB-C drive',
                     description="Remove the AC",
                 ), 
                 TestStep(
@@ -188,7 +188,6 @@ class UsbWorker(BaseTestWorker):
                     description="Remove usb_throughput on usb 2",
                 )
             ]
-    
     def _find_valid_usb_path_odin(self, response: str) -> Tuple[bool, str]:
 
         USB_C_KEY = "xhci-hcd.1.auto/usb4"
@@ -209,48 +208,49 @@ class UsbWorker(BaseTestWorker):
                 continue
 
             if "/devices/" in line and current_dev:
-                # USB-C
                 if USB_C_KEY in line:
                     usb_c_disk = current_dev
-
-                # USB-A 左
                 elif USB_LEFT_KEY in line:
                     usb_left_disk = current_dev
-
-                # USB-A 右
                 elif USB_RIGHT_KEY in line:
                     usb_right_disk = current_dev
-        logger.warning(f" Keys: C={USB_C_KEY}, L={USB_LEFT_KEY}, R={USB_RIGHT_KEY}")
-        logger.warning(f" Disks: C={usb_c_disk}, L={usb_left_disk}, R={usb_right_disk}")
-        # 驗證是否都找到
-        if not (usb_c_disk and usb_left_disk and usb_right_disk):
-            return False, "無法解析到三個 USB 裝置"
 
-        # 找 partition (每顆 USB 都是 X1)
-        usb_c_part = usb_c_disk + "1"
-        usb_left_part = usb_left_disk + "1"
-        usb_right_part = usb_right_disk + "1"
+                current_dev = None
 
-        # 最後一行 ls /run/media 的結果
+        logger.warning(f"解析結果: C={usb_c_disk}, L={usb_left_disk}, R={usb_right_disk}")
+
+        # 取得 /run/media mount 列表
         media_list = []
         for line in response.splitlines():
             if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
-                # 最後一行類似: "sda1  sdb1  sdc1"
                 media_list = line.split()
                 break
 
-        # 將 mount 路徑轉成完整路徑
-        def path_for(part):
-            return f"/run/media/{part}" if part.replace("/dev/", "") in media_list else ""
+        def find_mount(disk: str | None) -> str | None:
+            if not disk:
+                return None
+            disk_name = disk.replace("/dev/", "")  # sda / sdb ...
+            for part in media_list:               # sda1 sdb1 sdc1 ...
+                if part.startswith(disk_name):
+                    return f"/run/media/{part}"
+            return None
 
-        self.usb1_path = path_for(usb_left_part.replace("/dev/", ""))
-        self.usb2_path = path_for(usb_right_part.replace("/dev/", ""))
-        self.usb3_path = path_for(usb_c_part.replace("/dev/", ""))
+        left_path = find_mount(usb_left_disk)
+        right_path = find_mount(usb_right_disk)
+        c_path = find_mount(usb_c_disk)
+        # 單獨處理每個 Port（不互相影響）
+        self.usb1_path = left_path     # 可能是 None（沒插）
+        self.usb2_path = right_path    # 有插就會是 /run/media/xxx
+        self.usb3_path = c_path        # 有插就會是 /run/media/xxx
 
-        if not (self.usb3_path and self.usb1_path and self.usb2_path):
-            return False, "找不到 USB mount 路徑"
+        logger.warning(f"USB 路徑: LEFT={self.usb_left_path}, RIGHT={self.usb_right_path}, C={self.usb_c_path}")
+
+        # ❗不因少某個 USB 而回傳失敗
+        if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+            return False, "找不到任何 USB mount 路徑"
 
         return True, "USB paths parsed successfully"
+    
 
     def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
         """
