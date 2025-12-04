@@ -212,7 +212,15 @@ class BatteryMonitorService(QObject):
                     self._last_results[key] = parsed_value
                     self._unknown_count = 0
 
-                results[key] = parsed_value
+                if key == "top_info":
+                    if isinstance(parsed_value, dict):
+                        results["cpu_usage"] = parsed_value.get("cpu_usage", "Unknown")
+                        results["memory_usage"] = parsed_value.get("memory_usage", "Unknown")
+                    else:
+                        results["cpu_usage"] = "Unknown"
+                        results["memory_usage"] = "Unknown"
+                else:
+                    results[key] = parsed_value
                 
             except Exception as e:
                 logger.error(f"Error getting info for {key}: {e}")
@@ -267,27 +275,22 @@ class BatteryMonitorService(QObject):
                 # Initialize column widths
                 self._column_widths = {}
                 for i, header in enumerate(headers):
-                    width = len(header) + 4
+                    width = len(header) + 2
                     self._column_widths[i] = width
                     self._worksheet.column_dimensions[get_column_letter(i+1)].width = width
 
-            timestamp = str(data.get("timestamp", "N/A"))
-            voltage = str(data.get("voltage", "N/A"))
-            current = str(data.get("current", "N/A"))
-            rel_state = str(data.get("relative_state", "N/A"))
-            remaining_capacity = str(data.get("remaining_capacity", "N/A"))
-            temp = str(data.get("temperature", "N/A"))
-            batt_status = str(data.get("battery_status", "N/A"))
-            led_status = str(data.get("led_status", "N/A"))
-            interrupt = str(data.get("interrupt_status", "N/A"))
+            timestamp = str(data.get("timestamp", "Unknown"))
+            voltage = str(data.get("voltage", "Unknown"))
+            current = str(data.get("current", "Unknown"))
+            rel_state = str(data.get("relative_state", "Unknown"))
+            remaining_capacity = str(data.get("remaining_capacity", "Unknown"))
+            temp = str(data.get("temperature", "Unknown"))
+            batt_status = str(data.get("battery_status", "Unknown"))
+            led_status = str(data.get("led_status", "Unknown"))
+            interrupt = str(data.get("interrupt_status", "Unknown"))
+            cpu = str(data.get("cpu_usage", "Unknown"))
+            mem = str(data.get("memory_usage", "Unknown"))
             
-            cpu = "N/A"
-            mem = "N/A"
-            top_info = data.get("top_info")
-            if isinstance(top_info, dict):
-                cpu = str(top_info.get("cpu_usage", "N/A"))
-                mem = str(top_info.get("memory_usage", "N/A"))
-
             # Prepare row data
             row_data = [
                 timestamp, voltage, current, rel_state, remaining_capacity,
@@ -299,7 +302,7 @@ class BatteryMonitorService(QObject):
             
             # Auto-adjust column widths
             for i, value in enumerate(row_data):
-                width = len(value) + 4
+                width = len(value) + 2
                 if width > self._column_widths.get(i, 0):
                     self._column_widths[i] = width
                     self._worksheet.column_dimensions[get_column_letter(i+1)].width = width
@@ -327,9 +330,8 @@ class BatteryMonitorService(QObject):
 
                     # Dispatch to specific parsers based on key
                     if key == "voltage":
-                        voltage = round(hex_value / 1000, 1)
-                        if 0 <= voltage <= 15:
-                            return f"{voltage}V ({combined_hex})"
+                        if 0 <= hex_value <= 15000:
+                            return f"{hex_value}mV ({combined_hex})"
                         else:
                             return "Unknown"
                     elif key == "current":
@@ -337,9 +339,9 @@ class BatteryMonitorService(QObject):
                             signed_value = hex_value - 65536  # Convert to signed
                         else:
                             signed_value = hex_value
-                        current = round(float(signed_value/1000), 1)
-                        if -5 < current < 5:
-                            return f"{current}A ({combined_hex})"
+                        current = signed_value
+                        if -5000 < current < 5000:
+                            return f"{current}mA ({combined_hex})"
                         else:
                             return "Unknown"
                     elif key == "relative_state":

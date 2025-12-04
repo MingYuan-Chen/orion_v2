@@ -56,22 +56,17 @@ class BatteryMonitorView(QWidget):
     @Slot(dict)
     def on_battery_data_updated(self, data: dict):
         # Extract values
-        timestamp = str(data.get("timestamp", "N/A"))
-        voltage = str(data.get("voltage", "N/A"))
-        current = str(data.get("current", "N/A"))
-        rel_state = str(data.get("relative_state", "N/A"))
-        remaining_capacity = str(data.get("remaining_capacity", "N/A"))
-        temp = str(data.get("temperature", "N/A"))
-        batt_status = str(data.get("battery_status", "N/A"))
-        led_status = str(data.get("led_status", "N/A"))
-        interrupt = str(data.get("interrupt_status", "N/A"))
-        
-        cpu = "N/A"
-        mem = "N/A"
-        top_info = data.get("top_info")
-        if isinstance(top_info, dict):
-            cpu = str(top_info.get("cpu_usage", "N/A"))
-            mem = str(top_info.get("memory_usage", "N/A"))
+        timestamp = str(data.get("timestamp", "Unknown"))
+        voltage = str(data.get("voltage", "Unknown"))
+        current = str(data.get("current", "Unknown"))
+        rel_state = str(data.get("relative_state", "Unknown"))
+        remaining_capacity = str(data.get("remaining_capacity", "Unknown"))
+        temp = str(data.get("temperature", "Unknown"))
+        batt_status = str(data.get("battery_status", "Unknown"))
+        led_status = str(data.get("led_status", "Unknown"))
+        interrupt = str(data.get("interrupt_status", "Unknown"))
+        cpu = str(data.get("cpu_usage", "Unknown"))
+        mem = str(data.get("memory_usage", "Unknown"))
 
         # Prepare row data
         row_data = [

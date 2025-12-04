@@ -420,6 +420,8 @@ class SerialDeviceModel(QObject):
                 # If we hit this, it means the model's internal timeout logic failed or hung
                 # We should try to stop the command manually
                 result_holder["response"] = ["[ERROR] Command execution timed out (Safety Timer)"]
+                # Send Ctrl+C to stop the command processing, ensure no residual output
+                self._raw_send(b'\x03')
                 loop.quit()
 
         safety_timer.timeout.connect(on_safety_timeout)
