@@ -960,6 +960,10 @@ class SystemInfoService(QObject):
             if command_name == "uboot_version":
                 import re
                 # match: U-Boot 2016.03-argo_production+g2c7fd59 (May 31 2024 - 14:00:48 +0800)
+                odin_pattern = r'(U-Boot SPL\s+[^\(]+\([^)]+\))'
+                match = re.search(odin_pattern, response)
+                if match:
+                    return match.group(1).strip()
                 pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
                 match = re.search(pattern1, response)
                 if match:
