@@ -2,9 +2,7 @@ import json
 import os
 import sys
 import time
-import datetime
 import re
-import csv
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
 from openpyxl.utils import get_column_letter
@@ -227,7 +225,7 @@ class BatteryMonitorService(QObject):
                 results[key] = "Error"
             
         if self._running:
-            timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+            timestamp = time.strftime("%m/%d %H:%M:%S")
             results["timestamp"] = timestamp
             
             # Save to Excel
@@ -253,7 +251,7 @@ class BatteryMonitorService(QObject):
                 self._worksheet = self._workbook.active
                 self._worksheet.title = "Battery Log"
                 
-                filename = f"battery_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                filename = f"battery_log_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
                 self._excel_filename = os.path.join(self._log_dir, filename)
                 
                 # Write Headers

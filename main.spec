@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-import datetime
+import time
 a = Analysis(
     ['main.py'],
     pathex=['.'],
@@ -26,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name = f'orion_serial_tool_v2.1.0_{datetime.datetime.now().strftime("%Y%m%d")}',
+    name = f'orion_serial_tool_v2.1.0_{time.strftime("%Y%m%d")}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
