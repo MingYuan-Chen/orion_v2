@@ -2774,10 +2774,7 @@ class MainWindowController(QObject):
             # Handle synctime information
             if "sync time" in criteria.lower():
                 return self._convert_sync_time_response(response_str)
-            
-            # Clean up response text
-            return self._clean_response_text(response_str)
-            
+    
         except Exception as e:
             logger.warning(f"Error converting response: {str(e)}")
             return response_str
@@ -2956,6 +2953,8 @@ class MainWindowController(QObject):
     def _convert_throughput_response(self, response, step_desc):
         """Convert throughput test response to extract read/write speed"""
         try:
+            if "dd: failed" in response:
+                return "dd: failed ! Can NOT detect the USB drive."
             import re
             
             # Look for speed information in the response
