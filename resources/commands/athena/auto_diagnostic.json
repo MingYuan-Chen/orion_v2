@@ -50,7 +50,7 @@
       "0x0b"
     ]
   },
-  "diagnostic_model": {
+  "diagnostic_hw_version": {
     "commands": [
       "cat /proc/device-tree/model"
     ],
@@ -120,6 +120,18 @@
     ],
     "expected_response": [
       "Marvell"
+    ]
+  },
+  "diagnostic_touch_9_points": {
+    "commands": [
+      "'/run/media/Main Data Partition-sdb1/TouchTestQt64'",
+      "manual_check_required"
+    ]
+  },
+  "diagnostic_touch_drag_draw": {
+    "commands": [
+      "ts_test_mt -j 2 -v",
+      "manual_check_required"
     ]
   },
   "diagnostic_ethernet_connection": {

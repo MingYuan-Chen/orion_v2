@@ -2,7 +2,7 @@ import json
 import os
 import re
 from typing import Dict, List, Tuple, Any, Optional
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, Slot
 import sys
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
@@ -41,6 +41,9 @@ class DiagnosticService(QObject):
     Service to manage diagnostic execution and validation.
     """
     diagnostic_finished = Signal(str, bool, str) # key, success, message
+    diagnostic_start = Signal(str) # key
+    diagnostic_step = Signal(str, str) # cmd, output
+    manual_check_requested = Signal(str, str) # key, message
     all_diagnostics_finished = Signal()
 
     def __init__(self, device_model: SerialDeviceModel, platform_name: str):
@@ -49,6 +52,9 @@ class DiagnosticService(QObject):
         self._platform_name = platform_name
         self._diagnostics = {}
         self._running = False
+        self._current_key = None
+        self._current_commands = []
+        self._current_output = []
         self._load_diagnostics()
         
     def _load_diagnostics(self):
@@ -89,45 +95,84 @@ class DiagnosticService(QObject):
             self._running = False
             return
 
-        key, config = self._queue.pop(0)
-        commands = config.get("commands", [])
+        self._current_key, config = self._queue.pop(0)
+        self._current_commands = list(config.get("commands", []))
+        self._current_output = []
         
-        if not commands:
+        if not self._current_commands:
             self._run_next()
             return
 
-        # Execute commands
-        full_output = []
-        success = True
-        error_msg = ""
+        # Emit start signal
+        self.diagnostic_start.emit(self._current_key)
 
-        for cmd in commands:
-            if not self._running:
+        # Start processing commands
+        self._process_commands()
+
+    def _process_commands(self):
+        """
+        Processes commands for the current diagnostic step.
+        Supports pausing for manual checks.
+        """
+        while self._current_commands and self._running:
+            cmd = self._current_commands.pop(0)
+
+            if "manual_check_required" in cmd:
+                # Pause execution and request user interaction
+                self.manual_check_requested.emit(self._current_key, "Manual check required. Please confirm to proceed.")
                 return
 
-            # Send command synchronously
-            # Note: send_command_sync returns a list of lines
+            # Execute command
             if "U-Boot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+                self._model.send_command_queued(cmd)
             else:
                 response_lines = self._model.send_command_sync(cmd)
-            output_str = "\n".join(response_lines)
-            full_output.append(output_str)
+            
+            if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+                output_str = "TouchTest"
+            else:
+                output_str = "\n".join(response_lines)
+            self._current_output.append(output_str)
+            
+            # Emit step signal
+            self.diagnostic_step.emit(cmd, output_str)
+
         if not self._running:
             return
 
-        combined_output = "\n".join(full_output)
+        # If we are here, either all commands are done or we stopped running
+        if not self._current_commands:
+            self._finish_current_diagnostic()
+
+    @Slot(bool)
+    def resume_diagnostic(self, result: bool):
+        """
+        Resumes the diagnostic process after a manual check.
+        """
+        if not self._running:
+            return
+
+        self._current_output.append(f"manual_check_result_{result}")
+
+        # Continue processing remaining commands
+        self._process_commands()
+
+    def _finish_current_diagnostic(self):
+        combined_output = "\n".join(self._current_output)
 
         # Validate
-        is_valid, msg = self.validate_result(key, combined_output)
+        if "manual_check_result_True" in combined_output:
+            is_valid, msg = True, "Manual check result: Pass"
+        elif "manual_check_result_False" in combined_output:
+            is_valid, msg = False, "Manual check result: Fail"
+        else:
+            is_valid, msg = self.validate_result(self._current_key, combined_output)
         
-        self.diagnostic_finished.emit(key, is_valid, msg)
+        self.diagnostic_finished.emit(self._current_key, is_valid, msg)
         
-        # Schedule next run (using QTimer or just direct call if sync? 
-        # Direct call might block UI if too many. Better to use 0-timer or similar if possible, 
-        # but here we are in a service. 
-        # If send_command_sync processes events, we are fine.
-        # Let's just call recursively for now, assuming stack depth isn't an issue for typical diagnostic counts)
+        # Schedule next run
         self._run_next()
 
     def validate_result(self, key: str, output: str) -> Tuple[bool, str]:

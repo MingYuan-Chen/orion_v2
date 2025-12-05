@@ -59,20 +59,38 @@ class HWConfigService:
                     {"id": "battery", "component": "Battery", "part_number": "BN2013250-001LML-01", "serial_number": "243300004", "note": "Model : MD-BAT02"}
                 ]
             },
-            "athena_Small_24622000013_20251117.json": {
+            "athena_13_24622000013_20251205.json": {
                 "platform_name": "athena",
                 "platform_model": "Small",
                 "platform_serial": "24622000013",
                 "config_name": "Small_24622000013_20251117",
                 "created_date": "2025-11-17T11:02:11.975218",
                 "components": [
-                    {"id": "touch", "component": "Touch", "part_number": "133YF0A0", "serial_number": "98FCNYANA1350F-010", "note": "--"},
-                    {"id": "display", "component": "Display", "part_number": "--", "serial_number": "13A2500472013", "note": "--"},
-                    {"id": "main_board", "component": "Main Board", "part_number": "98PMATHENA000-030", "serial_number": "ATNA025240008", "note": "--"},
-                    {"id": "edp_board", "component": "eDP Board", "part_number": "--", "serial_number": "--", "note": "Test"},
-                    {"id": "battery", "component": "Battery", "part_number": "--", "serial_number": "2503030", "note": "--"}
+                    {"id": "system_assembly", "component": "System Assembly", "part_number": "90FM133FAOTA0-VT", "serial_number": "24622000013", "note": "Mfr. Part Number: N/A"}, 
+                    {"id": "front_sub_assembly", "component": "Front Sub Assembly", "part_number": "97I133F1A0-VT", "serial_number": "24712800036", "note": "Mfr. Part Number: N/A"},	
+                    {"id": "touch_module", "component": "Touch module", "part_number": "81F133YF0A2F-VT", "serial_number": "N/A", "note": "Mfr. Part Number: 81F133YF0A2F-VT"},
+                    {"id": "panel", "component": "Panel", "part_number": "93I133FMEAAF", "serial_number": "13A070081502", "note": "Mfr. Part Number: P93I133FMEAAF"},
+                    {"id": "embedded_board", "component": "Embedded board", "part_number": "99EMATHENA0A0", "serial_number": "ATNA025240008", "note": "Mfr. Part Number: 99EMATHENA0A0"},    
+                    {"id": "wifi_bt_module", "component": "Wifi & BT module", "part_number": "99LAWRM002F", "serial_number": "N/A", "note": "Mfr. Part Number: ST60-2230C-PU"},
+                    {"id": "battery", "component": "Battery", "part_number": "32LBN30130F", "serial_number": "2503030", "note": "Mfr. Part Number: BN3013250-001LML-01"}
                 ]
             },
+            "athena_18_24622010014_20251205.json": {
+                "platform_name": "athena",
+                "platform_model": "Large",
+                "platform_serial": "24622010014",
+                "config_name": "athena_18_24622010014_20251205",
+                "created_date": "2025-12-05",
+                "components": [
+                    {"id": "system_assembly", "component": "System Assembly", "part_number": "90FM185F2OTA0-VT", "serial_number": "24622010014", "note": "Mfr. Part Number: N/A"},
+                    {"id": "front_sub_assembly", "component": "Front Sub Assembly", "part_number": "97I185F1A0-VT", "serial_number": "24712810021", "note": "Mfr. Part Number: N/A"},
+                    {"id": "touch_module", "component": "Touch module", "part_number": "81B185YF0A1F-VT", "serial_number": "N/A", "note": "Mfr. Part Number: 81B185YF0A1F-VT"},
+                    {"id": "panel", "component": "Panel", "part_number": "93I185FMB02F", "serial_number": "13A070081502", "note": "Mfr. Part Number: P1850FHF1MB02(SPEC VERSION_2.4)"},
+                    {"id": "embedded_board", "component": "Embedded board", "part_number": "99EMATHENA0A0", "serial_number": "ATNA025240039", "note": "Mfr. Part Number: 99EMATHENA0A0"},
+                    {"id": "wifi_bt_module", "component": "Wifi & BT module", "part_number": "99LAWRM002F", "serial_number": "N/A", "note": "Mfr. Part Number: ST60-2230C-PU"},
+                    {"id": "battery", "component": "Battery", "part_number": "32LBN30130F", "serial_number": "2503027", "note": "Mfr. Part Number: BN3013250-001LML-01"}
+  ]
+},
             "gemini_10FHD210010_20251113.json": {
                 "platform_name": "gemini",
                 "platform_model": "10FHD210010",

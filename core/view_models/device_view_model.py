@@ -69,6 +69,9 @@ class DeviceViewModel(QObject):
     
     # Diagnostic signals
     diagnostic_result = Signal(str, bool, str) # key, success, message
+    diagnostic_start = Signal(str) # key
+    diagnostic_step = Signal(str, str) # cmd, output
+    manual_check_requested = Signal(str, str) # key, message
     all_diagnostics_completed = Signal()
 
     # Battery Monitor signals
@@ -180,6 +183,11 @@ class DeviceViewModel(QObject):
     def interrupt_diagnostic(self):
         if self._diagnostic_service:
             self._diagnostic_service.disconnect()
+
+    @Slot(bool)
+    def resume_diagnostic(self, result: bool):
+        if self._diagnostic_service:
+            self._diagnostic_service.resume_diagnostic(result)
 
     @Slot()
     def refresh_hw_config_list(self):
@@ -407,7 +415,10 @@ class DeviceViewModel(QObject):
             # Initialize Diagnostic Service
             self._diagnostic_service = DiagnosticService(self._model, self._platform_name)
             self._diagnostic_service.diagnostic_finished.connect(self.on_diagnostic_finished)
+            self._diagnostic_service.diagnostic_start.connect(self.on_diagnostic_start)
+            self._diagnostic_service.diagnostic_step.connect(self.on_diagnostic_step)
             self._diagnostic_service.all_diagnostics_finished.connect(self.on_all_diagnostics_finished)
+            self._diagnostic_service.manual_check_requested.connect(self.on_manual_check_requested)
 
             # Initialize Battery Monitor Service
             self._battery_monitor_service = BatteryMonitorService(self._model, self._platform_name)
@@ -429,6 +440,18 @@ class DeviceViewModel(QObject):
     @Slot(str, bool, str)
     def on_diagnostic_finished(self, key: str, success: bool, message: str):
         self.diagnostic_result.emit(key, success, message)
+
+    @Slot(str)
+    def on_diagnostic_start(self, key: str):
+        self.diagnostic_start.emit(key)
+
+    @Slot(str, str)
+    def on_diagnostic_step(self, cmd: str, output: str):
+        self.diagnostic_step.emit(cmd, output)
+
+    @Slot(str, str)
+    def on_manual_check_requested(self, key: str, message: str):
+        self.manual_check_requested.emit(key, message)
 
     @Slot()
     def on_all_diagnostics_finished(self):
