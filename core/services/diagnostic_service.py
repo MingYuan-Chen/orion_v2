@@ -35,6 +35,31 @@ class DiagnosticValidator:
                 return False, f"HW time and System time difference more then 5 seconds"
 
         return False, "No matched time string found"
+    
+    @staticmethod
+    def validate_emmc(output: str) -> Tuple[bool, str]:
+        """Validator for EMMC."""
+        pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
+        matches = re.findall(pattern, output)
+        if matches and len(matches) == 2:
+            write_speed_unit = matches[0][1]
+            read_speed_unit = matches[1][1]
+
+            if write_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                write_speed = float(matches[0][0]) * 1024
+            else:
+                write_speed = float(matches[0][0])
+
+            if read_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                read_speed = float(matches[1][0]) * 1024
+            else:
+                read_speed = float(matches[1][0])
+
+            if read_speed > 100 and write_speed > 50:
+                return True, f"EMMC read speed: {matches[1][0]} {matches[1][1]}, write speed: {matches[0][0]} {matches[0][1]}"
+            else:
+                return False, f"EMMC read speed: {matches[1][0]} {matches[1][1]}, write speed: {matches[0][0]} {matches[0][1]}"
+        return False, "No matched speed string found"
 
 class DiagnosticService(QObject):
     """

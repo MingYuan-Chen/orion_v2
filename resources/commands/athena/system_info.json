@@ -8,7 +8,7 @@
   "disk_usage": [
     "fdisk -l /dev/mmcblk0"
   ],
-  "kernal_version": [
+  "kernel_version": [
     "uname -a"
   ],
   "os_version": [

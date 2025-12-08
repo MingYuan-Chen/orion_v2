@@ -50,7 +50,7 @@
       "0x0b"
     ]
   },
-  "diagnostic_hw_version": {
+  "diagnostic_console_model": {
     "commands": [
       "cat /proc/device-tree/model"
     ],
@@ -121,6 +121,15 @@
     "expected_response": [
       "Marvell"
     ]
+  },
+  "diagnostic_emmc_read_write": {
+    "commands": [
+      "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
+      "sync",
+      "echo 3 > /proc/sys/vm/drop_caches",
+      "dd if=/emmc_througtput of=/dev/null bs=1M"
+    ],
+    "validate_function": "validate_emmc"
   },
   "diagnostic_backlight": {
     "commands": [
