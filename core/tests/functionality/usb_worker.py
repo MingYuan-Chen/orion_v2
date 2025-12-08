@@ -243,7 +243,7 @@ class UsbWorker(BaseTestWorker):
         self.usb2_path = right_path    # 有插就會是 /run/media/xxx
         self.usb3_path = c_path        # 有插就會是 /run/media/xxx
 
-        logger.warning(f"USB 路徑: LEFT={self.usb_left_path}, RIGHT={self.usb_right_path}, C={self.usb_c_path}")
+        logger.warning(f"USB 路徑: LEFT={self.usb1_path}, RIGHT={self.usb2_path}, C={self.usb3_path}")
 
         # ❗不因少某個 USB 而回傳失敗
         if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
