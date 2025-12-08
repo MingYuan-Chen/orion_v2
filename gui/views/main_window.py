@@ -2967,7 +2967,7 @@ class MainWindowController(QObject):
                 device_type = "SD Card"
 
             # ---- Handle dd failed cases ----
-            if "dd: failed" in response.lower():
+            if "dd: failed" in response.lower() or "dd: " in response.lower():
                 # More specific error classification
                 if "no such file" in response.lower():
                     return f"{device_type}: Device not detected (No such file or directory)"
