@@ -1071,6 +1071,8 @@ class MainWindowController(QObject):
         self.test_manager.register_test("functionality_usb", "USB Test")
         if self.platform_name not in ["Athena", "Argo", "Hydra", "Gemini"]:
             self.test_manager.register_test("functionality_probe", "Probe Test")
+        if self.platform_name not in ["Athena", "Argo", "Hydra", "Gemini"]:
+            self.test_manager.register_test("functionality_SDcard", "SD card Test")
         
         # set the log recorder
         self.test_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
@@ -2711,7 +2713,7 @@ class MainWindowController(QObject):
                 return self._convert_hexdump_eeprom_1_response(response_str)
 
             # Handle throughput speed conversion for USB and eMMC tests
-            if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower():
+            if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower() or "sd_throughput" in step_desc.lower():
                 return self._convert_throughput_response(response_str, step_desc)
             
             # Handle backlight brightness and power conversion
@@ -2953,50 +2955,56 @@ class MainWindowController(QObject):
     def _convert_throughput_response(self, response, step_desc):
         """Convert throughput test response to extract read/write speed"""
         try:
-            if "dd: failed" in response:
-                return "dd: failed ! Can NOT detect the USB drive."
+            step_desc = (step_desc or "").lower()
+            device_type = "Unknown"
+
+            # Determine device type
+            if "emmc_throughput" in step_desc:
+                device_type = "eMMC"
+            elif "usb_throughput" in step_desc:
+                device_type = "USB"
+            elif "sd_throughput" in step_desc:
+                device_type = "SD Card"
+
+            # ---- Handle dd failed cases ----
+            if "dd: failed" in response.lower():
+                # More specific error classification
+                if "no such file" in response.lower():
+                    return f"{device_type}: Device not detected (No such file or directory)"
+                elif "read-only file system" in response.lower():
+                    return f"{device_type}: Permission denied (Check mount or permissions)"
+                elif "command not found" in response.lower():
+                    return f"{device_type}: dd command not supported on this system"
+                else:
+                    return f"{device_type}: dd failed (device not detected or command error)"
+
+            # ---- Throughput extraction ----
             import re
-            
-            # Look for speed information in the response
-            # Pattern matches formats like: "62.2 MB/s", "258 MB/s", "91.8 MB/s", "1.4 GB/s"
             speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_matches = re.findall(speed_pattern, response)
             
             if not speed_matches:
-                return response
-            
-            # Get the last speed value (usually the final transfer speed)
+                return f"{device_type}: Throughput result not found"
+
             final_speed_value = speed_matches[-1][0]
             final_speed_unit = speed_matches[-1][1]
-            
-            # Convert to MB/s for consistent display
+
             speed_value = float(final_speed_value)
             if final_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
-                speed_mb = speed_value * 1024  # convert GB to MB
+                speed_mb = speed_value * 1024
                 display_speed = f"{final_speed_value} {final_speed_unit} ({speed_mb:.1f} MB/s)"
             else:
                 display_speed = f"{final_speed_value} {final_speed_unit}"
-            
-            # Determine if this is a read or write operation based on step description
-            operation_type = "Unknown"
-            if "write" in step_desc.lower():
-                operation_type = "Write"
-            elif "read" in step_desc.lower():
-                operation_type = "Read"
-            
-            # Determine device type
-            device_type = "Unknown"
-            if "emmc_throughput" in step_desc.lower():
-                device_type = "eMMC"
-            elif "usb_throughput" in step_desc.lower():
-                device_type = "USB"
-            
-            # Return formatted speed information
+
+            # Determine operation type
+            operation_type = "Read" if "read" in step_desc else "Write" if "write" in step_desc else "Unknown"
+
             return f"{device_type} {operation_type} Speed: {display_speed}"
-            
+
         except Exception as e:
             logger.warning(f"Error converting throughput response: {e}")
-            return response
+            return f"Throughput parsing error: {str(e)}"
+
 
     def _convert_backlight_response(self, response, command):
         """Convert backlight brightness and power response to readable format"""

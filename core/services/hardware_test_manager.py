@@ -93,7 +93,9 @@ class HardwareTestManagerService(QObject):
         self._register_worker("functionality_hdmi", HdmiWorker, continue_on_failure=True)
         from core.tests.functionality.probe_worker import ProbeWorker
         self._register_worker("functionality_probe", ProbeWorker, continue_on_failure=True)
-
+        from core.tests.functionality.SDcard_worker import SDcardWorker
+        self._register_worker("functionality_SDcard", SDcardWorker, continue_on_failure=True)
+        
         # Diagnostic test workers
         from core.tests.diagnostic.cpu_name_worker import CpuNameWorker
         self._register_worker("diagnostic_cpu_name", CpuNameWorker, continue_on_failure=True)
