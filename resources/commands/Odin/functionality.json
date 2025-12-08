@@ -132,10 +132,12 @@
       "systemctl stop weston & systemctl stop odin-production.service",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value && sleep 3",
       "mount /dev/sda1 /run/media/sda1",
-      "/dqa_package/TouchTestQt64",
+      "/dqa_package/TouchTestQt64 -platform eglfs",
+      "",
+      "systemctl restart weston & systemctl start odin-production.service",
       "ts_test_mt -j 2 -v",
-      "", "",
-      "systemctl restart weston & systemctl start odin-production.service"
+      "", 
+      ""
     ]
   },
   "functionality_hdmi": {

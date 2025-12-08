@@ -50,17 +50,28 @@ class TouchWorker(BaseTestWorker):
                     timeout=5,
                     description="Touch the 9 red circles",
                     criteria="The 9 red circles should become green",
-                    pre_condition="Please touch the 9 red circles on the screen",
-                    post_check='1.Please click "Close" button on Panel. \n2.Have the 9 red circles turned green?',
+                    pre_condition='Please touch the 9 red circles on the screen after click "Confirm and continue" button',
+                    post_check='Have the 9 red circles turned green?',
                     manual_only=True
                 ),
                 TestStep(
                     command=commands[5],  
+                    post_check=f'Please click "Close" button on the screen \n(The 9 points test will close after click "Pass" button)',
+                    timeout=5,
+                    description="Turn off the 9 points test"
+                ),
+                TestStep(
+                    command=commands[6],  
+                    timeout=5,
+                    description="Restart the service to enable display on the screen",
+                ),
+                TestStep(
+                    command=commands[7],  
                     timeout=5,
                     description="Launch ts_test_mt",
                 ),
                 TestStep(
-                    command=commands[6],
+                    command=commands[8],
                     description="Draw along the edge of the screen with Single & double draw",
                     criteria="A line should be drawn along on the screen when drawing with a single finger and double finger",
                     pre_condition='1.Please click the "Draw" "button \n2.Draw along the edge of the screen with a single and double fingers on the screen',
@@ -68,17 +79,12 @@ class TouchWorker(BaseTestWorker):
                     manual_only=True
                 ),
                 TestStep(
-                    command=commands[7],
+                    command=commands[9],
                     timeout=5,
                     description="Quit touch test tool",
                     pre_condition='Please click the "Quit" button',
                     post_check="Is the touch test tool closed?",
                     manual_only=True
-                ),
-                TestStep(
-                    command=commands[8],
-                    timeout=5,
-                    description="Restart the service to enable display on the screen",
                 )
             ]
         else:
