@@ -859,7 +859,7 @@ class MainWindowController(QObject):
         diagnostic_tests["diagnostic_design_capacity"] = "Check Design Capacity"
         diagnostic_tests["diagnostic_design_voltage"] = "Check Design Voltage"
         diagnostic_tests["diagnostic_emmc_size"] = "Check eMMC Size"
-        diagnostic_tests["diagnostic_kernal_name"] = "Check Kernal Name"
+        diagnostic_tests["diagnostic_kernel_name"] = "Check Kernel Name"
         diagnostic_tests["diagnostic_mac_address"] = "Check MAC Address"
         diagnostic_tests["diagnostic_memory_size"] = "Check Memory Size"
         diagnostic_tests["diagnostic_nor_flash_size"] = "Check NOR Flash Size"

@@ -121,8 +121,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_design_voltage", DesignVoltageWorker, continue_on_failure=True)
         from core.tests.diagnostic.uboot_version_worker import UbootVersionWorker
         self._register_worker("diagnostic_uboot_version", UbootVersionWorker, continue_on_failure=True)
-        from core.tests.diagnostic.kernal_name_worker import KernalNameWorker
-        self._register_worker("diagnostic_kernal_name", KernalNameWorker, continue_on_failure=True)
+        from core.tests.diagnostic.kernel_name_worker import KernelNameWorker
+        self._register_worker("diagnostic_kernel_name", KernelNameWorker, continue_on_failure=True)
         from core.tests.diagnostic.panel_id_worker import PanelIdWorker
         self._register_worker("diagnostic_panel_id", PanelIdWorker, continue_on_failure=True)
         from core.tests.diagnostic.panel_resolution_worker import PanelResolutionWorker
