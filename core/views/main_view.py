@@ -91,12 +91,12 @@ class MainView(QWidget):
         self._vm = view_model
         self.setWindowTitle("PSC Orion")
         self.setGeometry(100, 100, 500, 600)
-
-        self._system_info_view = SystemInfoView(self._vm)
-        self._hw_config_view = HWConfigView(self._vm)
-        self._diagnostic_view = DiagnosticView(self._vm)
-        self._battery_monitor_view = BatteryMonitorView(self._vm)
-        self._control_panel_view = ControlPanelView(self._vm)
+        
+        self._system_info_view = None
+        self._hw_config_view = None
+        self._diagnostic_view = None
+        self._battery_monitor_view = None
+        self._control_panel_view = None
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -212,8 +212,8 @@ class MainView(QWidget):
         self._vm.login_required.connect(self.on_login_required)
         
         # --- Connect ViewModel signals to View slots (for opening sub-views) ---
-        self._vm.open_system_info_requested.connect(self._system_info_view.show)
-        self._vm.open_hw_config_requested.connect(self._hw_config_view.show)
+        self._vm.open_system_info_requested.connect(self.open_system_info_view)
+        self._vm.open_hw_config_requested.connect(self.open_hw_config_view)
 
         # --- Enable/Disable UI elements based on connection status ---
         self.port_combo.setModel(self._vm.port_list_model)
@@ -262,17 +262,35 @@ class MainView(QWidget):
             self.cmd_input.setText(self._vm.command_text)
 
     @Slot()
+    def open_system_info_view(self):
+        if self._system_info_view is None:
+            self._system_info_view = SystemInfoView(self._vm)
+        self._system_info_view.show()
+
+    @Slot()
+    def open_hw_config_view(self):
+        if self._hw_config_view is None:
+            self._hw_config_view = HWConfigView(self._vm)
+        self._hw_config_view.show()
+
+    @Slot()
     def open_diagnostic_view(self):
+        if self._diagnostic_view is None:
+            self._diagnostic_view = DiagnosticView(self._vm)
         self._diagnostic_view.start_diagnostic()
         self._diagnostic_view.show()
         self._vm.run_all_diagnostics()
 
     @Slot()
     def open_battery_monitor_view(self):
+        if self._battery_monitor_view is None:
+            self._battery_monitor_view = BatteryMonitorView(self._vm)
         self._battery_monitor_view.show()
 
     @Slot()
     def open_control_panel_view(self):
+        if self._control_panel_view is None:
+            self._control_panel_view = ControlPanelView(self._vm)
         self._control_panel_view.show()
     
     @Slot()
@@ -288,10 +306,10 @@ class MainView(QWidget):
 
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
-        self._system_info_view.close()
-        self._hw_config_view.close()
-        self._diagnostic_view.close()
-        self._battery_monitor_view.close()
-        self._control_panel_view.close()
+        if self._system_info_view: self._system_info_view.close()
+        if self._hw_config_view: self._hw_config_view.close()
+        if self._diagnostic_view: self._diagnostic_view.close()
+        if self._battery_monitor_view: self._battery_monitor_view.close()
+        if self._control_panel_view: self._control_panel_view.close()
         self._vm.clean_up()
         super().closeEvent(event)
