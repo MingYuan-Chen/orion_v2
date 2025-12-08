@@ -110,14 +110,22 @@ class DiagnosticView(QWidget):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Manual Check Required")
         msg_box.setText(message)
-        pass_btn = msg_box.addButton("Pass", QMessageBox.YesRole)
-        fail_btn = msg_box.addButton("Fail", QMessageBox.NoRole)
+
+        if "[Precondition]" in message:
+            ok_btn = msg_box.addButton("Ok", QMessageBox.AcceptRole)
+        else:
+            pass_btn = msg_box.addButton("Pass", QMessageBox.YesRole)
+            fail_btn = msg_box.addButton("Fail", QMessageBox.NoRole)
         
         msg_box.exec()
         
+        if "[Precondition]" in message:
+            if msg_box.clickedButton() == ok_btn:
+                result = "SKIP"
+        else:
+            result = "PASS" if msg_box.clickedButton() == pass_btn else "FAIL"
         # Resume diagnostic
-        is_passed = (msg_box.clickedButton() == pass_btn)
-        self._vm.resume_diagnostic(is_passed)
+        self._vm.resume_diagnostic(result)
 
     @Slot()
     def on_all_diagnostics_completed(self):

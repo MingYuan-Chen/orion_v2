@@ -122,16 +122,108 @@
       "Marvell"
     ]
   },
+  "diagnostic_backlight": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch backlight brightness from 0 to 10.\nThen turn off and on backlight power.",
+      "echo 0 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 1 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 2 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 3 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 4 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 5 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 6 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 7 > /sys/class/backlight/backlight/brightness",
+      "cat /sys/class/backlight/backlight/brightness",
+      "echo 1 > /sys/class/backlight/backlight/bl_power",
+      "cat /sys/class/backlight/backlight/bl_power",
+      "echo 0 > /sys/class/backlight/backlight/bl_power",
+      "cat /sys/class/backlight/backlight/bl_power",
+      "manual_check_required. [Test Hints]\nPlease confirm brightness and power action as expected. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_lcd": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch LCD color from red to white.",
+      "/usr/bin/drawfb -p red",
+      "/usr/bin/drawfb -p green",
+      "/usr/bin/drawfb -p blue",
+      "/usr/bin/drawfb -p black",
+      "/usr/bin/drawfb -p white",
+      "/usr/bin/drawfb -p colorbar",
+      "/usr/bin/drawfb -p gradient256",
+      "/usr/bin/drawfb -p frame",
+      "/usr/bin/drawfb -p gray16",
+      "/usr/bin/drawfb -p gray64",
+      "/usr/bin/drawfb -p gray256",
+      "manual_check_required. [Test Hints]\nPlease confirm LCD color as expected. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_blue": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x01 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Blue. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_green": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x02 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Green. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_red": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x04 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Red. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_amber": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x08 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Amber. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_blink_blue": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x11 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Blue. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_blink_green": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x12 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Green. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_blink_red": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x14 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Red. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led_blink_amber": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x18 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Amber. Click Pass/Fail to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
+    ]
+  },
   "diagnostic_touch_9_points": {
     "commands": [
-      "'/run/media/Main Data Partition-sdb1/TouchTestQt64'",
-      "manual_check_required"
+      "'/run/media/DATA-sda1/dqa_package/TouchTestQt64'",
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
   "diagnostic_touch_drag_draw": {
     "commands": [
       "ts_test_mt -j 2 -v",
-      "manual_check_required"
+      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
   "diagnostic_ethernet_connection": {

@@ -118,8 +118,10 @@ class DiagnosticService(QObject):
             cmd = self._current_commands.pop(0)
 
             if "manual_check_required" in cmd:
+                # Get the message from the command
+                message = cmd.replace("manual_check_required. ", "")
                 # Pause execution and request user interaction
-                self.manual_check_requested.emit(self._current_key, "Manual check required. Please confirm to proceed.")
+                self.manual_check_requested.emit(self._current_key, message)
                 return
 
             # Execute command
@@ -131,7 +133,7 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd)
             
             if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
-                output_str = "TouchTest"
+                output_str = "Touch Test Tool Launched"
             else:
                 output_str = "\n".join(response_lines)
             self._current_output.append(output_str)
@@ -146,15 +148,16 @@ class DiagnosticService(QObject):
         if not self._current_commands:
             self._finish_current_diagnostic()
 
-    @Slot(bool)
-    def resume_diagnostic(self, result: bool):
+    @Slot(str)
+    def resume_diagnostic(self, result: str):
         """
         Resumes the diagnostic process after a manual check.
         """
         if not self._running:
             return
 
-        self._current_output.append(f"manual_check_result_{result}")
+        if result != "SKIP":
+            self._current_output.append(f"manual_check_result_{result}")
 
         # Continue processing remaining commands
         self._process_commands()
@@ -163,9 +166,9 @@ class DiagnosticService(QObject):
         combined_output = "\n".join(self._current_output)
 
         # Validate
-        if "manual_check_result_True" in combined_output:
+        if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, "Manual check result: Pass"
-        elif "manual_check_result_False" in combined_output:
+        elif "manual_check_result_FAIL" in combined_output:
             is_valid, msg = False, "Manual check result: Fail"
         else:
             is_valid, msg = self.validate_result(self._current_key, combined_output)

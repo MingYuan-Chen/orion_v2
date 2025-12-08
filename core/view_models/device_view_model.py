@@ -184,8 +184,8 @@ class DeviceViewModel(QObject):
         if self._diagnostic_service:
             self._diagnostic_service.disconnect()
 
-    @Slot(bool)
-    def resume_diagnostic(self, result: bool):
+    @Slot(str)
+    def resume_diagnostic(self, result: str):
         if self._diagnostic_service:
             self._diagnostic_service.resume_diagnostic(result)
 
