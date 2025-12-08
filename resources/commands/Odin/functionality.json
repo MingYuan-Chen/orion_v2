@@ -76,7 +76,7 @@
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
-      "sync",
+      "sync && sleep 3",
       "/usr/bin/drawfb -p red",
       "/usr/bin/drawfb -p green",
       "/usr/bin/drawfb -p blue",
