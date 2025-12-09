@@ -13,7 +13,7 @@ class ControlPanelView(QWidget):
     def __init__(self, view_model: DeviceViewModel, parent=None):
         super().__init__(parent)
         self._vm = view_model
-        self.setWindowTitle("Control Panel")
+        self.setWindowTitle("Functions")
         self.resize(500, 600) # Increased height for Backlight
         self._setup_ui()
         self._setup_bindings()
@@ -24,7 +24,7 @@ class ControlPanelView(QWidget):
         main_layout = QVBoxLayout(self)
 
         # Title
-        title_label = QLabel("Control Panel")
+        title_label = QLabel("Functions")
         title_label.setStyleSheet("font-size: 20px;")
         title_label.setFont(font_bold)
         title_label.setAlignment(Qt.AlignCenter)

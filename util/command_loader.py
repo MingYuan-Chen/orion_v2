@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Dict, Any
 from util.logger import logger
 
@@ -30,10 +31,10 @@ class CommandLoader:
             # Running from source
             base_path = os.getcwd()
             
-        base_path = os.path.join(base_path, "resources", "commands")
-        file_path = os.path.join(base_path, platform.lower(), f"{command_file}.json")
+        base_path = Path(base_path) / "resources" / "commands"
+        file_path = base_path / platform.lower() / f"{command_file}.json"
         
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             logger.error(f"Command file not found: {file_path}")
             return {}
             

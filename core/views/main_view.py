@@ -102,20 +102,20 @@ class MainView(QWidget):
         font_bold = QFont()
         font_bold.setBold(True)
 
-        self.port_label = QLabel("Available Ports:")
+        self.port_label = QLabel("COM:")
         self.port_combo = QComboBox()
-        self.baud_label = QLabel("Baudrate:")
+        self.baud_label = QLabel("Speed:")
         self.baud_combo = QComboBox()
         self.baud_combo.addItems(['9600', '19200', '38400', '57600', '115200'])
         self.baud_combo.setCurrentText('115200')
-        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button = QPushButton("Serial Port Scan")
         self.connect_button = QPushButton("Connect")
         self.system_info_button = QPushButton("System Info")
         self.hw_config_button = QPushButton("HW Config")
-        self.diagnostic_button = QPushButton("Diagnostic")
+        self.diagnostic_button = QPushButton("Function Test")
         self.battery_monitor_button = QPushButton("Battery Monitor")
-        self.control_panel_button = QPushButton("Control Panel")
-        self.platform_detection_button = QPushButton("Start Platform Detection")
+        self.control_panel_button = QPushButton("LED / Backlight")
+        self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
         self.platform_label.setFont(font_bold)
@@ -127,7 +127,7 @@ class MainView(QWidget):
         self.log_view.document().setMaximumBlockCount(2000) # Limit lines to prevent freeze
 
         # Set fixed sizes for buttons
-        self.refresh_button.setFixedSize(100, 30)
+        self.refresh_button.setFixedSize(120, 30)
         self.connect_button.setFixedSize(100, 30)
         self.system_info_button.setFixedSize(100, 30)
         self.hw_config_button.setFixedSize(100, 30)
@@ -241,7 +241,7 @@ class MainView(QWidget):
         self.cmd_input.setEnabled(connected)
         self.connect_button.setText("Disconnect" if connected else "Connect")
         self.platform_detection_button.setEnabled(connected and not detected)
-        self.platform_detection_button.setText("Start Platform Detection" if not detected else "Detected")
+        self.platform_detection_button.setText("Connected Device Initial" if not detected else "Device Initialized")
 
         self.system_info_button.setEnabled(connected and detected)
         self.hw_config_button.setEnabled(connected and detected)
@@ -296,13 +296,13 @@ class MainView(QWidget):
     @Slot()
     def on_platform_detection_button_clicked(self):
         self.platform_detection_button.setEnabled(False)
-        self.platform_detection_button.setText("Detecting...")
+        self.platform_detection_button.setText("Initializing...")
         self._vm.start_platform_detection()
     
     @Slot()
     def on_login_required(self):
         self.platform_detection_button.setEnabled(True)
-        self.platform_detection_button.setText("Start Platform Detection")
+        self.platform_detection_button.setText("Connected Device Initial")
 
     def closeEvent(self, event):
         """Ensure clean-up is called on window close."""
