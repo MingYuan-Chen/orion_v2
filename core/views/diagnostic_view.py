@@ -22,13 +22,11 @@ class DiagnosticView(QWidget):
         layout.addWidget(self.status_label)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Module", "Steps", "Result", "Message"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Module", "Result", "Message"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table.setColumnWidth(2, 100)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setStyleSheet("font-size: 14px;")
         layout.addWidget(self.table)
@@ -36,7 +34,6 @@ class DiagnosticView(QWidget):
     def _setup_bindings(self):
         self._vm.diagnostic_result.connect(self.on_diagnostic_result)
         self._vm.diagnostic_start.connect(self.on_diagnostic_start)
-        self._vm.diagnostic_step.connect(self.on_diagnostic_step)
         self._vm.all_diagnostics_completed.connect(self.on_all_diagnostics_completed)
         self._vm.manual_check_requested.connect(self.on_manual_check_requested)
         self._vm.diagnostic_reset.connect(self.reset)
@@ -50,32 +47,11 @@ class DiagnosticView(QWidget):
         display_name = key.replace("diagnostic_", "").replace("_", " ").title()
         self.table.setItem(row, 0, QTableWidgetItem(display_name))
         
-        # Initialize Steps with QTextEdit
-        steps_edit = QTextEdit()
-        steps_edit.setReadOnly(True)
-        steps_edit.setStyleSheet("background-color: transparent; border: none;")
-        self.table.setCellWidget(row, 1, steps_edit)
-        
-        # Set a minimum row height to make the text edit usable
-        self.table.setRowHeight(row, 100)
-        
         # Initialize Result and Message as empty/pending
-        self.table.setItem(row, 2, QTableWidgetItem("Running..."))
-        self.table.setItem(row, 3, QTableWidgetItem(""))
+        self.table.setItem(row, 1, QTableWidgetItem("Running..."))
+        self.table.setItem(row, 2, QTableWidgetItem(""))
         
         self.table.scrollToBottom()
-
-    @Slot(str, str)
-    def on_diagnostic_step(self, cmd: str, output: str):
-        row = self.table.rowCount() - 1
-        if row >= 0:
-            steps_widget = self.table.cellWidget(row, 1)
-            if isinstance(steps_widget, QTextEdit):
-                new_step = f"> {cmd}\n{output}\n"
-                steps_widget.append(new_step)
-                # Scroll to bottom of the text edit
-                steps_widget.verticalScrollBar().setValue(steps_widget.verticalScrollBar().maximum())
-            self.table.scrollToBottom()
 
     @Slot(str, bool, str)
     def on_diagnostic_result(self, key: str, success: bool, message: str):
@@ -95,10 +71,10 @@ class DiagnosticView(QWidget):
             result_item.setForeground(QColor("red"))
             result_item.setBackground(QColor("#FFEBEE")) # Light red background
             
-        self.table.setItem(row, 2, result_item)
+        self.table.setItem(row, 1, result_item)
         
         # Message
-        self.table.setItem(row, 3, QTableWidgetItem(message))
+        self.table.setItem(row, 2, QTableWidgetItem(message))
         
         self.table.scrollToBottom()
 

@@ -416,7 +416,6 @@ class DeviceViewModel(QObject):
             self._diagnostic_service = DiagnosticService(self._model, self._platform_name)
             self._diagnostic_service.diagnostic_finished.connect(self.on_diagnostic_finished)
             self._diagnostic_service.diagnostic_start.connect(self.on_diagnostic_start)
-            self._diagnostic_service.diagnostic_step.connect(self.on_diagnostic_step)
             self._diagnostic_service.all_diagnostics_finished.connect(self.on_all_diagnostics_finished)
             self._diagnostic_service.manual_check_requested.connect(self.on_manual_check_requested)
 
@@ -444,10 +443,6 @@ class DeviceViewModel(QObject):
     @Slot(str)
     def on_diagnostic_start(self, key: str):
         self.diagnostic_start.emit(key)
-
-    @Slot(str, str)
-    def on_diagnostic_step(self, cmd: str, output: str):
-        self.diagnostic_step.emit(cmd, output)
 
     @Slot(str, str)
     def on_manual_check_requested(self, key: str, message: str):

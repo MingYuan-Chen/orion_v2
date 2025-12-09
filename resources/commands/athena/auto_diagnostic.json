@@ -90,7 +90,7 @@
       "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
     ]
   },
-  "diagnostic_kernal_name": {
+  "diagnostic_kernel_name": {
     "commands": [
       "uname -a"
     ],

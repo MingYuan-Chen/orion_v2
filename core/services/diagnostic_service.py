@@ -86,7 +86,6 @@ class DiagnosticService(QObject):
     """
     diagnostic_finished = Signal(str, bool, str) # key, success, message
     diagnostic_start = Signal(str) # key
-    diagnostic_step = Signal(str, str) # cmd, output
     manual_check_requested = Signal(str, str) # key, message
     all_diagnostics_finished = Signal()
 
@@ -216,9 +215,6 @@ class DiagnosticService(QObject):
             else:
                 output_str = "\n".join(response_lines)
             self._current_output.append(output_str)
-            
-            # Emit step signal
-            self.diagnostic_step.emit(cmd, output_str)
 
         if not self._running:
             return
