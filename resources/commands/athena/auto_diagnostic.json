@@ -122,6 +122,28 @@
       "Marvell"
     ]
   },
+  "diagnostic_usb1_read_write": {
+    "commands": [
+      "dd if=/dev/zero of='usb1_path/usb_throughput' bs=1M count=200 status=progress",
+      "sync",
+      "sleep_required 5",
+      "dd if='usb1_path/usb_throughput' of=/dev/null bs=1M",
+      "sync",
+      "rm -f 'usb1_path/usb_throughput'"
+    ],
+    "validate_function": "validate_read_write"
+  },
+  "diagnostic_usb2_read_write": {
+    "commands": [
+      "dd if=/dev/zero of='usb2_path/usb_throughput' bs=1M count=200 status=progress",
+      "sync",
+      "sleep_required 5",
+      "dd if='usb2_path/usb_throughput' of=/dev/null bs=1M",
+      "sync",
+      "rm -f 'usb2_path/usb_throughput'"
+    ],
+    "validate_function": "validate_read_write"
+  },
   "diagnostic_emmc_read_write": {
     "commands": [
       "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
@@ -129,7 +151,7 @@
       "echo 3 > /proc/sys/vm/drop_caches",
       "dd if=/emmc_througtput of=/dev/null bs=1M"
     ],
-    "validate_function": "validate_emmc"
+    "validate_function": "validate_read_write"
   },
   "diagnostic_backlight": {
     "commands": [

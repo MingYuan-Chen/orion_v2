@@ -34,9 +34,8 @@ class BatteryMonitorView(QWidget):
         # Table Widget
         self.table = QTableWidget()
         self.columns = [
-            "Timestamp", "Voltage", "Current", "Rel. State", "Remaining Capacity",
-            "Temp", "Battery Status", "LED Status", 
-            "Interrupt", "CPU", "MEM."
+            "Timestamp", "Duration", "SoC", "Remaining Capacity", "Voltage", "Current",
+            "Temperature", "LED Status", "Battery Status", "Safety Status", "AC Present"
         ]
         self.table.setColumnCount(len(self.columns))
         self.table.setHorizontalHeaderLabels(self.columns)
@@ -57,6 +56,7 @@ class BatteryMonitorView(QWidget):
     def on_battery_data_updated(self, data: dict):
         # Extract values
         timestamp = str(data.get("timestamp", "Unknown"))
+        duration = str(data.get("duration", "Unknown"))
         voltage = str(data.get("voltage", "Unknown"))
         current = str(data.get("current", "Unknown"))
         rel_state = str(data.get("relative_state", "Unknown"))
@@ -65,14 +65,12 @@ class BatteryMonitorView(QWidget):
         batt_status = str(data.get("battery_status", "Unknown"))
         led_status = str(data.get("led_status", "Unknown"))
         interrupt = str(data.get("interrupt_status", "Unknown"))
-        cpu = str(data.get("cpu_usage", "Unknown"))
-        mem = str(data.get("memory_usage", "Unknown"))
-
+        ac_present = str(data.get("ac_present", "Unknown"))
+            
         # Prepare row data
         row_data = [
-            timestamp, voltage, current, rel_state, remaining_capacity,
-            temp, batt_status, led_status, 
-            interrupt, cpu, mem
+            timestamp, duration, rel_state, remaining_capacity, voltage, current,
+            temp, led_status, batt_status, interrupt, ac_present
         ]
 
         # Insert new row

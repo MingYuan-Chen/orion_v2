@@ -107,6 +107,11 @@ class BatteryMonitorService(QObject):
         704: "Remaining Capacity Alarm",
         448: "Remaining Time Alarm",
     }
+
+    SECONDS_PER_DAY = 86400
+    SECONDS_PER_HOUR = 3600
+    SECONDS_PER_MINUTE = 60
+
     # Signal to emit updated battery data
     battery_data_updated = Signal(dict)
 
@@ -127,6 +132,7 @@ class BatteryMonitorService(QObject):
         self._log_dir = os.path.join(os.getcwd(), "logs")
         if not os.path.exists(self._log_dir):
             os.makedirs(self._log_dir)
+        self._monitoring_start_time = None
         
         # Timer for polling
         self._timer = QTimer()
@@ -180,6 +186,8 @@ class BatteryMonitorService(QObject):
             return
 
         start_time = time.time()
+        if not self._monitoring_start_time:
+            self._monitoring_start_time = start_time
         results = {}
         if not self._model.is_connected():
             logger.warning("Device not connected, cannot get battery info")
@@ -210,15 +218,7 @@ class BatteryMonitorService(QObject):
                     self._last_results[key] = parsed_value
                     self._unknown_count = 0
 
-                if key == "top_info":
-                    if isinstance(parsed_value, dict):
-                        results["cpu_usage"] = parsed_value.get("cpu_usage", "Unknown")
-                        results["memory_usage"] = parsed_value.get("memory_usage", "Unknown")
-                    else:
-                        results["cpu_usage"] = "Unknown"
-                        results["memory_usage"] = "Unknown"
-                else:
-                    results[key] = parsed_value
+                results[key] = parsed_value
                 
             except Exception as e:
                 logger.error(f"Error getting info for {key}: {e}")
@@ -227,14 +227,21 @@ class BatteryMonitorService(QObject):
         if self._running:
             timestamp = time.strftime("%m/%d %H:%M:%S")
             results["timestamp"] = timestamp
-            
+            end_time = time.time()
+
+            total_seconds = int(end_time - self._monitoring_start_time)
+            duration_days, remaining_seconds = divmod(total_seconds, self.SECONDS_PER_DAY)
+            duration_hours, remaining_seconds = divmod(remaining_seconds, self.SECONDS_PER_HOUR)
+            duration_minutes, duration_seconds = divmod(remaining_seconds, self.SECONDS_PER_MINUTE)
+            duration_str = f"{duration_days}d {duration_hours:02d}:{duration_minutes:02d}:{duration_seconds:02d}"
+            results["duration"] = duration_str
             # Save to Excel
             self._save_to_excel(results)
 
             self.battery_data_updated.emit(results)
             
             # Calculate elapsed time and adjust next interval
-            end_time = time.time()
+            
             elapsed_ms = int((end_time - start_time) * 1000)
             next_interval = max(0, self._interval_ms - elapsed_ms)
             
@@ -256,9 +263,8 @@ class BatteryMonitorService(QObject):
                 
                 # Write Headers
                 headers = [
-                    "Timestamp", "Voltage", "Current", "Rel. State", "Remaining Capacity",
-                    "Temp", "Battery Status", "LED Status", 
-                    "Interrupt", "CPU", "MEM."
+                    "Timestamp", "Duration", "SoC", "Remaining Capacity", "Voltage", "Current",
+                    "Temperature", "LED Status", "Battery Status", "Safety Status", "AC Present"
                 ]
                 self._worksheet.append(headers)
                 
@@ -278,6 +284,7 @@ class BatteryMonitorService(QObject):
                     self._worksheet.column_dimensions[get_column_letter(i+1)].width = width
 
             timestamp = str(data.get("timestamp", "Unknown"))
+            duration = str(data.get("duration", "Unknown"))
             voltage = str(data.get("voltage", "Unknown"))
             current = str(data.get("current", "Unknown"))
             rel_state = str(data.get("relative_state", "Unknown"))
@@ -286,14 +293,12 @@ class BatteryMonitorService(QObject):
             batt_status = str(data.get("battery_status", "Unknown"))
             led_status = str(data.get("led_status", "Unknown"))
             interrupt = str(data.get("interrupt_status", "Unknown"))
-            cpu = str(data.get("cpu_usage", "Unknown"))
-            mem = str(data.get("memory_usage", "Unknown"))
+            ac_present = str(data.get("ac_present", "Unknown"))
             
             # Prepare row data
             row_data = [
-                timestamp, voltage, current, rel_state, remaining_capacity,
-                temp, batt_status, led_status, 
-                interrupt, cpu, mem
+                timestamp, duration, rel_state, remaining_capacity, voltage, current,
+                temp, led_status, batt_status, interrupt, ac_present
             ]
 
             self._worksheet.append(row_data)
@@ -365,55 +370,9 @@ class BatteryMonitorService(QObject):
                         return f"{status} ({combined_hex})"
                     elif key == "remaining_capacity":
                         return f"{hex_value}mAh ({combined_hex})"
-                
-                if key == "top_info":
-                    # Parse CPU usage from lines like: "CPU:  12.5% usr   2.1% sys   0.0% nic  84.4% idle"
-                    # Or: "%Cpu(s):  5.2 us,  1.3 sy,  0.0 ni, 93.5 id"
-                    if line.startswith('CPU:') or line.startswith('%Cpu'):
-                        # Look for patterns like "12.5% usr" or "5.2 us"
-                        # Pattern to match percentage values before "usr", "us", "sys", "sy"
-                        cpu_pattern = r'(\d+\.?\d*)%?\s*(?:usr|us|sys|sy)'
-                        matches = re.findall(cpu_pattern, line)
-                        if matches:
-                            # Sum up user and system CPU usage (first two matches typically)
-                            usr_cpu = float(matches[0]) if len(matches) > 0 else 0.0
-                            sys_cpu = float(matches[1]) if len(matches) > 1 else 0.0
-                            cpu_usage = round(usr_cpu + sys_cpu, 1)
-                            
-                            # Alternative: calculate from idle percentage
-                            # Look for idle percentage
-                            idle_pattern = r'(\d+\.?\d*)%?\s*(?:idle|id)'
-                            idle_matches = re.findall(idle_pattern, line)
-                            if idle_matches:
-                                idle_cpu = float(idle_matches[0])
-                                cpu_usage = round(100.0 - idle_cpu, 1)
-                            
-                    # Parse memory usage from lines like: "Mem:   1024000k total,   512000k used,   512000k free"
-                    # Or: "KiB Mem :  2048000 total,  1024000 used,   1024000 free"
-                    # Or: "MiB Mem :   3851.2 total,   3529.4 free,    193.9 used,    128.0 buff/cache"
-                    elif 'Mem:' in line or 'KiB Mem' in line or 'MiB Mem' in line:
-                        # Use flexible regex to find total and used memory regardless of order
-                        # Pattern for total memory
-                        total_match = re.search(r'(\d+\.?\d*)\s*(?:k|KiB|MiB)?\s*total', line)
-                        # Pattern for used memory
-                        used_match = re.search(r'(\d+\.?\d*)\s*(?:k|KiB|MiB)?\s*used', line)
-                        
-                        if total_match and used_match:
-                            total_memory = float(total_match.group(1))
-                            used_memory = float(used_match.group(1))
-                            
-                            if total_memory > 0:
-                                # Calculate memory usage percentage
-                                memory_usage = round((used_memory / total_memory) * 100, 1)
-                    
-                    # Return result if both values were parsed successfully
-                    if cpu_usage is not None and memory_usage is not None:
-                        return {
-                            "cpu_usage": f"{cpu_usage}%",
-                            "memory_usage": f"{memory_usage}%"
-                        }
-                            
-            
+                    elif key == "ac_present":
+                        status = "Plugged" if hex_value == 55 else "Unplugged"
+                        return f"{status} ({combined_hex})"
             # Default: return raw string stripped of whitespace
             return "Unknown"
             

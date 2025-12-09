@@ -38,8 +38,8 @@ class DiagnosticValidator:
         return False, "No matched time string found"
     
     @staticmethod
-    def validate_emmc(output: str) -> Tuple[bool, str]:
-        """Validator for EMMC."""
+    def validate_read_write(output: str) -> Tuple[bool, str]:
+        """Validator for USB/EMMC read write."""
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
         if matches and len(matches) == 2:
@@ -56,10 +56,28 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            if read_speed > 100 and write_speed > 50:
-                return True, f"EMMC read speed: {matches[1][0]} {matches[1][1]}, write speed: {matches[0][0]} {matches[0][1]}"
+            if read_speed > 100 and write_speed > 100:
+                return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
-                return False, f"EMMC read speed: {matches[1][0]} {matches[1][1]}, write speed: {matches[0][0]} {matches[0][1]}"
+                return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
+        elif matches and len(matches) == 3:
+            write_speed_unit = matches[1][1]
+            read_speed_unit = matches[2][1]
+
+            if write_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                write_speed = float(matches[1][0]) * 1024
+            else:
+                write_speed = float(matches[1][0])
+
+            if read_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                read_speed = float(matches[2][0]) * 1024
+            else:
+                read_speed = float(matches[2][0])
+
+            if read_speed > 100 and write_speed > 30:
+                return True, f"Read speed: {matches[2][0]} {matches[2][1]}, Write speed: {matches[1][0]} {matches[1][1]}"
+            else:
+                return False, f"Read speed: {matches[2][0]} {matches[2][1]}, Write speed: {matches[1][0]} {matches[1][1]}"
         return False, "No matched speed string found"
 
 class DiagnosticService(QObject):
@@ -82,6 +100,9 @@ class DiagnosticService(QObject):
         self._current_commands = []
         self._current_output = []
         self._load_diagnostics()
+        self.usb1_path = None
+        self.usb2_path = None
+        self.usb3_path = None
         
     def _load_diagnostics(self):
         # Load from resources/commands/{platform}/auto_diagnostic.json
@@ -108,6 +129,7 @@ class DiagnosticService(QObject):
         """
         Runs all diagnostics sequentially.
         """
+        self._find_valid_usb_path()
         self._running = True
         self._queue = list(self._diagnostics.items())
         self._run_next()
@@ -157,13 +179,40 @@ class DiagnosticService(QObject):
                 self._model.send_command_queued(cmd)
             elif "sleep_required" in cmd:
                 time.sleep(float(cmd.split(" ")[1]))  
+            elif "usb1_path" in cmd:
+                if self.usb1_path:
+                    cmd = cmd.replace("usb1_path", self.usb1_path)
+                    response_lines = self._model.send_command_sync(cmd)
+            elif "usb2_path" in cmd:
+                if self.usb2_path:
+                    cmd = cmd.replace("usb2_path", self.usb2_path)
+                    response_lines = self._model.send_command_sync(cmd)
+            elif "usb3_path" in cmd:
+                if self.usb3_path:
+                    cmd = cmd.replace("usb3_path", self.usb3_path)
+                    response_lines = self._model.send_command_sync(cmd)
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
             if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
                 output_str = "Touch Test Tool Launched"
             elif "sleep_required" in cmd:
-                output_str = "Sleeping for " + cmd.split(" ")[1] + " seconds"
+                output_str = "Sleeping for " + cmd.split(" ")[1] + " second(s)"
+            elif "usb1_path" in cmd:
+                if self.usb1_path:
+                    output_str = "\n".join(response_lines)
+                else:
+                    output_str = "USB1 path not found"
+            elif "usb2_path" in cmd:
+                if self.usb2_path:
+                    output_str = "\n".join(response_lines)
+                else:
+                    output_str = "USB2 path not found"
+            elif "usb3_path" in cmd:
+                if self.usb3_path:
+                    output_str = "\n".join(response_lines)
+                else:
+                    output_str = "USB3 path not found"
             else:
                 output_str = "\n".join(response_lines)
             self._current_output.append(output_str)
@@ -245,6 +294,44 @@ class DiagnosticService(QObject):
             logger.error(f"Error validating diagnostic {key}: {e}")
             return False, str(e)
     
+    def _find_valid_usb_path(self):
+        """
+        Find valid usb path from 'ls -l /run/media'.
+        e.g., 
+        total 12
+        drwxrwx---  3 root disk 4096 Jan  1  1970 'Main Data Partition-sdb1'
+        drwxrwx--- 13 root disk 8192 Jan  1  1970  sda1
+        """
+        try:
+            response = self._model.send_command_sync("ls -l /run/media")
+            device_names = []
+            for line in response:
+                if not line or line.startswith('total'):
+                    continue
+                parts = line.split(None, 8)
+                if len(parts) == 9:
+                    device_name = parts[8].strip("'")
+                    device_names.append(device_name)
+
+            # Prioritize assignment based on 'sda1' and 'sdb1'
+            unassigned_names = []
+            for name in device_names:
+                if 'sda1' in name and self.usb1_path is None:
+                    self.usb1_path = f"/run/media/{name}"
+                    logger.info(f"Found usb1 path: {self.usb1_path}")
+                elif 'sdb1' in name and self.usb2_path is None:
+                    self.usb2_path = f"/run/media/{name}"
+                    logger.info(f"Found usb2 path: {self.usb2_path}")
+                elif 'sdb2' in name and self.usb3_path is None:
+                    self.usb3_path = f"/run/media/{name}"
+                    logger.info(f"Found usb3 path: {self.usb3_path}")
+                else:
+                    logger.debug(f"Ignored device: {name}")
+            
+        except Exception as e:
+            logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
+            return False, f"Find valid usb path error: {str(e)}"
+
     def disconnect(self):
         self._running = False
         if hasattr(self, '_queue'):
