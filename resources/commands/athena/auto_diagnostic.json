@@ -135,91 +135,75 @@
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will switch backlight brightness from 0 to 10.\nThen turn off and on backlight power.",
       "echo 0 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 1 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 2 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 3 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 4 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 5 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 6 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 7 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
       "echo 1 > /sys/class/backlight/backlight/bl_power",
-      "cat /sys/class/backlight/backlight/bl_power",
+      "sleep_required 1",
       "echo 0 > /sys/class/backlight/backlight/bl_power",
-      "cat /sys/class/backlight/backlight/bl_power",
+      "sleep_required 1",
       "manual_check_required. [Test Hints]\nPlease confirm brightness and power action as expected. Click Pass/Fail to proceed."
     ]
   },
   "diagnostic_lcd": {
     "commands": [
-      "manual_check_required. [Precondition]\nFollowing process will switch LCD color from red to white.",
+      "manual_check_required. [Precondition]\nFollowing process will switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
       "/usr/bin/drawfb -p red",
+      "sleep_required 1",
       "/usr/bin/drawfb -p green",
+      "sleep_required 1",
       "/usr/bin/drawfb -p blue",
+      "sleep_required 1",
       "/usr/bin/drawfb -p black",
+      "sleep_required 1",
       "/usr/bin/drawfb -p white",
+      "sleep_required 1",
       "/usr/bin/drawfb -p colorbar",
+      "sleep_required 1",
       "/usr/bin/drawfb -p gradient256",
+      "sleep_required 1",
       "/usr/bin/drawfb -p frame",
+      "sleep_required 1",
       "/usr/bin/drawfb -p gray16",
+      "sleep_required 1",
       "/usr/bin/drawfb -p gray64",
+      "sleep_required 1",
       "/usr/bin/drawfb -p gray256",
+      "sleep_required 1",
       "manual_check_required. [Test Hints]\nPlease confirm LCD color as expected. Click Pass/Fail to proceed."
     ]
   },
-  "diagnostic_led_blue": {
+  "diagnostic_led": {
     "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch LED color to blue, green, red, amber, blink blue, blink green, blink red, blink amber.",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x01 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display Blue. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_green": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x02 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display Green. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_red": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x04 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display Red. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_amber": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x08 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display Amber. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_blink_blue": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x11 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Blue. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_blink_green": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x12 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Green. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_blink_red": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x14 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Red. Click Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_led_blink_amber": {
-    "commands": [
+      "sleep_required 5",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x18 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED display blink Amber. Click Pass/Fail to proceed.",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Blue. Click Pass/Fail to proceed.",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
     ]
   },

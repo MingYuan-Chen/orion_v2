@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from typing import Dict, List, Tuple, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer, Slot
 import sys
@@ -154,11 +155,15 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
                 self._model.send_command_queued(cmd)
+            elif "sleep_required" in cmd:
+                time.sleep(float(cmd.split(" ")[1]))  
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
             if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
                 output_str = "Touch Test Tool Launched"
+            elif "sleep_required" in cmd:
+                output_str = "Sleeping for " + cmd.split(" ")[1] + " seconds"
             else:
                 output_str = "\n".join(response_lines)
             self._current_output.append(output_str)
