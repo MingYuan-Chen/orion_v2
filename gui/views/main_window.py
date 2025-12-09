@@ -2778,7 +2778,12 @@ class MainWindowController(QObject):
             # Handle synctime information
             if "sync time" in criteria.lower():
                 return self._convert_sync_time_response(response_str)
+            
+            if "memory size" in criteria.lower():
+                return self._convert_memory_size_response(response_str)
+            
             return response_str
+        
         except Exception as e:
             logger.warning(f"Error converting response: {str(e)}")
             return response_str
@@ -3053,7 +3058,7 @@ class MainWindowController(QObject):
         try:
             lines = response.split(" ")
             if lines[0] == "geometry":
-                return f"Panel Resolution: {lines[1]}x{lines[2]} pixels"
+                return f"{lines[1]}x{lines[2]} pixels"
             else:
                 return response
         except Exception as e:
@@ -3352,6 +3357,23 @@ class MainWindowController(QObject):
 
         except Exception as e:
             logger.warning(f"Error converting sync time response: {e}")
+            return response
+    
+    def _convert_memory_size_response(self, response):
+        try:
+            import re
+            match = re.search(r"(\d+)\s*kB", response, re.IGNORECASE)
+            if not match:
+                return response
+
+            kb_value = int(match.group(1))
+            gb_value = kb_value / (1024 * 1024)  # Convert kB → GB (binary)
+            gb_str = f"{gb_value:.2f} GB"
+
+            return f"{gb_str} ({kb_value} kB)"
+
+        except Exception as e:
+            logger.warning(f"Error converting memory size: {e}")
             return response
 
     def _clean_response_text(self, response):
