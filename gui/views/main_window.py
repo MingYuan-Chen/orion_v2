@@ -3448,7 +3448,7 @@ class MainWindowController(QObject):
         if progress_records:
             all_test_ids.update(progress_records.keys())
         
-        sorted_test_ids = sorted(list(all_test_ids))
+        sorted_test_ids = list(self.test_step_templates.get(test_type, {}).keys())
         
         for test_id in sorted_test_ids:
             try:
