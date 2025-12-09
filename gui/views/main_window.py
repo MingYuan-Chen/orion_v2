@@ -2696,9 +2696,6 @@ class MainWindowController(QObject):
         Returns:
             Converted response string that's more user-friendly
         """
-        if not response or response.strip() == "":
-            return ""
-        
         try:
             response_str = str(response).strip()
             
@@ -2782,6 +2779,8 @@ class MainWindowController(QObject):
             if "memory size" in criteria.lower():
                 return self._convert_memory_size_response(response_str)
             
+            if not response_str:
+                return ""
             return response_str
         
         except Exception as e:
@@ -2910,16 +2909,29 @@ class MainWindowController(QObject):
             return response
 
     def _convert_storage_response(self, response):
-        """Convert storage size response to readable format"""
+        """Convert storage size response to 'XX.XXGB (XXXXX kB)' format"""
         try:
             lines = response.strip().split('\n')
+            
             for line in lines:
-                if line.strip().isdigit():
-                    sectors = int(line.strip())
+                line_stripped = line.strip()
+                # 要求 line 是純數字 (sector)
+                if line_stripped.isdigit():
+                    sectors = int(line_stripped)
+
+                    # sector → bytes
                     bytes_total = sectors * 512
+
+                    # bytes → GB (binary GiB but commonly called GB)
                     gb_total = bytes_total / (1024 ** 3)
-                    return f"{sectors} sectors = {gb_total:.2f}GB ({bytes_total:,} bytes)"
+
+                    # sectors → kB (1 sector = 512 bytes = 0.5 kB)
+                    kb_total = bytes_total / 1024
+
+                    return f"{gb_total:.2f} GB ({int(kb_total)} kB)"
+
             return response
+
         except Exception as e:
             logger.warning(f"Error converting storage response: {e}")
             return response
@@ -3302,39 +3314,46 @@ class MainWindowController(QObject):
     def _convert_lsusb_response(self, response):
         """Convert lsusb response to show device search result"""
         try:
-            target_id = "1286:2046"
-            target_id_2 = "1286:204e"
+            target_ids = ["1286:2046", "1286:204e"]
             lines = response.strip().split('\n')
-            
+
             for line in lines:
                 line = line.strip()
-                if line and target_id in line:
-                    return f"Device found: {line}"
-                elif line and target_id_2 in line:
-                    return f"Device found: {line}"
-            
-            return "Device not found"
-            
+                if not line:
+                    continue
+                if any(tid in line for tid in target_ids):
+                    return f"Bluetooth module found: {line}"
+
+            # 永不回傳空白
+            return "Bluetooth module not found"
+
         except Exception as e:
             logger.warning(f"Error converting lsusb response: {e}")
-            return response
+            return "BT Device not found (error)"
     
     def _convert_lspci_response(self, response):
-        """Convert lspci response to show device search result"""
         try:
-            target_name = "Marvell"
+            if not response or not response.strip():
+                result = "WiFi module not found"
+                return result
+
+            target = "Marvell"
             lines = response.strip().split('\n')
-            
+
             for line in lines:
                 line = line.strip()
-                if line and target_name in line:
-                    return f"Device found: {line}"
-            
-            return "Device not found"
-            
+                if not line:
+                    continue
+                if target in line:
+                    result = f"WiFi module found: {line}"
+                    return result
+
+            result = "WiFi module not found"
+            return result
+
         except Exception as e:
-            logger.warning(f"Error converting lspci response: {e}")
-            return response
+            return "WiFi module not found"
+
     
     def _convert_sync_time_response(self, response):
         """Convert sync time script output and ensure only the FIRST result is used."""
