@@ -3543,7 +3543,7 @@ class MainWindowController(QObject):
             self._export_in_progress = True
             
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"test_results_{self.device_id}_{timestamp}.xlsx"
+            default_filename = f"{self.platform_name}_test_report_{self.device_id}_{timestamp}.xlsx"
             
             file_path, _ = QFileDialog.getSaveFileName(
                 self.window, "Export Test Results", default_filename, "Excel Files (*.xlsx)")
@@ -3558,6 +3558,7 @@ class MainWindowController(QObject):
             
             sheet.append(["Tool Version", "v2.0.1_20251224"])
             sheet.append(["Config Version", "v2.0.1_20251224"])
+            sheet.append(["Platform", self.platform_name])
             sheet.append(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
             from openpyxl.styles import PatternFill, Font
 
@@ -3566,16 +3567,20 @@ class MainWindowController(QObject):
             white_bold_font = Font(color="FFFFFF", bold=True, name="Arial")
 
             # Apply to row 3
-            for cell in sheet[3]:
+            for cell in sheet[4]:
                 if cell.value not in (None, ""):
                     cell.fill = navy_fill
                     cell.font = white_bold_font
-            font_setting_list = [(1,1), (2,1), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7), (3,8), (3,9)]
-            for row, col in font_setting_list:
-                cell = sheet.cell(row, col)
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-            
+            # ----- Format Title Rows (A1:A3 bold, B1:B3 normal) -----
+            for row in range(1, 4):
+                title_cell = sheet.cell(row, 1)   # A1, A2, A3
+                value_cell = sheet.cell(row, 2)   # B1, B2, B3
+
+                title_cell.font = Font(name="Arial", bold=True, color="000000")
+                value_cell.font = Font(name="Arial", bold=False, color="000000")
+
+                title_cell.alignment = Alignment(horizontal='left', vertical='center')
+                value_cell.alignment = Alignment(horizontal='left', vertical='center')
             exported_test_steps = set()
             data_exported = False
             
@@ -3604,60 +3609,60 @@ class MainWindowController(QObject):
             sheet.column_dimensions['I'].width = 15
 
             # ----- Set all data row heights to 40 -----
-            for row in range(4, sheet.max_row + 1):
+            for row in range(5, sheet.max_row + 1):
                 sheet.row_dimensions[row].height = 40
 
             # ----- H / I columns center alignment -----
-            for row in range(4, sheet.max_row + 1):
+            for row in range(5, sheet.max_row + 1):
                 sheet.cell(row, 8).alignment = Alignment(horizontal='center', vertical='center')
                 sheet.cell(row, 9).alignment = Alignment(horizontal='center', vertical='center')
 
-            # ------ Set all fonts to Arial (do not override title row color) ------
+            # ------ Set all fonts to Arial ------
             for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row, min_col=1, max_col=9):
                 for cell in row:
                     if cell.value is not None:
-                        # 保留先前設定的顏色與粗體，只改字型
                         cell.font = Font(
                             name='Arial',
                             bold=cell.font.bold,
                             color=cell.font.color
                         )
 
-            # ----- Reapply Title Row (Row 3) formatting because global font-change may override -----
+            # ----- Apply header styling to row 4 -----
             navy_fill = PatternFill(start_color="001f4d", end_color="001f4d", fill_type="solid")
             white_bold_font = Font(color="FFFFFF", bold=True, name="Arial")
 
-            for cell in sheet[3]:
+            for cell in sheet[4]:
                 if cell.value:
                     cell.fill = navy_fill
                     cell.font = white_bold_font
                     cell.alignment = Alignment(horizontal='center', vertical='center')
 
-            # ----- PASS / FAIL formatting (must run after Arial) -----
-            for row in range(4, sheet.max_row + 1):
-                result_cell = sheet.cell(row, 4)  # Column D
-                value = str(result_cell.value).strip().upper()
+            # ----- PASS / FAIL (Column D = col 4) -----
+            for row in range(5, sheet.max_row + 1):
+                cell = sheet.cell(row, 4)  # Column D
+                value = str(cell.value).strip().upper()
                 
                 if value == "PASS":
-                    result_cell.font = Font(name="Arial", color="0000E3", bold=True)
+                    cell.font = Font(name="Arial", color="0000E3", bold=True)
                 elif value == "FAIL":
-                    result_cell.font = Font(name="Arial", color="FF0000", bold=True)
+                    cell.font = Font(name="Arial", color="FF0000", bold=True)
                 else:
-                    result_cell.font = Font(name="Arial", bold=True)
+                    cell.font = Font(name="Arial", bold=True)
 
-                result_cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.alignment = Alignment(horizontal='center', vertical='center')
 
             # ----- Wrap text for all data -----
-            for row in range(4, sheet.max_row + 1):
+            for row in range(5, sheet.max_row + 1):
                 for col in range(1, 10):
                     cell = sheet.cell(row, col)
+                    current_align = cell.alignment.horizontal or 'left'
                     cell.alignment = Alignment(
                         vertical='center',
                         wrapText=True,
-                        horizontal=cell.alignment.horizontal or 'left'
+                        horizontal=current_align
                     )
 
-            sheet.freeze_panes = 'E4'
+            sheet.freeze_panes = 'E5'
             
             # Export System Info to a new sheet if data is available
             if self.system_info_data:
