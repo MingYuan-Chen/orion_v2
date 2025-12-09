@@ -854,26 +854,27 @@ class MainWindowController(QObject):
         
         # set the auto diagnostic test items
         diagnostic_tests = {}
-        diagnostic_tests["diagnostic_cpu_name"] = "Check CPU Name"
-        diagnostic_tests["diagnostic_cpu_processor"] = "Check CPU Processor"
-        diagnostic_tests["diagnostic_design_capacity"] = "Check Design Capacity"
-        diagnostic_tests["diagnostic_design_voltage"] = "Check Design Voltage"
-        diagnostic_tests["diagnostic_emmc_size"] = "Check eMMC Size"
-        diagnostic_tests["diagnostic_kernel_name"] = "Check Kernel Name"
-        diagnostic_tests["diagnostic_mac_address"] = "Check MAC Address"
-        diagnostic_tests["diagnostic_memory_size"] = "Check Memory Size"
-        diagnostic_tests["diagnostic_nor_flash_size"] = "Check NOR Flash Size"
-        diagnostic_tests["diagnostic_panel_id"] = "Check Panel ID"
-        diagnostic_tests["diagnostic_panel_resolution"] = "Check Panel Resolution"
-        diagnostic_tests["diagnostic_pic_version"] = "Check PIC Version"
-        diagnostic_tests["diagnostic_sync_time"] = "Check Sync Time"
-        diagnostic_tests["diagnostic_uboot_version"] = "Check U-Boot Version"
-        diagnostic_tests["diagnostic_wifi_bt"] = "Check Wifi and Bluetooth"
+        diagnostic_tests["diagnostic_cpu_name"] = "CPU Name"
+        diagnostic_tests["diagnostic_cpu_processor"] = "CPU Processor"
+        diagnostic_tests["diagnostic_memory_size"] = "Memory Size"
+        diagnostic_tests["diagnostic_emmc_size"] = "eMMC Size"
+        diagnostic_tests["diagnostic_nor_flash_size"] = "NOR Flash Size"
+        diagnostic_tests["diagnostic_panel_id"] = "Panel ID"
+        diagnostic_tests["diagnostic_panel_resolution"] = "Panel Resolution"
+        diagnostic_tests["diagnostic_kernel_name"] = "Kernel Version"
+        diagnostic_tests["diagnostic_pic_version"] = "PIC Version"
+        diagnostic_tests["diagnostic_uboot_version"] = "U-Boot Version"
+        diagnostic_tests["diagnostic_HW_version"] = "HW Version"
+        diagnostic_tests["diagnostic_sync_time"] = "Leap-year dates / NTP Sync Time / System Time / RTC"
+        diagnostic_tests["diagnostic_wifi_bt"] = "Wifi and Bluetooth Module"
+        diagnostic_tests["diagnostic_mac_address"] = "MAC Address"
+        diagnostic_tests["diagnostic_design_capacity"] = "Battery Design Capacity"
+        diagnostic_tests["diagnostic_design_voltage"] = "Battery Design Voltage"
         # diagnostic_tests["diagnostic_set_get_rtc_time"] = "Check Set and Get RTC Time"
         
         if self.platform_name == "Athena":
-            diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
-            diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
+            diagnostic_tests["diagnostic_ethernet"] = "Ethernet Connection"
+            diagnostic_tests["diagnostic_wifi_connection"] = "Wifi Connection"
             diagnostic_tests.pop("diagnostic_nor_flash_size")
             diagnostic_tests.pop("diagnostic_panel_id")
         if self.platform_name == "Odin":

@@ -111,6 +111,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_nor_flash_size", NorFlashSizeWorker, continue_on_failure=True)
         from core.tests.diagnostic.pic_version_worker import PicVersionWorker
         self._register_worker("diagnostic_pic_version", PicVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic.HW_version_worker import HWVersionWorker
+        self._register_worker("diagnostic_HW_version", HWVersionWorker, continue_on_failure=True)
         from core.tests.diagnostic.sync_time_worker import SyncTimeWorker
         self._register_worker("diagnostic_sync_time", SyncTimeWorker, continue_on_failure=True)
         # from core.tests.diagnostic.set_get_rtc_time_worker import SetGetRtcTimeWorker
