@@ -5,6 +5,9 @@ import time
 from typing import Dict, List, Tuple, Any, Optional
 from PySide6.QtCore import QObject, Signal, QTimer, Slot
 import sys
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.utils import get_column_letter
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 from datetime import datetime
@@ -31,9 +34,9 @@ class DiagnosticValidator:
             sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
             time_difference = abs((hw_time - sw_time).total_seconds())
             if time_difference < 5:
-                return True, f"HW time and System time is synced"
+                return True, f"System time is auto synced from network"
             else:
-                return False, f"HW time and System time difference more then 5 seconds"
+                return False, f"System time is not auto synced from network"
 
         return False, "No matched time string found"
     
@@ -42,6 +45,7 @@ class DiagnosticValidator:
         """Validator for USB/EMMC read write."""
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
+        while len(matches) > 2: matches.pop(0)
         if matches and len(matches) == 2:
             write_speed_unit = matches[0][1]
             read_speed_unit = matches[1][1]
@@ -60,24 +64,6 @@ class DiagnosticValidator:
                 return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
-        elif matches and len(matches) == 3:
-            write_speed_unit = matches[1][1]
-            read_speed_unit = matches[2][1]
-
-            if write_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
-                write_speed = float(matches[1][0]) * 1024
-            else:
-                write_speed = float(matches[1][0])
-
-            if read_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
-                read_speed = float(matches[2][0]) * 1024
-            else:
-                read_speed = float(matches[2][0])
-
-            if read_speed > 100 and write_speed > 30:
-                return True, f"Read speed: {matches[2][0]} {matches[2][1]}, Write speed: {matches[1][0]} {matches[1][1]}"
-            else:
-                return False, f"Read speed: {matches[2][0]} {matches[2][1]}, Write speed: {matches[1][0]} {matches[1][1]}"
         return False, "No matched speed string found"
 
 class DiagnosticService(QObject):
@@ -102,6 +88,7 @@ class DiagnosticService(QObject):
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
+        self._results_history = []
         
     def _load_diagnostics(self):
         # Load from resources/commands/{platform}/auto_diagnostic.json
@@ -131,6 +118,7 @@ class DiagnosticService(QObject):
         self._find_valid_usb_path()
         self._running = True
         self._queue = list(self._diagnostics.items())
+        self._results_history = []
         self._run_next()
 
     def _run_next(self):
@@ -138,6 +126,7 @@ class DiagnosticService(QObject):
             return
 
         if not self._queue:
+            self._save_to_excel()
             self.all_diagnostics_finished.emit()
             self._running = False
             return
@@ -250,6 +239,14 @@ class DiagnosticService(QObject):
         
         self.diagnostic_finished.emit(self._current_key, is_valid, msg)
         
+        # Store result
+        self._results_history.append({
+            "key": self._current_key,
+            "success": is_valid,
+            "message": msg,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
         # Schedule next run
         self._run_next()
 
@@ -327,6 +324,67 @@ class DiagnosticService(QObject):
         except Exception as e:
             logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
             return False, f"Find valid usb path error: {str(e)}"
+
+    def _save_to_excel(self):
+        """Saves the diagnostic results to an Excel file."""
+        try:
+            log_dir = os.path.join(os.getcwd(), "logs")
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"diagnostic_report_{timestamp}.xlsx"
+            filepath = os.path.join(log_dir, filename)
+            
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Diagnostic Report"
+            
+            # Headers
+            headers = ["Timestamp", "Test Name", "Result", "Message"]
+            ws.append(headers)
+            
+            # Style Headers
+            for cell in ws[1]:
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center")
+            
+            # Data
+            for result in self._results_history:
+                row = [
+                    result["timestamp"],
+                    result["key"].replace("diagnostic_", "").replace("_", " ").title(),
+                    "PASS" if result["success"] else "FAIL",
+                    result["message"]
+                ]
+                ws.append(row)
+                
+                # Style Result Column
+                result_cell = ws.cell(row=ws.max_row, column=3)
+                if result["success"]:
+                    result_cell.font = Font(color="008000", bold=True) # Green
+                else:
+                    result_cell.font = Font(color="FF0000", bold=True) # Red
+            
+            # Auto-adjust column widths
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter # Get the column name
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column].width = adjusted_width
+                
+            wb.save(filepath)
+            logger.info(f"Diagnostic report saved to {filepath}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save diagnostic report: {e}")
 
     def disconnect(self):
         self._running = False
