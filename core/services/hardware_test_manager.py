@@ -93,7 +93,9 @@ class HardwareTestManagerService(QObject):
         self._register_worker("functionality_hdmi", HdmiWorker, continue_on_failure=True)
         from core.tests.functionality.probe_worker import ProbeWorker
         self._register_worker("functionality_probe", ProbeWorker, continue_on_failure=True)
-
+        from core.tests.functionality.SDcard_worker import SDcardWorker
+        self._register_worker("functionality_SDcard", SDcardWorker, continue_on_failure=True)
+        
         # Diagnostic test workers
         from core.tests.diagnostic.cpu_name_worker import CpuNameWorker
         self._register_worker("diagnostic_cpu_name", CpuNameWorker, continue_on_failure=True)
@@ -109,6 +111,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_nor_flash_size", NorFlashSizeWorker, continue_on_failure=True)
         from core.tests.diagnostic.pic_version_worker import PicVersionWorker
         self._register_worker("diagnostic_pic_version", PicVersionWorker, continue_on_failure=True)
+        from core.tests.diagnostic.HW_version_worker import HWVersionWorker
+        self._register_worker("diagnostic_HW_version", HWVersionWorker, continue_on_failure=True)
         from core.tests.diagnostic.sync_time_worker import SyncTimeWorker
         self._register_worker("diagnostic_sync_time", SyncTimeWorker, continue_on_failure=True)
         # from core.tests.diagnostic.set_get_rtc_time_worker import SetGetRtcTimeWorker
@@ -119,8 +123,8 @@ class HardwareTestManagerService(QObject):
         self._register_worker("diagnostic_design_voltage", DesignVoltageWorker, continue_on_failure=True)
         from core.tests.diagnostic.uboot_version_worker import UbootVersionWorker
         self._register_worker("diagnostic_uboot_version", UbootVersionWorker, continue_on_failure=True)
-        from core.tests.diagnostic.kernal_name_worker import KernalNameWorker
-        self._register_worker("diagnostic_kernal_name", KernalNameWorker, continue_on_failure=True)
+        from core.tests.diagnostic.kernel_name_worker import KernelNameWorker
+        self._register_worker("diagnostic_kernel_name", KernelNameWorker, continue_on_failure=True)
         from core.tests.diagnostic.panel_id_worker import PanelIdWorker
         self._register_worker("diagnostic_panel_id", PanelIdWorker, continue_on_failure=True)
         from core.tests.diagnostic.panel_resolution_worker import PanelResolutionWorker

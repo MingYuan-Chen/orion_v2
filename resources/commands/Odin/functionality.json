@@ -75,7 +75,8 @@
   "functionality_lcd": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl stop weston & systemctl stop odin-production.service",
+      "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
+      "sync && sleep 3",
       "/usr/bin/drawfb -p red",
       "/usr/bin/drawfb -p green",
       "/usr/bin/drawfb -p blue",
@@ -109,30 +110,34 @@
   },
   "functionality_usb": {
     "commands": [
-      "ls -l /run/media",
+      "dmesg -n 3",
+      "",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
+      "mount -o remount,rw /",
+      "for dev in /dev/sd?; do echo $dev; udevadm info -q path -n $dev; done && ls /run/media",
       "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
       "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb1_path}/usb_throughput",
-      "rm -f {usb2_path}/usb_throughput",
-      "dmesg -n 3",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && sleep 3",
       "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
       "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
+      "rm -f {usb1_path}/usb_throughput",
+      "rm -f {usb2_path}/usb_throughput",
       "rm -f {usb3_path}/usb_throughput"
     ]
   },
   "functionality_touch": {
     "commands": [
       "mount -o remount,rw /",
-      "systemctl stop weston && systemctl stop odin-production.service",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value && sleep 3",
       "mount /dev/sda1 /run/media/sda1",
-      "/dqa_package/TouchTestQt",
+      "/dqa_package/TouchTestQt64 -platform eglfs",
+      "",
+      "systemctl restart weston & systemctl start odin-production.service",
       "ts_test_mt -j 2 -v",
-      "", "",
-      "systemctl restart weston && systemctl start odin-production.service"
+      "", 
+      ""
     ]
   },
   "functionality_hdmi": {
@@ -148,6 +153,16 @@
       "/dqa_package/odin_res/configure_console.sh",
       "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
       "/dqa_package/odin_res/check_crc.sh"
+    ]
+  },
+  "functionality_SDcard": {
+    "commands": [
+      "",
+      "mkdir -p /run/media/sdcard && mount /dev/mmcblk1p1 /run/media/sdcard",
+      "mount -o remount,rw /run/media/sdcard",
+      "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
+      "dd if=/run/media/sdcard/sd_throughput of=/dev/null bs=1M",
+      "rm -f /run/media/sdcard/sd_throughput"
     ]
   }
 }

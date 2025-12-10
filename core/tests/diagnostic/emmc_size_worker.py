@@ -19,7 +19,7 @@ class EmmcSizeWorker(BaseTestWorker):
             "gemini_fhd": [125069950976, 116.48],  # Same as gemini
             "gemini": [125069950976, 116.48],
             "argo": [125069950976, 116.48],
-            "odin": [61120512, 31.26],
+            "odin": [61120512, 31.27],
             "athena": [125074145280, 116.48]
         }
     
@@ -45,9 +45,6 @@ class EmmcSizeWorker(BaseTestWorker):
                 timeout=5, 
                 description="Check emmc size",
                 criteria=f"The emmc size is {expected_emmc_size[0]} bytes({expected_emmc_size[1]}GB)",
-                # fhd hydra: 244629504 = 125250306048 bytes= 116.64GB
-                # hydra:     244277248 = 125069950976 bytes= 116.48GB
-                # gemini:    244277248 = 125069950976 bytes= 116.48GB
                 max_retries=1,
                 retry_delay=500
             )

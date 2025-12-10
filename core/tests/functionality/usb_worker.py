@@ -2,6 +2,7 @@
 USB worker module
 Implement USB port function test for device
 """
+from doctest import debug
 from sys import platform
 from typing import List, Tuple
 from core.tests.base_test_worker import BaseTestWorker, TestStep
@@ -36,53 +37,64 @@ class UsbWorker(BaseTestWorker):
         if self.platform_name == "odin":
             return [
                 TestStep(
-                    command=commands[7], 
+                    command=commands[0], 
                     timeout=5, 
                     description="Close the kernel dmesg displayed when plugging in USB-C"
                 ),
                 TestStep(
-                    command=commands[8], 
+                    command=commands[1],
+                    timeout=5, 
+                    post_check=f'1.Please remove the AC \n2.Plug 2 USB-A drive \n3.Plug 1 USB-C drive',
+                    description="Remove the AC",
+                ), 
+                TestStep(
+                    command=commands[2], 
                     timeout=5, 
                     description="Enable the USB Power"
                 ),
                 TestStep(
-                    command=commands[0], 
-                    validation_func=self._find_valid_usb_path,
+                    command=commands[3], 
                     timeout=5, 
-                    description="find valid usb path"
+                    description="Make root filesystem writable"
                 ),
                 TestStep(
-                    command=commands[1], 
+                    command=commands[4], 
+                    validation_func=self._find_valid_usb_path_odin,
+                    timeout=5, 
+                    description="find valid usb path"
+                ),  
+                TestStep(
+                    command=commands[5], 
                     validation_func=self._validate_usb_write,
                     timeout=5, 
-                    description="Write to usb_throughput on usb 1",
+                    description="Write to usb_throughput on USB-A (COM19/Left)",
                     criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
                     max_retries=1,
                     retry_delay=500
                 ),
                 TestStep(
-                    command=commands[2], 
+                    command=commands[6], 
                     validation_func=self._validate_usb_read,
                     timeout=10, 
-                    description="Read from usb_throughput on usb 1",
+                    description="Read from usb_throughput on USB-A (COM19/Left)",
                     criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
                     max_retries=3,
                     retry_delay=1000
                 ),
                 TestStep(
-                    command=commands[3], 
+                    command=commands[7], 
                     validation_func=self._validate_usb_write, 
                     timeout=10, 
-                    description="Write to usb_throughput on usb 2",
+                    description="Write to usb_throughput on USB-A (COM18/Right)",
                     criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
                     max_retries=2,
                     retry_delay=1500
                 ),
                 TestStep(
-                    command=commands[4], 
+                    command=commands[8], 
                     validation_func=self._validate_usb_read,
                     timeout=10, 
-                    description="Read from usb_throughput on usb 2",
+                    description="Read from usb_throughput on USB-A (COM18/Right)",
                     criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
                     max_retries=2,
                     retry_delay=1500
@@ -106,17 +118,17 @@ class UsbWorker(BaseTestWorker):
                     retry_delay=1500
                 ),
                 TestStep(
-                    command=commands[5],  
-                    timeout=5,
-                    description="Remove usb_throughput on usb 1",
-                ),
-                TestStep(
-                    command=commands[6],  
-                    timeout=5,
-                    description="Remove usb_throughput on usb 2",
-                ),
-                TestStep(
                     command=commands[11],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-A (COM19/Left)",
+                ),
+                TestStep(
+                    command=commands[12],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-A (COM18/Right)",
+                ),
+                TestStep(
+                    command=commands[13],  
                     timeout=5,
                     description="Remove usb_throughput on USB-C",
                 )
@@ -176,7 +188,70 @@ class UsbWorker(BaseTestWorker):
                     description="Remove usb_throughput on usb 2",
                 )
             ]
+    def _find_valid_usb_path_odin(self, response: str) -> Tuple[bool, str]:
+
+        USB_C_KEY = "xhci-hcd.1.auto/usb4"
+        USB_LEFT_KEY = "1-1.2.2"
+        USB_RIGHT_KEY = "1-1.2.1"
+
+        usb_c_disk = None
+        usb_left_disk = None
+        usb_right_disk = None
+
+        # 逐行解析
+        current_dev = None
+        for line in response.splitlines():
+            line = line.strip()
+
+            if line.startswith("/dev/sd"):
+                current_dev = line
+                continue
+
+            if "/devices/" in line and current_dev:
+                if USB_C_KEY in line:
+                    usb_c_disk = current_dev
+                elif USB_LEFT_KEY in line:
+                    usb_left_disk = current_dev
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = current_dev
+
+                current_dev = None
+
+        logger.warning(f"解析結果: C={usb_c_disk}, L={usb_left_disk}, R={usb_right_disk}")
+
+        # 取得 /run/media mount 列表
+        media_list = []
+        for line in response.splitlines():
+            if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
+                media_list = line.split()
+                break
+
+        def find_mount(disk: str | None) -> str | None:
+            if not disk:
+                return None
+            disk_name = disk.replace("/dev/", "")  # sda / sdb ...
+            for part in media_list:               # sda1 sdb1 sdc1 ...
+                if part.startswith(disk_name):
+                    return f"/run/media/{part}"
+            return None
+
+        left_path = find_mount(usb_left_disk)
+        right_path = find_mount(usb_right_disk)
+        c_path = find_mount(usb_c_disk)
+        # 單獨處理每個 Port（不互相影響）
+        self.usb1_path = left_path     # 可能是 None（沒插）
+        self.usb2_path = right_path    # 有插就會是 /run/media/xxx
+        self.usb3_path = c_path        # 有插就會是 /run/media/xxx
+
+        logger.warning(f"USB 路徑: LEFT={self.usb1_path}, RIGHT={self.usb2_path}, C={self.usb3_path}")
+
+        # ❗不因少某個 USB 而回傳失敗
+        if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+            return False, "找不到任何 USB mount 路徑"
+
+        return True, "USB paths parsed successfully"
     
+
     def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
         """
         Find valid usb path from response.

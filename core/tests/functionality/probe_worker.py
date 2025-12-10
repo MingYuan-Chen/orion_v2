@@ -43,9 +43,8 @@ class ProbeWorker(BaseTestWorker):
                 TestStep(
                     command=commands[2],
                     timeout=5, 
-                    pre_condition="Please remove the AC",
-                    post_check='Has AC been removed??',
-                    description="Remove the AC",
+                    pre_condition="1.Please remove the AC \n2.Plug the Probe",
+                    description="Remove the AC and plug the Probe",
                 ),
                 TestStep(
                     command=commands[3], 
