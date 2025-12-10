@@ -60,7 +60,7 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            if read_speed > 100 and write_speed > 100:
+            if read_speed > 100 and write_speed > 50:
                 return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"

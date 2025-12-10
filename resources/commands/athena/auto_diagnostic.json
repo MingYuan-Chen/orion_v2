@@ -231,7 +231,7 @@
   },
   "diagnostic_touch_9_points": {
     "commands": [
-      "'/run/media/DATA-sda1/dqa_package/TouchTestQt64'",
+      "'/run/media/DATA-sdb1/dqa_package/TouchTestQt64'",
       "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
