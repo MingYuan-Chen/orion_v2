@@ -1,0 +1,2 @@
+os version command: cat /etc/os-release
+kernel name command: uname -a
