@@ -1,0 +1,535 @@
+"""
+USB worker module
+Implement USB port function test for device
+"""
+from doctest import debug
+from sys import platform
+from typing import List, Tuple
+from core.tests.base_test_worker import BaseTestWorker, TestStep
+from util.logger import logger
+from core.models.platform_command_set import CommandType
+
+class UsbWorker(BaseTestWorker):
+    """USB worker, implement USB port function test for device"""
+    
+    def __init__(self, device_worker, continue_on_failure=True, platform_name="hydra"):
+        super().__init__(device_worker, continue_on_failure=continue_on_failure, platform_name=platform_name)
+        self.test_id = "functionality_usb"
+        
+        self.usb1_path = None
+        self.usb2_path = None
+        
+        self.usb_write_speed_threshold = 30.0  # unit: MB/s
+        self.usb_read_speed_threshold = 200.0  # unit: MB/s
+
+        self.platform_name = platform_name
+    
+    def prepare_test_steps(self) -> List[TestStep]:
+        """
+        Prepare USB test steps
+        
+        Returns:
+            USB test steps list
+        """
+        commands = self.get_commands(self.test_id, CommandType.FUNCTIONALITY)
+        
+        logger.info(f"{self.test_id} - Detected platform: {self.platform_name}")
+        if self.platform_name == "odin":
+            return [
+                TestStep(
+                    command=commands[0], 
+                    timeout=5, 
+                    description="Close the kernel dmesg displayed when plugging in USB-C"
+                ),
+                TestStep(
+                    command=commands[1],
+                    timeout=5, 
+                    post_check=f'1.Please remove the AC \n2.Plug 2 USB-A drive \n3.Plug 1 USB-C drive',
+                    description="Remove the AC",
+                ), 
+                TestStep(
+                    command=commands[2], 
+                    timeout=5, 
+                    description="Enable the USB Power"
+                ),
+                TestStep(
+                    command=commands[3], 
+                    timeout=5, 
+                    description="Make root filesystem writable"
+                ),
+                TestStep(
+                    command=commands[4], 
+                    validation_func=self._find_valid_usb_path_odin,
+                    timeout=5, 
+                    description="find valid usb path"
+                ),  
+                TestStep(
+                    command=commands[5], 
+                    validation_func=self._validate_usb_write,
+                    timeout=5, 
+                    description="Write to usb_throughput on USB-A (COM19/Left)",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[6], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on USB-A (COM19/Left)",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[7], 
+                    validation_func=self._validate_usb_write, 
+                    timeout=10, 
+                    description="Write to usb_throughput on USB-A (COM18/Right)",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[8], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on USB-A (COM18/Right)",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[9], 
+                    validation_func=self._validate_usb_write,
+                    timeout=10, 
+                    description="Write to usb_throughput on USB-C",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[10], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on USB-C",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[11],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-A (COM19/Left)",
+                ),
+                TestStep(
+                    command=commands[12],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-A (COM18/Right)",
+                ),
+                TestStep(
+                    command=commands[13],  
+                    timeout=5,
+                    description="Remove usb_throughput on USB-C",
+                )
+            ]
+        else:
+            return [
+                TestStep(
+                    command=commands[0], 
+                    validation_func=self._find_valid_usb_path,
+                    timeout=5, 
+                    description="find valid usb path"
+                ),
+                TestStep(
+                    command=commands[1], 
+                    validation_func=self._validate_usb_write,
+                    timeout=5, 
+                    description="Write to usb_throughput on usb 1",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=1,
+                    retry_delay=500
+                ),
+                TestStep(
+                    command=commands[2], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 1",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=3,
+                    retry_delay=1000
+                ),
+                TestStep(
+                    command=commands[3], 
+                    validation_func=self._validate_usb_write, 
+                    timeout=10, 
+                    description="Write to usb_throughput on usb 2",
+                    criteria=f"Write speed > {self.usb_write_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[4], 
+                    validation_func=self._validate_usb_read,
+                    timeout=10, 
+                    description="Read from usb_throughput on usb 2",
+                    criteria=f"Read speed > {self.usb_read_speed_threshold} MB/s",
+                    max_retries=2,
+                    retry_delay=1500
+                ),
+                TestStep(
+                    command=commands[5],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 1",
+                ),
+                TestStep(
+                    command=commands[6],  
+                    timeout=5,
+                    description="Remove usb_throughput on usb 2",
+                )
+            ]
+    def _find_valid_usb_path_odin(self, response: str) -> Tuple[bool, str]:
+
+        USB_C_KEY = "xhci-hcd.1.auto/usb4"
+        USB_LEFT_KEY = "1-1.2.2"
+        USB_RIGHT_KEY = "1-1.2.1"
+
+        usb_c_disk = None
+        usb_left_disk = None
+        usb_right_disk = None
+
+        # 逐行解析
+        current_dev = None
+        for line in response.splitlines():
+            line = line.strip()
+
+            if line.startswith("/dev/sd"):
+                current_dev = line
+                continue
+
+            if "/devices/" in line and current_dev:
+                if USB_C_KEY in line:
+                    usb_c_disk = current_dev
+                elif USB_LEFT_KEY in line:
+                    usb_left_disk = current_dev
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = current_dev
+
+                current_dev = None
+
+        logger.warning(f"解析結果: C={usb_c_disk}, L={usb_left_disk}, R={usb_right_disk}")
+
+        # 取得 /run/media mount 列表
+        media_list = []
+        for line in response.splitlines():
+            if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
+                media_list = line.split()
+                break
+
+        def find_mount(disk: str | None) -> str | None:
+            if not disk:
+                return None
+            disk_name = disk.replace("/dev/", "")  # sda / sdb ...
+            for part in media_list:               # sda1 sdb1 sdc1 ...
+                if part.startswith(disk_name):
+                    return f"/run/media/{part}"
+            return None
+
+        left_path = find_mount(usb_left_disk)
+        right_path = find_mount(usb_right_disk)
+        c_path = find_mount(usb_c_disk)
+        # 單獨處理每個 Port（不互相影響）
+        self.usb1_path = left_path     # 可能是 None（沒插）
+        self.usb2_path = right_path    # 有插就會是 /run/media/xxx
+        self.usb3_path = c_path        # 有插就會是 /run/media/xxx
+
+        logger.warning(f"USB 路徑: LEFT={self.usb1_path}, RIGHT={self.usb2_path}, C={self.usb3_path}")
+
+        # ❗不因少某個 USB 而回傳失敗
+        if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+            return False, "找不到任何 USB mount 路徑"
+
+        return True, "USB paths parsed successfully"
+    
+
+    def _find_valid_usb_path(self, response: str) -> Tuple[bool, str]:
+        """
+        Find valid usb path from response.
+        The response is from 'ls -l /run/media', so we need to parse the last column.
+        e.g., 
+        total 12
+        drwxrwx---  3 root disk 4096 Jan  1  1970 'Main Data Partition-sdb1'
+        drwxrwx--- 13 root disk 8192 Jan  1  1970  sda1
+        """
+        try:
+            device_names = []
+            for line in response.strip().split('\n'):
+                if not line or line.startswith('total'):
+                    continue
+                parts = line.split(None, 8)
+                if len(parts) == 9:
+                    device_name = parts[8].strip("'")
+                    device_names.append(device_name)
+
+            logger.debug(f"Original response: '{response}'")
+            logger.debug(f"Parsed device names: {device_names}")
+            
+            self.usb1_path = None
+            self.usb2_path = None
+            self.usb3_path = None
+
+            # Prioritize assignment based on 'sda1' and 'sdb1'
+            unassigned_names = []
+            for name in device_names:
+                if 'sda1' in name and self.usb1_path is None:
+                    self.usb1_path = f"/run/media/{name}"
+                    logger.info(f"Found usb1 path: {self.usb1_path}")
+                elif 'sdb1' in name and self.usb2_path is None:
+                    self.usb2_path = f"/run/media/{name}"
+                    logger.info(f"Found usb2 path: {self.usb2_path}")
+                elif 'sdb2' in name and self.usb3_path is None:
+                    self.usb3_path = f"/run/media/{name}"
+                    logger.info(f"Found usb3 path: {self.usb3_path}")
+                else:
+                    logger.debug(f"Ignored device: {name}")
+            
+            # If paths are still unassigned, use the remaining names
+            #if not self.usb1_path and unassigned_names:
+            #    self.usb1_path = f"/run/media/{unassigned_names.pop(0)}"
+            
+            #if not self.usb2_path and unassigned_names:
+            #    self.usb2_path = f"/run/media/{unassigned_names.pop(0)}"
+
+            if self.usb1_path or self.usb2_path or self.usb3_path:
+                paths = []
+                if self.usb1_path:
+                    paths.append(self.usb1_path)
+                if self.usb2_path:
+                    paths.append(self.usb2_path)
+                if self.usb3_path:
+                    paths.append(self.usb3_path)
+                return True, f"Found valid usb path(s): {', '.join(paths)}"
+            else:
+                logger.warning(f"Could not find any valid usb paths in response: {response}")
+                return False, f"Could not find any valid usb paths in response: {response}"
+            
+        except Exception as e:
+            logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
+            return False, f"Find valid usb path error: {str(e)}"
+
+    
+    def _validate_usb_write(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB write test result, parse write speed and determine if it meets the requirement
+        
+        Args:
+            response: command response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            logger.info(f"Start validating USB write speed: {response}")
+            
+            if not response or response.strip() == "":
+                return False, "USB write test failed, response is empty"
+                
+            if "copied" not in response:
+                return False, "USB write test failed, 'copied' not found"
+                
+            # use regex to extract write speed
+            import re
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
+            speed_match = re.search(speed_pattern, response)
+            
+            if not speed_match:
+                # try to find all possible parts containing speed for diagnosis
+                lines = response.split("\n")
+                copied_line = next((line for line in lines if "copied" in line), "")
+                logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
+                return False, f"USB write test failed, cannot parse write speed. Line containing 'copied': {copied_line}"
+                
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                write_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted write speed: {speed_value} {speed_unit} = {write_speed_mb} MB/s")
+            else:
+                write_speed_mb = speed_value
+                logger.info(f"Extracted write speed: {write_speed_mb} MB/s")
+            
+            # use configured threshold to determine
+            threshold = self.usb_write_speed_threshold
+            logger.info(f"Speed threshold: {threshold} MB/s")
+            
+            if write_speed_mb >= threshold:
+                logger.info(f"USB write speed test passed: {write_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"USB write test passed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) > {threshold} MB/s"
+            else:
+                logger.warning(f"USB write speed test failed: {write_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"USB write test failed, write speed: {speed_value} {speed_unit} ({write_speed_mb} MB/s) < {threshold} MB/s"
+                
+        except Exception as e:
+            logger.error(f"USB write validation error: {str(e)}", exc_info=True)
+            # add more diagnosis information
+            diag_info = "N/A"
+            try:
+                if response:
+                    lines = response.split("\n")
+                    copied_lines = [line for line in lines if "copied" in line]
+                    diag_info = ", ".join(copied_lines) if copied_lines else response[:100]
+            except:
+                pass
+            return False, f"USB write validation error: {str(e)}, related response content: {diag_info}"
+
+    def _validate_usb_read(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB read test result, parse read speed and determine if it meets the requirement
+        
+        Args:
+            response: command response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            logger.info(f"Start validating USB read speed: {response}")
+            
+            if not response or response.strip() == "":
+                return False, "USB read test failed, response is empty"
+                
+            if "copied" not in response:
+                return False, "USB read test failed, 'copied' not found"
+                
+            # use regex to extract read speed
+            import re
+            # match various formats of speed values, including GB/s and MB/s
+            speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
+            speed_match = re.search(speed_pattern, response)
+            
+            if not speed_match:
+                # try to find all possible parts containing speed for diagnosis
+                lines = response.split("\n")
+                copied_line = next((line for line in lines if "copied" in line), "")
+                logger.warning(f"Cannot match speed value, line containing 'copied': {copied_line}")
+                return False, f"USB read test failed, cannot parse read speed. Line containing 'copied': {copied_line}"
+                
+            # extract speed value and unit
+            speed_value = float(speed_match.group(1))
+            speed_unit = speed_match.group(2)
+            
+            # convert to MB/s for comparison
+            if speed_unit in ['GB/s', 'GiB/s', 'G/s']:
+                read_speed_mb = speed_value * 1024  # convert GB to MB
+                logger.info(f"Extracted read speed: {speed_value} {speed_unit} = {read_speed_mb} MB/s")
+            else:
+                read_speed_mb = speed_value
+                logger.info(f"Extracted read speed: {read_speed_mb} MB/s")
+            
+            # use configured threshold to determine
+            threshold = self.usb_read_speed_threshold
+            logger.info(f"Speed threshold: {threshold} MB/s")
+            
+            if read_speed_mb >= threshold:
+                logger.info(f"USB read speed test passed: {read_speed_mb} MB/s > {threshold} MB/s")
+                return True, f"USB read test passed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) > {threshold} MB/s"
+            else:
+                logger.warning(f"USB read speed test failed: {read_speed_mb} MB/s < {threshold} MB/s")
+                return False, f"USB read test failed, read speed: {speed_value} {speed_unit} ({read_speed_mb} MB/s) < {threshold} MB/s"
+                
+        except Exception as e:
+            logger.error(f"USB read validation error: {str(e)}", exc_info=True)
+            # add more diagnosis information
+            diag_info = "N/A"
+            try:
+                if response:
+                    lines = response.split("\n")
+                    copied_lines = [line for line in lines if "copied" in line]
+                    diag_info = ", ".join(copied_lines) if copied_lines else response[:100]
+            except:
+                pass
+            return False, f"USB read validation error: {str(e)}, related response content: {diag_info}"
+
+    def _validate_usb_mount(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB mount test result by checking mount output
+        
+        Args:
+            response: Device response string from 'mount | grep sda1'
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            # If response is empty, device is not mounted
+            if not response or response.strip() == "":
+                return False, "Target device not mounted (no mount entry found)"
+            
+            # Check if target device is mounted
+            if "/dev/sda1" not in response:
+                return False, f"Target device not found in mount output: {response[:100]}"
+                
+            if "/run/media/sda1" not in response:
+                return False, f"Unexpected mount point in response: {response[:100]}"
+            
+            # Check for file system (more flexible - accept vfat, fat32, etc.)
+            if not any(fs in response.lower() for fs in ["vfat", "fat32", "fat"]):
+                logger.warning(f"Unexpected file system in mount output: {response}")
+                # Don't fail for file system mismatch, just warn
+                
+            return True, f"Device sda1 mounted at /run/media/sda1: {response.strip()}"
+            
+        except Exception as e:
+            logger.error(f"Mount validation error: {str(e)}", exc_info=True)
+            return False, f"Mount validation error: {str(e)}"
+
+    def _validate_usb_unmount(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB unmount test result
+        """
+        try:
+            # Unmount command typically returns empty response on success
+            # Accept empty response, single newline, or "not mounted" message
+            if not response or response.strip() == "" or response == "\n":
+                return True, "Device unmounted successfully"
+            elif "/run/media/sda1: not mounted" in response:
+                return True, "Device unmounted successfully"
+            elif "umount:" in response and "not mounted" in response:
+                return True, "Device unmounted successfully"
+            else:
+                logger.warning(f"Unexpected unmount response: '{response}'")
+                return False, f"Device not unmounted: {response[:100]}"
+        except Exception as e:
+            logger.error(f"Unmount validation error: {str(e)}", exc_info=True)
+            return False, f"Unmount validation error: {str(e)}"
+
+    def _validate_usb_mount_command(self, response: str) -> Tuple[bool, str]:
+        """
+        Validate USB mount command execution result
+        
+        Args:
+            response: Device response string
+            
+        Returns:
+            (success flag, message) tuple
+        """
+        try:
+            # Mount command typically returns empty response on success
+            # Only check for error messages
+            if not response or response.strip() == "" or response == "\n":
+                return True, "Mount command executed successfully"
+            
+            # Check for common error messages
+            if any(error in response.lower() for error in ["error", "failed", "cannot", "no such", "already mounted"]):
+                return False, f"Mount command failed: {response[:100]}"
+            
+            # If there's output but no error keywords, consider it successful
+            return True, f"Mount command completed: {response[:50]}"
+            
+        except Exception as e:
+            logger.error(f"Mount command validation error: {str(e)}", exc_info=True)
+            return False, f"Mount command validation error: {str(e)}"
