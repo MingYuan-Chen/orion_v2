@@ -15,7 +15,7 @@ class BatteryMonitorView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Battery Monitor")
-        self.resize(1100, 400)
+        self.resize(1200, 400)
         self._setup_ui()
         self._setup_bindings()
 

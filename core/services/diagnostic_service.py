@@ -299,6 +299,7 @@ class DiagnosticService(QObject):
             response = self._model.send_command_sync("ls -l /run/media")
             device_names = []
             for line in response:
+                line = line.strip()
                 if not line or line.startswith('total'):
                     continue
                 parts = line.split(None, 8)
