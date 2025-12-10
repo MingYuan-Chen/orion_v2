@@ -631,7 +631,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_battery_model">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
@@ -687,7 +687,7 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_battery_serial">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
@@ -743,12 +743,12 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_voltage">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="text">
-                     <string>Charging Voltage</string>
+                     <string>Charging Voltage - Spec.</string>
                     </property>
                    </widget>
                   </item>
@@ -784,12 +784,12 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_current">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="text">
-                     <string>Charging Current</string>
+                     <string>Charging Current - Spec.</string>
                     </property>
                    </widget>
                   </item>
@@ -825,12 +825,12 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_design_voltage">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="text">
-                     <string>Design Voltage</string>
+                     <string>Design Voltage - Spec.</string>
                     </property>
                    </widget>
                   </item>
@@ -866,12 +866,12 @@ QScrollArea QScrollBar::sub-line:vertical {
                    <widget class="QLabel" name="label_design_capacity">
                     <property name="minimumSize">
                      <size>
-                      <width>120</width>
+                      <width>160</width>
                       <height>0</height>
                      </size>
                     </property>
                     <property name="text">
-                     <string>Design Capacity</string>
+                     <string>Design Capacity - Spec.</string>
                     </property>
                    </widget>
                   </item>

@@ -34,7 +34,7 @@ class PicVersionWorker(BaseTestWorker):
         expected_responses = self.get_expected_responses(self.test_id, CommandType.AUTO_DIAGNOSTIC)
         
         # Get expected PIC version for the platform, with fallback
-        expected_pic_version = self.expected_pic_version_mapping.get(self.platform_name, 110)
+        expected_pic_version = self.expected_pic_version_mapping.get(self.platform_name)
         if self.platform_name not in self.expected_pic_version_mapping:
             logger.warning(f"Unknown platform '{self.platform_name}' for PIC version test, using default value 110")
         
@@ -42,23 +42,11 @@ class PicVersionWorker(BaseTestWorker):
             TestStep(
                 command=commands[0], 
                 validation_func=self._validate_pic_version if self.platform_name == "athena" else None,
-                expected_response=expected_responses[0],           # convert to decimal: 110
-                # Hydra: 0x6e = 110
-                # Argo: 0x72 = 114
-                # Gemini: 0x64 = 100
+                expected_response=expected_responses[0],  
                 timeout=5, 
                 description="Check PIC Version by i2c",
                 criteria=f"The PIC version can be read",
                 max_retries=3,
-                retry_delay=500
-            ),
-            TestStep(
-                command=commands[1], 
-                expected_response=expected_responses[1] if len(expected_responses) > 1 else None,           # convert to decimal: 100
-                timeout=5, 
-                description="Check HW version by proc",
-                criteria="The HW version can be read",
-                max_retries=1,
                 retry_delay=500
             )
         ]

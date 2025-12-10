@@ -854,26 +854,27 @@ class MainWindowController(QObject):
         
         # set the auto diagnostic test items
         diagnostic_tests = {}
-        diagnostic_tests["diagnostic_cpu_name"] = "Check CPU Name"
-        diagnostic_tests["diagnostic_cpu_processor"] = "Check CPU Processor"
-        diagnostic_tests["diagnostic_design_capacity"] = "Check Design Capacity"
-        diagnostic_tests["diagnostic_design_voltage"] = "Check Design Voltage"
-        diagnostic_tests["diagnostic_emmc_size"] = "Check eMMC Size"
-        diagnostic_tests["diagnostic_kernal_name"] = "Check Kernal Name"
-        diagnostic_tests["diagnostic_mac_address"] = "Check MAC Address"
-        diagnostic_tests["diagnostic_memory_size"] = "Check Memory Size"
-        diagnostic_tests["diagnostic_nor_flash_size"] = "Check NOR Flash Size"
-        diagnostic_tests["diagnostic_panel_id"] = "Check Panel ID"
-        diagnostic_tests["diagnostic_panel_resolution"] = "Check Panel Resolution"
-        diagnostic_tests["diagnostic_pic_version"] = "Check PIC Version"
-        diagnostic_tests["diagnostic_sync_time"] = "Check Sync Time"
-        diagnostic_tests["diagnostic_uboot_version"] = "Check U-Boot Version"
-        diagnostic_tests["diagnostic_wifi_bt"] = "Check Wifi and Bluetooth"
+        diagnostic_tests["diagnostic_cpu_name"] = "CPU Name"
+        diagnostic_tests["diagnostic_cpu_processor"] = "CPU Processor"
+        diagnostic_tests["diagnostic_memory_size"] = "Memory Size"
+        diagnostic_tests["diagnostic_emmc_size"] = "eMMC Size"
+        diagnostic_tests["diagnostic_nor_flash_size"] = "NOR Flash Size"
+        diagnostic_tests["diagnostic_panel_id"] = "Panel ID"
+        diagnostic_tests["diagnostic_panel_resolution"] = "Panel Resolution"
+        diagnostic_tests["diagnostic_kernel_name"] = "Kernel Version"
+        diagnostic_tests["diagnostic_pic_version"] = "PIC Version"
+        diagnostic_tests["diagnostic_uboot_version"] = "U-Boot Version"
+        diagnostic_tests["diagnostic_HW_version"] = "HW Version"
+        diagnostic_tests["diagnostic_sync_time"] = "Leap-year dates / NTP Sync Time / System Time / RTC"
+        diagnostic_tests["diagnostic_wifi_bt"] = "Wifi and Bluetooth Module"
+        diagnostic_tests["diagnostic_mac_address"] = "MAC Address"
+        diagnostic_tests["diagnostic_design_capacity"] = "Battery Design Capacity"
+        diagnostic_tests["diagnostic_design_voltage"] = "Battery Design Voltage"
         # diagnostic_tests["diagnostic_set_get_rtc_time"] = "Check Set and Get RTC Time"
         
         if self.platform_name == "Athena":
-            diagnostic_tests["diagnostic_ethernet"] = "Check Ethernet Connection"
-            diagnostic_tests["diagnostic_wifi_connection"] = "Check Wifi Connection"
+            diagnostic_tests["diagnostic_ethernet"] = "Ethernet Connection"
+            diagnostic_tests["diagnostic_wifi_connection"] = "Wifi Connection"
             diagnostic_tests.pop("diagnostic_nor_flash_size")
             diagnostic_tests.pop("diagnostic_panel_id")
         if self.platform_name == "Odin":
@@ -1052,25 +1053,28 @@ class MainWindowController(QObject):
         )
 
         # Register the test items through the test manager
+        self.test_manager.register_test("functionality_eeprom", "EEPROM Test")
+        self.test_manager.register_test("functionality_emmc", "eMMC Test")
+        self.test_manager.register_test("functionality_lcd", "LCD Test")
+        self.test_manager.register_test("functionality_led", "LED Test")
         self.test_manager.register_test("functionality_audio", "Audio Test")
         self.test_manager.register_test("functionality_backlight", "Backlight Test")
+        self.test_manager.register_test("functionality_power_button", "Power Button Test")
         self.test_manager.register_test("functionality_battery", "Battery Test")
-        if self.platform_name != "Odin":
-            self.test_manager.register_test("functionality_camera", "Camera Test")
         charge_test_name = "Charge Test" if self.platform_name != "Athena" else "Charge Setting Test"
         logger.debug(f"Charge test name set as {charge_test_name}")
         self.test_manager.register_test("functionality_charge", charge_test_name)
-        self.test_manager.register_test("functionality_eeprom", "EEPROM Test")
-        self.test_manager.register_test("functionality_emmc", "eMMC Test")
+        if self.platform_name != "Odin":
+            self.test_manager.register_test("functionality_camera", "Camera Test")
         if self.platform_name != "Odin":
             self.test_manager.register_test("functionality_hdmi", "HDMI Test")
-        self.test_manager.register_test("functionality_lcd", "LCD Test")
-        self.test_manager.register_test("functionality_led", "LED Test")
-        self.test_manager.register_test("functionality_power_button", "Power Button Test")
         self.test_manager.register_test("functionality_touch", "Touch Test")
+        if self.platform_name not in ["Athena", "Argo", "Hydra", "Gemini"]:
+            self.test_manager.register_test("functionality_SDcard", "SD card Test")
         self.test_manager.register_test("functionality_usb", "USB Test")
         if self.platform_name not in ["Athena", "Argo", "Hydra", "Gemini"]:
             self.test_manager.register_test("functionality_probe", "Probe Test")
+        
         
         # set the log recorder
         self.test_manager.add_system_log = lambda level, message: self.log_manager.add_log_entry(level, message)
@@ -2692,9 +2696,6 @@ class MainWindowController(QObject):
         Returns:
             Converted response string that's more user-friendly
         """
-        if not response or response.strip() == "":
-            return ""
-        
         try:
             response_str = str(response).strip()
             
@@ -2711,7 +2712,7 @@ class MainWindowController(QObject):
                 return self._convert_hexdump_eeprom_1_response(response_str)
 
             # Handle throughput speed conversion for USB and eMMC tests
-            if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower():
+            if "emmc_throughput" in step_desc.lower() or "usb_throughput" in step_desc.lower() or "sd_throughput" in step_desc.lower():
                 return self._convert_throughput_response(response_str, step_desc)
             
             # Handle backlight brightness and power conversion
@@ -2771,9 +2772,17 @@ class MainWindowController(QObject):
             if "version" in step_desc.lower() and "u-boot" in step_desc.lower():
                 return self._convert_uboot_version_response(response_str)
             
-            # Clean up response text
-            return self._clean_response_text(response_str)
+            # Handle synctime information
+            if "sync time" in criteria.lower():
+                return self._convert_sync_time_response(response_str)
             
+            if "memory size" in criteria.lower():
+                return self._convert_memory_size_response(response_str)
+            
+            if not response_str:
+                return ""
+            return response_str
+        
         except Exception as e:
             logger.warning(f"Error converting response: {str(e)}")
             return response_str
@@ -2857,32 +2866,39 @@ class MainWindowController(QObject):
                 combined_value = ''.join(ascii_chars).rstrip('\x00').rstrip()
             elif len(hex_values) >= 3:
                 # Skip the first byte (status byte 0x02) and use the next 2 bytes as data
-                high_byte = int(hex_values[1], 16)  # Second hex value
-                low_byte = int(hex_values[2], 16)   # Third hex value
+                high_byte = int(hex_values[1], 16)
+                low_byte = int(hex_values[2], 16)
                 combined_value = (high_byte << 8) + low_byte
+             # --- signed 16-bit conversion ---
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000       
+
             elif len(hex_values) == 2:
                 # Two values: use both as data (high byte + low byte)
                 high_byte = int(hex_values[0], 16)
                 low_byte = int(hex_values[1], 16)
                 combined_value = (high_byte << 8) + low_byte
+                if combined_value & 0x8000:
+                    combined_value -= 0x10000
+
             elif len(hex_values) == 1:
                 # Single value
                 combined_value = int(hex_values[0], 16)
             
             # Apply unit conversions based on step description
             if "0x51 0x00 0x19" in command.lower() or "0x81 0x00 0x15" in command.lower():
-                return f"{combined_value} = {round(combined_value, 2)}mV"
+                return f"{round(combined_value, 2)}mV"
             elif "0x51 0x00 0x14" in command.lower() or "0x51 0x00 0x0a" in command.lower() or "0x81 0x00 0x14" in command.lower():
-                return f"{combined_value} = {round(combined_value/1000, 2)}A"
+                return f"{round(combined_value/1000, 2)}A"
             elif "0x51 0x00 0x08" in command.lower():
                 temp_celsius = round(combined_value/10 - 273.15, 2)
-                return f"{combined_value} = {temp_celsius}C"
+                return f"{temp_celsius}C"
             elif "0x51 0x00 0x18" in command.lower():
-                return f"{combined_value} = {combined_value}mAh"
+                return f"{combined_value}mAh"
             elif "0x51 0x00 0x0d" in command.lower():
-                return f"{combined_value} = {combined_value}%"
+                return f"{combined_value}%"
             elif "0x21 0x00 0x10" in command.lower():
-                return f"{combined_value} = v{combined_value}"
+                return f"v{combined_value}"
             elif "0x51 0x00 0x21" in command.lower():
                 return f"{data_hex_values} = {combined_value}"
             else:
@@ -2893,16 +2909,29 @@ class MainWindowController(QObject):
             return response
 
     def _convert_storage_response(self, response):
-        """Convert storage size response to readable format"""
+        """Convert storage size response to 'XX.XXGB (XXXXX kB)' format"""
         try:
             lines = response.strip().split('\n')
+            
             for line in lines:
-                if line.strip().isdigit():
-                    sectors = int(line.strip())
+                line_stripped = line.strip()
+                # 要求 line 是純數字 (sector)
+                if line_stripped.isdigit():
+                    sectors = int(line_stripped)
+
+                    # sector → bytes
                     bytes_total = sectors * 512
+
+                    # bytes → GB (binary GiB but commonly called GB)
                     gb_total = bytes_total / (1024 ** 3)
-                    return f"{sectors} sectors = {gb_total:.2f}GB ({bytes_total:,} bytes)"
+
+                    # sectors → kB (1 sector = 512 bytes = 0.5 kB)
+                    kb_total = bytes_total / 1024
+
+                    return f"{gb_total:.2f} GB ({int(kb_total)} kB)"
+
             return response
+
         except Exception as e:
             logger.warning(f"Error converting storage response: {e}")
             return response
@@ -2945,48 +2974,56 @@ class MainWindowController(QObject):
     def _convert_throughput_response(self, response, step_desc):
         """Convert throughput test response to extract read/write speed"""
         try:
+            step_desc = (step_desc or "").lower()
+            device_type = "Unknown"
+
+            # Determine device type
+            if "emmc_throughput" in step_desc:
+                device_type = "eMMC"
+            elif "usb_throughput" in step_desc:
+                device_type = "USB"
+            elif "sd_throughput" in step_desc:
+                device_type = "SD Card"
+
+            # ---- Handle dd failed cases ----
+            if "dd: failed" in response.lower() or "dd: " in response.lower():
+                # More specific error classification
+                if "no such file" in response.lower():
+                    return f"{device_type}: Device not detected (No such file or directory)"
+                elif "read-only file system" in response.lower():
+                    return f"{device_type}: Permission denied (Check mount or permissions)"
+                elif "command not found" in response.lower():
+                    return f"{device_type}: dd command not supported on this system"
+                else:
+                    return f"{device_type}: dd failed (device not detected or command error)"
+
+            # ---- Throughput extraction ----
             import re
-            
-            # Look for speed information in the response
-            # Pattern matches formats like: "62.2 MB/s", "258 MB/s", "91.8 MB/s", "1.4 GB/s"
             speed_pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
             speed_matches = re.findall(speed_pattern, response)
             
             if not speed_matches:
-                return response
-            
-            # Get the last speed value (usually the final transfer speed)
+                return f"{device_type}: Throughput result not found"
+
             final_speed_value = speed_matches[-1][0]
             final_speed_unit = speed_matches[-1][1]
-            
-            # Convert to MB/s for consistent display
+
             speed_value = float(final_speed_value)
             if final_speed_unit in ['GB/s', 'GiB/s', 'G/s']:
-                speed_mb = speed_value * 1024  # convert GB to MB
+                speed_mb = speed_value * 1024
                 display_speed = f"{final_speed_value} {final_speed_unit} ({speed_mb:.1f} MB/s)"
             else:
                 display_speed = f"{final_speed_value} {final_speed_unit}"
-            
-            # Determine if this is a read or write operation based on step description
-            operation_type = "Unknown"
-            if "write" in step_desc.lower():
-                operation_type = "Write"
-            elif "read" in step_desc.lower():
-                operation_type = "Read"
-            
-            # Determine device type
-            device_type = "Unknown"
-            if "emmc_throughput" in step_desc.lower():
-                device_type = "eMMC"
-            elif "usb_throughput" in step_desc.lower():
-                device_type = "USB"
-            
-            # Return formatted speed information
+
+            # Determine operation type
+            operation_type = "Read" if "read" in step_desc else "Write" if "write" in step_desc else "Unknown"
+
             return f"{device_type} {operation_type} Speed: {display_speed}"
-            
+
         except Exception as e:
             logger.warning(f"Error converting throughput response: {e}")
-            return response
+            return f"Throughput parsing error: {str(e)}"
+
 
     def _convert_backlight_response(self, response, command):
         """Convert backlight brightness and power response to readable format"""
@@ -3033,7 +3070,7 @@ class MainWindowController(QObject):
         try:
             lines = response.split(" ")
             if lines[0] == "geometry":
-                return f"Panel Resolution: {lines[1]}x{lines[2]} pixels"
+                return f"{lines[1]}x{lines[2]} pixels"
             else:
                 return response
         except Exception as e:
@@ -3200,7 +3237,7 @@ class MainWindowController(QObject):
             # Look up LED status
             if value in BATTERY_STATUS_MAP:
                 battery_status_text = BATTERY_STATUS_MAP[value]
-                return f"{value} = {battery_status_text}"
+                return f"{battery_status_text}"
             else:
                 return f"{value} = Unknown Battery Status"
                 
@@ -3277,40 +3314,87 @@ class MainWindowController(QObject):
     def _convert_lsusb_response(self, response):
         """Convert lsusb response to show device search result"""
         try:
-            target_id = "1286:2046"
-            target_id_2 = "1286:204e"
+            target_ids = ["1286:2046", "1286:204e"]
             lines = response.strip().split('\n')
-            
+
             for line in lines:
                 line = line.strip()
-                if line and target_id in line:
-                    return f"Device found: {line}"
-                elif line and target_id_2 in line:
-                    return f"Device found: {line}"
-            
-            return "Device not found"
-            
+                if not line:
+                    continue
+                if any(tid in line for tid in target_ids):
+                    return f"Bluetooth module found: {line}"
+
+            # 永不回傳空白
+            return "Bluetooth module not found"
+
         except Exception as e:
             logger.warning(f"Error converting lsusb response: {e}")
-            return response
+            return "BT Device not found (error)"
     
     def _convert_lspci_response(self, response):
-        """Convert lspci response to show device search result"""
         try:
-            target_name = "Marvell"
+            if not response or not response.strip():
+                result = "WiFi module not found"
+                return result
+
+            target = "Marvell"
             lines = response.strip().split('\n')
-            
+
             for line in lines:
                 line = line.strip()
-                if line and target_name in line:
-                    return f"Device found: {line}"
-            
-            return "Device not found"
-            
+                if not line:
+                    continue
+                if target in line:
+                    result = f"WiFi module found: {line}"
+                    return result
+
+            result = "WiFi module not found"
+            return result
+
         except Exception as e:
-            logger.warning(f"Error converting lspci response: {e}")
+            return "WiFi module not found"
+
+    
+    def _convert_sync_time_response(self, response):
+        """Convert sync time script output and ensure only the FIRST result is used."""
+        try:
+            lines = response.strip().split("\n")
+            # ① 先找有無 Sync Time = PASS/FAIL
+            output_lines = []
+            for line in lines:
+                output_lines.append(line)
+                low = line.lower()
+
+                if "sync time = pass" in low or "sync time = fail" in low:
+                    return "\n".join(output_lines)   # 回傳第一段完整區塊
+            # ② 如果沒有 PASS/FAIL → 找第一個 ntpdate 行
+            for line in lines:
+                if "ntpdate[" in line:
+                    return line.strip()
+            # ③ 若以上都沒有 → fallback 原始內容
+            return response
+
+        except Exception as e:
+            logger.warning(f"Error converting sync time response: {e}")
             return response
     
+    def _convert_memory_size_response(self, response):
+        try:
+            import re
+            match = re.search(r"(\d+)\s*kB", response, re.IGNORECASE)
+            if not match:
+                return response
+
+            kb_value = int(match.group(1))
+            gb_value = kb_value / (1024 * 1024)  # Convert kB → GB (binary)
+            gb_str = f"{gb_value:.2f} GB"
+
+            return f"{gb_str} ({kb_value} kB)"
+
+        except Exception as e:
+            logger.warning(f"Error converting memory size: {e}")
+            return response
+
     def _clean_response_text(self, response):
         """Clean up response text by removing command echoes, prompts, duplicate lines, and illegal XML characters."""
         try:
@@ -3364,7 +3448,7 @@ class MainWindowController(QObject):
         if progress_records:
             all_test_ids.update(progress_records.keys())
         
-        sorted_test_ids = sorted(list(all_test_ids))
+        sorted_test_ids = list(self.test_step_templates.get(test_type, {}).keys())
         
         for test_id in sorted_test_ids:
             try:
@@ -3459,7 +3543,7 @@ class MainWindowController(QObject):
             self._export_in_progress = True
             
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"test_results_{self.device_id}_{timestamp}.xlsx"
+            default_filename = f"{self.platform_name}_test_report_{self.device_id}_{timestamp}.xlsx"
             
             file_path, _ = QFileDialog.getSaveFileName(
                 self.window, "Export Test Results", default_filename, "Excel Files (*.xlsx)")
@@ -3472,16 +3556,31 @@ class MainWindowController(QObject):
             sheet = workbook.active
             sheet.title = "Test Results"
             
-            sheet.append(["Tool Version", "v2.0.1_20251104"])
-            sheet.append(["Config Version", "v2.0.1_20251104"])
+            sheet.append(["Tool Version", "v2.0.1_20251224"])
+            sheet.append(["Config Version", "v2.0.1_20251224"])
+            sheet.append(["Platform", self.platform_name])
             sheet.append(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
-            
-            font_setting_list = [(1,1), (2,1), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7), (3,8), (3,9)]
-            for row, col in font_setting_list:
-                cell = sheet.cell(row, col)
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-            
+            from openpyxl.styles import PatternFill, Font
+
+            # Navy blue fill
+            navy_fill = PatternFill(start_color="001f4d", end_color="001f4d", fill_type="solid")
+            white_bold_font = Font(color="FFFFFF", bold=True, name="Arial")
+
+            # Apply to row 3
+            for cell in sheet[4]:
+                if cell.value not in (None, ""):
+                    cell.fill = navy_fill
+                    cell.font = white_bold_font
+            # ----- Format Title Rows (A1:A3 bold, B1:B3 normal) -----
+            for row in range(1, 4):
+                title_cell = sheet.cell(row, 1)   # A1, A2, A3
+                value_cell = sheet.cell(row, 2)   # B1, B2, B3
+
+                title_cell.font = Font(name="Arial", bold=True, color="000000")
+                value_cell.font = Font(name="Arial", bold=False, color="000000")
+
+                title_cell.alignment = Alignment(horizontal='left', vertical='center')
+                value_cell.alignment = Alignment(horizontal='left', vertical='center')
             exported_test_steps = set()
             data_exported = False
             
@@ -3498,31 +3597,72 @@ class MainWindowController(QObject):
             if self._export_results_by_type(sheet, "functionality", functionality_results, functionality_progress, exported_test_steps):
                 data_exported = True
             
-            # cell format setting should apply after data writed
+            # ----- Column widths -----
             sheet.column_dimensions['A'].width = 25
-            sheet.column_dimensions['B'].width = 40
-            sheet.column_dimensions['C'].width = 48
-            sheet.column_dimensions['D'].width = 8
-            sheet.column_dimensions['E'].width = 55
-            sheet.column_dimensions['F'].width = 69
-            sheet.column_dimensions['G'].width = 55
-            sheet.column_dimensions['H'].width = 18
+            sheet.column_dimensions['B'].width = 30
+            sheet.column_dimensions['C'].width = 30
+            sheet.column_dimensions['D'].width = 10
+            sheet.column_dimensions['E'].width = 45
+            sheet.column_dimensions['F'].width = 45
+            sheet.column_dimensions['G'].width = 45
+            sheet.column_dimensions['H'].width = 20
             sheet.column_dimensions['I'].width = 15
-            for row in range(4, 64):
+
+            # ----- Set all data row heights to 40 -----
+            for row in range(5, sheet.max_row + 1):
+                sheet.row_dimensions[row].height = 40
+
+            # ----- H / I columns center alignment -----
+            for row in range(5, sheet.max_row + 1):
+                sheet.cell(row, 8).alignment = Alignment(horizontal='center', vertical='center')
+                sheet.cell(row, 9).alignment = Alignment(horizontal='center', vertical='center')
+
+            # ------ Set all fonts to Arial ------
+            for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row, min_col=1, max_col=9):
+                for cell in row:
+                    if cell.value is not None:
+                        cell.font = Font(
+                            name='Arial',
+                            bold=cell.font.bold,
+                            color=cell.font.color
+                        )
+
+            # ----- Apply header styling to row 4 -----
+            navy_fill = PatternFill(start_color="001f4d", end_color="001f4d", fill_type="solid")
+            white_bold_font = Font(color="FFFFFF", bold=True, name="Arial")
+
+            for cell in sheet[4]:
+                if cell.value:
+                    cell.fill = navy_fill
+                    cell.font = white_bold_font
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # ----- PASS / FAIL (Column D = col 4) -----
+            for row in range(5, sheet.max_row + 1):
+                cell = sheet.cell(row, 4)  # Column D
+                value = str(cell.value).strip().upper()
+                
+                if value == "PASS":
+                    cell.font = Font(name="Arial", color="0000E3", bold=True)
+                elif value == "FAIL":
+                    cell.font = Font(name="Arial", color="FF0000", bold=True)
+                else:
+                    cell.font = Font(name="Arial", bold=True)
+
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # ----- Wrap text for all data -----
+            for row in range(5, sheet.max_row + 1):
                 for col in range(1, 10):
                     cell = sheet.cell(row, col)
-                    cell.alignment = Alignment(vertical='center', wrapText=True)
-                    if col == 4:
-                        result_value = str(cell.value).strip().upper()
-                        if result_value == "PASS":
-                            cell.font = Font(color="00B050", bold=True) # Green
-                        elif result_value == "FAIL":
-                            cell.font = Font(color="FF0000", bold=True) # Red
-                        else:
-                            cell.font = Font(bold=True) # Default
+                    current_align = cell.alignment.horizontal or 'left'
+                    cell.alignment = Alignment(
+                        vertical='center',
+                        wrapText=True,
+                        horizontal=current_align
+                    )
 
-                        cell.alignment = Alignment(vertical='center', horizontal='center')
-            sheet.freeze_panes = 'E4'
+            sheet.freeze_panes = 'E5'
             
             # Export System Info to a new sheet if data is available
             if self.system_info_data:

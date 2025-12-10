@@ -75,8 +75,8 @@ class ChargeWorker(BaseTestWorker):
                 command=commands[2],
                 validation_func=self._validate_current if self.platform_name != "athena" else self._validate_charge_voltage_setting,
                 timeout=5,
-                description="Validate current is in -4 ~ 1.2A" if self.platform_name != "athena" else "Validate charge voltage setting",
-                criteria="Current is in -4 ~ 1.2A" if self.platform_name != "athena" else "Charge voltage setting is 0x23 0x20 = 8992mv(low battery charge) or 0x31 0x30 = 12592mv(normal charge)",
+                description="Validate charge voltage setting" if self.platform_name == "athena" else "Validate current is in -7 ~ 3.3A" if self.platform_name == "odin" else "Validate current is in -4 ~ 1.2A",
+                criteria="Charge voltage setting is 0x23 0x20 = 8992mv(low battery charge) or 0x31 0x30 = 12592mv(normal charge)" if self.platform_name == "athena" else "Validate current is in -7 ~ 3.3A" if self.platform_name == "odin" else "Current is in -4 ~ 1.2A",
                 max_retries=3,
                 retry_delay=500
             )
@@ -207,15 +207,24 @@ class ChargeWorker(BaseTestWorker):
         """
         try:
             value = self._parse_battery_info(response)
+
+            # Convert unsigned 16-bit to signed
             if value > 32767:
-                signed_value = value - 65536  # Convert to signed
+                signed_value = value - 65536
             else:
                 signed_value = value
-            if signed_value > -4000 and signed_value < 1200:
-                return True, f"Current is {signed_value}mA"
+
+            # ---- Platform-specific validation ----
+            if self.platform_name == "odin":
+                # Odin range: -7000mA ~ 3300mA
+                is_pass = -7000 < signed_value < 3300
+
             else:
-                return False, f"Current is {signed_value}mA"
-        
+                # Default range: -4000mA ~ 1200mA
+                is_pass = -4000 < signed_value < 1200
+
+            return is_pass, f"Current is {signed_value}mA"
+
         except Exception as e:
             logger.error(f"exception in current: {e}")
             return False, f"exception in current: {e}"
