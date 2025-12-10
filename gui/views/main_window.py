@@ -927,6 +927,7 @@ class MainWindowController(QObject):
                 }
             """)
             hw_title_layout.addWidget(self.window.button_test_all)
+            self.window.button_test_all.setVisible(False)
         else:
             # if there is no this attribute, create a new button
             self.window.button_test_all = QPushButton("Test All")
@@ -943,6 +944,7 @@ class MainWindowController(QObject):
                 }
             """)
             hw_title_layout.addWidget(self.window.button_test_all)
+            self.window.button_test_all.setVisible(False)
         
         # create the abort button
         self.window.button_abort_test = QPushButton("Abort Test")
@@ -3472,8 +3474,8 @@ class MainWindowController(QObject):
             sheet = workbook.active
             sheet.title = "Test Results"
             
-            sheet.append(["Tool Version", "v2.0.1_20251104"])
-            sheet.append(["Config Version", "v2.0.1_20251104"])
+            sheet.append(["Tool Version", "v2.0.3_20251121"])
+            sheet.append(["Config Version", "v2.0.3_20251121"])
             sheet.append(["Module", "Step", "Criteria", "Result", "Command", "Response", "Response_converted", "Timestamp", "Duration (sec)"])
             
             font_setting_list = [(1,1), (2,1), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7), (3,8), (3,9)]

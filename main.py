@@ -24,10 +24,10 @@ def main():
         
         # Set application name
         app.setApplicationName("Orion")
-        app.setApplicationDisplayName("Orion Monitor v2.0.1 20251104")
+        app.setApplicationDisplayName("Orion Monitor v2.0.3 20251121")
         app.setOrganizationName("Orion")
         app.setOrganizationDomain("orion.com")
-        app.setApplicationVersion("2.0.1.0")
+        app.setApplicationVersion("2.0.3.0")
         
         # use high DPI scaling
         app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
