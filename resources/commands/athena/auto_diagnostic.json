@@ -122,6 +122,19 @@
       "Marvell"
     ]
   },
+  "diagnostic_eeprom": {
+    "commands": [
+      "i2cset -f -y 1 0x57 0x1f 0xaa",
+      "i2cget -f -y 1 0x57 0x1f",
+      "i2cdump -f -y -r 0x00-0x7f 1 0x57",
+      "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 0x32 0x30 0x32 0x35 0x2F 0x30 0x33 0x2F 0x32 0x38 0x20 0x32 0x30 0x3A 0x32 0x38 0x3A 0x33 0x36",
+      "i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19",
+      "hexdump -C -s 0x80 -n 0x30 /sys/devices/platform/axi/ff030000.i2c/i2c-1/1-0054/eeprom",
+      "i2cset -f -y 1 0x57 0x1f eeprom_1_byte",
+      "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 eeprom_19_bytes"
+    ],
+    "validate_function": "validate_eeprom_for_athena"
+  },
   "diagnostic_emmc_read_write": {
     "commands": [
       "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
