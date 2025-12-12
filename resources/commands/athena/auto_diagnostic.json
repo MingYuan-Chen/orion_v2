@@ -1,0 +1,268 @@
+{
+  "diagnostic_cpu_name": {
+    "commands": [
+      "lscpu | grep 'Model name'"
+    ],
+    "expected_response": [
+      "Cortex-A53"
+    ]
+  },
+  "diagnostic_cpu_processor": {
+    "commands": [
+      "grep -c ^processor /proc/cpuinfo"
+    ],
+    "expected_response": [
+      "4"
+    ]
+  },
+  "diagnostic_emmc_size": {
+    "commands": [
+      "cat /sys/block/mmcblk0/size"
+    ],
+    "expected_response": [
+      "244285440"
+    ]
+  },
+  "diagnostic_mac_address": {
+    "commands": [
+      "cat /sys/class/net/eth0/address"
+    ],
+    "expected_response": [
+      "22:58:85:13:04:f8"
+    ]
+  },
+  "diagnostic_memory_size": {
+    "commands": [
+      "grep MemTotal /proc/meminfo"
+    ],
+    "expected_response": [
+      "3943740"
+    ]
+  },
+  "diagnostic_pic_version": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    ],
+    "expected_response": [
+      "0x08",
+      "0x09",
+      "0x0a",
+      "0x0b"
+    ]
+  },
+  "diagnostic_console_model": {
+    "commands": [
+      "cat /proc/device-tree/model"
+    ],
+    "expected_response": [
+      "Athena-030"
+    ]
+  },
+  "diagnostic_sync_time": {
+    "commands": [
+      "date -s '2024-02-28 23:59:59'",
+      "hwclock -r",
+      "date"
+    ],
+    "validate_function": "validate_sync_time_for_athena"
+  },
+  "diagnostic_design_capacity": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+    ],
+    "expected_response": [
+      "0x0c 0xb2"
+    ]
+  },
+  "diagnostic_design_voltage": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+    ],
+    "expected_response": [
+      "0x2a 0x30"
+    ]
+  },
+  "diagnostic_uboot_version": {
+    "commands": [
+      "strings /dev/mtd5 | grep -E 'U-Boot'"
+    ],
+    "expected_response": [
+      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
+    ]
+  },
+  "diagnostic_kernel_name": {
+    "commands": [
+      "uname -a"
+    ],
+    "expected_response": [
+      "Linux verathon-athena"
+    ]
+  },
+  "diagnostic_panel_resolution": {
+    "commands": [
+      "fbset | grep geometry"
+    ],
+    "expected_response": [
+      "1920 1080"
+    ]
+  },
+  "diagnostic_wifi_module": {
+    "commands": [
+      "lsusb"
+    ],
+    "expected_response": [
+      "1286:204e"
+    ]
+  },
+  "diagnostic_bt_module": {
+    "commands": [
+      "lspci"
+    ],
+    "expected_response": [
+      "Marvell"
+    ]
+  },
+  "diagnostic_emmc_read_write": {
+    "commands": [
+      "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
+      "sync",
+      "echo 3 > /proc/sys/vm/drop_caches",
+      "dd if=/emmc_througtput of=/dev/null bs=1M"
+    ],
+    "validate_function": "validate_read_write"
+  },
+  "diagnostic_usb1_read_write": {
+    "commands": [
+      "dd if=/dev/zero of='usb1_path/usb_throughput' bs=1M count=200 status=progress",
+      "dd if='usb1_path/usb_throughput' of=/dev/null bs=1M",
+      "rm -f 'usb1_path/usb_throughput'"
+    ],
+    "validate_function": "validate_read_write"
+  },
+  "diagnostic_usb2_read_write": {
+    "commands": [
+      "dd if=/dev/zero of='usb2_path/usb_throughput' bs=1M count=200 status=progress",
+      "dd if='usb2_path/usb_throughput' of=/dev/null bs=1M",
+      "rm -f 'usb2_path/usb_throughput'"
+    ],
+    "validate_function": "validate_read_write"
+  },
+  "diagnostic_backlight": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch backlight brightness from 0 to 10.\nThen turn off and on backlight power.",
+      "echo 0 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 1 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 2 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 3 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 4 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 5 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 6 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 7 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 8 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 9 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 10 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 1 > /sys/class/backlight/backlight/bl_power",
+      "sleep_required 1",
+      "echo 0 > /sys/class/backlight/backlight/bl_power",
+      "sleep_required 1",
+      "manual_check_required. [Test Hints]\nPlease confirm brightness and power action as expected. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_lcd": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
+      "/usr/bin/drawfb -p red",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p green",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p blue",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p black",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p white",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p colorbar",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p gradient256",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p frame",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p gray16",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p gray64",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p gray256",
+      "sleep_required 1",
+      "manual_check_required. [Test Hints]\nPlease confirm LCD color as expected. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_led": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will switch LED color to blue, green, red, amber, blink blue, blink green, blink red, blink amber.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x01 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x02 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x04 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x08 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x11 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x12 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x14 r2",
+      "sleep_required 5",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x18 r2",
+      "manual_check_required. [Test Hints]\nPlease confirm LED display Blue. Click Pass/Fail to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
+    ]
+  },
+  "diagnostic_touch_9_points": {
+    "commands": [
+      "'/run/media/DATA-sdb1/dqa_package/TouchTestQt64'",
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_touch_drag_draw": {
+    "commands": [
+      "ts_test_mt -j 2 -v",
+      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_ethernet_connection": {
+    "commands": [
+      "nmcli device disconnect wlp1s0",
+      "curl -I -s https://www.google.com | grep HTTP/",
+      "nmcli device connect wlp1s0"
+    ],
+    "expected_response": [
+      "HTTP/1.1 200 OK"
+    ]
+  },
+  "diagnostic_wifi_connection": {
+    "commands": [
+      "nmcli device wifi rescan",
+      "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025",
+      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 50",
+      "nmcli connection up DQA-Mesh66",
+      "curl -I -s https://www.google.com | grep HTTP/",
+      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 600",
+      "nmcli connection up DQA-Mesh66"
+    ],
+    "expected_response": [
+      "HTTP/1.1 200 OK"
+    ]
+  }
+}

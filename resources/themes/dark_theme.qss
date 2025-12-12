@@ -1,0 +1,173 @@
+/*
+ * Dark Theme for PSC Orion Serial Tool
+ */
+
+QWidget {
+    background-color: #2b2b2b;
+    color: #f0f0f0;
+    font-family: "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 10pt;
+}
+
+/* === Main Window === */
+QMainWindow, QWidget {
+    border: none;
+}
+
+/* === Labels === */
+QLabel {
+    color: #d0d0d0;
+}
+
+/* === Buttons === */
+QPushButton {
+    background-color: #4a4a4a;
+    color: #f0f0f0;
+    border: 1px solid #5a5a5a;
+    padding: 5px 10px;
+    border-radius: 4px;
+    min-height: 1.5em;
+}
+
+QPushButton:hover {
+    background-color: #5a5a5a;
+    border-color: #6a6a6a;
+}
+
+QPushButton:pressed {
+    background-color: #3a3a3a;
+}
+
+QPushButton:disabled {
+    background-color: #3c3c3c;
+    color: #888888;
+    border-color: #4a4a4a;
+}
+
+/* === ComboBox === */
+QComboBox {
+    background-color: #3c3c3c;
+    border: 1px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 3px 5px;
+    min-height: 1.5em;
+}
+
+QComboBox:hover {
+    background-color: #4a4a4a;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #5a5a5a;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url(:/qt-project.org/styles/commonstyle/images/down-arrow-light.png);
+}
+
+QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    border: 1px solid #5a5a5a;
+    selection-background-color: #5a5a5a;
+    selection-color: #f0f0f0;
+    color: #f0f0f0;
+    outline: none;
+}
+
+/* === LineEdit === */
+QLineEdit {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+    border: 1px solid #5a5a5a;
+    border-radius: 4px;
+    padding: 4px;
+    min-height: 1.5em;
+}
+
+QLineEdit:focus {
+    border: 1px solid #7a7a7a;
+}
+
+QLineEdit:disabled {
+    background-color: #353535;
+    color: #888888;
+}
+
+/* === TextEdit === */
+QTextEdit {
+    background-color: #252525;
+    color: #e0e0e0;
+    border: 1px solid #5a5a5a;
+    border-radius: 4px;
+    font-family: "Consolas", "Monaco", "Andale Mono", "Ubuntu Mono", monospace;
+}
+
+/* === ScrollBars === */
+QScrollBar:vertical {
+    border: none;
+    background: #2b2b2b;
+    width: 12px;
+    margin: 15px 0 15px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #4a4a4a;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #5a5a5a;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 15px;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+    background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #2b2b2b;
+    height: 12px;
+    margin: 0 15px 0 15px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #4a4a4a;
+    min-width: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #5a5a5a;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 15px;
+}
+
+QScrollBar::left-arrow:horizontal, QScrollBar::right-arrow:horizontal {
+    background: none;
+}
+
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}

@@ -1,0 +1,131 @@
+{
+  "diagnostic_cpu_name": {
+    "commands": [
+      "grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \t]*//'"
+    ],
+    "expected_response": [
+      "i.MX6"
+    ]
+  },
+  "diagnostic_cpu_processor": {
+    "commands": [
+      "grep -c ^processor /proc/cpuinfo"
+    ],
+    "expected_response": [
+      "4"
+    ]
+  },
+  "diagnostic_emmc_size": {
+    "commands": [
+      "cat /sys/block/mmcblk2/size"
+    ],
+    "expected_response": [
+      "244629504"
+    ]
+  },
+  "diagnostic_mac_address": {
+    "commands": [
+      "cat /sys/class/net/eth0/address"
+    ],
+    "expected_response": [
+      "aa:3b:12:c9:68:16",
+      "c6:1d:7a:99:84:eb"
+    ]
+  },
+  "diagnostic_memory_size": {
+    "commands": [
+      "grep MemTotal /proc/meminfo"
+    ],
+    "expected_response": [
+      "3886540"
+    ]
+  },
+  "diagnostic_nor_flash_size": {
+    "commands": [
+      "cat /proc/mtd | grep mtd0"
+    ],
+    "expected_response": [
+      "04000000"
+    ]
+  },
+  "diagnostic_pic_version": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    ],
+    "expected_response": [
+      "0x72"
+    ]
+  },
+  "diagnostic_hw_version": {
+    "commands": [
+      "cat /proc/hw_rev"
+    ],
+    "expected_response": [
+      "100"
+    ]
+  },
+  "diagnostic_design_capacity": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+    ],
+    "expected_response": [
+      "0x0c 0xb2"
+    ]
+  },
+  "diagnostic_design_voltage": {
+    "commands": [
+      "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+    ],
+    "expected_response": [
+      "0x1c 0x20"
+    ]
+  },
+  "diagnostic_uboot_version": {
+    "commands": [
+      "strings /dev/mtd0 | grep -E 'U-Boot'"
+    ],
+    "expected_response": [
+      "U-Boot"
+    ]
+  },
+  "diagnostic_kernal_name": {
+    "commands": [
+      "uname -a"
+    ],
+    "expected_response": [
+      "Linux"
+    ]
+  },
+  "diagnostic_panel_id": {
+    "commands": [
+      "cat /proc/panel_id"
+    ],
+    "expected_response": [
+      "01"
+    ]
+  },
+  "diagnostic_panel_resolution": {
+    "commands": [
+      "fbset | grep geometry"
+    ],
+    "expected_response": [
+      "1920 1080"
+    ]
+  },
+  "diagnostic_wifi_module": {
+    "commands": [
+      "lsusb"
+    ],
+    "expected_response": [
+      "1286:204e"
+    ]
+  },
+  "diagnostic_bt_module": {
+    "commands": [
+      "lspci"
+    ],
+    "expected_response": [
+      "Marvell"
+    ]
+  }
+}

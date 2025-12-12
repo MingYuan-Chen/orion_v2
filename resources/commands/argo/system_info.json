@@ -1,0 +1,41 @@
+{
+  "cpu_info": [
+    "grep \"Hardware\" /proc/cpuinfo | cut -d':' -f2- | sed 's/^[ \\t]*//'"
+  ],
+  "memory_info": [
+    "free -h | grep 'Mem:'"
+  ],
+  "disk_usage": [
+    "cat /sys/block/mmcblk2/size"
+  ],
+  "kernel_version": [
+    "uname -a"
+  ],
+  "os_version": [
+    "cat /etc/os-release"
+  ],
+  "uboot_version": [
+    "strings /dev/mtd0 | grep -E 'U-Boot [0-9]{4}\\.'"
+  ],
+  "charging_voltage": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x15 r2"
+  ],
+  "charging_current": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x14 r2"
+  ],
+  "design_voltage": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+  ],
+  "design_capacity": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+  ],
+  "battery_serial": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x1c r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x1c r2"
+  ],
+  "battery_model": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x53 0x00 0x21 r9"
+  ],
+  "pic_firmware": [
+    "i2ctransfer -f -y 0 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 0 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+  ]
+}

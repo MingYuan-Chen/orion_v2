@@ -1,0 +1,58 @@
+{
+  "platform_name": "athena",
+  "platform_model": "Large",
+  "platform_serial": "24622010014",
+  "config_name": "athena_18_24622010014_20251205",
+  "created_date": "2025-12-05",
+  "components": [
+    {
+      "id": "system_assembly",
+      "component": "System Assembly",
+      "part_number": "90FM185F2OTA0-VT",
+      "serial_number": "24622010014",
+      "note": "Mfr. Part Number: N/A"
+    },
+    {
+      "id": "front_sub_assembly",
+      "component": "Front Sub Assembly",
+      "part_number": "97I185F1A0-VT",
+      "serial_number": "24712810021",
+      "note": "Mfr. Part Number: N/A"
+    },
+    {
+      "id": "touch_module",
+      "component": "Touch module",
+      "part_number": "81B185YF0A1F-VT",
+      "serial_number": "N/A",
+      "note": "Mfr. Part Number: 81B185YF0A1F-VT"
+    },
+    {
+      "id": "panel",
+      "component": "Panel",
+      "part_number": "93I185FMB02F",
+      "serial_number": "13A070081502",
+      "note": "Mfr. Part Number: P1850FHF1MB02(SPEC VERSION_2.4)"
+    },
+    {
+      "id": "embedded_board",
+      "component": "Embedded board",
+      "part_number": "99EMATHENA0A0",
+      "serial_number": "ATNA025240039",
+      "note": "Mfr. Part Number: 99EMATHENA0A0"
+    },
+    {
+      "id": "wifi_bt_module",
+      "component": "Wifi & BT module",
+      "part_number": "99LAWRM002F",
+      "serial_number": "N/A",
+      "note": "Mfr. Part Number: ST60-2230C-PU"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "32LBN30130F",
+      "serial_number": "2503027",
+      "note": "Mfr. Part Number: BN3013250-001LML-01"
+    }
+  ]
+}

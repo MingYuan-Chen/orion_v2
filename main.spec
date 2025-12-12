@@ -1,0 +1,44 @@
+# -*- mode: python ; coding: utf-8 -*-
+import time
+a = Analysis(
+    ['main.py'],
+    pathex=['.'],
+    binaries=[],
+    datas=[
+        ('resources/icons/header.ico', 'resources/icons'),
+        ('resources/commands', 'resources/commands'),
+        ('resources/themes', 'resources/themes'),
+        ('resources/hw_config', 'resources/hw_config')
+        ],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name = f'orion_serial_tool_v2.1.0_{time.strftime("%Y%m%d")}',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='resources/icons/header.ico',
+    version='version.rc',
+)
