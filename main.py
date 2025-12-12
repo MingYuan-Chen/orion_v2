@@ -1,4 +1,4 @@
-import sys123
+import sys
 import time
 from pathlib import Path
 from PySide6.QtGui import QIcon
