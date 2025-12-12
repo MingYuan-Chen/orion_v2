@@ -244,6 +244,8 @@ class DiagnosticService(QObject):
             # Execute command
             if "U-Boot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "reboot" in cmd:
+                response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
             elif "ts_test_mt -j 2 -v" in cmd:
                 self._model.send_command_queued(cmd)
             elif "touch_qt_path" in cmd:

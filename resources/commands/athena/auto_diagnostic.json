@@ -170,7 +170,12 @@
   },
   "diagnostic_backlight": {
     "commands": [
+      "systemctl disable verathon-video-pipeline.service",
+      "reboot",
+      "root",
+      "systemctl is-enabled verathon-video-pipeline.service",
       "manual_check_required. [Precondition]\nFollowing process will switch backlight brightness from 0 to 10.\nThen turn off and on backlight power.",
+      "/usr/bin/drawfb -p white",
       "echo 0 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
       "echo 1 > /sys/class/backlight/backlight/brightness",
@@ -284,6 +289,24 @@
     ],
     "expected_response": [
       "HTTP/1.1 200 OK"
+    ]
+  },
+  "diagnostic_camera_preview": {
+    "commands": [
+      "systemctl enable verathon-video-pipeline.service",
+      "reboot",
+      "root",
+      "systemctl is-enabled verathon-video-pipeline.service",
+      "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to JigA (Jig B if exists).\nCheck if camera preview is normal.",
+      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_hdmi_mirror_display": {
+    "commands": [
+      "gpioset `gpiofind IOEX_HDMI_EN`=1",
+      "manual_check_required. [Precondition]\nPlease plug in and camera. Plug in HDMI cable with external monitor.",
+      "manual_check_required. [Test Hints]\nPlease confirm camera preview normally both on device and external monitor. Click Pass/Fail to proceed.",
+      "gpioset `gpiofind IOEX_HDMI_EN`=0"
     ]
   }
 }

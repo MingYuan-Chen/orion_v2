@@ -2,7 +2,7 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /run/media/DATA-sdb1/dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
@@ -22,24 +22,6 @@
       "cat evtlog",
       "kill {process_id}",
       "rm -f evtlog"
-    ]
-  },
-  "functionality_hdmi": {
-    "commands": [
-      "gpioset `gpiofind IOEX_HDMI_EN`=1",
-      ""
-    ]
-  },
-  "functionality_camera": {
-    "commands": [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      ""
     ]
   }
 }
