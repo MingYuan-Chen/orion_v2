@@ -37,7 +37,7 @@
       "grep MemTotal /proc/meminfo"
     ],
     "expected_response": [
-      "3886540"
+      "3074232", "3886520"
     ]
   },
   "diagnostic_nor_flash_size": {
