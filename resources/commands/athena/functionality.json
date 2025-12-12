@@ -2,33 +2,9 @@
   "functionality_audio": {
     "commands": [
       "amixer -c 0 set PCM 100%",
-      "(aplay /dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "(aplay /run/media/DATA-sdb1/dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
-    ]
-  },
-  "functionality_backlight": {
-    "commands": [
-      "echo 0 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 1 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 2 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 3 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 4 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 5 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 6 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 7 > /sys/class/backlight/backlight/brightness",
-      "cat /sys/class/backlight/backlight/brightness",
-      "echo 1 > /sys/class/backlight/backlight/bl_power",
-      "cat /sys/class/backlight/backlight/bl_power",
-      "echo 0 > /sys/class/backlight/backlight/bl_power",
-      "cat /sys/class/backlight/backlight/bl_power"
     ]
   },
   "functionality_battery": {
@@ -46,119 +22,6 @@
       "cat evtlog",
       "kill {process_id}",
       "rm -f evtlog"
-    ]
-  },
-  "functionality_charge": {
-    "commands": [
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x81 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x83 0x00 0x14 r2",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x81 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x83 0x00 0x15 r2"
-    ]
-  },
-  "functionality_eeprom": {
-    "commands": [
-      "i2cget -f -y 1 0x57 0x1f",
-      "i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19",
-      "i2cset -f -y 1 0x57 0x1f 0xaa",
-      "i2cget -f -y 1 0x57 0x1f",
-      "i2cdump -f -y -r 0x00-0x7f 1 0x57",
-      "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 0x32 0x30 0x32 0x35 0x2F 0x30 0x33 0x2F 0x32 0x38 0x20 0x32 0x30 0x3A 0x32 0x38 0x3A 0x33 0x36",
-      "i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19",
-      "hexdump -C -s 0x80 /sys/devices/platform/axi/ff030000.i2c/i2c-1/1-0054/eeprom",
-      "ctrl+c",
-      "i2cset -f -y 1 0x57 0x1f {eeprom_e_orig}",
-      "i2ctransfer -f -y 1 w21@0x54 0x00 0x83 {eeprom_1_orig}"
-    ],
-    "expected_response": [
-      "",
-      "0xaa",
-      "",
-      "",
-      "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36",
-      ""
-    ]
-  },
-  "functionality_emmc": {
-    "commands": [
-      "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
-      "sync",
-      "echo 3 > /proc/sys/vm/drop_caches",
-      "dd if=/emmc_througtput of=/dev/null bs=1M"
-    ]
-  },
-  "functionality_lcd": {
-    "commands": [
-      "/unit_tests/drawfb.out red",
-      "/unit_tests/drawfb.out green",
-      "/unit_tests/drawfb.out blue",
-      "/unit_tests/drawfb.out black",
-      "/unit_tests/drawfb.out white",
-      "/unit_tests/drawfb.out colorbar",
-      "/unit_tests/drawfb.out gradient",
-      "/unit_tests/drawfb.out frame",
-      "/unit_tests/drawfb.out gray16",
-      "/unit_tests/drawfb.out gray64",
-      "/unit_tests/drawfb.out gray256"
-    ]
-  },
-  "functionality_led": {
-    "commands": [
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x01 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x02 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x04 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x11 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x12 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x14 r2",
-      "",
-      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
-    ]
-  },
-  "functionality_usb": {
-    "commands": [
-      "ls -l /run/media",
-      "dd if=/dev/zero of='{usb1_path}/usb_throughput' bs=1M count=200 status=progress",
-      "dd if='{usb1_path}/usb_throughput' of=/dev/null bs=1M",
-      "dd if=/dev/zero of='{usb2_path}/usb_throughput' bs=1M count=200 status=progress",
-      "dd if='{usb2_path}/usb_throughput' of=/dev/null bs=1M",
-      "rm -f '{usb1_path}/usb_throughput'",
-      "rm -f '{usb2_path}/usb_throughput'"
-    ]
-  },
-  "functionality_touch": {
-    "commands": [
-      "/dqa_package/TouchTestQt64",
-      "",
-      "ts_test_mt -j 2 -v",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      ""
-    ]
-  },
-  "functionality_hdmi": {
-    "commands": [
-      "gpioset `gpiofind IOEX_HDMI_EN`=1",
-      ""
-    ]
-  },
-  "functionality_camera": {
-    "commands": [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      ""
     ]
   }
 }
