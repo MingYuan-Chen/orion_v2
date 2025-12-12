@@ -103,14 +103,14 @@ class DiagnosticValidator:
         if len(results) == 3:
             if results[0] == "MD-BAT03":
                 if results[1] == 768 and results[2] == 12592:
-                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}, with correct voltage setting: {results[2]}"
+                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
                 else:
-                    return False, f"Incorrect current setting: {results[1]} or incorrect voltage setting: {results[2]}"
+                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
             elif results[0] is None:
                 if results[1] == 192 and results[2] == 8992:
-                    return True, f"Detected low battery mode, with correct current setting: {results[1]}, with correct voltage setting: {results[2]}"
+                    return True, f"Detected low battery mode, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
                 else:
-                    return False, f"Incorrect current setting: {results[1]} or incorrect voltage setting: {results[2]}"
+                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
         return False, "No matched charge values found"
     
     @staticmethod
@@ -163,12 +163,13 @@ class DiagnosticService(QObject):
         self._load_diagnostics()
         self._results_history = []
 
-        # Precondition setup
+        # variables for Precondition setup
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
         self.eeprom_1_byte = None
         self.eeprom_19_bytes = None
+        self.touch_qt_path = None
         
     def _load_diagnostics(self):
         # Load from resources/commands/{platform}/auto_diagnostic.json
@@ -243,8 +244,12 @@ class DiagnosticService(QObject):
             # Execute command
             if "U-Boot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
-            elif "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            elif "ts_test_mt -j 2 -v" in cmd:
                 self._model.send_command_queued(cmd)
+            elif "touch_qt_path" in cmd:
+                if self.touch_qt_path:
+                    cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
+                    self._model.send_command_queued(f"'{cmd_replace}'")
             elif "sleep_required" in cmd:
                 time.sleep(float(cmd.split(" ")[1]))  
             elif "usb1_path" in cmd:
@@ -271,7 +276,7 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd)
             
             # Get output string
-            if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd:
                 output_str = "Touch Test Tool Launched"
             elif "sleep_required" in cmd:
                 output_str = "Sleeping for " + cmd.split(" ")[1] + " second(s)"
@@ -403,10 +408,28 @@ class DiagnosticService(QObject):
             for name in device_names:
                 if 'sda1' in name and self.usb1_path is None:
                     self.usb1_path = f"/run/media/{name}"
+                    file_path = f"{self.usb1_path}/dqa_package"
+                    response = self._model.send_command_sync(f"ls {file_path}")
+                    for line in response:
+                        if "TouchTestQt64" in line and self.touch_qt_path is None:
+                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                            logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                 elif 'sdb1' in name and self.usb2_path is None:
                     self.usb2_path = f"/run/media/{name}"
+                    file_path = f"{self.usb2_path}/dqa_package"
+                    response = self._model.send_command_sync(f"ls {file_path}")
+                    for line in response:
+                        if "TouchTestQt64" in line and self.touch_qt_path is None:
+                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                            logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                 elif 'sdb2' in name and self.usb3_path is None:
                     self.usb3_path = f"/run/media/{name}"
+                    file_path = f"{self.usb3_path}/dqa_package"
+                    response = self._model.send_command_sync(f"ls {file_path}")
+                    for line in response:
+                        if "TouchTestQt64" in line and self.touch_qt_path is None:
+                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                            logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                 else:
                     logger.debug(f"Ignored device: {name}")
             
