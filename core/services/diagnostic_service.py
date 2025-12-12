@@ -90,6 +90,57 @@ class DiagnosticValidator:
         if eeprom_1_byte and eeprom_19_bytes and eeprom_1_byte_dump_1 and eeprom_19_bytes_dump_1 and eeprom_19_bytes_dump_2:
             return True, "EEPROM values match"
         return False, "EEPROM values do not match"
+    
+    @staticmethod
+    def validate_charge_for_athena(output: str) -> Tuple[bool, str]:
+        """Validator for charge."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == "MD-BAT03":
+                if results[1] == 768 and results[2] == 12592:
+                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}, with correct voltage setting: {results[2]}"
+                else:
+                    return False, f"Incorrect current setting: {results[1]} or incorrect voltage setting: {results[2]}"
+            elif results[0] is None:
+                if results[1] == 192 and results[2] == 8992:
+                    return True, f"Detected low battery mode, with correct current setting: {results[1]}, with correct voltage setting: {results[2]}"
+                else:
+                    return False, f"Incorrect current setting: {results[1]} or incorrect voltage setting: {results[2]}"
+        return False, "No matched charge values found"
+    
+    @staticmethod
+    def _parse_battery_value(line) -> Any:
+        """
+        Parses the raw output based on the key.
+        TODO: Modify this method to implement specific parsing logic for your I2C values.
+        """
+        
+        try:
+            if len(line) > 4 and line.startswith('0x'):
+                line_hex = [x.replace('0x', '') for x in line.split() if x.startswith('0x')]
+                if len(line_hex) >= 4:
+                    model = ""
+                    for idx in range(1, len(line_hex)):
+                        char_code = int(f"0x{line_hex[idx]}", 16)
+                        if 32 <= char_code <= 126:
+                            model += chr(char_code)
+                    return model
+                else:
+                    combined_hex = "0x" + line_hex[0] + line_hex[1]
+                    hex_value = int(combined_hex, 16)
+
+                    return hex_value
+            return None
+
+        except Exception as e:
+            logger.error(f"Error parsing {line}: {e}")
+            return f"Parse Error: {line}"
+
 
 class DiagnosticService(QObject):
     """
@@ -372,10 +423,12 @@ class DiagnosticService(QObject):
            for line in response:
                if line.startswith("0x"):
                    self.eeprom_1_byte = line
+           time.sleep(0.2)
            response = self._model.send_command_sync("i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19")
            for line in response:
                if line.startswith("0x"):
                    self.eeprom_19_bytes = line
+           time.sleep(0.2)
         except Exception as e:
             logger.error(f"Find original eeprom data error: {str(e)}", exc_info=True)
             return False, f"Find original eeprom data error: {str(e)}"

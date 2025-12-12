@@ -114,13 +114,21 @@
       "1286:204e"
     ]
   },
-  "diagnostic_bt_module": {
+  "diagnostic_blue_tooth_module": {
     "commands": [
       "lspci"
     ],
     "expected_response": [
       "Marvell"
     ]
+  },
+  "diagnostic_charge_setting": {
+    "commands": [
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x81 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x83 0x00 0x14 r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x81 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x83 0x00 0x15 r2"
+    ],
+    "validate_function": "validate_charge_for_athena"
   },
   "diagnostic_eeprom": {
     "commands": [
