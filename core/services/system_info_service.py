@@ -186,6 +186,9 @@ class SystemInfoService(QObject):
                     combined_hex = "0x" + line_hex[0] + line_hex[1]
                     hex_value = int(combined_hex, 16)
                     
+                    if isinstance(hex_value, int) and hex_value == 0xFFFF:
+                        self.info_updated.emit(key, "No Battery Detected")
+                        return
                     if key == "charging_voltage":
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
