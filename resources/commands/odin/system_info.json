@@ -1,6 +1,6 @@
 {
   "cpu_info": [
-    "cat /sys/devices/soc0/soc_id && cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq && grep -c ^processor /proc/cpuinfo "
+    "cat /sys/devices/soc0/soc_id && cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq && grep -c ^processor /proc/cpuinfo"
   ],
   "memory_info": [
     "free -h | grep 'Mem:'"
