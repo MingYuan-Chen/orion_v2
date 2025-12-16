@@ -61,6 +61,7 @@ class SystemInfoService(QObject):
                 response = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response = self._model.send_command_sync(cmd)
+            logger.warning(response)
             self._parse_info(key, response)
     
     def stop_collection(self):
@@ -83,11 +84,21 @@ class SystemInfoService(QObject):
         cpu_count = None
         max_mhz_raw = None
         
+        if key == "cpu_info" and "odin" in self.platform_name.lower():
+            model = response[1]
+            frequency = int(response[2])
+            processor = response[3]
+
+            frequency = frequency / 1000000
+            cpu_model = f"{model} @ {frequency:.2f} GHz ({processor} cores)"
+            logger.error (response)
+            self.info_updated.emit(key, cpu_model)
+
         for line in response:
             line.strip()
             if key == "cpu_info":
                 cpu_model = "Unknown"
-                if ":" in line:
+                if "athena" in self.platform_name.lower() and ":" in line:
                     result = line.split(":", 1)
                     if result[0] == "Model name":
                         model = result[1].strip()
@@ -142,7 +153,7 @@ class SystemInfoService(QObject):
                         dist = f"Total: {total_string} | Available: {disk} GiB"
                         self.info_updated.emit(key, dist)
             
-            elif key == "kernal_version":
+            elif key == "kernel_version":
                 kernel = "Unknown"
                 if 'Linux' in line:
                     kernel = line
@@ -156,19 +167,28 @@ class SystemInfoService(QObject):
             
             elif key == "uboot_version":
                 uboot = "Unknown"
-                if 'U-Boot' in line:
+                if 'U-Boot' in line and "athena" in self.platform_name.lower():
                     pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
                     match = re.search(pattern1, line)
                     if match:
                         full_version = match.group(1).strip()
                         self.info_updated.emit(key, full_version)
-            
+                if "U-Boot" in line and "odin" in self.platform_name.lower():
+                    pattern1 = r'(U-Boot SPL\s+[^\(]+\([^)]+\))'
+                    match = re.search(pattern1, line)
+                    if match:
+                        full_version = match.group(1).strip()
+                        self.info_updated.emit(key, full_version)
+
             else:
                 if len(line) > 4 and line.startswith('0x'):
                     line_hex = [x.replace('0x', '') for x in line.split() if x.startswith('0x')]
                     combined_hex = "0x" + line_hex[0] + line_hex[1]
                     hex_value = int(combined_hex, 16)
                     
+                    if isinstance(hex_value, int) and hex_value == 0xFFFF:
+                        self.info_updated.emit(key, "No Battery Detected")
+                        return
                     if key == "charging_voltage":
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
