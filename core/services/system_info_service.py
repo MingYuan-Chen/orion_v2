@@ -142,7 +142,7 @@ class SystemInfoService(QObject):
                         dist = f"Total: {total_string} | Available: {disk} GiB"
                         self.info_updated.emit(key, dist)
             
-            elif key == "kernal_version":
+            elif key == "kernel_version":
                 kernel = "Unknown"
                 if 'Linux' in line:
                     kernel = line
