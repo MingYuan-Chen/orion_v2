@@ -276,3 +276,88 @@
     "validate_function": "validate_read_write"
   }
 }
+{
+  "diagnostic_CPU_name": {
+    "commands": ["cat /sys/devices/soc0/soc_id"],
+    "expected_response": ["i.MX8MQ"]
+  },
+  "diagnostic_cpu_processor": {
+    "commands": ["grep -c ^processor /proc/cpuinfo"],
+    "expected_response": ["4"]
+  },
+  "diagnostic_memory_size": {
+    "commands": ["grep MemTotal /proc/meminfo"],
+    "expected_response": ["3074232","3074220"]
+  },
+  "diagnostic_emmc_size": {
+    "commands": ["cat /sys/block/mmcblk0/size"],
+    "expected_response": ["61120512"]
+  },
+  "diagnostic_panel_resolution": {
+    "commands": ["fbset | grep geometry"],
+    "expected_response": [""]
+  },
+  "diagnostic_kernel_name": {
+    "commands": ["uname -a"],
+    "expected_response": ["Linux odin"]
+  },
+  "diagnostic_pic_version": {
+    "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
+    "expected_response": ["0x18"]
+  },
+  "diagnostic_uboot_version": {
+    "commands": ["dd if=/dev/mmcblk0boot0 bs=1M count=4 2>/dev/null | strings | grep \"U-Boot\" | grep -v \"SPL\" | tail -1"]
+  },
+  "diagnostic_wifi_module": {
+    "commands": ["lspci"],
+    "expected_response": ["Marvell"]
+  },
+  "diagnostic_bt_module": {
+    "commands": ["lsusb"],
+    "expected_response": ["1286:204e"]
+  },
+  "diagnostic_mac_address": {
+    "commands": ["cat /sys/class/net/eth0/address"]
+  },
+  "diagnostic_set_get_rtc_time": {
+    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
+    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
+  },
+  "diagnostic_sync_time": {
+    "commands": [
+        "ntpdate -u 192.168.6.11"
+      ],
+    "expected_response": ["Syns Time = PASS"]
+  },
+  "diagnostic_design_capacity": {
+    "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
+    "expected_response": ["0x1a 0x90"]
+  },
+  "diagnostic_design_voltage": {
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
+    "expected_response": ["0x2a 0xc6"]
+  },
+  "diagnostic_usb": {
+    "commands": [
+      "dmesg -n 3",
+      "",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
+      "mount -o remount,rw /",
+      "for dev in /dev/sd?; do echo $dev; udevadm info -q path -n $dev; done && ls /run/media",
+      "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
+      "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
+      "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
+      "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
+      "rm -f {usb1_path}/usb_throughput",
+      "rm -f {usb2_path}/usb_throughput",
+      "rm -f {usb3_path}/usb_throughput"
+    ],
+    "expected_response": ["0x2a 0xc6"]
+  }
+
+
+ 
+}

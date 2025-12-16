@@ -113,6 +113,82 @@ class DiagnosticValidator:
             else:
                 return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
         return False, "No matched speed string found"
+    
+    @staticmethod
+    def validate_eeprom_for_athena(output: str) -> Tuple[bool, str]:
+        """Validator for EEPROM."""
+        eeprom_1_byte = False
+        eeprom_1_byte_dump = False
+        eeprom_19_bytes = False
+        eeprom_19_bytes_dump_1 = False
+        eeprom_19_bytes_dump_2 = False
+        responses = output.split("\n")
+        for line in responses:
+            line = line.strip()
+            if line == "0xaa":
+                eeprom_1_byte = True
+            elif line == "0x32 0x30 0x32 0x35 0x2f 0x30 0x33 0x2f 0x32 0x38 0x20 0x32 0x30 0x3a 0x32 0x38 0x3a 0x33 0x36":
+                eeprom_19_bytes = True
+            elif line.startswith("10:") and "aa" in line:
+                eeprom_1_byte_dump_1 = True
+            elif line.startswith("00000080") and "2025/03/28 20" in line:
+                eeprom_19_bytes_dump_1 = True
+            elif line.startswith("00000090") and ":28:36" in line:
+                eeprom_19_bytes_dump_2 = True
+        if eeprom_1_byte and eeprom_19_bytes and eeprom_1_byte_dump_1 and eeprom_19_bytes_dump_1 and eeprom_19_bytes_dump_2:
+            return True, "EEPROM values match"
+        return False, "EEPROM values do not match"
+    
+    @staticmethod
+    def validate_charge_for_athena(output: str) -> Tuple[bool, str]:
+        """Validator for charge."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == "MD-BAT03":
+                if results[1] == 768 and results[2] == 12592:
+                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
+                else:
+                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
+            elif results[0] is None:
+                if results[1] == 192 and results[2] == 8992:
+                    return True, f"Detected low battery mode, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
+                else:
+                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
+        return False, "No matched charge values found"
+    
+    @staticmethod
+    def _parse_battery_value(line) -> Any:
+        """
+        Parses the raw output based on the key.
+        TODO: Modify this method to implement specific parsing logic for your I2C values.
+        """
+        
+        try:
+            if len(line) > 4 and line.startswith('0x'):
+                line_hex = [x.replace('0x', '') for x in line.split() if x.startswith('0x')]
+                if len(line_hex) >= 4:
+                    model = ""
+                    for idx in range(1, len(line_hex)):
+                        char_code = int(f"0x{line_hex[idx]}", 16)
+                        if 32 <= char_code <= 126:
+                            model += chr(char_code)
+                    return model
+                else:
+                    combined_hex = "0x" + line_hex[0] + line_hex[1]
+                    hex_value = int(combined_hex, 16)
+
+                    return hex_value
+            return None
+
+        except Exception as e:
+            logger.error(f"Error parsing {line}: {e}")
+            return f"Parse Error: {line}"
+
 
 class DiagnosticService(QObject):
     """
@@ -133,10 +209,15 @@ class DiagnosticService(QObject):
         self._current_commands = []
         self._current_output = []
         self._load_diagnostics()
+        self._results_history = []
+
+        # variables for Precondition setup
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
-        self._results_history = []
+        self.eeprom_1_byte = None
+        self.eeprom_19_bytes = None
+        self.touch_qt_path = None
         
     def _load_diagnostics(self):
         # Load from resources/commands/{platform}/auto_diagnostic.json
@@ -163,7 +244,7 @@ class DiagnosticService(QObject):
         """
         Runs all diagnostics sequentially.
         """
-        self._find_valid_usb_path()
+        self._precondition_setup()
         self._running = True
         self._queue = list(self._diagnostics.items())
         self._results_history = []
@@ -211,20 +292,36 @@ class DiagnosticService(QObject):
             # Execute command
             if "U-Boot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
-            elif "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            elif "reboot" in cmd:
+                response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
+            elif "ts_test_mt -j 2 -v" in cmd:
                 self._model.send_command_queued(cmd)
+            elif "touch_qt_path" in cmd:
+                if self.touch_qt_path:
+                    cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
+                    self._model.send_command_queued(f"'{cmd_replace}'")
             elif "sleep_required" in cmd:
                 time.sleep(float(cmd.split(" ")[1]))  
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)
-                    response_lines = self._model.send_command_sync(cmd, timeout=20)
+                    response_lines = self._model.send_command_sync(cmd)
             elif "usb2_path" in cmd:
                 if self.usb2_path:
-                    cmd = cmd.replace("usb2_path", self.usb2_path)
-                    response_lines = self._model.send_command_sync(cmd, timeout=20)
+                    cmd_replace = cmd.replace("usb2_path", self.usb2_path)
+                    response_lines = self._model.send_command_sync(cmd_replace)
             elif "usb3_path" in cmd:
                 if self.usb3_path:
+                    cmd_replace = cmd.replace("usb3_path", self.usb3_path)
+                    response_lines = self._model.send_command_sync(cmd_replace)
+            elif "eeprom_1_byte" in cmd:
+                if self.eeprom_1_byte:
+                    cmd_replace = cmd.replace("eeprom_1_byte", self.eeprom_1_byte)
+                    response_lines = self._model.send_command_sync(cmd_replace)
+            elif "eeprom_19_bytes" in cmd:
+                if self.eeprom_19_bytes:
+                    cmd_replace = cmd.replace("eeprom_19_bytes", self.eeprom_19_bytes)
+                    response_lines = self._model.send_command_sync(cmd_replace)
                     cmd = cmd.replace("usb3_path", self.usb3_path)
                     response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "ntpdate" in cmd:
@@ -232,25 +329,21 @@ class DiagnosticService(QObject):
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
-            if "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            # Get output string
+            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd:
                 output_str = "Touch Test Tool Launched"
             elif "sleep_required" in cmd:
                 output_str = "Sleeping for " + cmd.split(" ")[1] + " second(s)"
-            elif "usb1_path" in cmd:
-                if self.usb1_path:
-                    output_str = "\n".join(response_lines)
-                else:
-                    output_str = "USB1 path not found"
-            elif "usb2_path" in cmd:
-                if self.usb2_path:
-                    output_str = "\n".join(response_lines)
-                else:
-                    output_str = "USB2 path not found"
-            elif "usb3_path" in cmd:
-                if self.usb3_path:
-                    output_str = "\n".join(response_lines)
-                else:
-                    output_str = "USB3 path not found"
+            elif "usb1_path" in cmd and not self.usb1_path:
+                output_str = "USB1 path not found"
+            elif "usb2_path" in cmd and not self.usb2_path:
+                output_str = "USB2 path not found"
+            elif "usb3_path" in cmd and not self.usb3_path:
+                output_str = "USB3 path not found"
+            elif "eeprom_1_byte" in cmd and not self.eeprom_1_byte:
+                output_str = "EEPROM 1 byte not found"
+            elif "eeprom_19_bytes" in cmd and not self.eeprom_19_bytes:
+                output_str = "EEPROM 19 bytes not found"
             else:
                 output_str = "\n".join(response_lines)
             self._current_output.append(output_str)
@@ -340,6 +433,13 @@ class DiagnosticService(QObject):
             logger.error(f"Error validating diagnostic {key}: {e}")
             return False, str(e)
     
+    def _precondition_setup(self):
+        """
+        Setup precondition for diagnostics.
+        """
+        self._find_original_eeprom_data()
+        self._find_valid_usb_path()
+   
     def _find_valid_usb_path(self) -> Tuple[bool, str]:
         
         
@@ -425,13 +525,28 @@ class DiagnosticService(QObject):
                 for name in device_names:
                     if 'sda1' in name and self.usb1_path is None:
                         self.usb1_path = f"/run/media/{name}"
-                        logger.info(f"Found usb1 path: {self.usb1_path}")
+                        file_path = f"{self.usb1_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                     elif 'sdb1' in name and self.usb2_path is None:
                         self.usb2_path = f"/run/media/{name}"
-                        logger.info(f"Found usb2 path: {self.usb2_path}")
+                        file_path = f"{self.usb2_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                     elif 'sdb2' in name and self.usb3_path is None:
                         self.usb3_path = f"/run/media/{name}"
-                        logger.info(f"Found usb3 path: {self.usb3_path}")
+                        file_path = f"{self.usb3_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
                     else:
                         logger.debug(f"Ignored device: {name}")
                 
@@ -439,6 +554,25 @@ class DiagnosticService(QObject):
                 logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
                 return False, f"Find valid usb path error: {str(e)}"
 
+    def _find_original_eeprom_data(self):
+        """
+        Find original eeprom data from usb1, usb2, usb3.
+        """
+        try:
+           response = self._model.send_command_sync("i2cget -f -y 1 0x57 0x1f")
+           for line in response:
+               if line.startswith("0x"):
+                   self.eeprom_1_byte = line
+           time.sleep(0.2)
+           response = self._model.send_command_sync("i2ctransfer -f -y 1 w2@0x54 0x00 0x83 r19")
+           for line in response:
+               if line.startswith("0x"):
+                   self.eeprom_19_bytes = line
+           time.sleep(0.2)
+        except Exception as e:
+            logger.error(f"Find original eeprom data error: {str(e)}", exc_info=True)
+            return False, f"Find original eeprom data error: {str(e)}"
+    
     def _save_to_excel(self):
         """Saves the diagnostic results to an Excel file."""
         try:
