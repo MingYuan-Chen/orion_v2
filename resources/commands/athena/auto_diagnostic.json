@@ -64,7 +64,7 @@
       "hwclock -r",
       "date"
     ],
-    "validate_function": "validate_sync_time_for_athena"
+    "validate_function": "validate_sync_time"
   },
   "diagnostic_design_capacity": {
     "commands": [
@@ -84,10 +84,10 @@
   },
   "diagnostic_uboot_version": {
     "commands": [
-      "strings /dev/mtd5 | grep -E 'U-Boot'"
+      "strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"
     ],
     "expected_response": [
-      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
+      "U-Boot SPL 2018.03-VT_ODIN"
     ]
   },
   "diagnostic_kernel_name": {

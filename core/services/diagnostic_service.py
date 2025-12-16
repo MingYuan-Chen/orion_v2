@@ -25,7 +25,7 @@ class DiagnosticValidator:
         return False, f"All expected outputs not found"
     
     @staticmethod
-    def validate_sync_time_for_athena(output: str, platform_name: str = None) -> Tuple[bool, str]:
+    def validate_sync_time(output: str, platform_name: str = None) -> Tuple[bool, str]:
     # -----------------------
     # Odin platform
     # -----------------------
@@ -218,15 +218,15 @@ class DiagnosticService(QObject):
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)
-                    response_lines = self._model.send_command_sync(cmd)
+                    response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "usb2_path" in cmd:
                 if self.usb2_path:
                     cmd = cmd.replace("usb2_path", self.usb2_path)
-                    response_lines = self._model.send_command_sync(cmd)
+                    response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "usb3_path" in cmd:
                 if self.usb3_path:
                     cmd = cmd.replace("usb3_path", self.usb3_path)
-                    response_lines = self._model.send_command_sync(cmd)
+                    response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "ntpdate" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
@@ -340,7 +340,66 @@ class DiagnosticService(QObject):
             logger.error(f"Error validating diagnostic {key}: {e}")
             return False, str(e)
     
-    def _find_valid_usb_path(self):
+    def _find_valid_usb_path(self) -> Tuple[bool, str]:
+        
+        
+        if self._platform_name.lower() == "odin":
+            response = "\n".join(
+            self._model.send_command_sync("ls -l /dev/disk/by-path && ls /run/media")
+            )
+
+            # 對應你實際看到的 path 特徵
+            USB_LEFT_KEY = "usb-0:1.2.2"
+            USB_RIGHT_KEY = "usb-0:1.2.1"
+            USB_C_KEY = "xhci-hcd.1.auto"
+
+            usb_left_disk = None
+            usb_right_disk = None
+            usb_c_disk = None
+
+            # -------- step 1: 找 sda / sdb / sdc --------
+            for line in response.splitlines():
+                if "-> ../../sd" not in line:
+                    continue
+
+                # 抓 sda / sdb / sdc
+                disk = line.split("->")[-1].strip().replace("../../", "")
+
+                if USB_LEFT_KEY in line:
+                    usb_left_disk = disk
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = disk
+                elif USB_C_KEY in line:
+                    usb_c_disk = disk
+
+            # -------- step 2: 從 /run/media 找 partition --------
+            media_parts = []
+            for line in response.splitlines():
+                if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
+                    media_parts = line.split()
+                    break
+
+            def find_mount(disk: str | None) -> str | None:
+                if not disk:
+                    return None
+                for part in media_parts:
+                    if part.startswith(disk):
+                        return f"/run/media/{part}"
+                return None
+
+            self.usb1_path = find_mount(usb_left_disk)
+            self.usb2_path = find_mount(usb_right_disk)
+            self.usb3_path = find_mount(usb_c_disk)
+
+            if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+                return False, "找不到任何 USB mount 路徑"
+
+            return True, (
+                f"Odin USB paths: "
+                f"left={self.usb1_path}, "
+                f"right={self.usb2_path}, "
+                f"typec={self.usb3_path}"
+            )
         """
         Find valid usb path from 'ls -l /run/media'.
         e.g., 
@@ -348,36 +407,37 @@ class DiagnosticService(QObject):
         drwxrwx---  3 root disk 4096 Jan  1  1970 'Main Data Partition-sdb1'
         drwxrwx--- 13 root disk 8192 Jan  1  1970  sda1
         """
-        try:
-            response = self._model.send_command_sync("ls -l /run/media")
-            device_names = []
-            for line in response:
-                line = line.strip()
-                if not line or line.startswith('total'):
-                    continue
-                parts = line.split(None, 8)
-                if len(parts) == 9:
-                    device_name = parts[8].strip("'")
-                    device_names.append(device_name)
+        if self._platform_name.lower() == "athena":
+            try:
+                response = self._model.send_command_sync("ls -l /run/media")
+                device_names = []
+                for line in response:
+                    line = line.strip()
+                    if not line or line.startswith('total'):
+                        continue
+                    parts = line.split(None, 8)
+                    if len(parts) == 9:
+                        device_name = parts[8].strip("'")
+                        device_names.append(device_name)
 
-            # Prioritize assignment based on 'sda1' and 'sdb1'
-            unassigned_names = []
-            for name in device_names:
-                if 'sda1' in name and self.usb1_path is None:
-                    self.usb1_path = f"/run/media/{name}"
-                    logger.info(f"Found usb1 path: {self.usb1_path}")
-                elif 'sdb1' in name and self.usb2_path is None:
-                    self.usb2_path = f"/run/media/{name}"
-                    logger.info(f"Found usb2 path: {self.usb2_path}")
-                elif 'sdb2' in name and self.usb3_path is None:
-                    self.usb3_path = f"/run/media/{name}"
-                    logger.info(f"Found usb3 path: {self.usb3_path}")
-                else:
-                    logger.debug(f"Ignored device: {name}")
-            
-        except Exception as e:
-            logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
-            return False, f"Find valid usb path error: {str(e)}"
+                # Prioritize assignment based on 'sda1' and 'sdb1'
+                unassigned_names = []
+                for name in device_names:
+                    if 'sda1' in name and self.usb1_path is None:
+                        self.usb1_path = f"/run/media/{name}"
+                        logger.info(f"Found usb1 path: {self.usb1_path}")
+                    elif 'sdb1' in name and self.usb2_path is None:
+                        self.usb2_path = f"/run/media/{name}"
+                        logger.info(f"Found usb2 path: {self.usb2_path}")
+                    elif 'sdb2' in name and self.usb3_path is None:
+                        self.usb3_path = f"/run/media/{name}"
+                        logger.info(f"Found usb3 path: {self.usb3_path}")
+                    else:
+                        logger.debug(f"Ignored device: {name}")
+                
+            except Exception as e:
+                logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
+                return False, f"Find valid usb path error: {str(e)}"
 
     def _save_to_excel(self):
         """Saves the diagnostic results to an Excel file."""
