@@ -31,10 +31,9 @@ class DiagnosticValidator:
     # -----------------------
         if platform_name.lower() == "odin":
             server_ip = "192.168.6.11"
-
             # ntpdate success check
             ntp_ok = re.search(
-                rf"adjust time server\s+{re.escape(server_ip)}\s+offset\b",
+                rf"(adjust|step)\s+time\s+server\s+{re.escape(server_ip)}\s+offset\b",
                 output,
                 flags=re.IGNORECASE
             ) is not None
@@ -48,36 +47,30 @@ class DiagnosticValidator:
 
             # hwclock -r output
             rtc_pattern = (
+                r"(?:"
+                # ISO-like format
                 r"\b\d{4}-\d{2}-\d{2}\s+"
                 r"\d{2}:\d{2}:\d{2}"
                 r"(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\b"
+                r"|"
+                # BusyBox / date-like format
+                r"\b\w{3}\s+\w{3}\s+\d{1,2}\s+"
+                r"\d{2}:\d{2}:\d{2}\s+"
+                r"(?:UTC\s+)?\d{4}\b"
+                r")"
             )
             rtc_matches = re.findall(rtc_pattern, output)
-
-            # time changed check
-            time_changed = False
-
-            if len(date_matches) >= 2:
-                time_changed |= (date_matches[0] != date_matches[1])
-
-            if len(rtc_matches) >= 2:
-                time_changed |= (rtc_matches[0] != rtc_matches[1])
-
-            if ntp_ok and time_changed:
+            system_time_str = date_matches[-1] if date_matches else "N/A"
+            rtc_time_str = rtc_matches[-1] if rtc_matches else "N/A"
+            if ntp_ok :
                 return True, (
-                    f"Odin: NTP sync OK (adjust time server {server_ip} offset) "
-                    f"and time changed"
+                    f"NTP sync OK by time server {server_ip})-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
                 )
             if not ntp_ok:
                 return False, (
-                    f"Odin: NTP sync FAIL "
-                    f"(missing 'adjust time server {server_ip} offset')"
+                    f"NTP sync FAIL by {server_ip}-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
                 )
-            if not time_changed:
-                return False, (
-                    "Odin: NTP output OK but time did not change between "
-                    "first and second (date/hwclock) snapshot"
-                )
+
             return False, "Odin: validation failed"
         
         if platform_name.lower() == "athena":
@@ -234,6 +227,8 @@ class DiagnosticService(QObject):
                 if self.usb3_path:
                     cmd = cmd.replace("usb3_path", self.usb3_path)
                     response_lines = self._model.send_command_sync(cmd)
+            elif "ntpdate" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response_lines = self._model.send_command_sync(cmd)
             

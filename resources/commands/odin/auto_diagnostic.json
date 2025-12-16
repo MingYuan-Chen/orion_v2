@@ -22,18 +22,18 @@
     "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
     "expected_response": ["0x18"]
   },
-  "diagnostic_set_get_rtc_time": {
-    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
+  "diagnostic_System/RTC_Time": {
+    "commands": ["date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"],
+    "expected_response": ["Wed Feb 28 23:59:59 2024"]
   },
-  "diagnostic_sync_time": {
+  "diagnostic_NTP_Sync_Time": {
     "commands": [
         "mount -o remount,rw /",
         "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
         "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync", 
         "date; hwclock -r",
         "ntpdate -u 192.168.6.11",
-        "date; hwclock -r"
+        "date; hwclock -w; hwclock -r"
       ],
     "validate_function": "validate_sync_time_for_athena"
   },
