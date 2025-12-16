@@ -410,7 +410,7 @@ class DiagnosticService(QObject):
                     validator = getattr(DiagnosticValidator, validate_func_name)
                     # We might need to pass extra args from config if needed
                     # For now, pass expected_response as the second arg
-                    if validate_func_name == "validate_sync_time_for_athena" and self._platform_name == "Odin":
+                    if validate_func_name == "validate_sync_time" and self._platform_name == "Odin":
                         return validator(output, self._platform_name)
                     else:
                         return validator(output)
