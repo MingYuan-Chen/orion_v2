@@ -61,7 +61,6 @@ class SystemInfoService(QObject):
                 response = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response = self._model.send_command_sync(cmd)
-            logger.warning(response)
             self._parse_info(key, response)
     
     def stop_collection(self):

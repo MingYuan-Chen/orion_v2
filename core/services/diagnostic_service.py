@@ -322,8 +322,6 @@ class DiagnosticService(QObject):
                 if self.eeprom_19_bytes:
                     cmd_replace = cmd.replace("eeprom_19_bytes", self.eeprom_19_bytes)
                     response_lines = self._model.send_command_sync(cmd_replace)
-                    cmd = cmd.replace("usb3_path", self.usb3_path)
-                    response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "ntpdate" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
@@ -410,7 +408,7 @@ class DiagnosticService(QObject):
                     validator = getattr(DiagnosticValidator, validate_func_name)
                     # We might need to pass extra args from config if needed
                     # For now, pass expected_response as the second arg
-                    if validate_func_name == "validate_sync_time" and self._platform_name == "Odin":
+                    if validate_func_name == "validate_sync_time":
                         return validator(output, self._platform_name)
                     else:
                         return validator(output)
