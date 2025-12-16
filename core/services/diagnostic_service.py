@@ -25,20 +25,75 @@ class DiagnosticValidator:
         return False, f"All expected outputs not found"
     
     @staticmethod
-    def validate_sync_time_for_athena(output: str) -> Tuple[bool, str]:
-        """Validator for Athena sync time."""
-        pattern = r"(?:\w{3}\s\w{3}\s{1,2}\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
-        matches = re.findall(pattern, output)
-        if matches and len(matches) == 3:
-            hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
-            sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
-            time_difference = abs((hw_time - sw_time).total_seconds())
-            if time_difference < 5:
-                return True, f"System time is auto synced from network"
-            else:
-                return False, f"System time is not auto synced from network"
+    def validate_sync_time_for_athena(output: str, platform_name: str = None) -> Tuple[bool, str]:
+    # -----------------------
+    # Odin platform
+    # -----------------------
+        if platform_name.lower() == "odin":
+            server_ip = "192.168.6.11"
 
-        return False, "No matched time string found"
+            # ntpdate success check
+            ntp_ok = re.search(
+                rf"adjust time server\s+{re.escape(server_ip)}\s+offset\b",
+                output,
+                flags=re.IGNORECASE
+            ) is not None
+
+            # date output (human readable)
+            date_pattern = (
+                r"\b\w{3}\s+\w{3}\s+\d{1,2}\s+"
+                r"\d{2}:\d{2}:\d{2}\s+\w+\s+\d{4}\b"
+            )
+            date_matches = re.findall(date_pattern, output)
+
+            # hwclock -r output
+            rtc_pattern = (
+                r"\b\d{4}-\d{2}-\d{2}\s+"
+                r"\d{2}:\d{2}:\d{2}"
+                r"(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\b"
+            )
+            rtc_matches = re.findall(rtc_pattern, output)
+
+            # time changed check
+            time_changed = False
+
+            if len(date_matches) >= 2:
+                time_changed |= (date_matches[0] != date_matches[1])
+
+            if len(rtc_matches) >= 2:
+                time_changed |= (rtc_matches[0] != rtc_matches[1])
+
+            if ntp_ok and time_changed:
+                return True, (
+                    f"Odin: NTP sync OK (adjust time server {server_ip} offset) "
+                    f"and time changed"
+                )
+            if not ntp_ok:
+                return False, (
+                    f"Odin: NTP sync FAIL "
+                    f"(missing 'adjust time server {server_ip} offset')"
+                )
+            if not time_changed:
+                return False, (
+                    "Odin: NTP output OK but time did not change between "
+                    "first and second (date/hwclock) snapshot"
+                )
+            return False, "Odin: validation failed"
+        
+        if platform_name.lower() == "athena":
+            """Validator for Athena sync time."""
+            pattern = r"(?:\w{3}\s\w{3}\s{1,2}\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
+            matches = re.findall(pattern, output)
+            if matches and len(matches) == 3:
+                hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
+                sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
+                time_difference = abs((hw_time - sw_time).total_seconds())
+                if time_difference < 5:
+                    return True, f"System time is auto synced from network"
+                else:
+                    return False, f"System time is not auto synced from network"
+
+            return False, "No matched time string found"
     
     @staticmethod
     def validate_read_write(output: str) -> Tuple[bool, str]:
@@ -267,7 +322,10 @@ class DiagnosticService(QObject):
                     validator = getattr(DiagnosticValidator, validate_func_name)
                     # We might need to pass extra args from config if needed
                     # For now, pass expected_response as the second arg
-                    return validator(output)
+                    if validate_func_name == "validate_sync_time_for_athena" and self._platform_name == "Odin":
+                        return validator(output, self._platform_name)
+                    else:
+                        return validator(output)
                 else:
                     return False, f"Validator function '{validate_func_name}' not found"
             

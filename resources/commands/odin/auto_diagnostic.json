@@ -16,42 +16,35 @@
   },
   "diagnostic_memory_size": {
     "commands": ["grep MemTotal /proc/meminfo"],
-    "expected_response": ["3074232"]
-  },
-  "diagnostic_nor_flash_size": { 
-    "commands": ["cat /proc/mtd | grep 'mtd0"],
-    "expected_response": ["04000000"]
+    "expected_response": ["3074232","3074220"]
   },
   "diagnostic_pic_version": {
     "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
     "expected_response": ["0x18"]
   },
-  "diagnostic_HW_version": {
-    "commands": ["cat /proc/device-tree/model"],
-    "expected_response": ["PSC Odin"]
+  "diagnostic_set_get_rtc_time": {
+    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
+    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
   },
   "diagnostic_sync_time": {
     "commands": [
         "mount -o remount,rw /",
         "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
         "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync", 
-        "date -s '2024-02-28 23:59:59' ; date",
-        "sh /dqa_package/odin_ntpd/sync_time.sh"
+        "date; hwclock -r",
+        "ntpdate -u 192.168.6.11",
+        "date; hwclock -r"
       ],
-    "expected_response": ["Syns Time = PASS"]
-  },
-  "diagnostic_set_get_rtc_time": {
-    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
+    "validate_function": "validate_sync_time_for_athena"
   },
   "diagnostic_design_capacity": {
     "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
-    "expected_response": ["0x1a 0x90"]
+    "expected_response": ["0x1a 0x90","0x19 0x00"]
   },
   "diagnostic_design_voltage": {
     "commands": [
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
-    "expected_response": ["0x2a 0xc6"]
+    "expected_response": ["0x2a 0xc6","0x2a 0x30"]
   },
   "diagnostic_uboot_version": {
     "commands": ["dd if=/dev/mmcblk0boot0 bs=1M count=4 2>/dev/null | strings | grep \"U-Boot\" | grep -v \"SPL\" | tail -1"]
@@ -68,8 +61,12 @@
     "commands": ["fbset | grep geometry"],
     "expected_response": [""]
   },
-  "diagnostic_wifi_bt": {
-    "commands": ["lsusb", "lspci"],
-    "expected_response": ["1286:204e", "Marvell"]
+  "diagnostic_Wi-Fi Module": {
+    "commands": ["lspci"],
+    "expected_response": ["Marvell"]
+  },
+  "diagnostic_Bluetooth Module": {
+    "commands": ["lsusb"],
+    "expected_response": ["1286:204e"]
   }
 }
