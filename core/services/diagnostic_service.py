@@ -25,20 +25,68 @@ class DiagnosticValidator:
         return False, f"All expected outputs not found"
     
     @staticmethod
-    def validate_sync_time_for_athena(output: str) -> Tuple[bool, str]:
-        """Validator for Athena sync time."""
-        pattern = r"(?:\w{3}\s\w{3}\s{1,2}\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
-        matches = re.findall(pattern, output)
-        if matches and len(matches) == 3:
-            hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
-            sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
-            time_difference = abs((hw_time - sw_time).total_seconds())
-            if time_difference < 5:
-                return True, f"System time is auto synced from network"
-            else:
-                return False, f"System time is not auto synced from network"
+    def validate_sync_time(output: str, platform_name: str = None) -> Tuple[bool, str]:
+    # -----------------------
+    # Odin platform
+    # -----------------------
+        if platform_name.lower() == "odin":
+            server_ip = "192.168.6.11"
+            # ntpdate success check
+            ntp_ok = re.search(
+                rf"(adjust|step)\s+time\s+server\s+{re.escape(server_ip)}\s+offset\b",
+                output,
+                flags=re.IGNORECASE
+            ) is not None
 
-        return False, "No matched time string found"
+            # date output (human readable)
+            date_pattern = (
+                r"\b\w{3}\s+\w{3}\s+\d{1,2}\s+"
+                r"\d{2}:\d{2}:\d{2}\s+\w+\s+\d{4}\b"
+            )
+            date_matches = re.findall(date_pattern, output)
+
+            # hwclock -r output
+            rtc_pattern = (
+                r"(?:"
+                # ISO-like format
+                r"\b\d{4}-\d{2}-\d{2}\s+"
+                r"\d{2}:\d{2}:\d{2}"
+                r"(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\b"
+                r"|"
+                # BusyBox / date-like format
+                r"\b\w{3}\s+\w{3}\s+\d{1,2}\s+"
+                r"\d{2}:\d{2}:\d{2}\s+"
+                r"(?:UTC\s+)?\d{4}\b"
+                r")"
+            )
+            rtc_matches = re.findall(rtc_pattern, output)
+            system_time_str = date_matches[-1] if date_matches else "N/A"
+            rtc_time_str = rtc_matches[-1] if rtc_matches else "N/A"
+            if ntp_ok :
+                return True, (
+                    f"NTP sync OK by time server {server_ip})-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
+                )
+            if not ntp_ok:
+                return False, (
+                    f"NTP sync FAIL by {server_ip}-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
+                )
+
+            return False, "Odin: validation failed"
+        
+        if platform_name.lower() == "athena":
+            """Validator for Athena sync time."""
+            pattern = r"(?:\w{3}\s\w{3}\s{1,2}\d{1,2}\s\d{2}:\d{2}:\d{2}\sUTC\s\d{4}|\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2})?)"
+            matches = re.findall(pattern, output)
+            if matches and len(matches) == 3:
+                hw_time = datetime.fromisoformat(matches[1]).replace(tzinfo=None)
+                sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
+                time_difference = abs((hw_time - sw_time).total_seconds())
+                if time_difference < 5:
+                    return True, f"System time is auto synced from network"
+                else:
+                    return False, f"System time is not auto synced from network"
+
+            return False, "No matched time string found"
     
     @staticmethod
     def validate_read_write(output: str) -> Tuple[bool, str]:
@@ -256,8 +304,8 @@ class DiagnosticService(QObject):
                 time.sleep(float(cmd.split(" ")[1]))  
             elif "usb1_path" in cmd:
                 if self.usb1_path:
-                    cmd_replace = cmd.replace("usb1_path", self.usb1_path)
-                    response_lines = self._model.send_command_sync(cmd_replace)
+                    cmd = cmd.replace("usb1_path", self.usb1_path)
+                    response_lines = self._model.send_command_sync(cmd)
             elif "usb2_path" in cmd:
                 if self.usb2_path:
                     cmd_replace = cmd.replace("usb2_path", self.usb2_path)
@@ -274,6 +322,10 @@ class DiagnosticService(QObject):
                 if self.eeprom_19_bytes:
                     cmd_replace = cmd.replace("eeprom_19_bytes", self.eeprom_19_bytes)
                     response_lines = self._model.send_command_sync(cmd_replace)
+                    cmd = cmd.replace("usb3_path", self.usb3_path)
+                    response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "ntpdate" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
@@ -358,7 +410,10 @@ class DiagnosticService(QObject):
                     validator = getattr(DiagnosticValidator, validate_func_name)
                     # We might need to pass extra args from config if needed
                     # For now, pass expected_response as the second arg
-                    return validator(output)
+                    if validate_func_name == "validate_sync_time" and self._platform_name == "Odin":
+                        return validator(output, self._platform_name)
+                    else:
+                        return validator(output)
                 else:
                     return False, f"Validator function '{validate_func_name}' not found"
             
@@ -384,8 +439,67 @@ class DiagnosticService(QObject):
         """
         self._find_original_eeprom_data()
         self._find_valid_usb_path()
+   
+    def _find_valid_usb_path(self) -> Tuple[bool, str]:
+        
+        
+        if self._platform_name.lower() == "odin":
+            response = "\n".join(
+            self._model.send_command_sync("ls -l /dev/disk/by-path && ls /run/media")
+            )
 
-    def _find_valid_usb_path(self):
+            # 對應你實際看到的 path 特徵
+            USB_LEFT_KEY = "usb-0:1.2.2"
+            USB_RIGHT_KEY = "usb-0:1.2.1"
+            USB_C_KEY = "xhci-hcd.1.auto"
+
+            usb_left_disk = None
+            usb_right_disk = None
+            usb_c_disk = None
+
+            # -------- step 1: 找 sda / sdb / sdc --------
+            for line in response.splitlines():
+                if "-> ../../sd" not in line:
+                    continue
+
+                # 抓 sda / sdb / sdc
+                disk = line.split("->")[-1].strip().replace("../../", "")
+
+                if USB_LEFT_KEY in line:
+                    usb_left_disk = disk
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = disk
+                elif USB_C_KEY in line:
+                    usb_c_disk = disk
+
+            # -------- step 2: 從 /run/media 找 partition --------
+            media_parts = []
+            for line in response.splitlines():
+                if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
+                    media_parts = line.split()
+                    break
+
+            def find_mount(disk: str | None) -> str | None:
+                if not disk:
+                    return None
+                for part in media_parts:
+                    if part.startswith(disk):
+                        return f"/run/media/{part}"
+                return None
+
+            self.usb1_path = find_mount(usb_left_disk)
+            self.usb2_path = find_mount(usb_right_disk)
+            self.usb3_path = find_mount(usb_c_disk)
+
+            if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+                return False, "找不到任何 USB mount 路徑"
+
+            return True, (
+                f"Odin USB paths: "
+                f"left={self.usb1_path}, "
+                f"right={self.usb2_path}, "
+                f"typec={self.usb3_path}"
+            )
         """
         Find valid usb path from 'ls -l /run/media'.
         e.g., 
@@ -393,48 +507,52 @@ class DiagnosticService(QObject):
         drwxrwx---  3 root disk 4096 Jan  1  1970 'Main Data Partition-sdb1'
         drwxrwx--- 13 root disk 8192 Jan  1  1970  sda1
         """
-        try:
-            response = self._model.send_command_sync("ls -l /run/media")
-            device_names = []
-            for line in response:
-                line = line.strip()
-                if not line or line.startswith('total'):
-                    continue
-                parts = line.split(None, 8)
-                if len(parts) == 9:
-                    device_name = parts[8].strip("'")
-                    device_names.append(device_name)
+        if self._platform_name.lower() == "athena":
+            try:
+                response = self._model.send_command_sync("ls -l /run/media")
+                device_names = []
+                for line in response:
+                    line = line.strip()
+                    if not line or line.startswith('total'):
+                        continue
+                    parts = line.split(None, 8)
+                    if len(parts) == 9:
+                        device_name = parts[8].strip("'")
+                        device_names.append(device_name)
 
-            # Prioritize assignment based on 'sda1' and 'sdb1'
-            unassigned_names = []
-            for name in device_names:
-                if 'sda1' in name and self.usb1_path is None:
-                    self.usb1_path = f"/run/media/{name}"
-                    file_path = f"{self.usb1_path}/dqa_package"
-                    response = self._model.send_command_sync(f"ls {file_path}")
-                    for line in response:
-                        if "TouchTestQt64" in line and self.touch_qt_path is None:
-                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                elif 'sdb1' in name and self.usb2_path is None:
-                    self.usb2_path = f"/run/media/{name}"
-                    file_path = f"{self.usb2_path}/dqa_package"
-                    response = self._model.send_command_sync(f"ls {file_path}")
-                    for line in response:
-                        if "TouchTestQt64" in line and self.touch_qt_path is None:
-                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                elif 'sdb2' in name and self.usb3_path is None:
-                    self.usb3_path = f"/run/media/{name}"
-                    file_path = f"{self.usb3_path}/dqa_package"
-                    response = self._model.send_command_sync(f"ls {file_path}")
-                    for line in response:
-                        if "TouchTestQt64" in line and self.touch_qt_path is None:
-                            self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                else:
-                    logger.debug(f"Ignored device: {name}")
-            
-        except Exception as e:
-            logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
-            return False, f"Find valid usb path error: {str(e)}"
+                # Prioritize assignment based on 'sda1' and 'sdb1'
+                unassigned_names = []
+                for name in device_names:
+                    if 'sda1' in name and self.usb1_path is None:
+                        self.usb1_path = f"/run/media/{name}"
+                        file_path = f"{self.usb1_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
+                    elif 'sdb1' in name and self.usb2_path is None:
+                        self.usb2_path = f"/run/media/{name}"
+                        file_path = f"{self.usb2_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
+                    elif 'sdb2' in name and self.usb3_path is None:
+                        self.usb3_path = f"/run/media/{name}"
+                        file_path = f"{self.usb3_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
+                    else:
+                        logger.debug(f"Ignored device: {name}")
+                
+            except Exception as e:
+                logger.error(f"Find valid usb path error: {str(e)}", exc_info=True)
+                return False, f"Find valid usb path error: {str(e)}"
 
     def _find_original_eeprom_data(self):
         """
