@@ -1,11 +1,11 @@
 {
-  "cpu_info": [
+  "main_processor": [
     "lscpu"
   ],
-  "memory_info": [
+  "memory": [
     "free -h | grep 'Mem:'"
   ],
-  "disk_usage": [
+  "storage": [
     "fdisk -l /dev/mmcblk0"
   ],
   "kernel_version": [
@@ -17,25 +17,25 @@
   "uboot_version": [
     "strings /dev/mtd5 | grep -E 'U-Boot [0-9]{4}\\.'"
   ],
-  "charging_voltage": [
+  "charging_voltage_spec_12.6V": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x15 r2"
   ],
-  "charging_current": [
+  "charging_current_spec_1.7A": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x14 r2"
   ],
-  "design_voltage": [
+  "normal_voltage_spec_10.8V": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x19 r2"
   ],
-  "design_capacity": [
+  "typical_capacity_spec_3250mAh": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2"
   ],
-  "battery_serial": [
+  "battery_S/N": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x1c r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x1c r2"
   ],
   "battery_model": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9"
   ],
-  "pic_firmware": [
+  "pic_version": [
     "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1;i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
   ]
 }

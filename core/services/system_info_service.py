@@ -83,7 +83,7 @@ class SystemInfoService(QObject):
         cpu_count = None
         max_mhz_raw = None
         
-        if key == "cpu_info" and "odin" in self.platform_name.lower():
+        if key == "main_processor" and "odin" in self.platform_name.lower():
             model = response[1]
             frequency = int(response[2])
             processor = response[3]
@@ -95,7 +95,7 @@ class SystemInfoService(QObject):
 
         for line in response:
             line.strip()
-            if key == "cpu_info":
+            if key == "main_processor":
                 cpu_model = "Unknown"
                 if "athena" in self.platform_name.lower() and ":" in line:
                     result = line.split(":", 1)
@@ -108,7 +108,7 @@ class SystemInfoService(QObject):
                 if model and cpu_count and max_mhz_raw:
                     cpu_model = f"{model} @ {max_mhz_raw} GHz ({cpu_count} cores)"
                     self.info_updated.emit(key, cpu_model)
-            elif key == "memory_info":
+            elif key == "memory":
                 memo = "Unknown"
                 if 'Mem:' in line:
                     parts = line.split()
@@ -131,7 +131,7 @@ class SystemInfoService(QObject):
                         self.info_updated.emit(key, f"Error: {line}")
 
 
-            elif key == "disk_usage":
+            elif key == "storage":
                 disk = "Unknown"
                 if self.platform_name == "Athena" and "Disk /dev/mmcblk0:" in line:
                     disk = line.split(',')[0].split(':')[1].strip()
@@ -188,29 +188,29 @@ class SystemInfoService(QObject):
                     if isinstance(hex_value, int) and hex_value == 0xFFFF:
                         self.info_updated.emit(key, "No Battery Detected")
                         return
-                    if key == "charging_voltage":
+                    if "charging_voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
-                    elif key == "charging_current":
+                    elif "charging_current" in key:
                         current = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{current} A")
-                    elif key == "design_voltage":
+                    elif "normal_voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
-                    elif key == "design_capacity":
+                    elif "typical_capacity" in key:
                         capacity = hex_value
                         self.info_updated.emit(key, f"{capacity} mAh")
-                    elif key == "battery_serial":
+                    elif "battery_S/N" in key:
                         serial = hex_value
                         self.info_updated.emit(key, f"{hex_value}")
-                    elif key == "battery_model" and len(line_hex) >= 4:
+                    elif "battery_model" in key and len(line_hex) >= 4:
                         model = ""
                         for idx in range(1, len(line_hex)):
                             char_code = int(f"0x{line_hex[idx]}", 16)
                             if 32 <= char_code <= 126:
                                 model += chr(char_code)
                         self.info_updated.emit(key, model)
-                    elif key == "pic_firmware":
+                    elif "pic_version" in key:
                         firmware = hex_value
                         self.info_updated.emit(key, f"v{firmware}")
 
