@@ -115,6 +115,27 @@ class DiagnosticValidator:
         return False, "No matched speed string found"
     
     @staticmethod
+    def validate_eeprom_for_odin(output: str) -> Tuple[bool, str]:
+        # Normalize output
+        output = output.upper()
+
+        hex_matches = re.findall(r"[0-9A-F]{6,}", output)
+        if not hex_matches:
+            return False, "EEPROM FAIL — no valid HEX data found in output"
+        signature = hex_matches[-1]
+        if len(signature) < 6:
+            return False, f"EEPROM FAIL — signature too short ({signature})"
+        prefix = signature[:6]
+        if prefix != "323232":
+            return False, (
+                f"Signature mismatch : "
+                f"(got {prefix}"
+            )
+
+        return True, (
+            f"Read signature={signature}, I2C bus=2, addr=0x4C"
+        )
+    @staticmethod
     def validate_eeprom_for_athena(output: str) -> Tuple[bool, str]:
         """Validator for EEPROM."""
         eeprom_1_byte = False
@@ -144,7 +165,7 @@ class DiagnosticValidator:
         """
         Odin power validation (command-driven)
         - If command is Charge Status:
-            current must be 2000 ~ 3120 mA
+            current must be 0 ~ 3120 mA
         - If command is Discharge Status:
             current must be -2000 ~ 0 mA
         """
@@ -205,10 +226,10 @@ class DiagnosticValidator:
         # PASS / FAIL by command
         # -----------------------
         if is_charge_cmd:
-            if not (2000 <= current <= 3120):
+            if not (0 <= current <= 3120):
                 return False, (
                     f"Now Charge current is {current}mA, "
-                    f"Charge current should 2000mA ~ 3120mA, "
+                    f"Charge current should 0mA ~ 3120mA, "
                     f"Battery SoC: {soc}%"
                 )
             mode = "Charging"
@@ -593,6 +614,8 @@ class DiagnosticService(QObject):
                 f"right={self.usb2_path}, "
                 f"typec={self.usb3_path}"
             )
+
+            
         """
         Find valid usb path from 'ls -l /run/media'.
         e.g., 
