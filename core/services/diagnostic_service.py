@@ -142,9 +142,11 @@ class DiagnosticValidator:
     @staticmethod
     def validate_charge_discharge_odin(output: str) -> Tuple[bool, str]:
         """
-        Odin power validation:
-        - PASS/FAIL is decided ONLY by current value
-        - Mode is displayed based on status value
+        Odin power validation (command-driven)
+        - If command is Charge Status:
+            current must be 2000 ~ 3120 mA
+        - If command is Discharge Status:
+            current must be -2000 ~ 0 mA
         """
 
         responses = output.split("\n")
@@ -153,9 +155,27 @@ class DiagnosticValidator:
         soc = None
         current = None
 
+        is_charge_cmd = False
+        is_discharge_cmd = False
+
         CHARGE_STATUS = 128      # 0x00 0x80
         DISCHARGE_STATUS = 192   # 0x00 0xC0
 
+        # -----------------------
+        # Detect command intent
+        # -----------------------
+        for line in responses:
+            if "Charge Status" in line:
+                is_charge_cmd = True
+            elif "Discharge Status" in line:
+                is_discharge_cmd = True
+
+        # Safety check
+        if is_charge_cmd and is_discharge_cmd:
+            return False, "Both Charge and Discharge commands detected"
+
+        if not is_charge_cmd and not is_discharge_cmd:
+            return False, "No Charge/Discharge command detected"
         # -----------------------
         # Parse values
         # -----------------------
@@ -165,7 +185,7 @@ class DiagnosticValidator:
             if not isinstance(value, int):
                 continue
 
-            # Status (for display only)
+            # Status (display only)
             if value in (CHARGE_STATUS, DISCHARGE_STATUS):
                 status = value
                 continue
@@ -181,34 +201,29 @@ class DiagnosticValidator:
 
         if current is None:
             return False, "Current value not found"
-
         # -----------------------
-        # Decide PASS / FAIL by current ONLY
+        # PASS / FAIL by command
         # -----------------------
-        pass_condition = (
-            (2000 <= current <= 3120) or
-            (-2000 <= current <= 0)
-        )
-
-        # -----------------------
-        # Mode display (no effect on PASS/FAIL)
-        # -----------------------
-        if status == CHARGE_STATUS:
+        if is_charge_cmd:
+            if not (2000 <= current <= 3120):
+                return False, (
+                    f"Now Charge current is {current}mA, "
+                    f"Charge current should 2000mA ~ 3120mA, "
+                    f"Battery SoC: {soc}%"
+                )
             mode = "Charging"
-        elif status == DISCHARGE_STATUS:
-            mode = "Discharging"
-        else:
-            mode = "Unknown"
 
-        if not pass_condition:
-            return False, (
-                f"Mode: {mode}, "
-                f"Battery SoC: {soc}%, "
-                f"Current: {current}mA"
-            )
+        else:  # Discharge command
+            if not (-2000 <= current <= 0):
+                return False, (
+                    f"Now Current is {current}mA, "
+                    f"Discharge current should -2000mA ~ 0A, "
+                    f"Battery SoC: {soc}%"
+
+                )
+            mode = "Discharging"
 
         return True, (
-            f"Mode: {mode}, "
             f"Battery SoC: {soc}%, "
             f"Current: {current}mA"
         )
