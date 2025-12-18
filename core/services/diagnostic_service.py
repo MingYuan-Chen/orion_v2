@@ -100,7 +100,7 @@ class DiagnosticValidator:
             elif key == "diagnostic_USB-C_R/W":
                 read_speed_threshold = 45
                 write_speed_threshold = 100
-            elif key == "diagnostic_emmc_read_write":
+            elif key == "diagnostic_eMMc R/W":
                 read_speed_threshold = 50
                 write_speed_threshold = 216
             elif key == "diagnostic_SD_card_R/W":
