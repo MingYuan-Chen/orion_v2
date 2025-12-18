@@ -89,8 +89,32 @@ class DiagnosticValidator:
             return False, "No matched time string found"
     
     @staticmethod
-    def validate_read_write(output: str) -> Tuple[bool, str]:
+    def validate_read_write(output: str, platform_name: str, key: str) -> Tuple[bool, str]:
         """Validator for USB/EMMC read write."""
+        read_speed_threshold = 20
+        write_speed_threshold = 30
+        if platform_name.lower() == "odin":
+            if key == "diagnostic_USB-A_R/W-COM19(LEFT)" or "diagnostic_USB-A_R/W-COM18(RIGHT)":
+                read_speed_threshold = 20
+                write_speed_threshold = 30
+            elif key == "diagnostic_USB-C_R/W":
+                read_speed_threshold = 45
+                write_speed_threshold = 100
+            elif key == "diagnostic_emmc_read_write":
+                read_speed_threshold = 50
+                write_speed_threshold = 216
+            elif key == "diagnostic_SD_card_R/W":
+                read_speed_threshold = 45
+                write_speed_threshold = 100
+                
+        elif platform_name.lower() == "athena":
+            if key == "diagnostic_usb1_read_write" or "diagnostic_usb2_read_write":
+                read_speed_threshold = 20
+                write_speed_threshold = 40
+            elif key == "diagnostic_emmc_read_write":
+                read_speed_threshold = 140
+                write_speed_threshold = 70
+        
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
         while len(matches) > 2: matches.pop(0)
@@ -108,7 +132,7 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            if read_speed > 100 and write_speed > 50:
+            if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
                 return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
@@ -526,6 +550,8 @@ class DiagnosticService(QObject):
                     # For now, pass expected_response as the second arg
                     if validate_func_name == "validate_sync_time":
                         return validator(output, self._platform_name)
+                    elif validate_func_name == "validate_read_write":
+                        return validator(output, self._platform_name, key)
                     else:
                         return validator(output)
                 else:

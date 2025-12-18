@@ -7,7 +7,7 @@
     ],  
     "validate_function": "validate_eeprom_for_odin"
   },
-  "diagnostic_eMMc": {
+  "diagnostic_eMMc R/W": {
     "commands": [
       "dd if=/dev/zero of=/emmc_througtput oflag=direct bs=1MiB count=100",
       "sync",
@@ -68,27 +68,27 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_cpu_name": {
+  "diagnostic_CPU_Name": {
     "commands": ["cat /sys/devices/soc0/soc_id"],
     "expected_response": ["i.MX8MQ"]
   },
-  "diagnostic_cpu_processor": {
+  "diagnostic_CPU_Processor": {
     "commands": ["grep -c ^processor /proc/cpuinfo"],
     "expected_response": ["4"]
   },
-  "diagnostic_emmc_size": {
+  "diagnostic_eMMc_Size": {
     "commands": ["cat /sys/block/mmcblk0/size"],
     "expected_response": ["61120512"]
   },
-  "diagnostic_mac_address": {
+  "diagnostic_MAC_Address": {
     "commands": ["cat /sys/class/net/eth0/address"],
     "expected_response": ["3c:fb:96:77:88:a0"]
   },
-  "diagnostic_memory_size": {
+  "diagnostic_Memory_Size": {
     "commands": ["grep MemTotal /proc/meminfo"],
     "expected_response": ["3074232","3074220"]
   },
-  "diagnostic_pic_version": {
+  "diagnostic_PIC_Version": {
     "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
     "expected_response": ["0x18"]
   },
@@ -116,15 +116,15 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
     "expected_response": ["0x2a 0xc6","0x2a 0x30"]
   },
-  "diagnostic_uboot_version": {
+  "diagnostic_uboot_Version": {
     "commands": ["strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"],
     "expected_response": ["U-Boot SPL 2018.03-VT_ODIN"]
   },
-  "diagnostic_kernel_name": {
+  "diagnostic_Kernel_Name": {
     "commands": ["uname -a"],
     "expected_response": ["Linux odin 4.14.98-VT_ODIN_050_BSP_R3"]
   },
-  "diagnostic_panel_resolution": {
+  "diagnostic_Panel_Resolution": {
     "commands": ["fbset | grep geometry"],
     "expected_response": ["1280 800"]
   },
@@ -136,7 +136,7 @@
     "commands": ["lsusb"],
     "expected_response": ["1286:204e Marvell Semiconductor, Inc."]
   },
-  "diagnostic_audio": {
+  "diagnostic_Audio": {
     "commands": [
       "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
       "amixer -c 0 set PCM 100%",
@@ -146,7 +146,7 @@
       "manual_check_required. [Test Hints]\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_backlight": {
+  "diagnostic_Backlight": {
     "commands": [
       "manual_check_required. [Precondition]\nBacklight Test\nThe following steps:\n1.Adjust backlight from 0 to 7.\n2.Turn off and on backlight power.",
       "/usr/bin/drawfb -p white",
@@ -173,7 +173,7 @@
       "manual_check_required. [Test Hints]\nPlease confirm brightness and backlight power action as expected. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_battery": {
+  "diagnostic_Battery": {
     "commands": [
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
@@ -182,7 +182,7 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x14 r2"
     ]
   },
-  "diagnostic_power_button": { 
+  "diagnostic_Power_Button": { 
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
@@ -243,7 +243,7 @@
     ]
   },
 
-  "diagnostic_touch_9_points": {
+  "diagnostic_Touch_9_Points": {
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service",
@@ -252,7 +252,7 @@
       "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
-  "diagnostic_touch_drag_draw": {
+  "diagnostic_Touch_Drag_Draw": {
     "commands": [
       "ts_test_mt -j 2 -v",
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
