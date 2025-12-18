@@ -1,4 +1,22 @@
 {
+  "diagnostic_Battery_Charge_Test": {
+    "commands": [
+      "manual_check_required. [Precondition]\nCharge Test\nPlease plug in the AC to charge",
+      "echo 'Charge Status' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+    ],
+      "validate_function": "validate_charge_discharge_odin"
+  },
+  "diagnostic_Battery_Discharge_Test": {
+    "commands": [
+      "manual_check_required. [Precondition]\nDischarge Test\nPlease unplug the AC to discharge",
+      "sleep 3 && echo 'Discharge Status' i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+    ],
+      "validate_function": "validate_charge_discharge_odin"
+  },
   "diagnostic_USB-A_R/W-COM19(LEFT)": {
     "commands": [
       "dmesg -n 3",
@@ -152,24 +170,8 @@
       ""
     ]
   },
-  "diagnostic_Battery_Charge_Test": {
-    "commands": [
-      "manual_check_required. [Precondition]\nCharge Test\nPlease plug in the AC to charge",
-      "echo 'Charge Status' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
-      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-      "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
-    ],
-      "validate_function": "validate_battery_charge_discharge"
-  },
-  "diagnostic_Battery_Discharge_Test": {
-    "commands": [
-      "manual_check_required. [Precondition]\nDischarge Test\nPlease unplug the AC to discharge",
-      "echo 'Discharge Status' i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
-      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-      "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
-    ],
-      "validate_function": "validate_battery_charge_discharge"
-  },
+  
+  
   "diagnostic_EEPROM": {
     "commands": [
       "mount -o remount,rw /",

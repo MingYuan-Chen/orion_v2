@@ -140,6 +140,79 @@ class DiagnosticValidator:
         return False, "EEPROM values do not match"
     
     @staticmethod
+    def validate_charge_discharge_odin(output: str) -> Tuple[bool, str]:
+        """
+        Odin power validation:
+        - PASS/FAIL is decided ONLY by current value
+        - Mode is displayed based on status value
+        """
+
+        responses = output.split("\n")
+
+        status = None
+        soc = None
+        current = None
+
+        CHARGE_STATUS = 128      # 0x00 0x80
+        DISCHARGE_STATUS = 192   # 0x00 0xC0
+
+        # -----------------------
+        # Parse values
+        # -----------------------
+        for line in responses:
+            value = DiagnosticValidator._parse_battery_value(line)
+
+            if not isinstance(value, int):
+                continue
+
+            # Status (for display only)
+            if value in (CHARGE_STATUS, DISCHARGE_STATUS):
+                status = value
+                continue
+
+            # Battery SoC
+            if 0 <= value <= 100:
+                soc = value
+                continue
+
+            # Current (signed)
+            if abs(value) >= 100:
+                current = value
+
+        if current is None:
+            return False, "Current value not found"
+
+        # -----------------------
+        # Decide PASS / FAIL by current ONLY
+        # -----------------------
+        pass_condition = (
+            (2000 <= current <= 3120) or
+            (-2000 <= current <= 0)
+        )
+
+        # -----------------------
+        # Mode display (no effect on PASS/FAIL)
+        # -----------------------
+        if status == CHARGE_STATUS:
+            mode = "Charging"
+        elif status == DISCHARGE_STATUS:
+            mode = "Discharging"
+        else:
+            mode = "Unknown"
+
+        if not pass_condition:
+            return False, (
+                f"Mode: {mode}, "
+                f"Battery SoC: {soc}%, "
+                f"Current: {current}mA"
+            )
+
+        return True, (
+            f"Mode: {mode}, "
+            f"Battery SoC: {soc}%, "
+            f"Current: {current}mA"
+        )
+    @staticmethod
     def validate_charge_for_athena(output: str) -> Tuple[bool, str]:
         """Validator for charge."""
         results = []
@@ -165,12 +238,13 @@ class DiagnosticValidator:
     def _parse_battery_value(line) -> Any:
         """
         Parses the raw output based on the key.
-        TODO: Modify this method to implement specific parsing logic for your I2C values.
         """
-        
+
         try:
             if len(line) > 4 and line.startswith('0x'):
                 line_hex = [x.replace('0x', '') for x in line.split() if x.startswith('0x')]
+
+                # Battery model (ASCII)
                 if len(line_hex) >= 4:
                     model = ""
                     for idx in range(1, len(line_hex)):
@@ -178,11 +252,17 @@ class DiagnosticValidator:
                         if 32 <= char_code <= 126:
                             model += chr(char_code)
                     return model
-                else:
-                    combined_hex = "0x" + line_hex[0] + line_hex[1]
-                    hex_value = int(combined_hex, 16)
 
-                    return hex_value
+                # 16-bit value (current / status / SoC)
+                elif len(line_hex) == 2:
+                    raw = int("0x" + line_hex[0] + line_hex[1], 16)
+
+                    # 🔑 Convert to signed 16-bit
+                    if raw >= 0x8000:
+                        raw -= 0x10000
+
+                    return raw
+
             return None
 
         except Exception as e:
