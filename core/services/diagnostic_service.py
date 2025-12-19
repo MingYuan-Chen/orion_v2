@@ -189,7 +189,10 @@ class DiagnosticValidator:
         """
         Odin power validation (command-driven)
         - If command is Charge Status:
-            current must be 0 ~ 3120 mA
+            current must be 0 ~ 3250 mA
+            SoC 0~40% current must be 3000 ~ 3250 mA (Not yet)
+            Soc 41%~80% current must be 1700~ 1600 mA (Not yet)
+            SoC 81%~100% current must be 1650 ~ 0 mA (Not yet)
         - If command is Discharge Status:
             current must be -2000 ~ 0 mA
         """
@@ -250,7 +253,7 @@ class DiagnosticValidator:
         # PASS / FAIL by command
         # -----------------------
         if is_charge_cmd:
-            if not (0 <= current <= 3120):
+            if not (0 <= current <= 3250):
                 return False, (
                     f"Now Charge current is {current}mA, "
                     f"Charge current should 0mA ~ 3120mA, "
