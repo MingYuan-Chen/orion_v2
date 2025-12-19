@@ -44,7 +44,7 @@ class DiagnosticView(QWidget):
         self.table.insertRow(row)
         
         # Module Name
-        display_name = key.replace("diagnostic_", "").replace("_", " ").title()
+        display_name = key.replace("diagnostic_", "").replace("_", " ")
         self.table.setItem(row, 0, QTableWidgetItem(display_name))
         
         # Initialize Result and Message as empty/pending

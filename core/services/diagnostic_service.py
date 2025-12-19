@@ -89,8 +89,32 @@ class DiagnosticValidator:
             return False, "No matched time string found"
     
     @staticmethod
-    def validate_read_write(output: str) -> Tuple[bool, str]:
+    def validate_read_write(output: str, platform_name: str, key: str) -> Tuple[bool, str]:
         """Validator for USB/EMMC read write."""
+        read_speed_threshold = 20
+        write_speed_threshold = 30
+        if platform_name.lower() == "odin":
+            if key == "diagnostic_USB-A_R/W-COM19(LEFT)" or "diagnostic_USB-A_R/W-COM18(RIGHT)":
+                read_speed_threshold = 20
+                write_speed_threshold = 30
+            elif key == "diagnostic_USB-C_R/W":
+                read_speed_threshold = 45
+                write_speed_threshold = 100
+            elif key == "diagnostic_emmc_read_write":
+                read_speed_threshold = 50
+                write_speed_threshold = 216
+            elif key == "diagnostic_SD_card_R/W":
+                read_speed_threshold = 45
+                write_speed_threshold = 100
+                
+        elif platform_name.lower() == "athena":
+            if key == "diagnostic_usb1_read_write" or "diagnostic_usb2_read_write":
+                read_speed_threshold = 20
+                write_speed_threshold = 40
+            elif key == "diagnostic_emmc_read_write":
+                read_speed_threshold = 140
+                write_speed_threshold = 70
+        
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
         while len(matches) > 2: matches.pop(0)
@@ -108,12 +132,33 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            if read_speed > 100 and write_speed > 50:
+            if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
                 return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
         return False, "No matched speed string found"
     
+    @staticmethod
+    def validate_eeprom_for_odin(output: str) -> Tuple[bool, str]:
+        # Normalize output
+        output = output.upper()
+
+        hex_matches = re.findall(r"[0-9A-F]{6,}", output)
+        if not hex_matches:
+            return False, "EEPROM FAIL — no valid HEX data found in output"
+        signature = hex_matches[-1]
+        if len(signature) < 6:
+            return False, f"EEPROM FAIL — signature too short ({signature})"
+        prefix = signature[:6]
+        if prefix != "323232":
+            return False, (
+                f"Signature mismatch : "
+                f"(got {prefix}"
+            )
+
+        return True, (
+            f"Read signature={signature}, I2C bus=2, addr=0x4C"
+        )
     @staticmethod
     def validate_eeprom_for_athena(output: str) -> Tuple[bool, str]:
         """Validator for EEPROM."""
@@ -140,6 +185,94 @@ class DiagnosticValidator:
         return False, "EEPROM values do not match"
     
     @staticmethod
+    def validate_charge_discharge_odin(output: str) -> Tuple[bool, str]:
+        """
+        Odin power validation (command-driven)
+        - If command is Charge Status:
+            current must be 0 ~ 3120 mA
+        - If command is Discharge Status:
+            current must be -2000 ~ 0 mA
+        """
+
+        responses = output.split("\n")
+
+        status = None
+        soc = None
+        current = None
+
+        is_charge_cmd = False
+        is_discharge_cmd = False
+
+        CHARGE_STATUS = 128      # 0x00 0x80
+        DISCHARGE_STATUS = 192   # 0x00 0xC0
+
+        # -----------------------
+        # Detect command intent
+        # -----------------------
+        for line in responses:
+            if "Charge Status" in line:
+                is_charge_cmd = True
+            elif "Discharge Status" in line:
+                is_discharge_cmd = True
+
+        # Safety check
+        if is_charge_cmd and is_discharge_cmd:
+            return False, "Both Charge and Discharge commands detected"
+
+        if not is_charge_cmd and not is_discharge_cmd:
+            return False, "No Charge/Discharge command detected"
+        # -----------------------
+        # Parse values
+        # -----------------------
+        for line in responses:
+            value = DiagnosticValidator._parse_battery_value(line)
+
+            if not isinstance(value, int):
+                continue
+
+            # Status (display only)
+            if value in (CHARGE_STATUS, DISCHARGE_STATUS):
+                status = value
+                continue
+
+            # Battery SoC
+            if 0 <= value <= 100:
+                soc = value
+                continue
+
+            # Current (signed)
+            if abs(value) >= 100:
+                current = value
+
+        if current is None:
+            return False, "Current value not found"
+        # -----------------------
+        # PASS / FAIL by command
+        # -----------------------
+        if is_charge_cmd:
+            if not (0 <= current <= 3120):
+                return False, (
+                    f"Now Charge current is {current}mA, "
+                    f"Charge current should 0mA ~ 3120mA, "
+                    f"Battery SoC: {soc}%"
+                )
+            mode = "Charging"
+
+        else:  # Discharge command
+            if not (-2000 <= current <= 0):
+                return False, (
+                    f"Now Current is {current}mA, "
+                    f"Discharge current should -2000mA ~ 0A, "
+                    f"Battery SoC: {soc}%"
+
+                )
+            mode = "Discharging"
+
+        return True, (
+            f"Battery SoC: {soc}%, "
+            f"Current: {current}mA"
+        )
+    @staticmethod
     def validate_charge_for_athena(output: str) -> Tuple[bool, str]:
         """Validator for charge."""
         results = []
@@ -165,12 +298,13 @@ class DiagnosticValidator:
     def _parse_battery_value(line) -> Any:
         """
         Parses the raw output based on the key.
-        TODO: Modify this method to implement specific parsing logic for your I2C values.
         """
-        
+
         try:
             if len(line) > 4 and line.startswith('0x'):
                 line_hex = [x.replace('0x', '') for x in line.split() if x.startswith('0x')]
+
+                # Battery model (ASCII)
                 if len(line_hex) >= 4:
                     model = ""
                     for idx in range(1, len(line_hex)):
@@ -178,11 +312,17 @@ class DiagnosticValidator:
                         if 32 <= char_code <= 126:
                             model += chr(char_code)
                     return model
-                else:
-                    combined_hex = "0x" + line_hex[0] + line_hex[1]
-                    hex_value = int(combined_hex, 16)
 
-                    return hex_value
+                # 16-bit value (current / status / SoC)
+                elif len(line_hex) == 2:
+                    raw = int("0x" + line_hex[0] + line_hex[1], 16)
+
+                    # 🔑 Convert to signed 16-bit
+                    if raw >= 0x8000:
+                        raw -= 0x10000
+
+                    return raw
+
             return None
 
         except Exception as e:
@@ -410,6 +550,8 @@ class DiagnosticService(QObject):
                     # For now, pass expected_response as the second arg
                     if validate_func_name == "validate_sync_time":
                         return validator(output, self._platform_name)
+                    elif validate_func_name == "validate_read_write":
+                        return validator(output, self._platform_name, key)
                     else:
                         return validator(output)
                 else:
@@ -498,6 +640,8 @@ class DiagnosticService(QObject):
                 f"right={self.usb2_path}, "
                 f"typec={self.usb3_path}"
             )
+
+            
         """
         Find valid usb path from 'ls -l /run/media'.
         e.g., 

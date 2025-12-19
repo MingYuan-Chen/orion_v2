@@ -52,20 +52,8 @@ class SystemInfoView(QWidget):
 
         for i, key in enumerate(commands):
             # Title Label (e.g., "Kernel Version")
-            
-            title = key.replace("_", " ").title()
-            if key == "os_version":
-                title = "OS Version"
-            elif key == "typical_capacity_spec_3250mAh":
-                title = "Typical Capacity (Spec 3250mAh)"
-            elif key == "normal_voltage_spec_10.8V":
-                title = "Normal Voltage (Spec 10.8V)"
-            elif key == "charging_current_spec_1.7A":
-                title = "Charging Current (Spec 1.7A)"
-            elif key == "charging_voltage_spec_12.6V":
-                title = "Charging Voltage (Spec 12.6V)"
 
-            title_label = QLabel(title)
+            title_label = QLabel(key.replace("_", " "))
             title_label.setFont(font_bold)
             title_label.setStyleSheet("color: #F5F5F5; padding-top: 5px;")
             

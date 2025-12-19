@@ -1,4 +1,40 @@
 {
+  "diagnostic_EEPROM": {
+    "commands": [
+      "i2cdetect -y 2",
+      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16",
+      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16 | hexdump -v -e '16/1 \"%02X\"'"
+    ],  
+    "validate_function": "validate_eeprom_for_odin"
+  },
+  "diagnostic_eMMc R/W": {
+    "commands": [
+      "dd if=/dev/zero of=/emmc_througtput oflag=direct bs=1MiB count=100",
+      "sync",
+      "echo 3 > /proc/sys/vm/drop_caches",
+      "dd if=/emmc_througtput of=/dev/null iflag=direct bs=1MiB count=100",
+      "mount -o remount,rw /"
+    ],
+    "validate_function": "validate_read_write"
+  },
+  "diagnostic_Battery_Charge_Test": {
+    "commands": [
+      "manual_check_required. [Precondition]\nCharge Test\nPlease plug in the AC to charge",
+      "echo 'Charge Status'",
+      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+    ],
+      "validate_function": "validate_charge_discharge_odin"
+  },
+  "diagnostic_Battery_Discharge_Test": {
+    "commands": [
+      "manual_check_required. [Precondition]\nDischarge Test\nPlease unplug the AC to discharge",
+      "echo 'Discharge Status'",
+      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
+      "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
+    ],
+      "validate_function": "validate_charge_discharge_odin"
+  },
   "diagnostic_USB-A_R/W-COM19(LEFT)": {
     "commands": [
       "dmesg -n 3",
@@ -32,27 +68,27 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_cpu_name": {
+  "diagnostic_CPU_Name": {
     "commands": ["cat /sys/devices/soc0/soc_id"],
     "expected_response": ["i.MX8MQ"]
   },
-  "diagnostic_cpu_processor": {
+  "diagnostic_CPU_Processor": {
     "commands": ["grep -c ^processor /proc/cpuinfo"],
     "expected_response": ["4"]
   },
-  "diagnostic_emmc_size": {
+  "diagnostic_eMMc_Size": {
     "commands": ["cat /sys/block/mmcblk0/size"],
     "expected_response": ["61120512"]
   },
-  "diagnostic_mac_address": {
+  "diagnostic_MAC_Address": {
     "commands": ["cat /sys/class/net/eth0/address"],
     "expected_response": ["3c:fb:96:77:88:a0"]
   },
-  "diagnostic_memory_size": {
+  "diagnostic_Memory_Size": {
     "commands": ["grep MemTotal /proc/meminfo"],
     "expected_response": ["3074232","3074220"]
   },
-  "diagnostic_pic_version": {
+  "diagnostic_PIC_Version": {
     "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
     "expected_response": ["0x18"]
   },
@@ -80,15 +116,15 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
     "expected_response": ["0x2a 0xc6","0x2a 0x30"]
   },
-  "diagnostic_uboot_version": {
+  "diagnostic_uboot_Version": {
     "commands": ["strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"],
     "expected_response": ["U-Boot SPL 2018.03-VT_ODIN"]
   },
-  "diagnostic_kernel_name": {
+  "diagnostic_Kernel_Name": {
     "commands": ["uname -a"],
     "expected_response": ["Linux odin 4.14.98-VT_ODIN_050_BSP_R3"]
   },
-  "diagnostic_panel_resolution": {
+  "diagnostic_Panel_Resolution": {
     "commands": ["fbset | grep geometry"],
     "expected_response": ["1280 800"]
   },
@@ -100,7 +136,7 @@
     "commands": ["lsusb"],
     "expected_response": ["1286:204e Marvell Semiconductor, Inc."]
   },
-  "diagnostic_audio": {
+  "diagnostic_Audio": {
     "commands": [
       "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
       "amixer -c 0 set PCM 100%",
@@ -110,9 +146,11 @@
       "manual_check_required. [Test Hints]\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_backlight": {
+  "diagnostic_Backlight": {
     "commands": [
-      "manual_check_required. [Precondition]\nBacklight\nThe following steps:\n1.Adjust backlight from 0 to 7.\n2.Turn off and on backlight power.",
+      "manual_check_required. [Precondition]\nBacklight Test\nThe following steps:\n1.Adjust backlight from 0 to 7.\n2.Turn off and on backlight power.",
+      "/usr/bin/drawfb -p white",
+      "sleep_required 1",
       "echo 0 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
       "echo 1 > /sys/class/backlight/backlight/brightness",
@@ -135,7 +173,7 @@
       "manual_check_required. [Test Hints]\nPlease confirm brightness and backlight power action as expected. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_battery": {
+  "diagnostic_Battery": {
     "commands": [
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
@@ -144,7 +182,7 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x14 r2"
     ]
   },
-  "diagnostic_power_button": { 
+  "diagnostic_Power_Button": { 
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
@@ -152,47 +190,13 @@
       ""
     ]
   },
-  "diagnostic_Battery_Charge_Test": {
-    "commands": [
-      "manual_check_required. [Precondition]\nCharge Test\nPlease plug in the AC to charge",
-      "echo 'Charge Status' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
-      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-      "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
-    ],
-      "validate_function": "validate_battery_charge_discharge"
-  },
-  "diagnostic_Battery_Discharge_Test": {
-    "commands": [
-      "manual_check_required. [Precondition]\nDischarge Test\nPlease unplug the AC to discharge",
-      "echo 'Discharge Status' i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
-      "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-      "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
-    ],
-      "validate_function": "validate_battery_charge_discharge"
-  },
-  "diagnostic_EEPROM": {
-    "commands": [
-      "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "/dqa_package/odin_eeprom_check.sh"
-    ],  
-    "expected_response": ["copied", "copied", "", "", "", "eeprog", "eeprog", "", "", "", "", "", "", "", "", "", ""]
-  },
-  "diagnostic_eMMc": {
-    "commands": [
-      "dd if=/dev/zero of=/emmc_througtput oflag=direct bs=1MiB count=100",
-      "sync",
-      "echo 3 > /proc/sys/vm/drop_caches",
-      "dd if=/emmc_througtput of=/dev/null iflag=direct bs=1MiB count=100",
-      "mount -o remount,rw /"
-    ]
-  },
+
   "diagnostic_LCD": {
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
-      "sync && sleep 3",
-      "manual_check_required. [Precondition - LCD Test]\n1.switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
+      "manual_check_required. [Precondition] LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
+      "sync && sleep 2",
       "/usr/bin/drawfb -p red",
       "sleep_required 1",
       "/usr/bin/drawfb -p green",
@@ -221,7 +225,7 @@
   },
   "diagnostic_LED": {
     "commands": [
-      "manual_check_required. [Precondition]\nFollowing process will switch LED color to blue, green, red, blink blue, blink green, blink red.",
+      "manual_check_required. [Precondition] - LED Test\nFollowing process will switch LED color to blue, green, red, blink blue, blink green, blink red.",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x01 r2",
       "sleep_required 5",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x02 r2",
@@ -239,18 +243,19 @@
     ]
   },
 
-  "diagnostic_touch": {
+  "diagnostic_Touch_9_Points": {
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value && sleep 3",
-      "mount /dev/sda1 /run/media/sda1",
-      "/dqa_package/TouchTestQt64 -platform eglfs",
-      "",
+      "TouchTestQt64 -platform eglfs",
       "systemctl restart weston & systemctl start odin-production.service",
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_Touch_Drag_Draw": {
+    "commands": [
       "ts_test_mt -j 2 -v",
-      "", 
-      ""
+      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
 
@@ -274,58 +279,5 @@
       "rm -f /run/media/sdcard/sd_throughput"
     ],
     "validate_function": "validate_read_write"
-  },
-  "diagnostic_CPU_name": {
-    "commands": ["cat /sys/devices/soc0/soc_id"],
-    "expected_response": ["i.MX8MQ"]
-  },
-  "diagnostic_wifi_module": {
-    "commands": ["lspci"],
-    "expected_response": ["Marvell"]
-  },
-  "diagnostic_bt_module": {
-    "commands": ["lsusb"],
-    "expected_response": ["1286:204e"]
-  },
-  "diagnostic_set_get_rtc_time": {
-    "commands": ["date -s '2024-02-28 23:59:59'", "hwclock -w", "hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 UTC 2024", "", "Thu Feb 29"]
-  },
-  "diagnostic_sync_time": {
-    "commands": [
-        "ntpdate -u 192.168.6.11"
-      ],
-    "expected_response": ["Syns Time = PASS"]
-  },
-  "diagnostic_design_capacity": {
-    "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
-    "expected_response": ["0x1a 0x90"]
-  },
-  "diagnostic_design_voltage": {
-    "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
-    "expected_response": ["0x2a 0xc6"]
-  },
-  "diagnostic_usb": {
-    "commands": [
-      "dmesg -n 3",
-      "",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
-      "mount -o remount,rw /",
-      "for dev in /dev/sd?; do echo $dev; udevadm info -q path -n $dev; done && ls /run/media",
-      "dd if=/dev/zero of={usb1_path}/usb_throughput bs=1M count=200 status=progress",
-      "dd if={usb1_path}/usb_throughput of=/dev/null bs=1M",
-      "dd if=/dev/zero of={usb2_path}/usb_throughput bs=1M count=200 status=progress",
-      "dd if={usb2_path}/usb_throughput of=/dev/null bs=1M",
-      "dd if=/dev/zero of={usb3_path}/usb_throughput bs=1M count=200 status=progress",
-      "dd if={usb3_path}/usb_throughput of=/dev/null bs=1M",
-      "rm -f {usb1_path}/usb_throughput",
-      "rm -f {usb2_path}/usb_throughput",
-      "rm -f {usb3_path}/usb_throughput"
-    ],
-    "expected_response": ["0x2a 0xc6"]
   }
-
-
-
 }
