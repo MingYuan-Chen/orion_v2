@@ -4,10 +4,10 @@
       "i2cdetect -y 2",
       "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16",
       "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16 | hexdump -v -e '16/1 \"%02X\"'"
-    ],  
+    ],
     "validate_function": "validate_eeprom_for_odin"
   },
-  "diagnostic_eMMc R/W": {
+  "diagnostic_eMMc_R/W": {
     "commands": [
       "dd if=/dev/zero of=/emmc_througtput oflag=direct bs=1MiB count=100",
       "sync",
@@ -24,7 +24,7 @@
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
     ],
-      "validate_function": "validate_charge_discharge_odin"
+    "validate_function": "validate_charge_discharge_odin"
   },
   "diagnostic_Battery_Discharge_Test": {
     "commands": [
@@ -33,7 +33,7 @@
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
     ],
-      "validate_function": "validate_charge_discharge_odin"
+    "validate_function": "validate_charge_discharge_odin"
   },
   "diagnostic_USB-A_R/W-COM19(LEFT)": {
     "commands": [
@@ -69,72 +69,131 @@
     "validate_function": "validate_read_write"
   },
   "diagnostic_CPU_Name": {
-    "commands": ["cat /sys/devices/soc0/soc_id"],
-    "expected_response": ["i.MX8MQ"]
+    "commands": [
+      "cat /sys/devices/soc0/soc_id"
+    ],
+    "expected_response": [
+      "i.MX8MQ"
+    ]
   },
   "diagnostic_CPU_Processor": {
-    "commands": ["grep -c ^processor /proc/cpuinfo"],
-    "expected_response": ["4"]
+    "commands": [
+      "grep -c ^processor /proc/cpuinfo"
+    ],
+    "expected_response": [
+      "4"
+    ]
   },
   "diagnostic_eMMc_Size": {
-    "commands": ["cat /sys/block/mmcblk0/size"],
-    "expected_response": ["61120512"]
+    "commands": [
+      "cat /sys/block/mmcblk0/size"
+    ],
+    "expected_response": [
+      "61120512"
+    ]
   },
   "diagnostic_MAC_Address": {
-    "commands": ["cat /sys/class/net/eth0/address"],
-    "expected_response": ["3c:fb:96:77:88:a0"]
+    "commands": [
+      "cat /sys/class/net/eth0/address"
+    ],
+    "expected_response": [
+      "3c:fb:96:77:88:a0"
+    ]
   },
   "diagnostic_Memory_Size": {
-    "commands": ["grep MemTotal /proc/meminfo"],
-    "expected_response": ["3074232","3074220"]
+    "commands": [
+      "grep MemTotal /proc/meminfo"
+    ],
+    "expected_response": [
+      "3074232",
+      "3074220"
+    ]
   },
   "diagnostic_PIC_Version": {
-    "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"],
-    "expected_response": ["0x18"]
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    ],
+    "expected_response": [
+      "0x18"
+    ]
   },
   "diagnostic_System/RTC_Time": {
-    "commands": ["date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"],
-    "expected_response": ["Wed Feb 28 23:59:59 2024"]
+    "commands": [
+      "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
+    ],
+    "expected_response": [
+      "Wed Feb 28 23:59:59 2024"
+    ]
   },
   "diagnostic_NTP_Sync_Time": {
     "commands": [
-        "mount -o remount,rw /",
-        "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-        "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync", 
-        "date; hwclock -r",
-        "ntpdate -u 192.168.6.11",
-        "date; hwclock -w; hwclock -r"
-      ],
+      "mount -o remount,rw /",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
+      "date; hwclock -r",
+      "ntpdate -u 192.168.6.11",
+      "date; hwclock -w; hwclock -r"
+    ],
     "validate_function": "validate_sync_time"
   },
   "diagnostic_Battery_Design_Capacity": {
-    "commands": ["i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"],
-    "expected_response": ["0x1a 0x90","0x19 0x00"]
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+    ],
+    "expected_response": [
+      "0x1a 0x90",
+      "0x19 0x00"
+    ]
   },
   "diagnostic_Battery_Design_Voltage": {
     "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2", "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"],
-    "expected_response": ["0x2a 0xc6","0x2a 0x30"]
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+    ],
+    "expected_response": [
+      "0x2a 0xc6",
+      "0x2a 0x30"
+    ]
   },
   "diagnostic_uboot_Version": {
-    "commands": ["strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"],
-    "expected_response": ["U-Boot SPL 2018.03-VT_ODIN"]
+    "commands": [
+      "strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"
+    ],
+    "expected_response": [
+      "U-Boot SPL 2018.03-VT_ODIN"
+    ]
   },
   "diagnostic_Kernel_Name": {
-    "commands": ["uname -a"],
-    "expected_response": ["Linux odin 4.14.98-VT_ODIN_050_BSP_R3"]
+    "commands": [
+      "uname -a"
+    ],
+    "expected_response": [
+      "Linux odin 4.14.98-VT_ODIN_050_BSP_R3"
+    ]
   },
   "diagnostic_Panel_Resolution": {
-    "commands": ["fbset | grep geometry"],
-    "expected_response": ["1280 800"]
+    "commands": [
+      "fbset | grep geometry"
+    ],
+    "expected_response": [
+      "1280 800"
+    ]
   },
   "diagnostic_Wi-Fi Module": {
-    "commands": ["lspci"],
-    "expected_response": ["Marvell Technology Group Ltd. Device 2b42 (rev 11)"]
+    "commands": [
+      "lspci"
+    ],
+    "expected_response": [
+      "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
+    ]
   },
   "diagnostic_Bluetooth Module": {
-    "commands": ["lsusb"],
-    "expected_response": ["1286:204e Marvell Semiconductor, Inc."]
+    "commands": [
+      "lsusb"
+    ],
+    "expected_response": [
+      "1286:204e Marvell Semiconductor, Inc."
+    ]
   },
   "diagnostic_Audio": {
     "commands": [
@@ -182,7 +241,7 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x14 r2"
     ]
   },
-  "diagnostic_Power_Button": { 
+  "diagnostic_Power_Button": {
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
@@ -190,7 +249,6 @@
       ""
     ]
   },
-
   "diagnostic_LCD": {
     "commands": [
       "mount -o remount,rw /",
@@ -242,7 +300,6 @@
       "manual_check_required. [Test Hints]\nPlease confirm LED color as expected. \nClick Pass/Fail to proceed."
     ]
   },
-
   "diagnostic_Touch_9_Points": {
     "commands": [
       "mount -o remount,rw /",
@@ -258,7 +315,6 @@
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
-
   "diagnostic_Probe": {
     "commands": [
       "mount -o remount,rw /",
