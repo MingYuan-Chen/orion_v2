@@ -95,7 +95,7 @@ class SystemInfoService(QObject):
 
         for line in response:
             line.strip()
-            if key == "main_processor":
+            if "Main_Processor" in key:
                 cpu_model = "Unknown"
                 if "athena" in self.platform_name.lower() and ":" in line:
                     result = line.split(":", 1)
@@ -108,7 +108,7 @@ class SystemInfoService(QObject):
                 if model and cpu_count and max_mhz_raw:
                     cpu_model = f"{model} @ {max_mhz_raw} GHz ({cpu_count} cores)"
                     self.info_updated.emit(key, cpu_model)
-            elif key == "memory":
+            elif "Memory" in key:
                 memo = "Unknown"
                 if 'Mem:' in line:
                     parts = line.split()
@@ -131,7 +131,7 @@ class SystemInfoService(QObject):
                         self.info_updated.emit(key, f"Error: {line}")
 
 
-            elif key == "storage":
+            elif "Storage" in key:
                 disk = "Unknown"
                 if self.platform_name == "Athena" and "Disk /dev/mmcblk0:" in line:
                     disk = line.split(',')[0].split(':')[1].strip()
@@ -152,19 +152,19 @@ class SystemInfoService(QObject):
                         dist = f"Total: {total_string} | Available: {disk} GiB"
                         self.info_updated.emit(key, dist)
             
-            elif key == "kernel_version":
+            elif "Kernel_Version" in key:
                 kernel = "Unknown"
                 if 'Linux' in line:
                     kernel = line
                     self.info_updated.emit(key, kernel)
             
-            elif key == "os_version":
+            elif "OS_Version" in key:
                 os = "Unknown"
                 if 'PRETTY_NAME=' in line:
                     os = line.split('=')[1].strip('"')
                     self.info_updated.emit(key, os)
             
-            elif key == "uboot_version":
+            elif "UBoot_Version" in key:
                 uboot = "Unknown"
                 if 'U-Boot' in line and "athena" in self.platform_name.lower():
                     pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
@@ -188,29 +188,29 @@ class SystemInfoService(QObject):
                     if isinstance(hex_value, int) and hex_value == 0xFFFF:
                         self.info_updated.emit(key, "No Battery Detected")
                         return
-                    if "charging_voltage" in key:
+                    if "Charging_Voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
-                    elif "charging_current" in key:
+                    elif "Charging_Current" in key:
                         current = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{current} A")
-                    elif "normal_voltage" in key:
+                    elif "Normal_Voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
-                    elif "typical_capacity" in key:
+                    elif "Typical_Capacity" in key:
                         capacity = hex_value
                         self.info_updated.emit(key, f"{capacity} mAh")
-                    elif "battery_S/N" in key:
+                    elif "Battery_S/N" in key:
                         serial = hex_value
                         self.info_updated.emit(key, f"{hex_value}")
-                    elif "battery_model" in key and len(line_hex) >= 4:
+                    elif "Battery_Model" in key and len(line_hex) >= 4:
                         model = ""
                         for idx in range(1, len(line_hex)):
                             char_code = int(f"0x{line_hex[idx]}", 16)
                             if 32 <= char_code <= 126:
                                 model += chr(char_code)
                         self.info_updated.emit(key, model)
-                    elif "pic_version" in key:
+                    elif "PIC_Version" in key:
                         firmware = hex_value
                         self.info_updated.emit(key, f"v{firmware}")
 

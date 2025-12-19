@@ -100,7 +100,7 @@ class DiagnosticValidator:
             elif key == "diagnostic_USB-C_R/W":
                 read_speed_threshold = 45
                 write_speed_threshold = 100
-            elif key == "diagnostic_eMMc R/W":
+            elif key == "diagnostic_eMMc_R/W":
                 read_speed_threshold = 50
                 write_speed_threshold = 216
             elif key == "diagnostic_SD_card_R/W":
@@ -108,10 +108,10 @@ class DiagnosticValidator:
                 write_speed_threshold = 100
                 
         elif platform_name.lower() == "athena":
-            if key == "diagnostic_usb1_read_write" or "diagnostic_usb2_read_write":
+            if key == "diagnostic_USB1_R/W" or "diagnostic_USB2_R/W":
                 read_speed_threshold = 20
                 write_speed_threshold = 40
-            elif key == "diagnostic_emmc_read_write":
+            elif key == "diagnostic_eMMc_R/W":
                 read_speed_threshold = 140
                 write_speed_threshold = 70
         
