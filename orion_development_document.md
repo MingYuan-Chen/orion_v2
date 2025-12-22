@@ -83,6 +83,8 @@ Orion 專案採用標準的 **MVVM (Model-View-ViewModel)** 架構設計，以�
 
 `SerialDeviceModel` 內部維護了一個隱式的狀態機來處理複雜的序列埠串流資料：
 
+### 5.1 Command State Diagram
+
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
@@ -105,7 +107,45 @@ stateDiagram-v2
     Timeout --> Processing : Retry/Next
 ```
 
-說明:
+### 5.2 SerialListener Interaction Flowchart
+
+以下流程圖說明了 `SerialListener` (獨立執行緒) 如何持續接收資料，並透過 Signal/Slot 機制與 `SerialDeviceModel` (主執行緒) 互動以判斷指令完成狀態：
+
+```mermaid
+flowchart TD
+    subgraph Listener ["SerialListener Thread"]
+        StartL["Start Loop"] --> CheckData{"Data Available?"}
+        CheckData -- Yes --> Read["Read Line & Decode"]
+        Read --> Clean["Remove ANSI/Control Chars"]
+        Clean --> EmitSig["Emit received/data"]
+        CheckData -- No --> Sleep["Sleep 15ms"]
+        EmitSig --> Sleep
+        Sleep --> CheckData
+    end
+
+    subgraph Model ["SerialDeviceModel (Main Thread)"]
+        EmitSig -.->|Signal| HandleSlot["_handle_incoming_data"]
+        HandleSlot --> NotifyUI["Emit data_received -> UI"]
+        NotifyUI --> CheckProcessing{"is_processing?"}
+        CheckProcessing -- No --> Done
+        CheckProcessing -- Yes --> FilterEcho{"Echo / Prompt?"}
+        FilterEcho -- Yes --> Ignore["Ignore Line"]
+        FilterEcho -- No --> Accumulate["Append to current_response_lines"]
+        Accumulate --> Matched{"Matched Token?"}
+        
+        Matched -- No --> CheckToken{"Contains wait_for?"}
+        CheckToken -- Yes --> SetMatch["Set has_matched_token=True"]
+        CheckToken -- No --> Done
+        
+        SetMatch --> RestartSettle["Restart Settle Timer"]
+        Matched -- Yes --> RestartSettle
+        RestartSettle --> Done
+        
+        Done["Wait for Next Data / Timeout"]
+    end
+```
+
+### 狀態說明:
 *   **Idle**: 空閒狀態，等待新指令。
 *   **Processing**: 從 Queue 取出指令，準備執行。
 *   **Sending**: 將指令 Bytes 寫入 Serial Port。

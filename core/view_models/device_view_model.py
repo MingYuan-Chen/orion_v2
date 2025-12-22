@@ -340,6 +340,32 @@ class DeviceViewModel(QObject):
             self._model.send_command_queued(interrupt_bytes)
 
     @Slot()
+    def toggle_production_tool_service_for_athena(self):
+        """Toggles the production tool mode."""
+        if self._model:
+            response = self._model.send_command_sync("systemctl is-enabled athena-production-tool.service")
+            resposne_str = " ".join(response)
+            if "enabled" in resposne_str or "disabled" in resposne_str:
+                if "enabled" in resposne_str:
+                    self._model.send_command_sync("systemctl disable athena-production-tool.service")
+                else:
+                    self._model.send_command_sync("systemctl enable athena-production-tool.service")
+                self._model.send_command_sync("reboot", wait_for="login:", timeout=90)
+                self._model.send_command_sync("root")
+    
+    @Slot()
+    def toggle_production_tool_service_for_athena_temp(self):
+        """Toggles the production tool mode."""
+        if self._model:
+            response = self._model.send_command_sync("systemctl is-active athena-production-tool.service")
+            resposne_str = " ".join(response)
+            if "active" in resposne_str or "inactive" in resposne_str or "failed" in resposne_str:
+                if "active" in resposne_str:
+                    self._model.send_command_sync("systemctl stop athena-production-tool.service")
+                else:
+                    self._model.send_command_sync("systemctl start athena-production-tool.service")
+
+    @Slot()
     def clean_up(self):
         """Should be called before application quits to ensure clean disconnection."""
         self._model.disconnect_device()

@@ -1,5 +1,5 @@
 {
-  "diagnostic_cpu_name": {
+  "diagnostic_CPU_Name": {
     "commands": [
       "lscpu | grep 'Model name'"
     ],
@@ -7,7 +7,7 @@
       "Cortex-A53"
     ]
   },
-  "diagnostic_cpu_processor": {
+  "diagnostic_CPU_Processor": {
     "commands": [
       "grep -c ^processor /proc/cpuinfo"
     ],
@@ -15,7 +15,7 @@
       "4"
     ]
   },
-  "diagnostic_emmc_size": {
+  "diagnostic_eMMc_Size": {
     "commands": [
       "cat /sys/block/mmcblk0/size"
     ],
@@ -23,7 +23,7 @@
       "244285440"
     ]
   },
-  "diagnostic_mac_address": {
+  "diagnostic_MAC_Address": {
     "commands": [
       "cat /sys/class/net/eth0/address"
     ],
@@ -31,7 +31,7 @@
       "22:58:85:13:04:f8"
     ]
   },
-  "diagnostic_memory_size": {
+  "diagnostic_Memory_Size": {
     "commands": [
       "grep MemTotal /proc/meminfo"
     ],
@@ -39,7 +39,7 @@
       "3943740"
     ]
   },
-  "diagnostic_pic_version": {
+  "diagnostic_PIC_Version": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
     ],
@@ -50,7 +50,7 @@
       "0x0b"
     ]
   },
-  "diagnostic_console_model": {
+  "diagnostic_Console_Model": {
     "commands": [
       "cat /proc/device-tree/model"
     ],
@@ -58,7 +58,7 @@
       "Athena-030"
     ]
   },
-  "diagnostic_sync_time": {
+  "diagnostic_Sync_Time": {
     "commands": [
       "date -s '2024-02-28 23:59:59'",
       "hwclock -r",
@@ -66,7 +66,7 @@
     ],
     "validate_function": "validate_sync_time"
   },
-  "diagnostic_battery_typical_capacity": {
+  "diagnostic_Battery_Typical_Capacity": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2"
     ],
@@ -74,7 +74,7 @@
       "0x0c 0xb2"
     ]
   },
-  "diagnostic_battery_normal_voltage": {
+  "diagnostic_Battery_Normal_Voltage": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x19 r2"
     ],
@@ -82,7 +82,7 @@
       "0x2a 0x30"
     ]
   },
-  "diagnostic_uboot_version": {
+  "diagnostic_UBoot_Version": {
     "commands": [
       "strings /dev/mtd5 | grep -E 'U-Boot'"
     ],
@@ -90,7 +90,7 @@
       "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
     ]
   },
-  "diagnostic_kernel_name": {
+  "diagnostic_Kernel_Name": {
     "commands": [
       "uname -a"
     ],
@@ -98,7 +98,7 @@
       "Linux verathon-athena"
     ]
   },
-  "diagnostic_panel_resolution": {
+  "diagnostic_Panel_Resolution": {
     "commands": [
       "fbset | grep geometry"
     ],
@@ -106,7 +106,7 @@
       "1920 1080"
     ]
   },
-  "diagnostic_wifi_module": {
+  "diagnostic_WiFi_Module": {
     "commands": [
       "lsusb"
     ],
@@ -114,7 +114,7 @@
       "1286:204e"
     ]
   },
-  "diagnostic_blue_tooth_module": {
+  "diagnostic_BlueTooth_Module": {
     "commands": [
       "lspci"
     ],
@@ -122,7 +122,7 @@
       "Marvell"
     ]
   },
-  "diagnostic_charge_setting": {
+  "diagnostic_Charge_Setting": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x21 r9",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x81 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x83 0x00 0x14 r2",
@@ -130,7 +130,7 @@
     ],
     "validate_function": "validate_charge_for_athena"
   },
-  "diagnostic_eeprom": {
+  "diagnostic_EEPROM": {
     "commands": [
       "i2cset -f -y 1 0x57 0x1f 0xaa",
       "i2cget -f -y 1 0x57 0x1f",
@@ -143,7 +143,7 @@
     ],
     "validate_function": "validate_eeprom_for_athena"
   },
-  "diagnostic_emmc_read_write": {
+  "diagnostic_eMMc_R/W": {
     "commands": [
       "dd if=/dev/zero of=/emmc_througtput bs=1M count=200",
       "sync",
@@ -152,7 +152,7 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_usb1_read_write": {
+  "diagnostic_USB1_R/W": {
     "commands": [
       "dd if=/dev/zero of='usb1_path/usb_throughput' bs=1M count=200 status=progress",
       "dd if='usb1_path/usb_throughput' of=/dev/null bs=1M",
@@ -160,7 +160,7 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_usb2_read_write": {
+  "diagnostic_USB2_R/W": {
     "commands": [
       "dd if=/dev/zero of='usb2_path/usb_throughput' bs=1M count=200 status=progress",
       "dd if='usb2_path/usb_throughput' of=/dev/null bs=1M",
@@ -168,7 +168,7 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_backlight": {
+  "diagnostic_Backlight": {
     "commands": [
       "systemctl disable verathon-video-pipeline.service",
       "reboot",
@@ -205,7 +205,7 @@
       "manual_check_required. [Test Hints]\nPlease confirm brightness and power action as expected. Click Pass/Fail to proceed."
     ]
   },
-  "diagnostic_lcd": {
+  "diagnostic_LCD": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
       "/usr/bin/drawfb -p red",
@@ -233,7 +233,7 @@
       "manual_check_required. [Test Hints]\nPlease confirm LCD color as expected. Click Pass/Fail to proceed."
     ]
   },
-  "diagnostic_led": {
+  "diagnostic_LED": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will switch LED color to blue, green, red, amber, blink blue, blink green, blink red, blink amber.",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x01 r2",
@@ -255,19 +255,19 @@
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
     ]
   },
-  "diagnostic_touch_9_points": {
+  "diagnostic_Touch_9_Points": {
     "commands": [
       "touch_qt_path",
       "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
-  "diagnostic_touch_drag_draw": {
+  "diagnostic_Touch_Drag_Draw": {
     "commands": [
       "ts_test_mt -j 2 -v",
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
-  "diagnostic_ethernet_connection": {
+  "diagnostic_Ethernet_Connection": {
     "commands": [
       "nmcli device disconnect wlp1s0",
       "curl -I -s https://www.google.com | grep HTTP/",
@@ -277,7 +277,7 @@
       "HTTP/1.1 200 OK"
     ]
   },
-  "diagnostic_wifi_connection": {
+  "diagnostic_WiFi_Connection": {
     "commands": [
       "nmcli device wifi rescan",
       "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025",
@@ -291,7 +291,7 @@
       "HTTP/1.1 200 OK"
     ]
   },
-  "diagnostic_camera_preview": {
+  "diagnostic_Camera_Preview": {
     "commands": [
       "systemctl enable verathon-video-pipeline.service",
       "reboot",
@@ -301,7 +301,7 @@
       "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed."
     ]
   },
-  "diagnostic_hdmi_mirror_display": {
+  "diagnostic_HDMI_Mirror_Display": {
     "commands": [
       "gpioset `gpiofind IOEX_HDMI_EN`=1",
       "manual_check_required. [Precondition]\nPlease plug in and camera. Plug in HDMI cable with external monitor.",
