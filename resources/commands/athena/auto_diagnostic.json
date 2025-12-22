@@ -28,7 +28,10 @@
       "cat /sys/class/net/eth0/address"
     ],
     "expected_response": [
-      "22:58:85:13:04:f8"
+      "22:58:85:13:04:f8",
+      "fa:09:de:b7:07:27",
+      "2e:ee:68:3a:4f:5e",
+      "ee:11:7d:d9:fb:09"
     ]
   },
   "diagnostic_Memory_Size": {
@@ -36,7 +39,8 @@
       "grep MemTotal /proc/meminfo"
     ],
     "expected_response": [
-      "3943740"
+      "3943740",
+      "3944788"
     ]
   },
   "diagnostic_PIC_Version": {
@@ -55,7 +59,8 @@
       "cat /proc/device-tree/model"
     ],
     "expected_response": [
-      "Athena-030"
+      "Athena-030-V2P10",
+      "Athena-030-V2P11"
     ]
   },
   "diagnostic_Sync_Time": {
@@ -87,7 +92,8 @@
       "strings /dev/mtd5 | grep -E 'U-Boot'"
     ],
     "expected_response": [
-      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)"
+      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)",
+      "U-Boot 2023.01 (Sep 15 2025 - 13:00:33 +0000)"
     ]
   },
   "diagnostic_Kernel_Name": {
@@ -170,10 +176,6 @@
   },
   "diagnostic_Backlight": {
     "commands": [
-      "systemctl disable verathon-video-pipeline.service",
-      "reboot",
-      "root",
-      "systemctl is-enabled verathon-video-pipeline.service",
       "manual_check_required. [Precondition]\nFollowing process will switch backlight brightness from 0 to 10.\nThen turn off and on backlight power.",
       "/usr/bin/drawfb -p white",
       "echo 0 > /sys/class/backlight/backlight/brightness",
@@ -255,18 +257,6 @@
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
     ]
   },
-  "diagnostic_Touch_9_Points": {
-    "commands": [
-      "touch_qt_path",
-      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_Touch_Drag_Draw": {
-    "commands": [
-      "ts_test_mt -j 2 -v",
-      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
-    ]
-  },
   "diagnostic_Ethernet_Connection": {
     "commands": [
       "nmcli device disconnect wlp1s0",
@@ -291,18 +281,28 @@
       "HTTP/1.1 200 OK"
     ]
   },
+  "diagnostic_Touch_9_Points": {
+    "commands": [
+      "touch_qt_path",
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_Touch_Drag_Draw": {
+    "commands": [
+      "ts_test_mt -j 2 -v",
+      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
   "diagnostic_Camera_Preview": {
     "commands": [
-      "systemctl enable verathon-video-pipeline.service",
-      "reboot",
-      "root",
-      "systemctl is-enabled verathon-video-pipeline.service",
+      "systemctl start verathon-video-pipeline.service",
       "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to JigA (Jig B if exists).\nCheck if camera preview is normal.",
       "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed."
     ]
   },
   "diagnostic_HDMI_Mirror_Display": {
     "commands": [
+      "/usr/bin/drawfb -p colorbar",
       "gpioset `gpiofind IOEX_HDMI_EN`=1",
       "manual_check_required. [Precondition]\nPlease plug in and camera. Plug in HDMI cable with external monitor.",
       "manual_check_required. [Test Hints]\nPlease confirm camera preview normally both on device and external monitor. Click Pass/Fail to proceed.",
