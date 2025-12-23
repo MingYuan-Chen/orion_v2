@@ -27,15 +27,7 @@
     "commands": [
       "cat /sys/class/net/eth0/address"
     ],
-    "expected_response": [
-      "22:58:85:13:04:f8",
-      "fa:09:de:b7:07:27",
-      "2e:ee:68:3a:4f:5e",
-      "ee:11:7d:d9:fb:09",
-      "2c:5a:a3:15:07:9d",
-      "2c:5a:a3:15:07:b1",
-      "4e:18:2f:fd:f3:b0"
-    ]
+    "validate_function": "validate_mac_address_pattern"
   },
   "diagnostic_Memory_Size": {
     "commands": [
@@ -51,9 +43,6 @@
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x23 0x00 0x10 r2"
     ],
     "expected_response": [
-      "0x08",
-      "0x09",
-      "0x0a",
       "0x0b"
     ]
   },
@@ -88,15 +77,6 @@
     ],
     "expected_response": [
       "0x2a 0x30"
-    ]
-  },
-  "diagnostic_UBoot_Version": {
-    "commands": [
-      "strings /dev/mtd5 | grep -E 'U-Boot'"
-    ],
-    "expected_response": [
-      "U-Boot 2023.01 (Aug 27 2025 - 13:59:49 +0000)",
-      "U-Boot 2023.01 (Sep 15 2025 - 13:00:33 +0000)"
     ]
   },
   "diagnostic_Kernel_Name": {

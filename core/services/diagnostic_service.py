@@ -25,6 +25,23 @@ class DiagnosticValidator:
         return False, f"All expected outputs not found"
     
     @staticmethod
+    def validate_mac_address_pattern(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Validate the mac address pattern by searching for it within the response.
+        
+        Args:
+            mac_address: The response string containing the mac address to validate
+        """
+        # Use re.search to find the MAC address pattern anywhere in the response string.
+        # The anchors (^) and ($) are removed to allow for surrounding text.
+        mac_pattern = r'[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+        if re.search(mac_pattern, output):
+            mac_address = re.search(mac_pattern, output).group()
+            return True, f"Found valid mac address: {mac_address}"
+        
+        return False, f"The mac address is invalid"
+    
+    @staticmethod
     def validate_sync_time(output: str, platform_name: str, **kwargs) -> Tuple[bool, str]:
     # -----------------------
     # Odin platform
