@@ -331,7 +331,23 @@ class DiagnosticValidator:
         except Exception as e:
             logger.error(f"Error parsing {line}: {e}")
             return f"Parse Error: {line}"
+    @staticmethod
+    def validate_power_button_for_odin(output: str) -> Tuple[bool, str]:
+        """
+        Odin Power Button validation (command-driven)
+        - If 'PASS' appears in output: return True
+        - If 'FAIL' appears in output: return False with timeout message
+        """
 
+        responses = output.splitlines()
+
+        for line in responses:
+            if "PASS" in line:
+                return True, "Power button is detected"
+            elif "FAIL" in line:
+                return False, "Timeout: no key press detected within 10 seconds"
+
+        return False, "No valid power button response found"
 
 class DiagnosticService(QObject):
     """
@@ -355,6 +371,7 @@ class DiagnosticService(QObject):
         self._results_history = []
 
         # variables for Precondition setup
+        self.dqa_package_path = None
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
@@ -467,6 +484,10 @@ class DiagnosticService(QObject):
                     response_lines = self._model.send_command_sync(cmd_replace)
             elif "ntpdate" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "aplay" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "odin_power_key_monitor.sh" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=10)
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
@@ -636,14 +657,32 @@ class DiagnosticService(QObject):
 
             if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
                 return False, "找不到任何 USB mount 路徑"
+            # -------- step 3: 找 dqa_package 並複製 --------
+            self.dqa_package_path = None
+            for usb_path in [self.usb1_path, self.usb2_path, self.usb3_path]:
+                if not usb_path:
+                    continue
+                # 檢查 dqa_package 是否存在
+                response = self._model.send_command_sync(
+                    f"test -d {usb_path}/dqa_package && echo FOUND"
+                )
+                if response and "FOUND" in response[0]:
+                    self.dqa_package_path = f"{usb_path}/dqa_package"
+                    # 複製到 /root/dqa_package
+                    self._model.send_command_sync("mkdir -p /home/root/dqa_package")
+                    self._model.send_command_sync(
+                        f"cp -r {self.dqa_package_path}/* /home/root/dqa_package/"
+                    )
+                    break
+            if not self.dqa_package_path:
+                return False, "USB mount found, but dqa_package not found"
 
             return True, (
                 f"Odin USB paths: "
                 f"left={self.usb1_path}, "
                 f"right={self.usb2_path}, "
-                f"typec={self.usb3_path}"
+                f"typec={self.usb3_path} "
             )
-
             
         """
         Find valid usb path from 'ls -l /run/media'.

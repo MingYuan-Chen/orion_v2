@@ -1,4 +1,23 @@
 {
+  "diagnostic_Power_Button": {
+    "commands": [
+      "manual_check_required. [Precondition]\nPower button",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "sh /root/dqa_package/odin_power_key_monitor.sh"
+    ],
+    "validate_function": "validate_power_button_for_odin"
+  },
+  
+  "diagnostic_Probe": {
+    "commands": [
+      "mount -o remount,rw /",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "",
+      "/dqa_package/odin_res/configure_console.sh",
+      "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
+      "/dqa_package/odin_res/check_crc.sh"
+    ]
+  },
   "diagnostic_EEPROM": {
     "commands": [
       "i2cdetect -y 2",
@@ -195,19 +214,11 @@
       "1286:204e Marvell Semiconductor, Inc."
     ]
   },
-  "diagnostic_Audio": {
-    "commands": [
-      "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
-      "amixer -c 0 set PCM 100%",
-      "(aplay /dqa_package/odin_audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
-      "aplay mic.wav",
-      "rm -f mic.wav",
-      "manual_check_required. [Test Hints]\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
-    ]
-  },
+
   "diagnostic_Backlight": {
     "commands": [
       "manual_check_required. [Precondition]\nBacklight Test\nThe following steps:\n1.Adjust backlight from 0 to 7.\n2.Turn off and on backlight power.",
+      "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
       "/usr/bin/drawfb -p white",
       "sleep_required 1",
       "echo 0 > /sys/class/backlight/backlight/brightness",
@@ -241,14 +252,7 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x14 r2"
     ]
   },
-  "diagnostic_Power_Button": {
-    "commands": [
-      "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "sh /dqa_package/odin_power_key_monitor.sh",
-      ""
-    ]
-  },
+
   "diagnostic_LCD": {
     "commands": [
       "mount -o remount,rw /",
@@ -315,14 +319,14 @@
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
-  "diagnostic_Probe": {
+  "diagnostic_Audio": {
     "commands": [
-      "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "",
-      "/dqa_package/odin_res/configure_console.sh",
-      "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
-      "/dqa_package/odin_res/check_crc.sh"
+      "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
+      "amixer -c 0 set PCM 100%",
+      "aplay /root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 10",
+      "aplay mic.wav",
+      "rm -f mic.wav",
+      "manual_check_required. [Test Hints]\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
   },
   "diagnostic_SD_card_R/W": {
