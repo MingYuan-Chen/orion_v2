@@ -149,6 +149,8 @@ class DeviceViewModel(QObject):
     def toggle_connection(self, port_text: str, baud_rate_text: str):
         """Connects or disconnects the device based on the current state."""
         if self._is_connected:
+            if self._platform_name == "Athena":
+                self.toggle_production_tool_service("start")
             self._model.disconnect_device()
         else:
             if not port_text:
@@ -339,31 +341,14 @@ class DeviceViewModel(QObject):
             self._append_log(log_message)
             self._model.send_command_queued(interrupt_bytes)
 
-    @Slot()
-    def toggle_production_tool_service_for_athena(self):
+    @Slot(str)
+    def toggle_production_tool_service(self, command: str):
         """Toggles the production tool mode."""
-        if self._model:
-            response = self._model.send_command_sync("systemctl is-enabled athena-production-tool.service")
-            resposne_str = " ".join(response)
-            if "enabled" in resposne_str or "disabled" in resposne_str:
-                if "enabled" in resposne_str:
-                    self._model.send_command_sync("systemctl disable athena-production-tool.service")
-                else:
-                    self._model.send_command_sync("systemctl enable athena-production-tool.service")
+        if self._model and command in ["enable", "disable", "start", "stop"]:
+            self._model.send_command_sync(f"systemctl {command} athena-production-tool.service")
+            if command in ["enable", "disable"]:
                 self._model.send_command_sync("reboot", wait_for="login:", timeout=90)
                 self._model.send_command_sync("root")
-    
-    @Slot()
-    def toggle_production_tool_service_for_athena_temp(self):
-        """Toggles the production tool mode."""
-        if self._model:
-            response = self._model.send_command_sync("systemctl is-active athena-production-tool.service")
-            resposne_str = " ".join(response)
-            if "active" in resposne_str or "inactive" in resposne_str or "failed" in resposne_str:
-                if "active" in resposne_str:
-                    self._model.send_command_sync("systemctl stop athena-production-tool.service")
-                else:
-                    self._model.send_command_sync("systemctl start athena-production-tool.service")
 
     @Slot()
     def clean_up(self):
@@ -456,6 +441,9 @@ class DeviceViewModel(QObject):
             # Initialize Backlight Worker
             self._backlight_worker = BacklightWorker(self._model, self._platform_name)
             self._backlight_worker.backlight_updated.connect(self.backlight_updated)
+        
+        if self.platform_name == "Athena":
+            self.toggle_production_tool_service("stop")
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
