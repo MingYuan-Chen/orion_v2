@@ -25,7 +25,24 @@ class DiagnosticValidator:
         return False, f"All expected outputs not found"
     
     @staticmethod
-    def validate_sync_time(output: str, platform_name: str = None) -> Tuple[bool, str]:
+    def validate_mac_address_pattern(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Validate the mac address pattern by searching for it within the response.
+        
+        Args:
+            mac_address: The response string containing the mac address to validate
+        """
+        # Use re.search to find the MAC address pattern anywhere in the response string.
+        # The anchors (^) and ($) are removed to allow for surrounding text.
+        mac_pattern = r'[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+        if re.search(mac_pattern, output):
+            mac_address = re.search(mac_pattern, output).group()
+            return True, f"Found valid mac address: {mac_address}"
+        
+        return False, f"The mac address is invalid"
+    
+    @staticmethod
+    def validate_sync_time(output: str, platform_name: str, **kwargs) -> Tuple[bool, str]:
     # -----------------------
     # Odin platform
     # -----------------------
@@ -89,12 +106,12 @@ class DiagnosticValidator:
             return False, "No matched time string found"
     
     @staticmethod
-    def validate_read_write(output: str, platform_name: str, key: str) -> Tuple[bool, str]:
+    def validate_read_write(output: str, platform_name: str, key: str, **kwargs) -> Tuple[bool, str]:
         """Validator for USB/EMMC read write."""
         read_speed_threshold = 20
         write_speed_threshold = 30
         if platform_name.lower() == "odin":
-            if key == "diagnostic_USB-A_R/W-COM19(LEFT)" or "diagnostic_USB-A_R/W-COM18(RIGHT)":
+            if key in ["diagnostic_USB-A_R/W-COM19(LEFT)", "diagnostic_USB-A_R/W-COM18(RIGHT)"]:
                 read_speed_threshold = 20
                 write_speed_threshold = 30
             elif key == "diagnostic_USB-C_R/W":
@@ -108,7 +125,7 @@ class DiagnosticValidator:
                 write_speed_threshold = 100
                 
         elif platform_name.lower() == "athena":
-            if key == "diagnostic_USB1_R/W" or "diagnostic_USB2_R/W":
+            if key in ["diagnostic_USB1_R/W", "diagnostic_USB2_R/W"]:
                 read_speed_threshold = 20
                 write_speed_threshold = 40
             elif key == "diagnostic_eMMc_R/W":
@@ -132,14 +149,15 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
+            device_type = "USB" if "USB" in key else "eMMC"
             if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
-                return True, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
+                return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
-                return False, f"Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
+                return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
         return False, "No matched speed string found"
     
     @staticmethod
-    def validate_eeprom_for_odin(output: str) -> Tuple[bool, str]:
+    def validate_eeprom_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
         # Normalize output
         output = output.upper()
 
@@ -160,7 +178,7 @@ class DiagnosticValidator:
             f"Read signature={signature}, I2C bus=2, addr=0x4C"
         )
     @staticmethod
-    def validate_eeprom_for_athena(output: str) -> Tuple[bool, str]:
+    def validate_eeprom_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
         """Validator for EEPROM."""
         eeprom_1_byte = False
         eeprom_1_byte_dump = False
@@ -181,11 +199,11 @@ class DiagnosticValidator:
             elif line.startswith("00000090") and ":28:36" in line:
                 eeprom_19_bytes_dump_2 = True
         if eeprom_1_byte and eeprom_19_bytes and eeprom_1_byte_dump_1 and eeprom_19_bytes_dump_1 and eeprom_19_bytes_dump_2:
-            return True, "EEPROM values match"
-        return False, "EEPROM values do not match"
+            return True, "EEPROM Read and Write OK"
+        return False, "EEPROM Read and Write Failed"
     
     @staticmethod
-    def validate_charge_discharge_odin(output: str) -> Tuple[bool, str]:
+    def validate_charge_discharge_odin(output: str, **kwargs) -> Tuple[bool, str]:
         """
         Odin power validation (command-driven)
         - If command is Charge Status:
@@ -273,7 +291,7 @@ class DiagnosticValidator:
             f"Current: {current}mA"
         )
     @staticmethod
-    def validate_charge_for_athena(output: str) -> Tuple[bool, str]:
+    def validate_charge_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
         """Validator for charge."""
         results = []
         responses = output.split("\n")
@@ -284,12 +302,12 @@ class DiagnosticValidator:
         if len(results) == 3:
             if results[0] == "MD-BAT03":
                 if results[1] == 768 and results[2] == 12592:
-                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
+                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}mA, and voltage setting: {results[2]}mV"
                 else:
                     return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
             elif results[0] is None:
                 if results[1] == 192 and results[2] == 8992:
-                    return True, f"Detected low battery mode, with correct current setting: {results[1]}mA, with correct voltage setting: {results[2]}mV"
+                    return True, f"Detected low battery mode, with correct current setting: {results[1]}mA, and voltage setting: {results[2]}mV"
                 else:
                     return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
         return False, "No matched charge values found"
@@ -510,11 +528,26 @@ class DiagnosticService(QObject):
     def _finish_current_diagnostic(self):
         combined_output = "\n".join(self._current_output)
 
+        display_str = "Manual Check Result:"
+        if self._current_key == "diagnostic_Backlight":
+            display_str = "Brightness switch from 0 ~ 100% and turn on/off display:"
+        elif self._current_key == "diagnostic_LCD":
+            display_str = "LCD pattern switch to Red/Green/Blue/Black/White/Colorbar/gradient256/white frame/gray16,64,256:"
+        elif self._current_key == "diagnostic_LED":
+            display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
+        elif self._current_key == "diagnostic_Touch_9_Points":
+            display_str = "Touch center/top/bottom/center-left/center-right/top-left/top-right/bottom-left/bottom-right:"
+        elif self._current_key == "diagnostic_Touch_Drag_Draw":
+            display_str = "Touch drag/draw:"
+        elif self._current_key == "diagnostic_Camera_Preview":
+            display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
+        elif self._current_key == "diagnostic_HDMI_Mirror_Display":
+            display_str = "HDMI mirror display:"
         # Validate
         if "manual_check_result_PASS" in combined_output:
-            is_valid, msg = True, "Manual check result: Pass"
+            is_valid, msg = True, f"{display_str} Pass"
         elif "manual_check_result_FAIL" in combined_output:
-            is_valid, msg = False, "Manual check result: Fail"
+            is_valid, msg = False, f"{display_str} Fail"
         else:
             is_valid, msg = self.validate_result(self._current_key, combined_output)
         
@@ -546,14 +579,12 @@ class DiagnosticService(QObject):
             if validate_func_name:
                 if hasattr(DiagnosticValidator, validate_func_name):
                     validator = getattr(DiagnosticValidator, validate_func_name)
-                    # We might need to pass extra args from config if needed
-                    # For now, pass expected_response as the second arg
-                    if validate_func_name == "validate_sync_time":
-                        return validator(output, self._platform_name)
-                    elif validate_func_name == "validate_read_write":
-                        return validator(output, self._platform_name, key)
-                    else:
-                        return validator(output)
+                    params = {
+                        "platform_name": self._platform_name,
+                        "key": key,
+                        "output": output
+                    }
+                    return validator(**params)
                 else:
                     return False, f"Validator function '{validate_func_name}' not found"
             
@@ -561,10 +592,107 @@ class DiagnosticService(QObject):
                 # Default validation: check if output contains expected response(s)
                 # expected_response can be a list or string
                 if isinstance(expected_response, list):
+                    result = False
+                    target_string = ""
+                    response_message = ""
                     for expected in expected_response:
                         if expected in output:
-                            return True, f"Found expected output: {expected}"
-                    return False, "All expected outputs not found"
+                            result = True
+                            target_string = expected
+
+                    if key == "diagnostic_CPU_Name":
+                        if result:
+                            response_message = f"Expected model name: {target_string}"
+                        else:
+                            response_message = "No matched model name found"
+                    elif key == "diagnostic_CPU_Processor":
+                        if result:
+                            response_message = f"Expected processor count: {target_string}"
+                        else:
+                            response_message = "No matched processor count found"
+                    elif key == "diagnostic_eMMc_Size":
+                        if result:
+                            sectors = int(target_string)
+                            # sector → bytes
+                            bytes_total = sectors * 512
+                            # bytes → GB (binary GiB but commonly called GB)
+                            gb_total = bytes_total / (1024 ** 3)
+                            display_str = f"{gb_total:.2f} GB"
+                            response_message = f"Expected eMMC size: {display_str}"
+                        else:
+                            response_message = "No matched eMMC size found"
+                    elif key == "diagnostic_MAC_Address":
+                        if result:
+                            response_message = f"Expected MAC address: {target_string}"
+                        else:
+                            response_message = "No matched MAC address found"
+                    elif key == "diagnostic_Memory_Size":
+                        if result:
+                            response_message = f"Expected memory size: {target_string} kB"
+                        else:
+                            response_message = "No matched memory size found"
+                    elif key == "diagnostic_PIC_Version":
+                        if result:
+                            version = int(target_string, 16)
+                            response_message = f"Expected PIC version: {version} ({target_string})"
+                        else:
+                            response_message = "No matched PIC version found"
+                    elif key == "diagnostic_Console_Model":
+                        if result:
+                            response_message = f"Expected console model: {target_string}"
+                        else:
+                            response_message = "No matched console model found"
+                    elif key == "diagnostic_Battery_Typical_Capacity":
+                        if result:
+                            display_str = DiagnosticValidator._parse_battery_value(target_string)
+                            response_message = f"Expected battery typical capacity: {display_str} mAh"
+                        else:
+                            response_message = "No matched battery typical capacity found"
+                    elif key == "diagnostic_Battery_Normal_Voltage":
+                        if result:
+                            display_str = DiagnosticValidator._parse_battery_value(target_string)
+                            response_message = f"Expected battery normal voltage: {display_str} mV"
+                        else:
+                            response_message = "No matched battery normal voltage found"
+                    elif key == "diagnostic_UBoot_Version":
+                        if result:
+                            response_message = f"Expected U-Boot version: {target_string}"
+                        else:
+                            response_message = "No matched U-Boot version found"
+                    elif key == "diagnostic_Kernel_Name":
+                        if result:
+                            response_message = f"Expected kernel name: {target_string}"
+                        else:
+                            response_message = "No matched kernel name found"
+                    elif key == "diagnostic_Panel_Resolution":
+                        if result:
+                            display_str = target_string.replace(" ", "x")
+                            response_message = f"Expected panel resolution: {display_str}"
+                        else:
+                            response_message = "No matched panel resolution found"
+                    elif key == "diagnostic_WiFi_Module":
+                        if result:
+                            display_str = "Marvell Semiconductor, Inc. Bluetooth and Wireless LAN Composite Device"
+                            response_message = f"Expected WiFi module: {display_str}"
+                        else:
+                            response_message = "No matched WiFi module found"
+                    elif key == "diagnostic_BlueTooth_Module":
+                        if result:
+                            display_str = "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
+                            response_message = f"Expected BlueTooth module: {display_str}"
+                        else:
+                            response_message = "No matched BlueTooth module found"
+                    elif key == "diagnostic_Ethernet_Connection":
+                        if result:
+                            response_message = "Download google home page successfully via ethernet."
+                        else:
+                            response_message = "Download google home page failed via ethernet."
+                    elif key == "diagnostic_WiFi_Connection":
+                        if result:
+                            response_message = "Download google home page successfully via wifi."
+                        else:
+                            response_message = "Download google home page failed via wifi."
+                    return result, response_message
                 else:
                     return DiagnosticValidator.validate_contains(output, str(expected_response))
             
