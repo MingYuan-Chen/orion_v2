@@ -99,9 +99,9 @@ class DiagnosticValidator:
                 sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
                 time_difference = abs((hw_time - sw_time).total_seconds())
                 if time_difference < 5:
-                    return True, f"System time is auto synced from network"
+                    return True, f"System time is auto calibrated from network"
                 else:
-                    return False, f"System time is not auto synced from network"
+                    return False, f"System time is not auto calibrated from network"
 
             return False, "No matched time string found"
     
@@ -610,6 +610,8 @@ class DiagnosticService(QObject):
             display_str = "LCD pattern switch to Red/Green/Blue/Black/White/Colorbar/gradient256/white frame/gray16,64,256:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
+            if self._platform_name == "Odin":
+                display_str = "LED switch to Blue/Green/Red/Blink Blue/Blink Green/Blink Red:"
         elif self._current_key == "diagnostic_Touch_9_Points":
             display_str = "Touch center/top/bottom/center-left/center-right/top-left/top-right/bottom-left/bottom-right:"
         elif self._current_key == "diagnostic_Touch_Drag_Draw":
@@ -618,6 +620,8 @@ class DiagnosticService(QObject):
             display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
         elif self._current_key == "diagnostic_HDMI_Mirror_Display":
             display_str = "HDMI mirror display:"
+        elif self._current_key == "diagnostic_Audio_Record_Play":
+            display_str = "Audio record from microphone and play by speaker:"
         # Validate
         if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, f"{display_str} Pass"
@@ -669,11 +673,12 @@ class DiagnosticService(QObject):
                 if isinstance(expected_response, list):
                     result = False
                     target_string = ""
-                    response_message = ""
+                    response_message = "No matched expected output found"
                     for expected in expected_response:
                         if expected in output:
                             result = True
                             target_string = expected
+                            response_message = f"Found expected output: {target_string}"
 
                     if key == "diagnostic_CPU_Name":
                         if result:
@@ -715,16 +720,30 @@ class DiagnosticService(QObject):
                     elif key == "diagnostic_Battery_Typical_Capacity":
                         if result:
                             display_str = DiagnosticValidator._parse_battery_value(target_string)
-                            response_message = f"Expected battery typical capacity: {display_str} mAh"
+                            response_message = f"Expected battery typical capacity: {display_str}mAh"
                         else:
                             response_message = "No matched battery typical capacity found"
                     elif key == "diagnostic_Battery_Normal_Voltage":
                         if result:
                             voltage = DiagnosticValidator._parse_battery_value(target_string)
-                            display_str = f"{voltage/1000:.1f} V"
+                            display_str = f"{voltage/1000:.1f}V"
                             response_message = f"Expected battery normal voltage: {display_str}"
                         else:
                             response_message = "No matched battery normal voltage found"
+                    elif key == "diagnostic_Battery_Rated_Capacity":
+                        if result:
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} mAh"
+                            response_message = f"Expected battery rated capacity: {display_str}"
+                        else:
+                            response_message = "No matched battery rated capacity found"
+                    elif key == "diagnostic_Battery_Nominal_Voltage":
+                        if result:
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} V"
+                            response_message = f"Expected battery nominal voltage: {display_str}"
+                        else:
+                            response_message = "No matched battery nominal voltage found"
                     elif key == "diagnostic_UBoot_Version":
                         if result:
                             response_message = f"Expected U-Boot version: {target_string}"
@@ -741,18 +760,16 @@ class DiagnosticService(QObject):
                             response_message = f"Expected panel resolution: {display_str}"
                         else:
                             response_message = "No matched panel resolution found"
-                    elif key == "diagnostic_WiFi_Module":
+                    elif key == "diagnostic_Bluetooth_Controller":
                         if result:
-                            display_str = "Marvell Semiconductor, Inc. Bluetooth and Wireless LAN Composite Device"
-                            response_message = f"Expected WiFi module: {display_str}"
+                            response_message = "Expected Bluetooth controller found"
                         else:
-                            response_message = "No matched WiFi module found"
-                    elif key == "diagnostic_BlueTooth_Module":
+                            response_message = "No matched Bluetooth controller found"
+                    elif key == "diagnostic_WiFi_Controller":
                         if result:
-                            display_str = "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
-                            response_message = f"Expected BlueTooth module: {display_str}"
+                            response_message = "Expected WiFi controller found"
                         else:
-                            response_message = "No matched BlueTooth module found"
+                            response_message = "No matched WiFi controller found"
                     elif key == "diagnostic_Ethernet_Connection":
                         if result:
                             response_message = "Download google home page successfully via ethernet."
