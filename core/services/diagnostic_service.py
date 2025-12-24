@@ -302,14 +302,14 @@ class DiagnosticValidator:
         if len(results) == 3:
             if results[0] == "MD-BAT03":
                 if results[1] == 768 and results[2] == 12592:
-                    return True, f"Get available model name: {results[0]}, with correct current setting: {results[1]}mA, and voltage setting: {results[2]}mV"
+                    return True, f"Get available model name: {results[0]}, with correct charge current setting: {results[1]}mA, and charge voltage setting: {results[2]}mV"
                 else:
-                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
+                    return False, f"Incorrect charge current setting: {results[1]}mA or incorrect charge voltage setting: {results[2]}mV"
             elif results[0] is None:
                 if results[1] == 192 and results[2] == 8992:
-                    return True, f"Detected low battery mode, with correct current setting: {results[1]}mA, and voltage setting: {results[2]}mV"
+                    return True, f"Detected low battery mode, with correct charge current setting: 200mA, and charge voltage setting: 9000mV"
                 else:
-                    return False, f"Incorrect current setting: {results[1]}mA or incorrect voltage setting: {results[2]}mV"
+                    return False, f"Incorrect charge current setting: {results[1]}mA or incorrect charge voltage setting: {results[2]}mV"
         return False, "No matched charge values found"
     
     @staticmethod
@@ -621,11 +621,6 @@ class DiagnosticService(QObject):
                             response_message = f"Expected eMMC size: {display_str}"
                         else:
                             response_message = "No matched eMMC size found"
-                    elif key == "diagnostic_MAC_Address":
-                        if result:
-                            response_message = f"Expected MAC address: {target_string}"
-                        else:
-                            response_message = "No matched MAC address found"
                     elif key == "diagnostic_Memory_Size":
                         if result:
                             response_message = f"Expected memory size: {target_string} kB"
@@ -634,7 +629,7 @@ class DiagnosticService(QObject):
                     elif key == "diagnostic_PIC_Version":
                         if result:
                             version = int(target_string, 16)
-                            response_message = f"Expected PIC version: {version} ({target_string})"
+                            response_message = f"Expected PIC version: v{version} ({target_string})"
                         else:
                             response_message = "No matched PIC version found"
                     elif key == "diagnostic_Console_Model":
@@ -650,8 +645,9 @@ class DiagnosticService(QObject):
                             response_message = "No matched battery typical capacity found"
                     elif key == "diagnostic_Battery_Normal_Voltage":
                         if result:
-                            display_str = DiagnosticValidator._parse_battery_value(target_string)
-                            response_message = f"Expected battery normal voltage: {display_str} mV"
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} V"
+                            response_message = f"Expected battery normal voltage: {display_str}"
                         else:
                             response_message = "No matched battery normal voltage found"
                     elif key == "diagnostic_UBoot_Version":
