@@ -397,6 +397,8 @@ class DiagnosticValidator:
             return False, "Probe test failed"
 
         return True, "Probe capture and CRC check successful"
+
+
 class DiagnosticService(QObject):
     """
     Service to manage diagnostic execution and validation.
@@ -426,6 +428,7 @@ class DiagnosticService(QObject):
         self.eeprom_1_byte = None
         self.eeprom_19_bytes = None
         self.touch_qt_path = None
+        self.test_audio_path = None
         
     def _load_diagnostics(self):
         # Load from resources/commands/{platform}/auto_diagnostic.json
@@ -521,7 +524,6 @@ class DiagnosticService(QObject):
                 if self.touch_qt_path:
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
-
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)
@@ -542,6 +544,10 @@ class DiagnosticService(QObject):
                 if self.eeprom_19_bytes:
                     cmd_replace = cmd.replace("eeprom_19_bytes", self.eeprom_19_bytes)
                     response_lines = self._model.send_command_sync(cmd_replace)
+            elif "test_audio_path" in cmd:
+                if self.test_audio_path:
+                    cmd_replace = cmd.replace("test_audio_path", self.test_audio_path)
+                    response_lines = self._model.send_command_sync(cmd_replace, timeout=20)
             elif "ntpdate" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "aplay" in cmd:
@@ -881,7 +887,8 @@ class DiagnosticService(QObject):
                         for line in response:
                             if "TouchTestQt64" in line and self.touch_qt_path is None:
                                 self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
+                            if "odin_audio8k16S.wav" in line and self.test_audio_path is None:
+                                self.test_audio_path = f"{file_path}/odin_audio8k16S.wav"
                     elif 'sdb1' in name and self.usb2_path is None:
                         self.usb2_path = f"/run/media/{name}"
                         file_path = f"{self.usb2_path}/dqa_package"
@@ -889,15 +896,8 @@ class DiagnosticService(QObject):
                         for line in response:
                             if "TouchTestQt64" in line and self.touch_qt_path is None:
                                 self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
-                    elif 'sdb2' in name and self.usb3_path is None:
-                        self.usb3_path = f"/run/media/{name}"
-                        file_path = f"{self.usb3_path}/dqa_package"
-                        response = self._model.send_command_sync(f"ls {file_path}")
-                        for line in response:
-                            if "TouchTestQt64" in line and self.touch_qt_path is None:
-                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
-                                logger.debug(f"Found TouchTestQt64 at {self.touch_qt_path}")
+                            if "odin_audio8k16S.wav" in line and self.test_audio_path is None:
+                                self.test_audio_path = f"{file_path}/odin_audio8k16S.wav"
                     else:
                         logger.debug(f"Ignored device: {name}")
                 

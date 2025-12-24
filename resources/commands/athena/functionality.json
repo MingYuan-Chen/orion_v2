@@ -1,8 +1,8 @@
 {
   "functionality_audio": {
     "commands": [
-      "amixer -c 0 set PCM 100%",
-      "(aplay /run/media/DATA-sdb1/dqa_package/audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
+      "amixer sset 'Master' 80%",
+      "(aplay /run/media/DATA-sdb1/dqa_package/odin_audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav"
     ]
