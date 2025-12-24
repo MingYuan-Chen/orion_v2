@@ -153,7 +153,7 @@ class DiagnosticValidator:
             if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
                 return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
-                return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
+                return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}, Expected resuls - Read speed:{read_speed_threshold} MB/s, Write speed: {write_speed_threshold} MB/s"
         return False, "No matched speed string found"
     
     @staticmethod
