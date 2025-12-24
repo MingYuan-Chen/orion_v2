@@ -99,9 +99,9 @@ class DiagnosticValidator:
                 sw_time = datetime.strptime(matches[2], "%a %b %d %H:%M:%S %Z %Y").replace(tzinfo=None)
                 time_difference = abs((hw_time - sw_time).total_seconds())
                 if time_difference < 5:
-                    return True, f"System time is auto synced from network"
+                    return True, f"System time is auto calibrated from network"
                 else:
-                    return False, f"System time is not auto synced from network"
+                    return False, f"System time is not auto calibrated from network"
 
             return False, "No matched time string found"
     
@@ -616,6 +616,8 @@ class DiagnosticService(QObject):
             display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
         elif self._current_key == "diagnostic_HDMI_Mirror_Display":
             display_str = "HDMI mirror display:"
+        elif self._current_key == "diagnostic_Audio_Record_Play":
+            display_str = "Audio record from microphone and play by speaker:"
         # Validate
         if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, f"{display_str} Pass"
@@ -672,6 +674,9 @@ class DiagnosticService(QObject):
                         if expected in output:
                             result = True
                             target_string = expected
+                            response_message = f"Found expected output: {target_string}"
+                        else:
+                            response_message = "No matched expected output found"
 
                     if key == "diagnostic_CPU_Name":
                         if result:
@@ -739,18 +744,16 @@ class DiagnosticService(QObject):
                             response_message = f"Expected panel resolution: {display_str}"
                         else:
                             response_message = "No matched panel resolution found"
-                    elif key == "diagnostic_WiFi_Module":
+                    elif key == "diagnostic_BlueTooth_Controller":
                         if result:
-                            display_str = "Marvell Semiconductor, Inc. Bluetooth and Wireless LAN Composite Device"
-                            response_message = f"Expected WiFi module: {display_str}"
+                            response_message = "Expected BlueTooth controller found"
                         else:
-                            response_message = "No matched WiFi module found"
-                    elif key == "diagnostic_BlueTooth_Module":
+                            response_message = "No matched BlueTooth controller found"
+                    elif key == "diagnostic_WiFi_Controller":
                         if result:
-                            display_str = "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
-                            response_message = f"Expected BlueTooth module: {display_str}"
+                            response_message = "Expected WiFi controller found"
                         else:
-                            response_message = "No matched BlueTooth module found"
+                            response_message = "No matched WiFi controller found"
                     elif key == "diagnostic_Ethernet_Connection":
                         if result:
                             response_message = "Download google home page successfully via ethernet."
