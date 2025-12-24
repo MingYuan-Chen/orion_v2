@@ -349,6 +349,18 @@ class DeviceViewModel(QObject):
             if command in ["enable", "disable"]:
                 self._model.send_command_sync("reboot", wait_for="login:", timeout=90)
                 self._model.send_command_sync("root")
+    
+    @Slot()
+    def toggle_USBC_dmesg_disable(self):
+        """Disable the USB-C dmesg."""
+        if self._model:
+            self._model.send_command_sync("dmesg -n 3")
+    
+    @Slot()
+    def toggle_USB_port_power_enable(self):
+        """Enable the USB port power."""
+        if self._model:
+            self._model.send_command_sync("echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value")
 
     @Slot()
     def clean_up(self):
@@ -444,6 +456,9 @@ class DeviceViewModel(QObject):
         
         if self.platform_name == "Athena":
             self.toggle_production_tool_service("stop")
+        if self.platform_name == "Odin":
+            self.toggle_USBC_dmesg_disable()
+            self.toggle_USB_port_power_enable()
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
