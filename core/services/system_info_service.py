@@ -170,7 +170,7 @@ class SystemInfoService(QObject):
                     pattern1 = r'U-Boot\s+([0-9]+\.[0-9]+[^\n]*?\([^)]+\))'
                     match = re.search(pattern1, line)
                     if match:
-                        full_version = match.group(1).strip()
+                        full_version = match.group(0).strip()
                         self.info_updated.emit(key, full_version)
                 if "U-Boot" in line and "odin" in self.platform_name.lower():
                     pattern1 = r'(U-Boot SPL\s+[^\(]+\([^)]+\))'
