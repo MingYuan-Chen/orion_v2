@@ -7,7 +7,7 @@ class DiagnosticView(QWidget):
     def __init__(self, view_model: DeviceViewModel, parent=None):
         super().__init__(parent)
         self._vm = view_model
-        self.setWindowTitle("Diagnostics")
+        self.setWindowTitle("Function Test")
         self.resize(700, 700)
         self._setup_ui()
         self._setup_bindings()
@@ -23,7 +23,7 @@ class DiagnosticView(QWidget):
 
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Module", "Result", "Message"])
+        self.table.setHorizontalHeaderLabels(["Items", "Result", "Criteria and Response"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
@@ -105,12 +105,12 @@ class DiagnosticView(QWidget):
 
     @Slot()
     def on_all_diagnostics_completed(self):
-        self.status_label.setText("Diagnostics Completed")
+        self.status_label.setText("Function Test Completed")
         self.status_label.setStyleSheet("font-weight: bold; font-size: 16px; color: green; background-color: lightgreen;")
 
     def start_diagnostic(self):
         self.table.setRowCount(0)
-        self.status_label.setText("Running Diagnostics...")
+        self.status_label.setText("Running Test...")
         self.status_label.setStyleSheet("font-weight: bold; font-size: 16px; color: blue; background-color: lightblue;")
     
     def reset(self):

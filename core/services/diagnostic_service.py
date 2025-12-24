@@ -954,7 +954,7 @@ class DiagnosticService(QObject):
             for result in self._results_history:
                 row = [
                     result["timestamp"],
-                    result["key"].replace("diagnostic_", "").replace("_", " ").title(),
+                    result["key"].replace("diagnostic_", "").replace("_", " "),
                     "PASS" if result["success"] else "FAIL",
                     result["message"]
                 ]
