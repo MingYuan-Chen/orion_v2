@@ -2,8 +2,7 @@
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition]\nPower button",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "sh /root/dqa_package/odin_power_key_monitor.sh"
+      "sh /home/root/dqa_package/odin_power_key_monitor.sh"
     ],
     "validate_function": "validate_power_button_for_odin"
   },
@@ -11,12 +10,12 @@
   "diagnostic_Probe": {
     "commands": [
       "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "",
-      "/dqa_package/odin_res/configure_console.sh",
-      "LD_LIBRARY_PATH=/dqa_package/odin_res /dqa_package/odin_res/probe-capture",
-      "/dqa_package/odin_res/check_crc.sh"
-    ]
+      "/home/root/dqa_package/odin_res/configure_console.sh",
+      "sleep 6",
+      "LD_LIBRARY_PATH=/home/root/dqa_package/odin_res /home/root/dqa_package/odin_res/probe-capture",
+      "/home/root/dqa_package/odin_res/check_crc.sh"
+    ],
+    "validate_function": "validate_probe_for_odin"
   },
   "diagnostic_EEPROM": {
     "commands": [
@@ -174,14 +173,6 @@
       "0x2a 0x30"
     ]
   },
-  "diagnostic_uboot_Version": {
-    "commands": [
-      "strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"
-    ],
-    "expected_response": [
-      "U-Boot SPL 2018.03-VT_ODIN"
-    ]
-  },
   "diagnostic_Kernel_Name": {
     "commands": [
       "uname -a"
@@ -308,14 +299,16 @@
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service",
-      "TouchTestQt64 -platform eglfs",
+      "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
       "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
   "diagnostic_Touch_Drag_Draw": {
     "commands": [
+      "systemctl stop weston & systemctl stop odin-production.service",
       "ts_test_mt -j 2 -v",
+      "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },

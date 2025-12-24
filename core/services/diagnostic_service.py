@@ -350,7 +350,7 @@ class DiagnosticValidator:
             logger.error(f"Error parsing {line}: {e}")
             return f"Parse Error: {line}"
     @staticmethod
-    def validate_power_button_for_odin(output: str) -> Tuple[bool, str]:
+    def validate_power_button_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
         """
         Odin Power Button validation (command-driven)
         - If 'PASS' appears in output: return True
@@ -367,6 +367,36 @@ class DiagnosticValidator:
 
         return False, "No valid power button response found"
 
+    @staticmethod
+    def validate_probe_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Odin Probe validation
+
+        PASS conditions:
+        - 'Configuration complete!' exists
+        - 'Planes saved: 14/14' exists
+        - 'Check Sum Successful!' exists
+        """
+
+        if not output:
+            return False, "Empty output"
+
+        required_checks = {
+            "Configuration complete!": "Console configuration failed",
+            "Planes saved: 14/14": "Not all planes were saved successfully",
+            "Check Sum Successful!": "CRC check failed",
+        }
+
+        missing = []
+
+        for key, error_msg in required_checks.items():
+            if key not in output:
+                missing.append(error_msg)
+
+        if missing:
+            return False, "Probe test failed"
+
+        return True, "Probe capture and CRC check successful"
 class DiagnosticService(QObject):
     """
     Service to manage diagnostic execution and validation.
@@ -506,6 +536,8 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "odin_power_key_monitor.sh" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=10)
+            elif "configure_console.sh" or "probe-capture" or "check_crc.sh" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response_lines = self._model.send_command_sync(cmd)
             
