@@ -83,7 +83,7 @@ class SystemInfoService(QObject):
         cpu_count = None
         max_mhz_raw = None
         
-        if key == "main_processor" and "odin" in self.platform_name.lower():
+        if key == "Main_Processor" and "odin" in self.platform_name.lower():
             model = response[1]
             frequency = int(response[2])
             processor = response[3]

@@ -207,7 +207,10 @@ class DiagnosticValidator:
         """
         Odin power validation (command-driven)
         - If command is Charge Status:
-            current must be 0 ~ 3120 mA
+            current must be 0 ~ 3250 mA
+            SoC 0~40% current must be 3000 ~ 3250 mA (Not yet)
+            Soc 41%~80% current must be 1700~ 1600 mA (Not yet)
+            SoC 81%~100% current must be 1650 ~ 0 mA (Not yet)
         - If command is Discharge Status:
             current must be -2000 ~ 0 mA
         """
@@ -268,7 +271,7 @@ class DiagnosticValidator:
         # PASS / FAIL by command
         # -----------------------
         if is_charge_cmd:
-            if not (0 <= current <= 3120):
+            if not (0 <= current <= 3250):
                 return False, (
                     f"Now Charge current is {current}mA, "
                     f"Charge current should 0mA ~ 3120mA, "
@@ -346,8 +349,54 @@ class DiagnosticValidator:
         except Exception as e:
             logger.error(f"Error parsing {line}: {e}")
             return f"Parse Error: {line}"
+    @staticmethod
+    def validate_power_button_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Odin Power Button validation (command-driven)
+        - If 'PASS' appears in output: return True
+        - If 'FAIL' appears in output: return False with timeout message
+        """
 
+        responses = output.splitlines()
 
+        for line in responses:
+            if "PASS" in line:
+                return True, "Power button is detected"
+            elif "FAIL" in line:
+                return False, "Timeout: no key press detected within 10 seconds"
+
+        return False, "No valid power button response found"
+
+    @staticmethod
+    def validate_probe_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Odin Probe validation
+
+        PASS conditions:
+        - 'Configuration complete!' exists
+        - 'Planes saved: 14/14' exists
+        - 'Check Sum Successful!' exists
+        """
+
+        if not output:
+            return False, "Empty output"
+
+        required_checks = {
+            "Configuration complete!": "Console configuration failed",
+            "Planes saved: 14/14": "Not all planes were saved successfully",
+            "Check Sum Successful!": "CRC check failed",
+        }
+
+        missing = []
+
+        for key, error_msg in required_checks.items():
+            if key not in output:
+                missing.append(error_msg)
+
+        if missing:
+            return False, "Probe test failed"
+
+        return True, "Probe capture and CRC check successful"
 class DiagnosticService(QObject):
     """
     Service to manage diagnostic execution and validation.
@@ -370,6 +419,7 @@ class DiagnosticService(QObject):
         self._results_history = []
 
         # variables for Precondition setup
+        self.dqa_package_path = None
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
@@ -481,6 +531,12 @@ class DiagnosticService(QObject):
                     cmd_replace = cmd.replace("eeprom_19_bytes", self.eeprom_19_bytes)
                     response_lines = self._model.send_command_sync(cmd_replace)
             elif "ntpdate" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "aplay" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
+            elif "odin_power_key_monitor.sh" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=10)
+            elif "configure_console.sh" or "probe-capture" or "check_crc.sh" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
                 response_lines = self._model.send_command_sync(cmd)
@@ -757,14 +813,32 @@ class DiagnosticService(QObject):
 
             if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
                 return False, "找不到任何 USB mount 路徑"
+            # -------- step 3: 找 dqa_package 並複製 --------
+            self.dqa_package_path = None
+            for usb_path in [self.usb1_path, self.usb2_path, self.usb3_path]:
+                if not usb_path:
+                    continue
+                # 檢查 dqa_package 是否存在
+                response = self._model.send_command_sync(
+                    f"test -d {usb_path}/dqa_package && echo FOUND"
+                )
+                if response and "FOUND" in response[0]:
+                    self.dqa_package_path = f"{usb_path}/dqa_package"
+                    # 複製到 /root/dqa_package
+                    self._model.send_command_sync("mkdir -p /home/root/dqa_package")
+                    self._model.send_command_sync(
+                        f"cp -r {self.dqa_package_path}/* /home/root/dqa_package/"
+                    )
+                    break
+            if not self.dqa_package_path:
+                return False, "USB mount found, but dqa_package not found"
 
             return True, (
                 f"Odin USB paths: "
                 f"left={self.usb1_path}, "
                 f"right={self.usb2_path}, "
-                f"typec={self.usb3_path}"
+                f"typec={self.usb3_path} "
             )
-
             
         """
         Find valid usb path from 'ls -l /run/media'.
