@@ -96,7 +96,7 @@
       "1920 1080"
     ]
   },
-  "diagnostic_WiFi_Module": {
+  "diagnostic_BlueTooth_Controller": {
     "commands": [
       "lsusb"
     ],
@@ -104,7 +104,7 @@
       "1286:204e"
     ]
   },
-  "diagnostic_BlueTooth_Module": {
+  "diagnostic_WiFi_Controller": {
     "commands": [
       "lspci"
     ],
