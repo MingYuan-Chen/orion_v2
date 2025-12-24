@@ -720,23 +720,23 @@ class DiagnosticService(QObject):
                     elif key == "diagnostic_Battery_Typical_Capacity":
                         if result:
                             display_str = DiagnosticValidator._parse_battery_value(target_string)
-                            response_message = f"Expected battery typical capacity: {display_str}mAh"
+                            response_message = f"Expected battery typical capacity: {display_str} mAh"
                         else:
                             response_message = "No matched battery typical capacity found"
                     elif key == "diagnostic_Battery_Normal_Voltage":
                         if result:
                             voltage = DiagnosticValidator._parse_battery_value(target_string)
-                            display_str = f"{voltage/1000:.1f}V"
+                            display_str = f"{voltage/1000:.1f} V"
                             response_message = f"Expected battery normal voltage: {display_str}"
                         else:
                             response_message = "No matched battery normal voltage found"
-                    elif key == "diagnostic_Battery_Rated_Capacity":
+                    elif key == "diagnostic_Battery_Nominal_Capacity":
                         if result:
                             voltage = DiagnosticValidator._parse_battery_value(target_string)
                             display_str = f"{voltage/1000:.1f} mAh"
-                            response_message = f"Expected battery rated capacity: {display_str}"
+                            response_message = f"Expected battery nominal capacity: {display_str}"
                         else:
-                            response_message = "No matched battery rated capacity found"
+                            response_message = "No matched battery nominal capacity found"
                     elif key == "diagnostic_Battery_Nominal_Voltage":
                         if result:
                             voltage = DiagnosticValidator._parse_battery_value(target_string)
@@ -760,11 +760,11 @@ class DiagnosticService(QObject):
                             response_message = f"Expected panel resolution: {display_str}"
                         else:
                             response_message = "No matched panel resolution found"
-                    elif key == "diagnostic_Bluetooth_Controller":
+                    elif key == "diagnostic_BlueTooth_Controller":
                         if result:
-                            response_message = "Expected Bluetooth controller found"
+                            response_message = "Expected BlueTooth controller found"
                         else:
-                            response_message = "No matched Bluetooth controller found"
+                            response_message = "No matched BlueTooth controller found"
                     elif key == "diagnostic_WiFi_Controller":
                         if result:
                             response_message = "Expected WiFi controller found"

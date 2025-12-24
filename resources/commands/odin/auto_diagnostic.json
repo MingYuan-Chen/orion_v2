@@ -200,7 +200,7 @@
       "1280 800"
     ]
   },
-  "diagnostic_Wi-Fi Module": {
+  "diagnostic_WiFi_Controller": {
     "commands": [
       "lspci"
     ],
@@ -208,7 +208,7 @@
       "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
     ]
   },
-  "diagnostic_Bluetooth Module": {
+  "diagnostic_Bluetooth_Controller": {
     "commands": [
       "lsusb"
     ],
