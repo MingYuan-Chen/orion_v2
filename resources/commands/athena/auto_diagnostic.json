@@ -96,7 +96,7 @@
       "1920 1080"
     ]
   },
-  "diagnostic_BlueTooth_Controller": {
+  "diagnostic_Bluetooth_Controller": {
     "commands": [
       "lsusb"
     ],
