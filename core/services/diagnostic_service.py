@@ -608,6 +608,8 @@ class DiagnosticService(QObject):
             display_str = "LCD pattern switch to Red/Green/Blue/Black/White/Colorbar/gradient256/white frame/gray16,64,256:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
+            if self._platform_name == "Odin":
+                display_str = "LED switch to Blue/Green/Red/Blink Blue/Blink Green/Blink Red:"
         elif self._current_key == "diagnostic_Touch_9_Points":
             display_str = "Touch center/top/bottom/center-left/center-right/top-left/top-right/bottom-left/bottom-right:"
         elif self._current_key == "diagnostic_Touch_Drag_Draw":
@@ -669,14 +671,12 @@ class DiagnosticService(QObject):
                 if isinstance(expected_response, list):
                     result = False
                     target_string = ""
-                    response_message = ""
+                    response_message = "No matched expected output found"
                     for expected in expected_response:
                         if expected in output:
                             result = True
                             target_string = expected
                             response_message = f"Found expected output: {target_string}"
-                        else:
-                            response_message = "No matched expected output found"
 
                     if key == "diagnostic_CPU_Name":
                         if result:
@@ -728,6 +728,20 @@ class DiagnosticService(QObject):
                             response_message = f"Expected battery normal voltage: {display_str}"
                         else:
                             response_message = "No matched battery normal voltage found"
+                    elif key == "diagnostic_Battery_Rated_Capacity":
+                        if result:
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} mAh"
+                            response_message = f"Expected battery rated capacity: {display_str}"
+                        else:
+                            response_message = "No matched battery rated capacity found"
+                    elif key == "diagnostic_Battery_Nominal_Voltage":
+                        if result:
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} V"
+                            response_message = f"Expected battery nominal voltage: {display_str}"
+                        else:
+                            response_message = "No matched battery nominal voltage found"
                     elif key == "diagnostic_UBoot_Version":
                         if result:
                             response_message = f"Expected U-Boot version: {target_string}"

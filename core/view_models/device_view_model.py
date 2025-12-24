@@ -361,6 +361,7 @@ class DeviceViewModel(QObject):
         """Enable the USB port power."""
         if self._model:
             self._model.send_command_sync("echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value")
+            self._model.send_command_sync("mount -o remount,rw /")
 
     @Slot()
     def clean_up(self):

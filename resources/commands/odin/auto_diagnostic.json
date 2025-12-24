@@ -1,4 +1,21 @@
 {
+  "diagnostic_Touch_9_Points": {
+    "commands": [
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
+      "systemctl restart weston & systemctl start odin-production.service",
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+  "diagnostic_Touch_Drag_Draw": {
+    "commands": [
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "ts_test_mt -j 2 -v",
+      "systemctl restart weston & systemctl start odin-production.service",
+      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+    ]
+  },
+
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition]\nPower button",
@@ -9,7 +26,6 @@
   
   "diagnostic_Probe": {
     "commands": [
-      "mount -o remount,rw /",
       "/home/root/dqa_package/odin_res/configure_console.sh",
       "sleep 6",
       "LD_LIBRARY_PATH=/home/root/dqa_package/odin_res /home/root/dqa_package/odin_res/probe-capture",
@@ -114,9 +130,7 @@
     "commands": [
       "cat /sys/class/net/eth0/address"
     ],
-    "expected_response": [
-      "3c:fb:96:77:88:a0"
-    ]
+    "validate_function": "validate_mac_address_pattern"
   },
   "diagnostic_Memory_Size": {
     "commands": [
@@ -154,7 +168,7 @@
     ],
     "validate_function": "validate_sync_time"
   },
-  "diagnostic_Battery_Design_Capacity": {
+  "diagnostic_Battery_Nominal_Capacity": {
     "commands": [
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
     ],
@@ -163,7 +177,7 @@
       "0x19 0x00"
     ]
   },
-  "diagnostic_Battery_Design_Voltage": {
+  "diagnostic_Battery_Nominal_Voltage": {
     "commands": [
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
@@ -176,9 +190,6 @@
   "diagnostic_Kernel_Name": {
     "commands": [
       "uname -a"
-    ],
-    "expected_response": [
-      "Linux odin 4.14.98-VT_ODIN_050_BSP_R3"
     ]
   },
   "diagnostic_Panel_Resolution": {
@@ -234,15 +245,6 @@
       "manual_check_required. [Test Hints]\nPlease confirm brightness and backlight power action as expected. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_Battery": {
-    "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x08 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x08 r2",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x14 r2"
-    ]
-  },
 
   "diagnostic_LCD": {
     "commands": [
@@ -295,24 +297,8 @@
       "manual_check_required. [Test Hints]\nPlease confirm LED color as expected. \nClick Pass/Fail to proceed."
     ]
   },
-  "diagnostic_Touch_9_Points": {
-    "commands": [
-      "mount -o remount,rw /",
-      "systemctl stop weston & systemctl stop odin-production.service",
-      "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_Touch_Drag_Draw": {
-    "commands": [
-      "systemctl stop weston & systemctl stop odin-production.service",
-      "ts_test_mt -j 2 -v",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_Audio": {
+
+  "diagnostic_Audio_Record_Play": {
     "commands": [
       "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
       "amixer -c 0 set PCM 100%",
