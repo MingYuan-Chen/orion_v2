@@ -362,6 +362,8 @@ class DiagnosticValidator:
         for line in responses:
             if "PASS" in line:
                 return True, "Power button is detected"
+            elif "No such file or directory" in line:
+                return False, "Please connect the USB storage device where the dqa_package is stored."
             elif "FAIL" in line:
                 return False, "Timeout: no key press detected within 10 seconds"
 
