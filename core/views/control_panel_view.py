@@ -85,7 +85,7 @@ class ControlPanelView(QWidget):
         self.bl_on_btn = QPushButton("On")
         self.bl_off_btn = QPushButton("Off")
         
-        bl_status_layout.addWidget(QLabel("Power:"))
+        # bl_status_layout.addWidget(QLabel("Power:"))
         bl_status_layout.addWidget(self.bl_status_label)
         bl_status_layout.addStretch()
         bl_status_layout.addWidget(self.bl_on_btn)
@@ -161,7 +161,7 @@ class ControlPanelView(QWidget):
 
     @Slot(str)
     def on_led_status_updated(self, status_text: str):
-        self.status_label.setText(status_text)
+        self.status_label.setText(status_text.replace("_", " ").title())
         
         # Update indicator color based on text
         color = "gray"
