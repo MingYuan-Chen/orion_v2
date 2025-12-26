@@ -113,18 +113,17 @@ class SystemInfoService(QObject):
                 if 'Mem:' in line:
                     parts = line.split()
                     try:
-                        total_bytes = self._parse_memory_value(parts[1])
-                        used_bytes = self._parse_memory_value(parts[2])
+                        total_kib = parts[1]
+                        used_kib = parts[2]
+                        total_gb = round((int(total_kib)*1024) / 1000000000, 2)
+                        used_mb = round((int(used_kib)*1024) / 1000000, 2)
                         
-                        total_mb = round(total_bytes / (1000 * 1000), 1)
-                        used_mb = round(used_bytes / (1000 * 1000), 1)
-                        
-                        if total_bytes > 0:
-                            percent = round((used_bytes / total_bytes) * 100, 1)
+                        if int(total_kib) > 0:
+                            percent = round((int(used_kib) / int(total_kib)) * 100, 1)
                         else:
                             percent = 0.0
                             
-                        memo = f"Total: {total_mb} MB | Used: {used_mb} MB | Usage: {percent} %"
+                        memo = f"Total: {total_gb} GB | Used: {used_mb} MB | Usage: {percent} %"
                         self.info_updated.emit(key, memo)
                     except Exception as e:
                         logger.error(f"Error parsing memory info: {e}")
@@ -214,26 +213,3 @@ class SystemInfoService(QObject):
                     elif "PIC_Version" in key:
                         firmware = hex_value
                         self.info_updated.emit(key, f"v{firmware}")
-
-    def _parse_memory_value(self, value_str: str) -> float:
-        """Parses a memory string (e.g., '3.8Gi', '1024', '500M') into bytes."""
-        value_str = value_str.strip()
-        units = {
-            'Ti': 1024**4, 'Gi': 1024**3, 'Mi': 1024**2, 'Ki': 1024,
-            'T': 1024**4, 'G': 1024**3, 'M': 1024**2, 'K': 1024,
-            'B': 1
-        }
-        
-        for unit, factor in units.items():
-            if value_str.endswith(unit):
-                try:
-                    number_part = value_str[:-len(unit)]
-                    return float(number_part) * factor
-                except ValueError:
-                    continue
-        
-        # If no unit found or parsing failed, try parsing as raw number (bytes)
-        try:
-            return float(value_str)
-        except ValueError:
-            return 0.0
