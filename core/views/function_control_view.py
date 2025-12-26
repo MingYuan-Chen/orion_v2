@@ -6,7 +6,7 @@ from PySide6.QtGui import QFont, QColor
 from core.view_models.device_view_model import DeviceViewModel
 from util.logger import logger
 
-class ControlPanelView(QWidget):
+class FunctionControlView(QWidget):
     """
     View to provide functionality controls, such as LED status.
     """

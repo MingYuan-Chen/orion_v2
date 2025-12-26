@@ -603,9 +603,9 @@ class DiagnosticService(QObject):
 
         display_str = "Manual Check Result:"
         if self._current_key == "diagnostic_Backlight":
-            display_str = "Brightness switch from 0 ~ 100% and turn on/off display:"
+            display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to Red/Green/Blue/Black/White/Colorbar/gradient256/white frame/gray16,64,256:"
+            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256/white frame:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
         elif self._current_key == "diagnostic_Touch_9_Points":
