@@ -116,8 +116,8 @@ class SystemInfoService(QObject):
                         total_bytes = self._parse_memory_value(parts[1])
                         used_bytes = self._parse_memory_value(parts[2])
                         
-                        total_mb = round(total_bytes / (1024 * 1024), 1)
-                        used_mb = round(used_bytes / (1024 * 1024), 1)
+                        total_mb = round(total_bytes / (1000 * 1000), 1)
+                        used_mb = round(used_bytes / (1000 * 1000), 1)
                         
                         if total_bytes > 0:
                             percent = round((used_bytes / total_bytes) * 100, 1)
@@ -134,8 +134,9 @@ class SystemInfoService(QObject):
             elif "Storage" in key:
                 disk = "Unknown"
                 if self.platform_name == "Athena" and "Disk /dev/mmcblk0:" in line:
-                    disk = line.split(',')[0].split(':')[1].strip()
-                    dist = f"Total: 128 GiB | Available: {disk}"
+                    disk_bytes = line.split(',')[1].split(' ')[1].strip()
+                    disk = round(int(disk_bytes)/(1000*1000*1000), 2)
+                    dist = f"Total: 128 GB | Available: {disk} GB"
                     self.info_updated.emit(key, dist)
                 else:
                     if line.isdigit():
