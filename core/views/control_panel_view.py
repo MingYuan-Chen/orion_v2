@@ -128,6 +128,7 @@ class ControlPanelView(QWidget):
         self._vm.get_led_status()
         self._vm.get_backlight_status()
         self._vm.get_backlight_brightness()
+        self._vm.init_screen_for_backlight_control()
 
     @Slot()
     def refresh_buttons(self):

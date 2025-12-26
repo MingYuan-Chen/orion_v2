@@ -316,6 +316,12 @@ class DeviceViewModel(QObject):
         """Requests the current backlight power status."""
         if self._backlight_worker:
             self._backlight_worker.get_backlight_status()
+    
+    @Slot()
+    def init_screen_for_backlight_control(self):
+        """Initializes the screen for backlight control."""
+        if self._model:
+            self._model.send_command_sync("/usr/bin/drawfb -p white")
 
     @Slot()
     def send_command(self):
