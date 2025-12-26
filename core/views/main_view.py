@@ -11,7 +11,7 @@ from core.views.system_info_view import SystemInfoView
 from core.views.hw_config_view import HWConfigView
 from core.views.diagnostic_view import DiagnosticView
 from core.views.battery_monitor_view import BatteryMonitorView
-from core.views.control_panel_view import ControlPanelView
+from core.views.function_control_view import FunctionControlView
 from util.logger import logger
 
 class CommandInputLineEdit(QLineEdit):
@@ -96,7 +96,7 @@ class MainView(QWidget):
         self._hw_config_view = None
         self._diagnostic_view = None
         self._battery_monitor_view = None
-        self._control_panel_view = None
+        self._function_control_view = None
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -114,7 +114,7 @@ class MainView(QWidget):
         self.hw_config_button = QPushButton("HW Config")
         self.diagnostic_button = QPushButton("Function Test")
         self.battery_monitor_button = QPushButton("Battery Monitor")
-        self.control_panel_button = QPushButton("LED / Backlight")
+        self.function_control_button = QPushButton("LED / Backlight")
         self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -133,7 +133,7 @@ class MainView(QWidget):
         self.hw_config_button.setFixedSize(100, 30)
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
-        self.control_panel_button.setFixedSize(120, 30)
+        self.function_control_button.setFixedSize(120, 30)
         self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
@@ -165,7 +165,7 @@ class MainView(QWidget):
         control_panel_layout.addWidget(self.hw_config_button)
         control_panel_layout.addWidget(self.diagnostic_button)
         control_panel_layout.addWidget(self.battery_monitor_button)
-        control_panel_layout.addWidget(self.control_panel_button)
+        control_panel_layout.addWidget(self.function_control_button)
         control_panel_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
@@ -201,7 +201,7 @@ class MainView(QWidget):
         self.hw_config_button.clicked.connect(self._vm.open_hw_config_view)
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
-        self.control_panel_button.clicked.connect(self.open_control_panel_view)
+        self.function_control_button.clicked.connect(self.open_function_control_view)
         self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
@@ -247,7 +247,7 @@ class MainView(QWidget):
         self.hw_config_button.setEnabled(connected and detected)
         self.diagnostic_button.setEnabled(connected and detected)
         self.battery_monitor_button.setEnabled(connected and detected)
-        self.control_panel_button.setEnabled(connected and detected)
+        self.function_control_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
@@ -288,10 +288,10 @@ class MainView(QWidget):
         self._battery_monitor_view.show()
 
     @Slot()
-    def open_control_panel_view(self):
-        if self._control_panel_view is None:
-            self._control_panel_view = ControlPanelView(self._vm)
-        self._control_panel_view.show()
+    def open_function_control_view(self):
+        if self._function_control_view is None:
+            self._function_control_view = FunctionControlView(self._vm)
+        self._function_control_view.show()
     
     @Slot()
     def on_platform_detection_button_clicked(self):
@@ -310,6 +310,6 @@ class MainView(QWidget):
         if self._hw_config_view: self._hw_config_view.close()
         if self._diagnostic_view: self._diagnostic_view.close()
         if self._battery_monitor_view: self._battery_monitor_view.close()
-        if self._control_panel_view: self._control_panel_view.close()
+        if self._function_control_view: self._function_control_view.close()
         self._vm.clean_up()
         super().closeEvent(event)
