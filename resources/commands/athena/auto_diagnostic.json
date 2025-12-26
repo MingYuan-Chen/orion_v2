@@ -1,5 +1,5 @@
 {
-  "diagnostic_CPU_Name": {
+  "diagnostic_CPU_Core_Type": {
     "commands": [
       "lscpu | grep 'Model name'"
     ],
@@ -31,7 +31,7 @@
   },
   "diagnostic_Memory_Size": {
     "commands": [
-      "grep MemTotal /proc/meminfo"
+      "free | grep 'Mem:'"
     ],
     "expected_response": [
       "3943740",

@@ -3,7 +3,7 @@
     "lscpu"
   ],
   "Memory": [
-    "free -h | grep 'Mem:'"
+    "free | grep 'Mem:'"
   ],
   "Storage": [
     "fdisk -l /dev/mmcblk0"

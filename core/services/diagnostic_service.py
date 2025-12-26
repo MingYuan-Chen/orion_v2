@@ -126,11 +126,11 @@ class DiagnosticValidator:
                 
         elif platform_name.lower() == "athena":
             if key in ["diagnostic_USB1_R/W", "diagnostic_USB2_R/W"]:
-                read_speed_threshold = 20
-                write_speed_threshold = 40
+                read_speed_threshold = 60
+                write_speed_threshold = 60
             elif key == "diagnostic_eMMc_R/W":
-                read_speed_threshold = 140
-                write_speed_threshold = 70
+                read_speed_threshold = 104
+                write_speed_threshold = 104
         
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
@@ -680,11 +680,11 @@ class DiagnosticService(QObject):
                             target_string = expected
                             response_message = f"Found expected output: {target_string}"
 
-                    if key == "diagnostic_CPU_Name":
+                    if key == "diagnostic_CPU_Core_Type":
                         if result:
-                            response_message = f"Expected model name: {target_string}"
+                            response_message = f"Expected CPU core type: {target_string}"
                         else:
-                            response_message = "No matched model name found"
+                            response_message = "No matched CPU core type found"
                     elif key == "diagnostic_CPU_Processor":
                         if result:
                             response_message = f"Expected processor count: {target_string}"
@@ -703,9 +703,9 @@ class DiagnosticService(QObject):
                             response_message = "No matched eMMC size found"
                     elif key == "diagnostic_Memory_Size":
                         if result:
-                            response_message = f"Expected memory size: {target_string} kB"
+                            response_message = f"Expected available memory size: {target_string} kB"
                         else:
-                            response_message = "No matched memory size found"
+                            response_message = "No matched available memory size found"
                     elif key == "diagnostic_PIC_Version":
                         if result:
                             version = int(target_string, 16)
