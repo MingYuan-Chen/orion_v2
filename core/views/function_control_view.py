@@ -6,7 +6,7 @@ from PySide6.QtGui import QFont, QColor
 from core.view_models.device_view_model import DeviceViewModel
 from util.logger import logger
 
-class ControlPanelView(QWidget):
+class FunctionControlView(QWidget):
     """
     View to provide functionality controls, such as LED status.
     """
@@ -128,6 +128,7 @@ class ControlPanelView(QWidget):
         self._vm.get_led_status()
         self._vm.get_backlight_status()
         self._vm.get_backlight_brightness()
+        self._vm.init_screen_for_backlight_control()
 
     @Slot()
     def refresh_buttons(self):
