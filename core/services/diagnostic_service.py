@@ -112,14 +112,14 @@ class DiagnosticValidator:
         write_speed_threshold = 30
         if platform_name.lower() == "odin":
             if key in ["diagnostic_USB-A_R/W-COM19(LEFT)", "diagnostic_USB-A_R/W-COM18(RIGHT)"]:
-                read_speed_threshold = 20
-                write_speed_threshold = 30
+                read_speed_threshold = 60
+                write_speed_threshold = 60
             elif key == "diagnostic_USB-C_R/W":
-                read_speed_threshold = 45
-                write_speed_threshold = 100
+                read_speed_threshold = 60
+                write_speed_threshold = 60
             elif key == "diagnostic_eMMc_R/W":
-                read_speed_threshold = 50
-                write_speed_threshold = 216
+                read_speed_threshold = 104
+                write_speed_threshold = 104
             elif key == "diagnostic_SD_card_R/W":
                 read_speed_threshold = 45
                 write_speed_threshold = 100
@@ -606,6 +606,8 @@ class DiagnosticService(QObject):
         display_str = "Manual Check Result:"
         if self._current_key == "diagnostic_Backlight":
             display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
+            if self._platform_name == "Odin":
+                display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
             display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256/white frame:"
         elif self._current_key == "diagnostic_LED":
@@ -622,6 +624,8 @@ class DiagnosticService(QObject):
             display_str = "HDMI mirror display:"
         elif self._current_key == "diagnostic_Audio_Record_Play":
             display_str = "Audio record from microphone and play by speaker:"
+        elif self._current_key == "diagnostic_Dimming":
+            display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
         # Validate
         if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, f"{display_str} Pass"
