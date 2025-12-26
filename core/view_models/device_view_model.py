@@ -265,8 +265,8 @@ class DeviceViewModel(QObject):
         """Sets the LED status via the worker."""
         if self._led_worker:
             self._led_worker.set_led_status(status)
-            self._append_log(f"Set LED status to: {status}")
-            QTimer.singleShot(2000, self.get_led_status)
+            if status == "default":
+                QTimer.singleShot(2000, self.get_led_status)
 
     @Slot()
     def get_led_status(self):
