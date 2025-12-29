@@ -282,7 +282,7 @@ class DiagnosticValidator:
             if not (0 <= current <= 3250):
                 return False, (
                     f"Now Charge current is {current}mA, "
-                    f"Charge current should 0mA ~ 3120mA, "
+                    f"Charge current should 0mA ~ 3250mA, "
                     f"Battery SoC: {soc}%"
                 )
             mode = "Charging"
@@ -619,7 +619,7 @@ class DiagnosticService(QObject):
             if self._platform_name == "Odin":
                 display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/frame:"
+            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/gradient256:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
             if self._platform_name == "Odin":
@@ -814,11 +814,10 @@ class DiagnosticService(QObject):
         Setup precondition for diagnostics.
         """
         self._find_original_eeprom_data()
+        self._copy_dqa_package()
         self._find_valid_usb_path()
    
-    def _find_valid_usb_path(self) -> Tuple[bool, str]:
-        
-        
+    def _copy_dqa_package(self) -> Tuple[bool, str]:
         if self._platform_name.lower() == "odin":
             response = "\n".join(
             self._model.send_command_sync("ls -l /dev/disk/by-path && ls /run/media")
@@ -893,6 +892,67 @@ class DiagnosticService(QObject):
 
             if not self.dqa_package_path:
                 return False, "USB mount found, but dqa_package not found"
+
+            return True, (
+                f"Odin USB paths: "
+                f"left={self.usb1_path}, "
+                f"right={self.usb2_path}, "
+                f"typec={self.usb3_path}"
+            )
+            
+    def _find_valid_usb_path(self) -> Tuple[bool, str]:
+        
+        if self._platform_name.lower() == "odin":
+            response = "\n".join(
+            self._model.send_command_sync("ls -l /dev/disk/by-path && ls /run/media")
+            )
+
+            # 對應你實際看到的 path 特徵
+            USB_LEFT_KEY = "usb-0:1.2.2"
+            USB_RIGHT_KEY = "usb-0:1.2.1"
+            USB_C_KEY = "xhci-hcd.1.auto"
+
+            usb_left_disk = None
+            usb_right_disk = None
+            usb_c_disk = None
+
+            # -------- step 1: 找 sda / sdb / sdc --------
+            for line in response.splitlines():
+                if "-> ../../sd" not in line:
+                    continue
+
+                # 抓 sda / sdb / sdc
+                disk = line.split("->")[-1].strip().replace("../../", "")
+
+                if USB_LEFT_KEY in line:
+                    usb_left_disk = disk
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = disk
+                elif USB_C_KEY in line:
+                    usb_c_disk = disk
+
+            # -------- step 2: 從 /run/media 找 partition --------
+            media_parts = []
+
+            for line in response.splitlines():
+                for token in line.split():
+                    if token.startswith(("sda", "sdb", "sdc")):
+                        media_parts.append(token)
+
+            def find_mount(disk: str | None) -> str | None:
+                if not disk:
+                    return None
+                for part in media_parts:
+                    if part.startswith(disk):
+                        return f"/run/media/{part}"
+                return None
+
+            self.usb1_path = find_mount(usb_left_disk)
+            self.usb2_path = find_mount(usb_right_disk)
+            self.usb3_path = find_mount(usb_c_disk)
+
+            if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+                return False, "找不到任何 USB mount 路徑"
 
             return True, (
                 f"Odin USB paths: "

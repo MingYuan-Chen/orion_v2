@@ -161,7 +161,8 @@
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
       "mount -o remount,rw /",
       "find_usb_path",
-      "sync && dd if=/dev/zero of=usb3_path/usb_throughput bs=1M count=200 status=progress",
+      "sync",
+      "dd if=/dev/zero of=usb3_path/usb_throughput bs=1M count=200 status=progress",
       "dd if=usb3_path/usb_throughput of=/dev/null bs=1M",
       "rm -f usb3_path/usb_throughput"
     ],
@@ -237,7 +238,7 @@
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
-      "manual_check_required. [Precondition] - LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame.",
+      "manual_check_required. [Precondition] - LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256.",
       "sync && sleep 2",
       "/usr/bin/drawfb -p red",
       "sleep_required 1",
@@ -252,8 +253,6 @@
       "/usr/bin/drawfb -p colorbar",
       "sleep_required 1",
       "/usr/bin/drawfb -p gradient256",
-      "sleep_required 1",
-      "/usr/bin/drawfb -p frame",
       "sleep_required 1",
       "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - LCD Test\nPlease confirm LCD color as expected. \nClick Pass/Fail to proceed."
@@ -311,7 +310,7 @@
     "commands": [
       "manual_check_required. [Precondition] - NTP Sync Time Test\nPlease insert the Ethernet dongle into the console and connect the Ethernet cable.",
       "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value",
       "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
       "date; hwclock -r",
       "ntpdate -u 192.168.6.11",
