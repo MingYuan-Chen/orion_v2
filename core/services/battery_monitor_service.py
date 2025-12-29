@@ -33,10 +33,10 @@ class BatteryMonitorService(QObject):
             2: "Green", 34: "Green",
             4: "Red", 36: "Red",
             8: "Amber", 40: "Amber",
-            17: "Blink Blue", 49: "Blink Blue",
-            18: "Blink Green", 50: "Blink Green",
-            20: "Blink Red", 52: "Blink Red",
-            24: "Blink Amber", 56: "Blink Amber",
+            17: "Blue Blink", 49: "Blue Blink",
+            18: "Green Blink", 50: "Green Blink",  
+            20: "Red Blink", 52: "Red Blink",
+            24: "Amber Blink", 56: "Amber Blink",
             0: "Off", 32: "Off"
         },
         "odin": {
@@ -208,7 +208,7 @@ class BatteryMonitorService(QObject):
                 parsed_value = self._parse_value(key, response)
 
                 # Optimization: Use last known good value if current is Unknown
-                if parsed_value == "Unknown" and key in self._last_results:
+                if "Unknown" in parsed_value and key in self._last_results:
                     if self._unknown_count < 3:
                         parsed_value = self._last_results[key]
                         self._unknown_count += 1
