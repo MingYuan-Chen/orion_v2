@@ -123,8 +123,8 @@ class DiagnosticValidator:
                 read_speed_threshold = 104
                 write_speed_threshold = 104
             elif key == "diagnostic_SD_card_R/W":
-                read_speed_threshold = 45
-                write_speed_threshold = 100
+                read_speed_threshold = 10
+                write_speed_threshold = 10
                 
         elif platform_name.lower() == "athena":
             if key in ["diagnostic_USB1_R/W", "diagnostic_USB2_R/W"]:

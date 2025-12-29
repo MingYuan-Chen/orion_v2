@@ -195,7 +195,7 @@ class SystemInfoService(QObject):
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
                     elif "Charging_Current" in key and "odin" in self.platform_name.lower():
-                            self.info_updated.emit(key, f"{hex_value} mAh")
+                            self.info_updated.emit(key, f"{hex_value} mA")
                     elif "Charging_Current" in key:
                         current = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{current} A")
