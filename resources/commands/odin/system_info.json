@@ -3,7 +3,7 @@
     "cat /sys/devices/soc0/soc_id && cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq && grep -c ^processor /proc/cpuinfo"
   ],
   "Memory": [
-    "free -h | grep 'Mem:'"
+    "free"
   ],
   "Storage": [
     "cat /sys/block/mmcblk0/size"
@@ -14,11 +14,11 @@
   "Kernel_Version": [
     "uname -a"
   ],
-  "PIC_Version": [
-    "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-  ],
   "UBoot_Version": [
     "strings /dev/mmcblk0boot0 | grep 'U-Boot' | head -n 1"
+  ],
+  "PIC_Version": [
+    "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"
   ],
   "Battery_Model": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x21 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x21 r7"
@@ -26,16 +26,16 @@
   "Battery_S/N": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x1C r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x1C r2"
   ],
-  "Charging_Voltage_(Spec:12.6V)": [
+  "Charge_Voltage_(Spec:12.6V)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x15 r2"
   ],
-  "Charging_Current_(Spec:3.25A)": [
+  "Charging_Current_(Spec:3250mAh)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x14 r2"
   ],
-  "Nominal_Voltage_(Spec:10.8V)": [
+  "Nominal_Voltage_(Spec-Panasonic Cell:10.8V/EVE Cell:10.95V)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
   ],
-  "Nominal_Capacity_(Spec:6400mAh)": [
+  "Nominal_Capacity_(Spec-Panasonic Cell:6400mAh/EVE Cell:6800mAh)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
   ]
 }

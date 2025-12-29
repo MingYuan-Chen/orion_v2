@@ -35,11 +35,13 @@ class DiagnosticValidator:
         # Use re.search to find the MAC address pattern anywhere in the response string.
         # The anchors (^) and ($) are removed to allow for surrounding text.
         mac_pattern = r'[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
-        if re.search(mac_pattern, output):
-            mac_address = re.search(mac_pattern, output).group()
-            return True, f"Found valid mac address: {mac_address}"
-        
-        return False, f"The mac address is invalid"
+        match = re.search(mac_pattern, output)
+
+        if match:
+            mac_address = match.group()
+            return True, f"Found valid MAC address: {mac_address}"
+
+        return False, "The MAC address is invalid"
     
     @staticmethod
     def validate_sync_time(output: str, platform_name: str, **kwargs) -> Tuple[bool, str]:
@@ -175,7 +177,7 @@ class DiagnosticValidator:
             )
 
         return True, (
-            f"Read signature={signature}, I2C bus=2, addr=0x4C"
+            f"EEPROM Read and Write PASS on I2C bus=2, addr=0x4C"
         )
     @staticmethod
     def validate_eeprom_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
@@ -609,7 +611,7 @@ class DiagnosticService(QObject):
             if self._platform_name == "Odin":
                 display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256/white frame:"
+            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256 frame:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
             if self._platform_name == "Odin":
@@ -618,11 +620,13 @@ class DiagnosticService(QObject):
             display_str = "Touch center/top/bottom/center-left/center-right/top-left/top-right/bottom-left/bottom-right:"
         elif self._current_key == "diagnostic_Touch_Drag_Draw":
             display_str = "Touch drag/draw:"
+        elif self._current_key == "diagnostic_Touch":
+            display_str = "Touch 9 points and drag/draw:"
         elif self._current_key == "diagnostic_Camera_Preview":
             display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
         elif self._current_key == "diagnostic_HDMI_Mirror_Display":
             display_str = "HDMI mirror display:"
-        elif self._current_key == "diagnostic_Audio_Record_Play":
+        elif self._current_key in "diagnostic_Audio_Record_Play":
             display_str = "Audio record from microphone and play by speaker:"
         elif self._current_key == "diagnostic_Dimming":
             display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
@@ -736,9 +740,8 @@ class DiagnosticService(QObject):
                             response_message = "No matched battery normal voltage found"
                     elif key == "diagnostic_Battery_Nominal_Capacity":
                         if result:
-                            voltage = DiagnosticValidator._parse_battery_value(target_string)
-                            display_str = f"{voltage/1000:.1f} mAh"
-                            response_message = f"Expected battery nominal capacity: {display_str}"
+                            display_str = DiagnosticValidator._parse_battery_value(target_string)
+                            response_message = f"Expected battery nominal capacity: {display_str} mAh"
                         else:
                             response_message = "No matched battery nominal capacity found"
                     elif key == "diagnostic_Battery_Nominal_Voltage":
@@ -764,11 +767,11 @@ class DiagnosticService(QObject):
                             response_message = f"Expected panel resolution: {display_str}"
                         else:
                             response_message = "No matched panel resolution found"
-                    elif key == "diagnostic_BlueTooth_Controller":
+                    elif key == "diagnostic_Bluetooth_Controller":
                         if result:
-                            response_message = "Expected BlueTooth controller found"
+                            response_message = "Expected Bluetooth controller found"
                         else:
-                            response_message = "No matched BlueTooth controller found"
+                            response_message = "No matched Bluetooth controller found"
                     elif key == "diagnostic_WiFi_Controller":
                         if result:
                             response_message = "Expected WiFi controller found"
@@ -834,10 +837,11 @@ class DiagnosticService(QObject):
 
             # -------- step 2: 從 /run/media 找 partition --------
             media_parts = []
+
             for line in response.splitlines():
-                if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
-                    media_parts = line.split()
-                    break
+                for token in line.split():
+                    if token.startswith(("sda", "sdb", "sdc")):
+                        media_parts.append(token)
 
             def find_mount(disk: str | None) -> str | None:
                 if not disk:
@@ -855,21 +859,25 @@ class DiagnosticService(QObject):
                 return False, "找不到任何 USB mount 路徑"
             # -------- step 3: 找 dqa_package 並複製 --------
             self.dqa_package_path = None
+
             for usb_path in [self.usb1_path, self.usb2_path, self.usb3_path]:
                 if not usb_path:
                     continue
-                # 檢查 dqa_package 是否存在
+
                 response = self._model.send_command_sync(
                     f"test -d {usb_path}/dqa_package && echo FOUND"
                 )
-                if response and "FOUND" in response[0]:
+
+                # ⭐ 關鍵修正：不要用 response[0]
+                if response and any("FOUND" in line for line in response):
                     self.dqa_package_path = f"{usb_path}/dqa_package"
-                    # 複製到 /root/dqa_package
+
                     self._model.send_command_sync("mkdir -p /home/root/dqa_package")
                     self._model.send_command_sync(
                         f"cp -r {self.dqa_package_path}/* /home/root/dqa_package/"
                     )
                     break
+
             if not self.dqa_package_path:
                 return False, "USB mount found, but dqa_package not found"
 
@@ -877,7 +885,7 @@ class DiagnosticService(QObject):
                 f"Odin USB paths: "
                 f"left={self.usb1_path}, "
                 f"right={self.usb2_path}, "
-                f"typec={self.usb3_path} "
+                f"typec={self.usb3_path}"
             )
             
         """
