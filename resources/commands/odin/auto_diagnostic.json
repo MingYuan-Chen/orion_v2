@@ -182,6 +182,7 @@
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition] - Power button Test\nPlease tap the power button after click OK button",
+      "sync",
       "sh /home/root/dqa_package/odin_power_key_monitor.sh"
     ],
     "validate_function": "validate_power_button_for_odin"
