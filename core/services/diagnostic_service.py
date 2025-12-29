@@ -619,7 +619,7 @@ class DiagnosticService(QObject):
             if self._platform_name == "Odin":
                 display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256 frame:"
+            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/frame:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
             if self._platform_name == "Odin":
