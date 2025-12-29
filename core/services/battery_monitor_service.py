@@ -371,7 +371,11 @@ class BatteryMonitorService(QObject):
                     elif key == "remaining_capacity":
                         return f"{hex_value}mAh ({combined_hex})"
                     elif key == "ac_present":
-                        status = "Plugged" if hex_value == 55 else "Unplugged"
+                        if self._platform_name == "Odin":
+                            plugged = (hex_value == 31)
+                        else:
+                            plugged = (hex_value == 55)
+                        status = "Plugged" if plugged else "Unplugged"
                         return f"{status} ({combined_hex})"
             # Default: return raw string stripped of whitespace
             return "Unknown"
