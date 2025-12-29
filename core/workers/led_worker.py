@@ -66,11 +66,11 @@ class LedWorker(QObject):
             2: "Green", 34: "Green",
             4: "Red", 36: "Red",
             8: "Amber", 40: "Amber",
-            17: "Blink Blue", 49: "Blink Blue",
-            18: "Blink Green", 50: "Blink Green",
-            20: "Blink Red", 52: "Blink Red",
-            24: "Blink Amber", 56: "Blink Amber",
-            0: "Off", 32: "Off"
+            17: "Blue Blink", 49: "Blue Blink",
+            18: "Green Blink", 50: "Green Blink",  
+            20: "Red Blink", 52: "Red Blink",
+            24: "Amber Blink", 56: "Amber Blink",
+            0: "Off", 16: "Blink Off", 32: "Off"
         },
         "odin": {
             1: "Blue", 17: "Blue",
