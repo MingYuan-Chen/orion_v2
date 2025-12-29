@@ -35,7 +35,7 @@
   "Nominal_Voltage_(Spec-Panasonic Cell:10.8V/EVE Cell:10.95V)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
   ],
-  "Nominal_Capacity_(Spec-Panasonic Cell:6400mAh/EVE Cell:6800mAh)": [
+  "Nominal_Capacity_(Spec-Panasonic Cell:6400mAh/EVE Cell:7000mAh)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
   ]
 }
