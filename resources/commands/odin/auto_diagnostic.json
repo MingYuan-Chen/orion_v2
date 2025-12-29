@@ -89,25 +89,6 @@
       "1286:204e Marvell Semiconductor, Inc."
     ]
   },
-  "diagnostic_System/RTC_Time": {
-    "commands": [
-      "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
-    ],
-    "expected_response": [
-      "Wed Feb 28 23:59:59 2024"
-    ]
-  },
-  "diagnostic_NTP_Sync_Time": {
-    "commands": [
-      "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
-      "date; hwclock -r",
-      "ntpdate -u 192.168.6.11",
-      "date; hwclock -w; hwclock -r"
-    ],
-    "validate_function": "validate_sync_time"
-  },
   "diagnostic_EEPROM": {
     "commands": [
       "i2cdetect -y 2",
@@ -155,7 +136,6 @@
   },
   "diagnostic_USB-A_R/W-COM19(LEFT)": {
     "commands": [
-      "manual_check_required. [Precondition] - USB R/W Test\nFollowing are the USB R/W test, please insert 2 USB-A drives and 1 USB-C drive into the console.",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
       "mount -o remount,rw /",
       "dd if=/dev/zero of=usb1_path/usb_throughput bs=1M count=200 status=progress",
@@ -180,7 +160,8 @@
       "dmesg -n 3",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
       "mount -o remount,rw /",
-      "dd if=/dev/zero of=usb3_path/usb_throughput bs=1M count=200 status=progress",
+      "find_usb_path",
+      "sync && dd if=/dev/zero of=usb3_path/usb_throughput bs=1M count=200 status=progress",
       "dd if=usb3_path/usb_throughput of=/dev/null bs=1M",
       "rm -f usb3_path/usb_throughput"
     ],
@@ -317,5 +298,25 @@
       "rm -f mic.wav",
       "manual_check_required. [Test Hints] - Audio Test\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
+  },
+  "diagnostic_System_&_RTC_Time_R/W_using_Leap_Year": {
+    "commands": [
+      "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
+    ],
+    "expected_response": [
+      "Wed Feb 28 23:59:59 2024"
+    ]
+  },
+  "diagnostic_NTP_Sync_Time": {
+    "commands": [
+      "manual_check_required. [Precondition] - NTP Sync Time Test\nPlease insert the Ethernet dongle into the console and connect the Ethernet cable.",
+      "mount -o remount,rw /",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
+      "date; hwclock -r",
+      "ntpdate -u 192.168.6.11",
+      "date; hwclock -w; hwclock -r"
+    ],
+    "validate_function": "validate_sync_time"
   }
 }

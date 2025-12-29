@@ -156,7 +156,7 @@ class DiagnosticValidator:
                 return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}, Expected resuls - Read speed:{read_speed_threshold} MB/s, Write speed: {write_speed_threshold} MB/s"
-        return False, "No matched speed string found"
+        return False, "No USB drive found"
     
     @staticmethod
     def validate_eeprom_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
@@ -540,6 +540,8 @@ class DiagnosticService(QObject):
                 if self.usb3_path:
                     cmd_replace = cmd.replace("usb3_path", self.usb3_path)
                     response_lines = self._model.send_command_sync(cmd_replace)
+            elif "find_usb_path" in cmd:
+                self._find_valid_usb_path()       
             elif "eeprom_1_byte" in cmd:
                 if self.eeprom_1_byte:
                     cmd_replace = cmd.replace("eeprom_1_byte", self.eeprom_1_byte)
