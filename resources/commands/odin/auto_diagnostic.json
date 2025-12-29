@@ -1,45 +1,27 @@
 {
-  "diagnostic_Touch_9_Points": {
+  "diagnostic_CPU_Core_Type": {
     "commands": [
-      "systemctl stop weston & systemctl stop odin-production.service",
-      "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+      "cat /sys/devices/soc0/soc_id"
+    ],
+    "expected_response": [
+      "i.MX8MQ"
     ]
   },
-  "diagnostic_Touch_Drag_Draw": {
+  "diagnostic_CPU_Processor": {
     "commands": [
-      "systemctl stop weston & systemctl stop odin-production.service",
-      "ts_test_mt -j 2 -v",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+      "grep -c ^processor /proc/cpuinfo"
+    ],
+    "expected_response": [
+      "4"
     ]
   },
-
-  "diagnostic_Power_Button": {
+  "diagnostic_eMMc_Size": {
     "commands": [
-      "manual_check_required. [Precondition]\nPower button",
-      "sh /home/root/dqa_package/odin_power_key_monitor.sh"
+      "cat /sys/block/mmcblk0/size"
     ],
-    "validate_function": "validate_power_button_for_odin"
-  },
-  
-  "diagnostic_Probe": {
-    "commands": [
-      "/home/root/dqa_package/odin_res/configure_console.sh",
-      "sleep 6",
-      "LD_LIBRARY_PATH=/home/root/dqa_package/odin_res /home/root/dqa_package/odin_res/probe-capture",
-      "/home/root/dqa_package/odin_res/check_crc.sh"
-    ],
-    "validate_function": "validate_probe_for_odin"
-  },
-  "diagnostic_EEPROM": {
-    "commands": [
-      "i2cdetect -y 2",
-      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16",
-      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16 | hexdump -v -e '16/1 \"%02X\"'"
-    ],
-    "validate_function": "validate_eeprom_for_odin"
+    "expected_response": [
+      "61120512"
+    ]
   },
   "diagnostic_eMMc_R/W": {
     "commands": [
@@ -51,9 +33,111 @@
     ],
     "validate_function": "validate_read_write"
   },
+  "diagnostic_MAC_Address": {
+    "commands": [
+      "cat /sys/class/net/eth0/address"
+    ],
+    "validate_function": "validate_mac_address_pattern"
+  },
+  "diagnostic_Memory_Size": {
+    "commands": [
+      "grep MemTotal /proc/meminfo"
+    ],
+    "expected_response": [
+      "3074232",
+      "3074220"
+    ]
+  },
+  "diagnostic_Kernel_Name": {
+    "commands": [
+      "uname -a"
+    ],
+    "expected_response": [
+      "Linux odin 4.14.98-VT_ODIN_050_BSP_R3",
+      "Linux odin 4.14.98-production #1 SMP PREEMPT Wed Jan 20 09:12:41 UTC 2021"
+    ]
+  },
+  "diagnostic_Panel_Resolution": {
+    "commands": [
+      "fbset | grep geometry"
+    ],
+    "expected_response": [
+      "1280 800"
+    ]
+  },
+  "diagnostic_PIC_Version": {
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"
+    ],
+    "expected_response": [
+      "0x18"
+    ]
+  },
+  "diagnostic_WiFi_Controller": {
+    "commands": [
+      "lspci"
+    ],
+    "expected_response": [
+      "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
+    ]
+  },
+  "diagnostic_Bluetooth_Controller": {
+    "commands": [
+      "lsusb"
+    ],
+    "expected_response": [
+      "1286:204e Marvell Semiconductor, Inc."
+    ]
+  },
+  "diagnostic_System/RTC_Time": {
+    "commands": [
+      "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
+    ],
+    "expected_response": [
+      "Wed Feb 28 23:59:59 2024"
+    ]
+  },
+  "diagnostic_NTP_Sync_Time": {
+    "commands": [
+      "mount -o remount,rw /",
+      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
+      "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
+      "date; hwclock -r",
+      "ntpdate -u 192.168.6.11",
+      "date; hwclock -w; hwclock -r"
+    ],
+    "validate_function": "validate_sync_time"
+  },
+  "diagnostic_EEPROM": {
+    "commands": [
+      "i2cdetect -y 2",
+      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16",
+      "eeprog -q -f -8 /dev/i2c-2 0x4c -r 0x00:16 | hexdump -v -e '16/1 \"%02X\"'"
+    ],
+    "validate_function": "validate_eeprom_for_odin"
+  },
+  "diagnostic_Battery_Nominal_Capacity": {
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
+    ],
+    "expected_response": [
+      "0x1a 0x90",
+      "0x19 0x00"
+    ]
+  },
+  "diagnostic_Battery_Nominal_Voltage": {
+    "commands": [
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
+    ],
+    "expected_response": [
+      "0x2a 0xc6",
+      "0x2a 0x30"
+    ]
+  },
   "diagnostic_Battery_Charge_Test": {
     "commands": [
-      "manual_check_required. [Precondition]\nCharge Test\nPlease plug in the AC to charge",
+      "manual_check_required. [Precondition] - Charge Test\nPlease plug in the AC to charge",
       "echo 'Charge Status'",
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
@@ -62,7 +146,7 @@
   },
   "diagnostic_Battery_Discharge_Test": {
     "commands": [
-      "manual_check_required. [Precondition]\nDischarge Test\nPlease unplug the AC to discharge",
+      "manual_check_required. [Precondition] - Discharge Test\nPlease unplug the AC to discharge",
       "echo 'Discharge Status'",
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
@@ -102,155 +186,77 @@
     ],
     "validate_function": "validate_read_write"
   },
-  "diagnostic_CPU_Name": {
+  "diagnostic_SD_card_R/W": {
     "commands": [
-      "cat /sys/devices/soc0/soc_id"
+      "",
+      "mkdir -p /run/media/sdcard && mount /dev/mmcblk1p1 /run/media/sdcard",
+      "mount -o remount,rw /run/media/sdcard",
+      "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
+      "dd if=/run/media/sdcard/sd_throughput of=/dev/null bs=1M",
+      "rm -f /run/media/sdcard/sd_throughput"
     ],
-    "expected_response": [
-      "i.MX8MQ"
-    ]
+    "validate_function": "validate_read_write"
   },
-  "diagnostic_CPU_Processor": {
+  "diagnostic_Power_Button": {
     "commands": [
-      "grep -c ^processor /proc/cpuinfo"
+      "manual_check_required. [Precondition] - Power button Test\nPlease tap the power button after click OK button",
+      "sh /home/root/dqa_package/odin_power_key_monitor.sh"
     ],
-    "expected_response": [
-      "4"
-    ]
+    "validate_function": "validate_power_button_for_odin"
   },
-  "diagnostic_eMMc_Size": {
-    "commands": [
-      "cat /sys/block/mmcblk0/size"
-    ],
-    "expected_response": [
-      "61120512"
-    ]
-  },
-  "diagnostic_MAC_Address": {
-    "commands": [
-      "cat /sys/class/net/eth0/address"
-    ],
-    "validate_function": "validate_mac_address_pattern"
-  },
-  "diagnostic_Memory_Size": {
-    "commands": [
-      "grep MemTotal /proc/meminfo"
-    ],
-    "expected_response": [
-      "3074232",
-      "3074220"
-    ]
-  },
-  "diagnostic_PIC_Version": {
-    "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x21 0x00 0x10 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x23 0x00 0x10 r2"
-    ],
-    "expected_response": [
-      "0x18"
-    ]
-  },
-  "diagnostic_System/RTC_Time": {
-    "commands": [
-      "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
-    ],
-    "expected_response": [
-      "Wed Feb 28 23:59:59 2024"
-    ]
-  },
-  "diagnostic_NTP_Sync_Time": {
+  
+  "diagnostic_Probe": {
     "commands": [
       "mount -o remount,rw /",
-      "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
-      "date; hwclock -r",
-      "ntpdate -u 192.168.6.11",
-      "date; hwclock -w; hwclock -r"
+      "/home/root/dqa_package/odin_res/configure_console.sh",
+      "sleep 6",
+      "LD_LIBRARY_PATH=/home/root/dqa_package/odin_res /home/root/dqa_package/odin_res/probe-capture",
+      "/home/root/dqa_package/odin_res/check_crc.sh"
     ],
-    "validate_function": "validate_sync_time"
+    "validate_function": "validate_probe_for_odin"
   },
-  "diagnostic_Battery_Nominal_Capacity": {
+  "diagnostic_Dimming": {
     "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2"
-    ],
-    "expected_response": [
-      "0x1a 0x90",
-      "0x19 0x00"
-    ]
-  },
-  "diagnostic_Battery_Nominal_Voltage": {
-    "commands": [
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x18 r2",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x19 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x19 r2"
-    ],
-    "expected_response": [
-      "0x2a 0xc6",
-      "0x2a 0x30"
-    ]
-  },
-  "diagnostic_Kernel_Name": {
-    "commands": [
-      "uname -a"
-    ]
-  },
-  "diagnostic_Panel_Resolution": {
-    "commands": [
-      "fbset | grep geometry"
-    ],
-    "expected_response": [
-      "1280 800"
-    ]
-  },
-  "diagnostic_Wi-Fi Module": {
-    "commands": [
-      "lspci"
-    ],
-    "expected_response": [
-      "Marvell Technology Group Ltd. Device 2b42 (rev 11)"
-    ]
-  },
-  "diagnostic_Bluetooth Module": {
-    "commands": [
-      "lsusb"
-    ],
-    "expected_response": [
-      "1286:204e Marvell Semiconductor, Inc."
-    ]
-  },
-
-  "diagnostic_Backlight": {
-    "commands": [
-      "manual_check_required. [Precondition]\nBacklight Test\nThe following steps:\n1.Adjust backlight from 0 to 7.\n2.Turn off and on backlight power.",
-      "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
+      "manual_check_required. [Precondition] - Dimming Test\nThe following steps:\n1.Adjust backlight from 100% to 0%",
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "sleep_required 1",
       "/usr/bin/drawfb -p white",
-      "sleep_required 1",
-      "echo 0 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 1 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 2 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 3 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 4 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 5 > /sys/class/backlight/backlight/brightness",
-      "sleep_required 1",
-      "echo 6 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
       "echo 7 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
-      "echo 1 > /sys/class/backlight/backlight/bl_power",
+      "echo 6 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
-      "echo 0 > /sys/class/backlight/backlight/bl_power",
-      "manual_check_required. [Test Hints]\nPlease confirm brightness and backlight power action as expected. \nClick Pass/Fail to proceed."
+      "echo 5 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 4 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 3 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 2 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 1 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 0 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "echo 7 > /sys/class/backlight/backlight/brightness",
+      "sleep_required 1",
+      "manual_check_required. [Test Hints] - Dimming Test\nPlease confirm brightness action as expected. \nClick Pass/Fail to proceed."
     ]
   },
-
+  "diagnostic_Backlight": {
+    "commands": [
+      "manual_check_required. [Precondition] - Backlight Test\nThe following steps:\n1.Turn off and on backlight power.",
+      "echo 1 > /sys/class/backlight/backlight/bl_power",
+      "sleep_required 2",
+      "echo 0 > /sys/class/backlight/backlight/bl_power",
+      "manual_check_required. [Test Hints] - Backlight Test\nPlease confirm backlight power action as expected. \nClick Pass/Fail to proceed."
+    ]
+  },
   "diagnostic_LCD": {
     "commands": [
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
-      "manual_check_required. [Precondition] LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame, gray16, gray64, gray256.",
+      "manual_check_required. [Precondition] - LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256, frame.",
       "sync && sleep 2",
       "/usr/bin/drawfb -p red",
       "sleep_required 1",
@@ -268,25 +274,19 @@
       "sleep_required 1",
       "/usr/bin/drawfb -p frame",
       "sleep_required 1",
-      "/usr/bin/drawfb -p gray16",
-      "sleep_required 1",
-      "/usr/bin/drawfb -p gray64",
-      "sleep_required 1",
-      "/usr/bin/drawfb -p gray256",
-      "sleep_required 1",
       "systemctl restart weston & systemctl start odin-production.service",
-      "manual_check_required. [Test Hints]\nPlease confirm LCD color as expected. \nClick Pass/Fail to proceed."
+      "manual_check_required. [Test Hints] - LCD Test\nPlease confirm LCD color as expected. \nClick Pass/Fail to proceed."
     ]
   },
   "diagnostic_LED": {
     "commands": [
       "manual_check_required. [Precondition] - LED Test\nFollowing process will switch LED color to blue, green, red, blink blue, blink green, blink red.",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x01 r2",
-      "sleep_required 5",
+      "sleep_required 3",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x02 r2",
-      "sleep_required 5",
+      "sleep_required 3",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x04 r2",
-      "sleep_required 5",
+      "sleep_required 3",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x09 r2",
       "sleep_required 5",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x0a r2",
@@ -294,29 +294,28 @@
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x0c r2",
       "sleep_required 5",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x10 r2",
-      "manual_check_required. [Test Hints]\nPlease confirm LED color as expected. \nClick Pass/Fail to proceed."
+      "manual_check_required. [Test Hints] - LED Test\nPlease confirm LED color as expected. \nClick Pass/Fail to proceed."
     ]
   },
-
+  "diagnostic_Touch": {
+    "commands": [
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
+      "systemctl restart weston & systemctl start odin-production.service",
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "ts_test_mt -j 2 -v",
+      "systemctl restart weston & systemctl start odin-production.service",
+      "manual_check_required. [Test Hints] - Touch Test\nPlease confirm touch as expected. \nClick Pass/Fail to proceed."
+    ]
+  },
   "diagnostic_Audio_Record_Play": {
     "commands": [
-      "manual_check_required. [Precondition]\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
+      "manual_check_required. [Precondition] - Audio Test\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
       "amixer -c 0 set PCM 100%",
-      "aplay /root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 10",
+      "aplay /home/root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 10",
       "aplay mic.wav",
       "rm -f mic.wav",
-      "manual_check_required. [Test Hints]\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
+      "manual_check_required. [Test Hints] - Audio Test\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
-  },
-  "diagnostic_SD_card_R/W": {
-    "commands": [
-      "",
-      "mkdir -p /run/media/sdcard && mount /dev/mmcblk1p1 /run/media/sdcard",
-      "mount -o remount,rw /run/media/sdcard",
-      "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
-      "dd if=/run/media/sdcard/sd_throughput of=/dev/null bs=1M",
-      "rm -f /run/media/sdcard/sd_throughput"
-    ],
-    "validate_function": "validate_read_write"
   }
 }
