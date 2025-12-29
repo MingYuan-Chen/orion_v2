@@ -194,9 +194,7 @@ class SystemInfoService(QObject):
                     elif "Charge_Voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
-                    elif "Charging_Current" in key:
-                        if "odin" in self.platform_name.lower():
-                            # Odin：原始單位就是 mA
+                    elif "Charging_Current" in key and "odin" in self.platform_name.lower():
                             self.info_updated.emit(key, f"{hex_value} mAh")
                     elif "Charging_Current" in key:
                         current = round(hex_value / 1000, 1)
@@ -209,7 +207,7 @@ class SystemInfoService(QObject):
                         self.info_updated.emit(key, f"{capacity} mAh")
                     elif "Nominal_Voltage" in key:
                         voltage = round(hex_value / 1000, 1)
-                        self.info_updated.emit(key, f"{voltage} V")
+                        self.info_updated.emit(key, f"{voltage:.2f} V")
                     elif "Nominal_Capacity" in key:
                         capacity = hex_value
                         self.info_updated.emit(key, f"{capacity} mAh")

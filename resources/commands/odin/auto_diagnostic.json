@@ -101,7 +101,7 @@
     "commands": [
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && sleep 3",
-      "cp /dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
+      "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
       "date; hwclock -r",
       "ntpdate -u 192.168.6.11",
       "date; hwclock -w; hwclock -r"
@@ -155,7 +155,7 @@
   },
   "diagnostic_USB-A_R/W-COM19(LEFT)": {
     "commands": [
-      "dmesg -n 3",
+      "manual_check_required. [Precondition] - USB R/W Test\nFollowing are the USB R/W test, please insert 2 USB-A drives and 1 USB-C drive into the console.",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value && echo 0 > /sys/class/gpio/mx8_usbc_pd/value",
       "mount -o remount,rw /",
       "dd if=/dev/zero of=usb1_path/usb_throughput bs=1M count=200 status=progress",
