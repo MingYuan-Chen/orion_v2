@@ -151,7 +151,13 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            device_type = "USB" if "USB" in key else "eMMC"
+            if "SD_card" in key:
+                device_type = "SD card"
+            elif "USB" in key:
+                device_type = "USB"
+            else:
+                device_type = "eMMC"
+
             if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
                 return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
