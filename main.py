@@ -29,7 +29,7 @@ def main():
 
     # Set application name
     app.setApplicationName("Orion")
-    app.setApplicationDisplayName(f'v2.1.2_{time.strftime("%Y%m%d")}')
+    app.setApplicationDisplayName(f'v2.1.2_Odin_Support{time.strftime("%Y%m%d")}')
     app.setOrganizationName("Orion")
     app.setOrganizationDomain("orion.com")
     app.setApplicationVersion("2.1.2.0")

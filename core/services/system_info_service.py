@@ -143,13 +143,13 @@ class SystemInfoService(QObject):
                         t_bytes = t_sectors * 512
                         disk = round(t_bytes/(1024*1024*1024), 2)
                         if 50 < disk < 80:
-                            total_string = "64 GiB"
+                            total_string = "64 GB"
                         elif disk < 40:
-                            total_string = "32 GiB"
+                            total_string = "32 GB"
                         else:
-                            total_string = "128 GiB"
+                            total_string = "128 GB"
 
-                        dist = f"Total: {total_string} | Available: {disk} GiB"
+                        dist = f"Total: {total_string} | Available: {disk} GB"
                         self.info_updated.emit(key, dist)
             
             elif "Kernel_Version" in key:
@@ -191,6 +191,11 @@ class SystemInfoService(QObject):
                     if "Charging_Voltage" in key:
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
+                    elif "Charge_Voltage" in key:
+                        voltage = round(hex_value / 1000, 1)
+                        self.info_updated.emit(key, f"{voltage} V")
+                    elif "Charging_Current" in key and "odin" in self.platform_name.lower():
+                            self.info_updated.emit(key, f"{hex_value} mA")
                     elif "Charging_Current" in key:
                         current = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{current} A")
@@ -198,6 +203,12 @@ class SystemInfoService(QObject):
                         voltage = round(hex_value / 1000, 1)
                         self.info_updated.emit(key, f"{voltage} V")
                     elif "Typical_Capacity" in key:
+                        capacity = hex_value
+                        self.info_updated.emit(key, f"{capacity} mAh")
+                    elif "Nominal_Voltage" in key:
+                        voltage = round(hex_value / 1000, 1)
+                        self.info_updated.emit(key, f"{voltage:.2f} V")
+                    elif "Nominal_Capacity" in key:
                         capacity = hex_value
                         self.info_updated.emit(key, f"{capacity} mAh")
                     elif "Battery_S/N" in key:

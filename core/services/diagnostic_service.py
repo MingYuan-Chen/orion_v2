@@ -35,11 +35,13 @@ class DiagnosticValidator:
         # Use re.search to find the MAC address pattern anywhere in the response string.
         # The anchors (^) and ($) are removed to allow for surrounding text.
         mac_pattern = r'[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
-        if re.search(mac_pattern, output):
-            mac_address = re.search(mac_pattern, output).group()
-            return True, f"Found valid mac address: {mac_address}"
-        
-        return False, f"The mac address is invalid"
+        match = re.search(mac_pattern, output)
+
+        if match:
+            mac_address = match.group()
+            return True, f"Found valid MAC address: {mac_address}"
+
+        return False, "The MAC address is invalid"
     
     @staticmethod
     def validate_sync_time(output: str, platform_name: str, **kwargs) -> Tuple[bool, str]:
@@ -112,17 +114,17 @@ class DiagnosticValidator:
         write_speed_threshold = 30
         if platform_name.lower() == "odin":
             if key in ["diagnostic_USB-A_R/W-COM19(LEFT)", "diagnostic_USB-A_R/W-COM18(RIGHT)"]:
-                read_speed_threshold = 20
-                write_speed_threshold = 30
+                read_speed_threshold = 60
+                write_speed_threshold = 60
             elif key == "diagnostic_USB-C_R/W":
-                read_speed_threshold = 45
-                write_speed_threshold = 100
+                read_speed_threshold = 60
+                write_speed_threshold = 60
             elif key == "diagnostic_eMMc_R/W":
-                read_speed_threshold = 50
-                write_speed_threshold = 216
+                read_speed_threshold = 104
+                write_speed_threshold = 104
             elif key == "diagnostic_SD_card_R/W":
-                read_speed_threshold = 45
-                write_speed_threshold = 100
+                read_speed_threshold = 10
+                write_speed_threshold = 10
                 
         elif platform_name.lower() == "athena":
             if key in ["diagnostic_USB1_R/W", "diagnostic_USB2_R/W"]:
@@ -149,12 +151,18 @@ class DiagnosticValidator:
             else:
                 read_speed = float(matches[1][0])
 
-            device_type = "USB" if "USB" in key else "eMMC"
+            if "SD_card" in key:
+                device_type = "SD card"
+            elif "USB" in key:
+                device_type = "USB"
+            else:
+                device_type = "eMMC"
+
             if read_speed > read_speed_threshold and write_speed > write_speed_threshold:
                 return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
-                return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
-        return False, "No matched speed string found"
+                return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}, Expected resuls - Read speed:{read_speed_threshold} MB/s, Write speed: {write_speed_threshold} MB/s"
+        return False, "No USB drive found"
     
     @staticmethod
     def validate_eeprom_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
@@ -175,7 +183,7 @@ class DiagnosticValidator:
             )
 
         return True, (
-            f"Read signature={signature}, I2C bus=2, addr=0x4C"
+            f"EEPROM Read and Write PASS on I2C bus=2, addr=0x4C"
         )
     @staticmethod
     def validate_eeprom_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
@@ -274,7 +282,7 @@ class DiagnosticValidator:
             if not (0 <= current <= 3250):
                 return False, (
                     f"Now Charge current is {current}mA, "
-                    f"Charge current should 0mA ~ 3120mA, "
+                    f"Charge current should 0mA ~ 3250mA, "
                     f"Battery SoC: {soc}%"
                 )
             mode = "Charging"
@@ -362,6 +370,8 @@ class DiagnosticValidator:
         for line in responses:
             if "PASS" in line:
                 return True, "Power button is detected"
+            elif "No such file or directory" in line:
+                return False, "Please connect the USB storage device where the dqa_package is stored."
             elif "FAIL" in line:
                 return False, "Timeout: no key press detected within 10 seconds"
 
@@ -536,6 +546,8 @@ class DiagnosticService(QObject):
                 if self.usb3_path:
                     cmd_replace = cmd.replace("usb3_path", self.usb3_path)
                     response_lines = self._model.send_command_sync(cmd_replace)
+            elif "find_usb_path" in cmd:
+                self._find_valid_usb_path()       
             elif "eeprom_1_byte" in cmd:
                 if self.eeprom_1_byte:
                     cmd_replace = cmd.replace("eeprom_1_byte", self.eeprom_1_byte)
@@ -604,20 +616,28 @@ class DiagnosticService(QObject):
         display_str = "Manual Check Result:"
         if self._current_key == "diagnostic_Backlight":
             display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
+            if self._platform_name == "Odin":
+                display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/Gradient256/white frame:"
+            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/gradient256:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
+            if self._platform_name == "Odin":
+                display_str = "LED switch to Blue/Green/Red/Blink Blue/Blink Green/Blink Red:"
         elif self._current_key == "diagnostic_Touch_9_Points":
             display_str = "Touch center/top/bottom/center-left/center-right/top-left/top-right/bottom-left/bottom-right:"
         elif self._current_key == "diagnostic_Touch_Drag_Draw":
             display_str = "Touch drag/draw:"
+        elif self._current_key == "diagnostic_Touch":
+            display_str = "Touch 9 points and drag/draw:"
         elif self._current_key == "diagnostic_Camera_Preview":
             display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
         elif self._current_key == "diagnostic_HDMI_Mirror_Display":
             display_str = "HDMI mirror display:"
-        elif self._current_key == "diagnostic_Audio_Record_Play":
+        elif self._current_key in "diagnostic_Audio_Record_Play":
             display_str = "Audio record from microphone and play by speaker:"
+        elif self._current_key == "diagnostic_Dimming":
+            display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
         # Validate
         if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, f"{display_str} Pass"
@@ -694,7 +714,12 @@ class DiagnosticService(QObject):
                             # bytes → GB (binary GiB but commonly called GB)
                             gb_total = bytes_total / (1024 ** 3)
                             display_str = f"{gb_total:.2f} GB"
-                            response_message = f"Expected eMMC size: {display_str}"
+                            if self._platform_name == "Odin":
+                                response_message = (
+                                    f"eMMC size - 32GB (Available : {display_str})"
+                                )
+                            else:
+                                response_message = f"Expected eMMC size: {display_str}"
                         else:
                             response_message = "No matched eMMC size found"
                     elif key == "diagnostic_Memory_Size":
@@ -716,16 +741,29 @@ class DiagnosticService(QObject):
                     elif key == "diagnostic_Battery_Typical_Capacity":
                         if result:
                             display_str = DiagnosticValidator._parse_battery_value(target_string)
-                            response_message = f"Expected battery typical capacity: {display_str}mAh"
+                            response_message = f"Expected battery typical capacity: {display_str} mAh"
                         else:
                             response_message = "No matched battery typical capacity found"
                     elif key == "diagnostic_Battery_Normal_Voltage":
                         if result:
                             voltage = DiagnosticValidator._parse_battery_value(target_string)
-                            display_str = f"{voltage/1000:.1f}V"
+                            display_str = f"{voltage/1000:.1f} V"
                             response_message = f"Expected battery normal voltage: {display_str}"
                         else:
                             response_message = "No matched battery normal voltage found"
+                    elif key == "diagnostic_Battery_Nominal_Capacity":
+                        if result:
+                            display_str = DiagnosticValidator._parse_battery_value(target_string)
+                            response_message = f"Expected battery nominal capacity: {display_str} mAh"
+                        else:
+                            response_message = "No matched battery nominal capacity found"
+                    elif key == "diagnostic_Battery_Nominal_Voltage":
+                        if result:
+                            voltage = DiagnosticValidator._parse_battery_value(target_string)
+                            display_str = f"{voltage/1000:.1f} V"
+                            response_message = f"Expected battery nominal voltage: {display_str}"
+                        else:
+                            response_message = "No matched battery nominal voltage found"
                     elif key == "diagnostic_UBoot_Version":
                         if result:
                             response_message = f"Expected U-Boot version: {target_string}"
@@ -776,10 +814,93 @@ class DiagnosticService(QObject):
         Setup precondition for diagnostics.
         """
         self._find_original_eeprom_data()
+        self._copy_dqa_package()
         self._find_valid_usb_path()
    
+    def _copy_dqa_package(self) -> Tuple[bool, str]:
+        if self._platform_name.lower() == "odin":
+            response = "\n".join(
+            self._model.send_command_sync("ls -l /dev/disk/by-path && ls /run/media")
+            )
+
+            # 對應你實際看到的 path 特徵
+            USB_LEFT_KEY = "usb-0:1.2.2"
+            USB_RIGHT_KEY = "usb-0:1.2.1"
+            USB_C_KEY = "xhci-hcd.1.auto"
+
+            usb_left_disk = None
+            usb_right_disk = None
+            usb_c_disk = None
+
+            # -------- step 1: 找 sda / sdb / sdc --------
+            for line in response.splitlines():
+                if "-> ../../sd" not in line:
+                    continue
+
+                # 抓 sda / sdb / sdc
+                disk = line.split("->")[-1].strip().replace("../../", "")
+
+                if USB_LEFT_KEY in line:
+                    usb_left_disk = disk
+                elif USB_RIGHT_KEY in line:
+                    usb_right_disk = disk
+                elif USB_C_KEY in line:
+                    usb_c_disk = disk
+
+            # -------- step 2: 從 /run/media 找 partition --------
+            media_parts = []
+
+            for line in response.splitlines():
+                for token in line.split():
+                    if token.startswith(("sda", "sdb", "sdc")):
+                        media_parts.append(token)
+
+            def find_mount(disk: str | None) -> str | None:
+                if not disk:
+                    return None
+                for part in media_parts:
+                    if part.startswith(disk):
+                        return f"/run/media/{part}"
+                return None
+
+            self.usb1_path = find_mount(usb_left_disk)
+            self.usb2_path = find_mount(usb_right_disk)
+            self.usb3_path = find_mount(usb_c_disk)
+
+            if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
+                return False, "找不到任何 USB mount 路徑"
+            # -------- step 3: 找 dqa_package 並複製 --------
+            self.dqa_package_path = None
+
+            for usb_path in [self.usb1_path, self.usb2_path, self.usb3_path]:
+                if not usb_path:
+                    continue
+
+                response = self._model.send_command_sync(
+                    f"test -d {usb_path}/dqa_package && echo FOUND"
+                )
+
+                # ⭐ 關鍵修正：不要用 response[0]
+                if response and any("FOUND" in line for line in response):
+                    self.dqa_package_path = f"{usb_path}/dqa_package"
+
+                    self._model.send_command_sync("mkdir -p /home/root/dqa_package")
+                    self._model.send_command_sync(
+                        f"cp -r {self.dqa_package_path}/* /home/root/dqa_package/"
+                    )
+                    break
+
+            if not self.dqa_package_path:
+                return False, "USB mount found, but dqa_package not found"
+
+            return True, (
+                f"Odin USB paths: "
+                f"left={self.usb1_path}, "
+                f"right={self.usb2_path}, "
+                f"typec={self.usb3_path}"
+            )
+            
     def _find_valid_usb_path(self) -> Tuple[bool, str]:
-        
         
         if self._platform_name.lower() == "odin":
             response = "\n".join(
@@ -812,10 +933,11 @@ class DiagnosticService(QObject):
 
             # -------- step 2: 從 /run/media 找 partition --------
             media_parts = []
+
             for line in response.splitlines():
-                if line.startswith("sda") or line.startswith("sdb") or line.startswith("sdc"):
-                    media_parts = line.split()
-                    break
+                for token in line.split():
+                    if token.startswith(("sda", "sdb", "sdc")):
+                        media_parts.append(token)
 
             def find_mount(disk: str | None) -> str | None:
                 if not disk:
@@ -831,31 +953,12 @@ class DiagnosticService(QObject):
 
             if not any([self.usb1_path, self.usb2_path, self.usb3_path]):
                 return False, "找不到任何 USB mount 路徑"
-            # -------- step 3: 找 dqa_package 並複製 --------
-            self.dqa_package_path = None
-            for usb_path in [self.usb1_path, self.usb2_path, self.usb3_path]:
-                if not usb_path:
-                    continue
-                # 檢查 dqa_package 是否存在
-                response = self._model.send_command_sync(
-                    f"test -d {usb_path}/dqa_package && echo FOUND"
-                )
-                if response and "FOUND" in response[0]:
-                    self.dqa_package_path = f"{usb_path}/dqa_package"
-                    # 複製到 /root/dqa_package
-                    self._model.send_command_sync("mkdir -p /home/root/dqa_package")
-                    self._model.send_command_sync(
-                        f"cp -r {self.dqa_package_path}/* /home/root/dqa_package/"
-                    )
-                    break
-            if not self.dqa_package_path:
-                return False, "USB mount found, but dqa_package not found"
 
             return True, (
                 f"Odin USB paths: "
                 f"left={self.usb1_path}, "
                 f"right={self.usb2_path}, "
-                f"typec={self.usb3_path} "
+                f"typec={self.usb3_path}"
             )
             
         """
