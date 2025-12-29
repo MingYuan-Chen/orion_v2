@@ -714,7 +714,12 @@ class DiagnosticService(QObject):
                             # bytes → GB (binary GiB but commonly called GB)
                             gb_total = bytes_total / (1024 ** 3)
                             display_str = f"{gb_total:.2f} GB"
-                            response_message = f"Expected eMMC size: {display_str}"
+                            if self._platform_name == "Odin":
+                                response_message = (
+                                    f"eMMC size - 32GB (Available : {display_str})"
+                                )
+                            else:
+                                response_message = f"Expected eMMC size: {display_str}"
                         else:
                             response_message = "No matched eMMC size found"
                     elif key == "diagnostic_Memory_Size":
