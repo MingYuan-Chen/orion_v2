@@ -195,7 +195,7 @@
   },
   "diagnostic_LCD": {
     "commands": [
-      "manual_check_required. [Precondition]\nFollowing process will switch LCD color to white, black, red, green, blue, colorbar, gradient256, frame.",
+      "manual_check_required. [Precondition]\nFollowing process will switch LCD color to white, black, red, green, blue, colorbar, gradient256, gray16, colorbar, frame.",
       "/usr/bin/drawfb -p white",
       "sleep_required 1",
       "/usr/bin/drawfb -p black",
@@ -206,9 +206,11 @@
       "sleep_required 1",
       "/usr/bin/drawfb -p blue",
       "sleep_required 1",
-      "/usr/bin/drawfb -p colorbar",
-      "sleep_required 1",
       "/usr/bin/drawfb -p gradient256",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p gray16",
+      "sleep_required 1",
+      "/usr/bin/drawfb -p colorbar",
       "sleep_required 1",
       "/usr/bin/drawfb -p frame",
       "sleep_required 1",
@@ -264,7 +266,8 @@
   "diagnostic_Touch_9_Points": {
     "commands": [
       "touch_qt_path",
-      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed.",
+      "/usr/bin/drawfb -p white"
     ]
   },
   "diagnostic_Touch_Drag_Draw": {

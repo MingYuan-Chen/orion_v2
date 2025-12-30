@@ -1,12 +1,4 @@
 {
-  "functionality_audio": {
-    "commands": [
-      "amixer sset 'Master' 80%",
-      "(aplay /run/media/DATA-sdb1/dqa_package/odin_audio8k16S.wav &) && arecord -f cd mic.wav -d 10",
-      "aplay mic.wav",
-      "rm -f mic.wav"
-    ]
-  },
   "functionality_battery": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2",
