@@ -372,6 +372,8 @@ class DeviceViewModel(QObject):
     @Slot()
     def clean_up(self):
         """Should be called before application quits to ensure clean disconnection."""
+        if self._platform_name == "Athena":
+                self.toggle_production_tool_service("start")
         self._model.disconnect_device()
 
     # =================================================================================
