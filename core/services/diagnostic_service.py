@@ -712,7 +712,7 @@ class DiagnosticService(QObject):
                             # sector → bytes
                             bytes_total = sectors * 512
                             # bytes → GB (binary GiB but commonly called GB)
-                            gb_total = bytes_total / (1024 ** 3)
+                            gb_total = bytes_total / (1000 ** 3)
                             display_str = f"{gb_total:.2f} GB"
                             if self._platform_name == "Odin":
                                 response_message = (
