@@ -8,6 +8,7 @@ from core.services.system_info_service import SystemInfoService
 from core.services.hw_config_service import HWConfigService
 from core.services.diagnostic_service import DiagnosticService
 from core.services.battery_monitor_service import BatteryMonitorService
+from core.services.wifi_connection_service import WifiConnectionService
 from core.workers.led_worker import LedWorker
 from core.workers.backlight_worker import BacklightWorker
 from util.logger import logger
@@ -30,6 +31,7 @@ class DeviceViewModel(QObject):
         self._led_worker = None
         self._backlight_worker = None
         self._battery_monitor_is_running = False
+        self._wifi_service = None
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -85,6 +87,12 @@ class DeviceViewModel(QObject):
 
     # Backlight signals
     backlight_updated = Signal(str)
+
+    # WiFi signals
+    wifi_scan_finished = Signal(list)
+    wifi_connection_result = Signal(bool, str)
+    wifi_status_updated = Signal(dict)
+    open_wifi_view_requested = Signal()
 
     # =================================================================================
     # Properties accessible by the View
@@ -376,6 +384,27 @@ class DeviceViewModel(QObject):
                 self.toggle_production_tool_service("start")
         self._model.disconnect_device()
 
+    # --- WiFi Slots ---
+    @Slot()
+    def open_wifi_view(self):
+        self.open_wifi_view_requested.emit()
+    
+    @Slot()
+    def scan_wifi(self):
+        if self._wifi_service:
+            self._wifi_service.scan_networks()
+
+    @Slot(str, str)
+    def connect_wifi(self, ssid: str, password: str):
+        if self._wifi_service:
+            self._wifi_service.connect_network(ssid, password)
+            
+    @Slot()
+    def check_wifi_status(self):
+        if self._wifi_service:
+            self._wifi_service.check_status()
+
+
     # =================================================================================
     # Private slots to handle signals from the Model and Services
     # =================================================================================
@@ -462,6 +491,12 @@ class DeviceViewModel(QObject):
             # Initialize Backlight Worker
             self._backlight_worker = BacklightWorker(self._model, self._platform_name)
             self._backlight_worker.backlight_updated.connect(self.backlight_updated)
+            
+            # Initialize WiFi Service
+            self._wifi_service = WifiConnectionService(self._model)
+            self._wifi_service.scan_finished.connect(self.wifi_scan_finished)
+            self._wifi_service.connection_result.connect(self.wifi_connection_result)
+            self._wifi_service.status_updated.connect(self.wifi_status_updated)
         
         if self.platform_name == "Athena":
             self.toggle_production_tool_service("stop")
