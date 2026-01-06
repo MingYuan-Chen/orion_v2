@@ -56,14 +56,6 @@
       "Athena-030-V2P11"
     ]
   },
-  "diagnostic_Sync_Time": {
-    "commands": [
-      "date -s '2024-02-28 23:59:59'",
-      "hwclock -r",
-      "date"
-    ],
-    "validate_function": "validate_sync_time"
-  },
   "diagnostic_Battery_Typical_Capacity": {
     "commands": [
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x18 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x18 r2"
@@ -112,14 +104,33 @@
       "Marvell"
     ]
   },
-  "diagnostic_Audio_Record_Play": {
+  "diagnostic_Sync_Time": {
     "commands": [
-      "manual_check_required. [Precondition]\nFollowing process will record a playing audio then save as new audio file.\nThen play the new audio file again.",
-      "amixer sset 'Master' 80%",
-      "aplay 'test_audio_path' & arecord -Dhw:0,1 -d 10 -f S24_LE -r 48000 -c 2 -t wav mic.wav",
-      "aplay mic.wav",
-      "manual_check_required. [Test Hints]\nPlease confirm 2 audio playback are normal. Click Pass/Fail to proceed.",
-      "rm -f mic.wav"
+      "date -s '2024-02-28 23:59:59'",
+      "hwclock -r",
+      "date"
+    ],
+    "validate_function": "validate_sync_time"
+  },
+  "diagnostic_Ethernet_Connection": {
+    "commands": [
+      "nmcli device disconnect wlp1s0",
+      "curl -k -I https://www.google.com | grep HTTP/"
+    ],
+    "expected_response": [
+      "HTTP/1.1 200 OK"
+    ]
+  },
+  "diagnostic_WiFi_Connection": {
+    "commands": [
+      "nmcli device disconnect eth0",
+      "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025",
+      "curl -k -I https://www.google.com | grep HTTP/",
+      "nmcli connection down id DQA-Mesh66",
+      "nmcli device connect eth0"
+    ],
+    "expected_response": [
+      "HTTP/1.1 200 OK"
     ]
   },
   "diagnostic_Charge_Setting": {
@@ -167,6 +178,16 @@
       "rm -f 'usb2_path/usb_throughput'"
     ],
     "validate_function": "validate_read_write"
+  },
+  "diagnostic_Audio_Record_Play": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will record a playing audio then save as new audio file.\nThen play the new audio file again.",
+      "amixer sset 'Master' 80%",
+      "aplay 'test_audio_path' & arecord -Dhw:0,1 -d 10 -f S24_LE -r 48000 -c 2 -t wav mic.wav",
+      "aplay mic.wav",
+      "manual_check_required. [Test Hints]\nPlease confirm 2 audio playback are normal. Click Pass/Fail to proceed.",
+      "rm -f mic.wav"
+    ]
   },
   "diagnostic_Backlight": {
     "commands": [
@@ -237,30 +258,6 @@
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x18 r2",
       "manual_check_required. [Test Hints]\nPlease confirm LED display as expected. Click Pass/Fail to proceed.",
       "i2ctransfer -f -y 1 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x22 0x00 0x20 r2"
-    ]
-  },
-  "diagnostic_Ethernet_Connection": {
-    "commands": [
-      "nmcli device disconnect wlp1s0",
-      "curl -I -s https://www.google.com | grep HTTP/",
-      "nmcli device connect wlp1s0"
-    ],
-    "expected_response": [
-      "HTTP/1.1 200 OK"
-    ]
-  },
-  "diagnostic_WiFi_Connection": {
-    "commands": [
-      "nmcli device wifi rescan",
-      "nmcli device wifi connect DQA-Mesh66 password PromateDQA2025",
-      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 50",
-      "nmcli connection up DQA-Mesh66",
-      "curl -I -s https://www.google.com | grep HTTP/",
-      "nmcli connection modify DQA-Mesh66 ipv4.route-metric 600",
-      "nmcli connection up DQA-Mesh66"
-    ],
-    "expected_response": [
-      "HTTP/1.1 200 OK"
     ]
   },
   "diagnostic_Touch_9_Points": {
