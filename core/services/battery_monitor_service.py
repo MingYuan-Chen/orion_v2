@@ -152,6 +152,7 @@ class BatteryMonitorService(QObject):
         """Stop battery monitoring."""
         if self._running:
             self._running = False
+            self._monitoring_start_time = None
             self._timer.stop()
             # Save and close Excel file
             if self._workbook:

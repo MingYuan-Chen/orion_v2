@@ -619,7 +619,7 @@ class DiagnosticService(QObject):
             if self._platform_name == "Odin":
                 display_str = "Backlight power turn Off and On:"
         elif self._current_key == "diagnostic_LCD":
-            display_str = "LCD pattern switch to White/Black/Red/Green/Blue/Colorbar/gradient256:"
+            display_str = "LCD pattern switch to white/black/red/green/blue/gradient256/gray16/colorbar/frame:"
         elif self._current_key == "diagnostic_LED":
             display_str = "LED switch to Blue/Green/Red/Amber/Blink Blue/Blink Green/Blink Red/Blink Amber:"
             if self._platform_name == "Odin":
@@ -712,7 +712,7 @@ class DiagnosticService(QObject):
                             # sector → bytes
                             bytes_total = sectors * 512
                             # bytes → GB (binary GiB but commonly called GB)
-                            gb_total = bytes_total / (1024 ** 3)
+                            gb_total = bytes_total / (1000 ** 3)
                             display_str = f"{gb_total:.2f} GB"
                             if self._platform_name == "Odin":
                                 response_message = (

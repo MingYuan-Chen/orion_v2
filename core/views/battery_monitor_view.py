@@ -97,4 +97,6 @@ class BatteryMonitorView(QWidget):
     def closeEvent(self, event):
         """Stop monitoring when view is closed."""
         self._vm.stop_battery_monitor()
+        self.table.clearContents()
+        self.table.setRowCount(0)
         super().closeEvent(event)

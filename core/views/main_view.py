@@ -12,6 +12,7 @@ from core.views.hw_config_view import HWConfigView
 from core.views.diagnostic_view import DiagnosticView
 from core.views.battery_monitor_view import BatteryMonitorView
 from core.views.function_control_view import FunctionControlView
+from core.views.wifi_connection_view import WifiConnectionView
 from util.logger import logger
 
 class CommandInputLineEdit(QLineEdit):
@@ -96,7 +97,10 @@ class MainView(QWidget):
         self._hw_config_view = None
         self._diagnostic_view = None
         self._battery_monitor_view = None
+        self._diagnostic_view = None
+        self._battery_monitor_view = None
         self._function_control_view = None
+        self._wifi_view = None
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -115,6 +119,7 @@ class MainView(QWidget):
         self.diagnostic_button = QPushButton("Function Test")
         self.battery_monitor_button = QPushButton("Battery Monitor")
         self.function_control_button = QPushButton("LED / Backlight")
+        self.wifi_button = QPushButton("WiFi")
         self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -134,6 +139,7 @@ class MainView(QWidget):
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
         self.function_control_button.setFixedSize(120, 30)
+        self.wifi_button.setFixedSize(80, 30)
         self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
@@ -145,8 +151,26 @@ class MainView(QWidget):
         self.control_panel_frame = QFrame()
         self.control_panel_frame.setFrameShape(QFrame.StyledPanel)
         self.control_panel_frame.setStyleSheet("border: 1px solid #555; border-radius: 5px; background-color: #2b2b2b;")
-        control_panel_layout = QHBoxLayout(self.control_panel_frame)
+        control_panel_layout = QVBoxLayout(self.control_panel_frame)
         control_panel_layout.setContentsMargins(10, 5, 10, 10)
+
+        # Row 1
+        row1_layout = QHBoxLayout()
+        row1_layout.addWidget(self.system_info_button)
+        row1_layout.addWidget(self.hw_config_button)
+        row1_layout.addWidget(self.diagnostic_button)
+        row1_layout.addWidget(self.battery_monitor_button)
+        row1_layout.addStretch()
+
+        # Row 2
+        row2_layout = QHBoxLayout()
+        row2_layout.addWidget(self.function_control_button)
+        row2_layout.addWidget(self.wifi_button)
+        row2_layout.addStretch()
+
+        control_panel_layout.addLayout(row1_layout)
+        control_panel_layout.addLayout(row2_layout)
+        
         platform_layout = QHBoxLayout()
         
         cmd_layout = QHBoxLayout()
@@ -161,12 +185,6 @@ class MainView(QWidget):
         second_layout.addWidget(self.refresh_button)
         second_layout.addWidget(self.connect_button)
         second_layout.addStretch()
-        control_panel_layout.addWidget(self.system_info_button)
-        control_panel_layout.addWidget(self.hw_config_button)
-        control_panel_layout.addWidget(self.diagnostic_button)
-        control_panel_layout.addWidget(self.battery_monitor_button)
-        control_panel_layout.addWidget(self.function_control_button)
-        control_panel_layout.addStretch()
 
         self.cmd_input.setPlaceholderText("Enter command or press Ctrl+C/D, ESC")
         cmd_layout.addWidget(self.cmd_input, 1)
@@ -202,6 +220,7 @@ class MainView(QWidget):
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         self.function_control_button.clicked.connect(self.open_function_control_view)
+        self.wifi_button.clicked.connect(self._vm.open_wifi_view)
         self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
@@ -214,6 +233,7 @@ class MainView(QWidget):
         # --- Connect ViewModel signals to View slots (for opening sub-views) ---
         self._vm.open_system_info_requested.connect(self.open_system_info_view)
         self._vm.open_hw_config_requested.connect(self.open_hw_config_view)
+        self._vm.open_wifi_view_requested.connect(self.open_wifi_view)
 
         # --- Enable/Disable UI elements based on connection status ---
         self.port_combo.setModel(self._vm.port_list_model)
@@ -248,6 +268,7 @@ class MainView(QWidget):
         self.diagnostic_button.setEnabled(connected and detected)
         self.battery_monitor_button.setEnabled(connected and detected)
         self.function_control_button.setEnabled(connected and detected)
+        self.wifi_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
@@ -292,6 +313,12 @@ class MainView(QWidget):
         if self._function_control_view is None:
             self._function_control_view = FunctionControlView(self._vm)
         self._function_control_view.show()
+
+    @Slot()
+    def open_wifi_view(self):
+        if self._wifi_view is None:
+            self._wifi_view = WifiConnectionView(self._vm)
+        self._wifi_view.show()
     
     @Slot()
     def on_platform_detection_button_clicked(self):
@@ -311,5 +338,6 @@ class MainView(QWidget):
         if self._diagnostic_view: self._diagnostic_view.close()
         if self._battery_monitor_view: self._battery_monitor_view.close()
         if self._function_control_view: self._function_control_view.close()
+        if self._wifi_view: self._wifi_view.close()
         self._vm.clean_up()
         super().closeEvent(event)

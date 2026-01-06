@@ -50,13 +50,9 @@ class FunctionControlView(QWidget):
         self.status_label = QLabel("Unknown")
         self.status_label.setFont(QFont("Arial", 10))
         
-        status_layout.addWidget(QLabel("Current Status:"))
         status_layout.addWidget(self.led_indicator)
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
-        
-        self.get_status_btn = QPushButton("Get Status")
-        status_layout.addWidget(self.get_status_btn)
         
         led_layout.addLayout(status_layout)
 
@@ -85,7 +81,6 @@ class FunctionControlView(QWidget):
         self.bl_on_btn = QPushButton("On")
         self.bl_off_btn = QPushButton("Off")
         
-        # bl_status_layout.addWidget(QLabel("Power:"))
         bl_status_layout.addWidget(self.bl_status_label)
         bl_status_layout.addStretch()
         bl_status_layout.addWidget(self.bl_on_btn)
@@ -113,7 +108,6 @@ class FunctionControlView(QWidget):
     def _setup_bindings(self):
         self._vm.led_status_updated.connect(self.on_led_status_updated)
         self._vm.platform_name_changed.connect(self.refresh_buttons)
-        self.get_status_btn.clicked.connect(self._vm.get_led_status)
         
         # Backlight bindings
         self._vm.backlight_updated.connect(self.on_backlight_updated)
