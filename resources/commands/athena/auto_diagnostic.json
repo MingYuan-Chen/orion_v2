@@ -116,7 +116,7 @@
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will record a playing audio then save as new audio file.\nThen play the new audio file again.",
       "amixer sset 'Master' 80%",
-      "(aplay 'test_audio_path' &) && arecord -f cd mic.wav -d 10",
+      "aplay 'test_audio_path' & arecord -Dhw:0,1 -d 10 -f S24_LE -r 48000 -c 2 -t wav mic.wav",
       "aplay mic.wav",
       "manual_check_required. [Test Hints]\nPlease confirm 2 audio playback are normal. Click Pass/Fail to proceed.",
       "rm -f mic.wav"
