@@ -287,8 +287,8 @@
     "commands": [
       "/usr/bin/drawfb -p colorbar",
       "gpioset `gpiofind IOEX_HDMI_EN`=1",
-      "manual_check_required. [Precondition]\nPlease plug in and camera. Plug in HDMI cable with external monitor.",
-      "manual_check_required. [Test Hints]\nPlease confirm camera preview normally both on device and external monitor. Click Pass/Fail to proceed.",
+      "manual_check_required. [Precondition]\nPlease plug in HDMI cable with external monitor. and check if displayed colorbar normally mirrored on external monitor.",
+      "manual_check_required. [Test Hints]\nPlease confirm colorbar displayed normally mirrored on external monitor. Click Pass/Fail to proceed.",
       "gpioset `gpiofind IOEX_HDMI_EN`=0"
     ]
   }
