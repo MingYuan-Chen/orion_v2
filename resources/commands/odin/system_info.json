@@ -29,7 +29,7 @@
   "Charge_Voltage_(Spec:12.6V)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x15 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x15 r2"
   ],
-  "Charging_Current_(Spec:3250mA)": [
+  "Charging_Current_(Spec:MAX 3250mA)": [
     "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x14 r2"
   ],
   "Nominal_Voltage_(Spec-Panasonic Cell:10.8V/EVE Cell:10.95V)": [
