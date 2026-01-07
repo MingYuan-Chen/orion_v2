@@ -304,7 +304,7 @@
       "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
     ],
     "expected_response": [
-      "Wed Feb 28 23:59:59 2024"
+      "Wed Feb 28 23:59:59 UTC 2024", "Wed Feb 28 23:59:59 2024"
     ]
   },
   "diagnostic_NTP_Sync_Time": {
