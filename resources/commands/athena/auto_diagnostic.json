@@ -179,6 +179,13 @@
     ],
     "validate_function": "validate_read_write"
   },
+  "diagnostic_Power_Button": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to power button event.\nPlease click power button in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_power_button"
+  },
   "diagnostic_Audio_Record_Play": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will record a playing audio then save as new audio file.\nThen play the new audio file again.",
