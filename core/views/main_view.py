@@ -165,7 +165,7 @@ class MainView(QWidget):
         # Row 2
         row2_layout = QHBoxLayout()
         row2_layout.addWidget(self.function_control_button)
-        row2_layout.addWidget(self.wifi_button)
+        #row2_layout.addWidget(self.wifi_button)
         row2_layout.addStretch()
 
         control_panel_layout.addLayout(row1_layout)

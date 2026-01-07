@@ -175,14 +175,14 @@
       "mount -o remount,rw /run/media/sdcard",
       "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
       "dd if=/run/media/sdcard/sd_throughput of=/dev/null bs=1M",
-      "rm -f /run/media/sdcard/sd_throughput"
+      "rm -f /run/media/sdcard/sd_throughput",
+      "sync"
     ],
     "validate_function": "validate_read_write"
   },
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition] - Power button Test\nPlease tap the power button after click OK button",
-      "sync",
       "sh /home/root/dqa_package/odin_power_key_monitor.sh"
     ],
     "validate_function": "validate_power_button_for_odin"
@@ -293,7 +293,7 @@
     "commands": [
       "manual_check_required. [Precondition] - Audio Test\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
       "amixer -c 0 set PCM 100%",
-      "aplay /home/root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 10",
+      "aplay /home/root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 6",
       "aplay mic.wav",
       "rm -f mic.wav",
       "manual_check_required. [Test Hints] - Audio Test\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
@@ -310,6 +310,7 @@
   "diagnostic_NTP_Sync_Time": {
     "commands": [
       "manual_check_required. [Precondition] - NTP Sync Time Test\nPlease insert the Ethernet dongle into the console and connect the Ethernet cable.",
+      "sleep 3",
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value",
       "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",
