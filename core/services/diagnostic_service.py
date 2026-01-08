@@ -460,6 +460,24 @@ class DiagnosticValidator:
             return True, "Power button pressed and released is detected"
         else:
             return False, f"Event detection failed, Pressed: {key_pressed}, Released: {key_released}"
+    
+    @staticmethod
+    def validate_hdmi_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena HDMI Event validation
+        """
+        hdmi_connected = False
+        hdmi_disconnected = False
+        
+        if "0001 0104 0001" in output:
+            hdmi_connected = True
+        if "0001 0104 0000" in output:
+            hdmi_disconnected = True
+
+        if hdmi_connected and hdmi_disconnected:
+            return True, "HDMI connected and disconnected events are detected"
+        else:
+            return False, f"Event detection failed, Connected: {hdmi_connected}, Disconnected: {hdmi_disconnected}"
 
 
 class DiagnosticService(QObject):
