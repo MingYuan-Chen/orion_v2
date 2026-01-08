@@ -298,6 +298,20 @@
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
+  "diagnostic_Camera_Port_A_Event": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to Camera port A event.\nPlease plug in camera cable to port A then press record and camera button in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_camera_port_a_event"
+  },
+  "diagnostic_Camera_Port_B_Event": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to Camera port B event.\nPlease plug in camera cable to port B then press record and camera button in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_camera_port_b_event"
+  },
   "diagnostic_Camera_Preview": {
     "commands": [
       "systemctl start verathon-video-pipeline.service",

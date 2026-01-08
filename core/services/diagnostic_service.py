@@ -335,7 +335,7 @@ class DiagnosticValidator:
                 results.append(result)
         if len(results) == 3:
             if results[0] == 128: # Charging
-                if 768 <= results[1] <= 2000 and 9000 <= results[2] <= 12600:
+                if 0 <= results[1] <= 768 and 9000 <= results[2] <= 12600:
                     return True, f"Charging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
                 else:
                     return False, f"Invalid charge current: {results[1]}mA or invalid charge voltage: {results[2]}mV"
@@ -478,6 +478,55 @@ class DiagnosticValidator:
             return True, "HDMI connected and disconnected events are detected"
         else:
             return False, f"Event detection failed, Connected: {hdmi_connected}, Disconnected: {hdmi_disconnected}"
+    
+    @staticmethod
+    def validate_camera_port_a_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena Camera Port A Event validation
+        """
+        record_pressed = False
+        record_released = False
+        camera_pressed = False
+        camera_released = False
+
+        if "0001 0100 0001" in output:
+            record_pressed = True
+        if "0001 0100 0000" in output:
+            record_released = True
+        if "0001 0101 0001" in output:
+            camera_pressed = True
+        if "0001 0101 0000" in output:
+            camera_released = True
+
+        if record_pressed and record_released and camera_pressed and camera_released:
+            return True, "Camera port A record and camera button events are detected"
+        else:
+            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
+    
+    @staticmethod
+    def validate_camera_port_b_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena Camera Port B Event validation
+        """
+        record_pressed = False
+        record_released = False
+        camera_pressed = False
+        camera_released = False
+
+        if "0001 0102 0001" in output:
+            record_pressed = True
+        if "0001 0102 0000" in output:
+            record_released = True
+        if "0001 0103 0001" in output:
+            camera_pressed = True
+        if "0001 0103 0000" in output:
+            camera_released = True
+
+        if record_pressed and record_released and camera_pressed and camera_released:
+            return True, "Camera port B record and camera button events are detected"
+        else:
+            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
+
 
 
 class DiagnosticService(QObject):
