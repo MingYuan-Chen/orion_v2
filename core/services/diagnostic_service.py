@@ -534,6 +534,8 @@ class DiagnosticService(QObject):
                 if self.touch_qt_path:
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
+            elif "TouchTestQt64" in cmd:
+                self._model.send_command_queued(cmd)
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)

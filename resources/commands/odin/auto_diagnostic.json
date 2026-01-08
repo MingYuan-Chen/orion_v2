@@ -281,9 +281,8 @@
   "diagnostic_Touch": {
     "commands": [
       "systemctl stop weston & systemctl stop odin-production.service",
+      "export QT_QPA_EGLFS_HIDECURSOR=1",
       "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "systemctl stop weston & systemctl stop odin-production.service",
       "ts_test_mt -j 2 -v",
       "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - Touch Test\nPlease confirm touch as expected. \nClick Pass/Fail to proceed."
