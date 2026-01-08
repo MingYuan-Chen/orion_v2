@@ -301,6 +301,7 @@ class DiagnosticValidator:
             f"Battery SoC: {soc}%, "
             f"Current: {current}mA"
         )
+    
     @staticmethod
     def validate_charge_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
         """Validator for charge."""
@@ -323,6 +324,40 @@ class DiagnosticValidator:
                     return False, f"Incorrect charge current setting: {results[1]}mA or incorrect charge voltage setting: {results[2]}mV"
         return False, "No matched charge values found"
     
+    @staticmethod
+    def validate_charging_current_voltage(output: str, **kwargs) -> Tuple[bool, str]:
+        """Validator for charging and discharging."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == 128: # Charging
+                if 768 <= results[1] <= 2000 and 9000 <= results[2] <= 12600:
+                    return True, f"Charging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
+                else:
+                    return False, f"Invalid charge current: {results[1]}mA or invalid charge voltage: {results[2]}mV"
+        return False, "No matched charge values found"
+    
+    @staticmethod
+    def validate_discharging_current_voltage(output: str, **kwargs) -> Tuple[bool, str]:
+        """Validator for charging and discharging."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == 192: # Discharging
+                if -2000 <= results[1] <= 0 and 9000 <= results[2] <= 12600:
+                    return True, f"Discharging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
+                else:
+                    return False, f"Invalid discharging current: {results[1]}mA or invalid discharging voltage: {results[2]}mV"
+        return False, "No matched charge values found"
+
     @staticmethod
     def _parse_battery_value(line) -> Any:
         """
@@ -546,7 +581,7 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
-            elif "ts_test_mt -j 2 -v" in cmd:
+            elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
                 self._model.send_command_queued(cmd)
             elif "touch_qt_path" in cmd:
                 if self.touch_qt_path:

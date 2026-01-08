@@ -179,6 +179,24 @@
     ],
     "validate_function": "validate_read_write"
   },
+  "diagnostic_Charging_Current_Voltage": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will validate charging current/voltage.\nPlease plug AC and click OK to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0a r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x09 r2"
+    ],
+    "validate_function": "validate_charging_current_voltage"
+  },
+  "diagnostic_Discharging_Current_Voltage": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will validate discharging current/voltage.\nPlease unplug AC and click OK to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0a r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x09 r2"
+    ],
+    "validate_function": "validate_discharging_current_voltage"
+  },
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will listen to power button event.\nPlease click power button in 10 seconds.",
