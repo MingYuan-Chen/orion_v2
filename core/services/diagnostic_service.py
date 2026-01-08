@@ -407,6 +407,24 @@ class DiagnosticValidator:
             return False, "Probe test failed"
 
         return True, "Probe capture and CRC check successful"
+    
+    @staticmethod
+    def validate_power_button(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena Power Button validation
+        """
+        key_pressed = False
+        key_released = False
+        
+        if "0001 0074 0001" in output:
+            key_pressed = True
+        if "0001 0074 0000" in output:
+            key_released = True
+
+        if key_pressed and key_released:
+            return True, "Power button pressed and released is detected"
+        else:
+            return False, f"Event detection failed, Pressed: {key_pressed}, Released: {key_released}"
 
 
 class DiagnosticService(QObject):

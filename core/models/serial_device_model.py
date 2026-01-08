@@ -99,6 +99,9 @@ class SerialDeviceModel(QObject):
         self.current_cmd: Optional[str] = None
         self.current_response_lines: List[str] = []
 
+        # set flag to determine if send ctrl+c when timeout
+        self.interrupt_flag = False
+
     # ============================
     # Utilities
     # ============================
@@ -345,6 +348,7 @@ class SerialDeviceModel(QObject):
         # Arrived here, means output has stabilized, declare command completed
         self.timeout_timer.stop()
         self.is_processing = False
+        self.interrupt_flag = False
 
         self.command_finished.emit(self.current_cmd, self.current_response_lines.copy())
 
@@ -363,6 +367,9 @@ class SerialDeviceModel(QObject):
             return
 
         # Regardless of whether partial data has been received, return the current buffer
+        # Capture data before clearing
+        response_lines = self.current_response_lines.copy()
+        cmd = self.current_cmd
 
         # Stop related timers, reset state
         self.timeout_timer.stop()
@@ -374,6 +381,14 @@ class SerialDeviceModel(QObject):
         self.current_response_lines = []
         self.has_matched_token = False
         self.line_times.clear()
+
+        # Emit signal with partial data + error info so sync calls can return
+        if cmd:
+            response_lines.append("[ERROR] Command execution timed out (Outer Timer)")
+            if self.interrupt_flag:
+                self._raw_send(b'\x03')
+                self.interrupt_flag = False
+            self.command_finished.emit(cmd, response_lines)
 
         QTimer.singleShot(50, self._process_next_command)
 
@@ -391,6 +406,7 @@ class SerialDeviceModel(QObject):
         Execute command synchronously.
         Returns: Complete response (list of lines)
         """
+        self.interrupt_flag = True
         if not self.is_connected():
             return ["[ERROR] Device not connected"]
 
@@ -410,22 +426,6 @@ class SerialDeviceModel(QObject):
             if loop.isRunning():
                 loop.quit()
         
-        # 3. Safety timer (fallback)
-        # Set slightly longer than the command timeout to give the command logic a chance to timeout first
-        safety_timer = QTimer()
-        safety_timer.setSingleShot(True)
-        
-        def on_safety_timeout():
-            if loop.isRunning():
-                # If we hit this, it means the model's internal timeout logic failed or hung
-                # We should try to stop the command manually
-                result_holder["response"] = ["[ERROR] Command execution timed out (Safety Timer)"]
-                # Send Ctrl+C to stop the command processing, ensure no residual output
-                self._raw_send(b'\x03')
-                loop.quit()
-
-        safety_timer.timeout.connect(on_safety_timeout)
-
         # Connect signals
         self.command_finished.connect(on_finished)
         self.disconnection_result.connect(on_disconnected)
@@ -433,16 +433,9 @@ class SerialDeviceModel(QObject):
         # Enqueue the command
         self.send_command_queued(cmd, wait_for, timeout)
         
-        # Start safety timer (timeout + 0.5s buffer)
-        safety_timer.start(int((timeout + 0.5) * 1000))
-
         # Block until the command is finished (or timeout/disconnect)
         loop.exec()
 
-        # Cleanup
-        if safety_timer.isActive():
-            safety_timer.stop()
-            
         self.command_finished.disconnect(on_finished)
         self.disconnection_result.disconnect(on_disconnected)
 
