@@ -119,6 +119,7 @@
   "diagnostic_Battery_Charge_Test": {
     "commands": [
       "manual_check_required. [Precondition] - Charge Test\nPlease plug in the AC to charge",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
       "echo 'Charge Status'",
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Charge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
@@ -128,7 +129,9 @@
   "diagnostic_Battery_Discharge_Test": {
     "commands": [
       "manual_check_required. [Precondition] - Discharge Test\nPlease unplug the AC to discharge",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
       "echo 'Discharge Status'",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x16 r2",
       "echo 'Battery SoC' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0d r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0d r2",
       "echo 'Discharge current' && i2ctransfer -f -y 2 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x53 0x00 0x0a r2"
     ],
@@ -192,7 +195,6 @@
     ],
     "validate_function": "validate_power_button_for_odin"
   },
-  
   "diagnostic_Probe": {
     "commands": [
       "mount -o remount,rw /",
@@ -327,7 +329,8 @@
       "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
     ],
     "expected_response": [
-      "Wed Feb 28 23:59:59 UTC 2024", "Wed Feb 28 23:59:59 2024"
+      "Wed Feb 28 23:59:59 UTC 2024",
+      "Wed Feb 28 23:59:59 2024"
     ]
   },
   "diagnostic_NTP_Sync_Time": {
