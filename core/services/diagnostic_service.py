@@ -648,14 +648,12 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
-            elif "ts_test_mt -j 2 -v" in cmd:
-                self._model.send_command_queued(cmd, timeout= 60)
+            elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
+                self._model.send_command_queued(cmd)
             elif "touch_qt_path" in cmd:
                 if self.touch_qt_path:
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
-            elif "TouchTestQt64" in cmd:
-                self._model.send_command_queued(cmd, timeout= 60)
             elif "odin_power_key_monitor.sh" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="Key pressed!", timeout=10)
             elif "usb1_path" in cmd:
@@ -696,9 +694,8 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd)
             
             # Get output string
-            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
                 output_str = "Touch Test Tool Launched"
-
             elif "usb1_path" in cmd and not self.usb1_path:
                 output_str = "USB1 path not found"
             elif "usb2_path" in cmd and not self.usb2_path:
