@@ -648,12 +648,16 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
-            elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
-                self._model.send_command_queued(cmd)
+            elif "ts_test_mt -j 2 -v" in cmd:
+                self._model.send_command_queued(cmd, timeout= 60)
             elif "touch_qt_path" in cmd:
                 if self.touch_qt_path:
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
+            elif "TouchTestQt64" in cmd:
+                self._model.send_command_queued(cmd, timeout= 60)
+            elif "odin_power_key_monitor.sh" in cmd:
+                response_lines = self._model.send_command_sync(cmd, wait_for="Key pressed!", timeout=10)
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)

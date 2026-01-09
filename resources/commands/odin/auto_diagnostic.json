@@ -175,15 +175,20 @@
       "mount -o remount,rw /run/media/sdcard",
       "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
       "dd if=/run/media/sdcard/sd_throughput of=/dev/null bs=1M",
-      "rm -f /run/media/sdcard/sd_throughput"
+      "rm -f /run/media/sdcard/sd_throughput",
+      "sync"
     ],
     "validate_function": "validate_read_write"
   },
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition] - Power button Test\nPlease tap the power button after click OK button",
-      "sync",
-      "sh /home/root/dqa_package/odin_power_key_monitor.sh"
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_power_button.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
+      "sh /home/root/dqa_package/odin_power_key_monitor.sh",
+      "pkill -f gst-launch-1.0",
+      "dd if=/dev/zero of=/dev/fb0 bs=4M count=8",
+      "systemctl restart weston & systemctl start odin-production.service"
     ],
     "validate_function": "validate_power_button_for_odin"
   },
@@ -204,7 +209,6 @@
       "systemctl stop weston & systemctl stop odin-production.service",
       "sleep_required 1",
       "/usr/bin/drawfb -p white",
-      "sleep_required 1",
       "echo 7 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
       "echo 6 > /sys/class/backlight/backlight/brightness",
@@ -223,6 +227,8 @@
       "sleep_required 1",
       "echo 7 > /sys/class/backlight/backlight/brightness",
       "sleep_required 1",
+      "dd if=/dev/zero of=/dev/fb0 bs=4M count=8",
+      "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - Dimming Test\nPlease confirm brightness action as expected. \nClick Pass/Fail to proceed."
     ]
   },
@@ -237,10 +243,10 @@
   },
   "diagnostic_LCD": {
     "commands": [
+      "manual_check_required. [Precondition] - LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256, Frame.",
       "mount -o remount,rw /",
       "systemctl stop weston & systemctl stop odin-production.service && sleep 2",
-      "manual_check_required. [Precondition] - LCD Test\n1.Switch LCD color to red, green, blue, black, white, colorbar, gradient256.",
-      "sync && sleep 2",
+      "sync && sleep 0.5",
       "/usr/bin/drawfb -p red",
       "sleep_required 1",
       "/usr/bin/drawfb -p green",
@@ -255,6 +261,8 @@
       "sleep_required 1",
       "/usr/bin/drawfb -p gradient256",
       "sleep_required 1",
+      "/usr/bin/drawfb -p frame",
+      "dd if=/dev/zero of=/dev/fb0 bs=4M count=8",
       "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - LCD Test\nPlease confirm LCD color as expected. \nClick Pass/Fail to proceed."
     ]
@@ -262,28 +270,37 @@
   "diagnostic_LED": {
     "commands": [
       "manual_check_required. [Precondition] - LED Test\nFollowing process will switch LED color to blue, green, red, blink blue, blink green, blink red.",
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_blue.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x01 r2",
-      "sleep_required 3",
+      "sleep_required 1",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_green.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x02 r2",
-      "sleep_required 3",
+      "sleep_required 1",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_red.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x04 r2",
-      "sleep_required 3",
+      "sleep_required 1",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_blink_blue.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x09 r2",
-      "sleep_required 5",
+      "sleep_required 4.5",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_blink_green.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x0a r2",
-      "sleep_required 5",
+      "sleep_required 4.5",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_led_blink_red.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x0c r2",
-      "sleep_required 5",
-      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x10 r2",
+      "sleep_required 4.5",
+      "i2ctransfer -f -y 2 w4@0x4c 0x03 0x20 0x00 0x14 r1; sleep 0.1; i2ctransfer -f -y 2 w4@0x4c 0x03 0x22 0x00 0x20 r2",
+      "pkill -f gst-launch-1.0",
+      "dd if=/dev/zero of=/dev/fb0 bs=4M count=8",
+      "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - LED Test\nPlease confirm LED color as expected. \nClick Pass/Fail to proceed."
     ]
   },
   "diagnostic_Touch": {
     "commands": [
       "systemctl stop weston & systemctl stop odin-production.service",
+      "export QT_QPA_EGLFS_HIDECURSOR=1",
       "/home/root/dqa_package/TouchTestQt64 -platform eglfs",
-      "systemctl restart weston & systemctl start odin-production.service",
-      "systemctl stop weston & systemctl stop odin-production.service",
       "ts_test_mt -j 2 -v",
       "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - Touch Test\nPlease confirm touch as expected. \nClick Pass/Fail to proceed."
@@ -292,10 +309,16 @@
   "diagnostic_Audio_Record_Play": {
     "commands": [
       "manual_check_required. [Precondition] - Audio Test\nThe following steps will be performed: \n1.Play sound and recording;\n2.Play the recorded file. \nPlease listen carefully.",
+      "systemctl stop weston & systemctl stop odin-production.service",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_audio_play.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "amixer -c 0 set PCM 100%",
-      "aplay /home/root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 10",
+      "aplay /home/root/dqa_package/odin_audio8k16S.wav & arecord -f cd mic.wav -d 6",
+      "pkill -f gst-launch-1.0; gst-launch-1.0 filesrc location=/home/root/dqa_package/odin_prompt_image/odin_audio_record.png ! pngdec ! videoconvert ! fbdevsink device=/dev/fb0 </dev/null >/dev/null 2>&1 &",
       "aplay mic.wav",
       "rm -f mic.wav",
+      "pkill -f gst-launch-1.0",
+      "dd if=/dev/zero of=/dev/fb0 bs=4M count=8",
+      "systemctl restart weston & systemctl start odin-production.service",
       "manual_check_required. [Test Hints] - Audio Test\nPlease check if the recording audio file can be played normally. \nClick Pass/Fail to proceed."
     ]
   },
@@ -304,12 +327,13 @@
       "date -s '2024-02-28 23:59:59'; hwclock -w; hwclock -r"
     ],
     "expected_response": [
-      "Wed Feb 28 23:59:59 2024"
+      "Wed Feb 28 23:59:59 UTC 2024", "Wed Feb 28 23:59:59 2024"
     ]
   },
   "diagnostic_NTP_Sync_Time": {
     "commands": [
       "manual_check_required. [Precondition] - NTP Sync Time Test\nPlease insert the Ethernet dongle into the console and connect the Ethernet cable.",
+      "sleep 3",
       "mount -o remount,rw /",
       "echo 1 > /sys/class/gpio/usb3_1_h2_1_pwr_en/value && echo 1 > /sys/class/gpio/usb3_1_h2_2_pwr_en/value",
       "cp /home/root/dqa_package/odin_ntpd/ntpdate /usr/sbin/ && sync && cp /home/root/dqa_package/odin_ntpd/libcrypto.so.1.0.2 /usr/lib && sync",

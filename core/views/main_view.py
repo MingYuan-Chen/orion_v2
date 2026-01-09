@@ -165,7 +165,7 @@ class MainView(QWidget):
         # Row 2
         row2_layout = QHBoxLayout()
         row2_layout.addWidget(self.function_control_button)
-        row2_layout.addWidget(self.wifi_button)
+        #row2_layout.addWidget(self.wifi_button)
         row2_layout.addStretch()
 
         control_panel_layout.addLayout(row1_layout)
@@ -192,7 +192,7 @@ class MainView(QWidget):
 
         main_layout.addLayout(top_layout)
         main_layout.addLayout(second_layout)
-        main_layout.addLayout(cmd_layout)             # Hide command input and send button for release
+        #main_layout.addLayout(cmd_layout)             # Hide command input and send button for release
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)
         main_layout.addLayout(platform_layout)
