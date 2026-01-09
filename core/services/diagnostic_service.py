@@ -301,6 +301,7 @@ class DiagnosticValidator:
             f"Battery SoC: {soc}%, "
             f"Current: {current}mA"
         )
+    
     @staticmethod
     def validate_charge_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
         """Validator for charge."""
@@ -323,6 +324,40 @@ class DiagnosticValidator:
                     return False, f"Incorrect charge current setting: {results[1]}mA or incorrect charge voltage setting: {results[2]}mV"
         return False, "No matched charge values found"
     
+    @staticmethod
+    def validate_charging_current_voltage(output: str, **kwargs) -> Tuple[bool, str]:
+        """Validator for charging and discharging."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == 128: # Charging
+                if 0 <= results[1] <= 768 and 9000 <= results[2] <= 12600:
+                    return True, f"Charging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
+                else:
+                    return False, f"Invalid charge current: {results[1]}mA or invalid charge voltage: {results[2]}mV"
+        return False, "No matched charge values found"
+    
+    @staticmethod
+    def validate_discharging_current_voltage(output: str, **kwargs) -> Tuple[bool, str]:
+        """Validator for charging and discharging."""
+        results = []
+        responses = output.split("\n")
+        for line in responses:
+            result = DiagnosticValidator._parse_battery_value(line)
+            if result:
+                results.append(result)
+        if len(results) == 3:
+            if results[0] == 192: # Discharging
+                if -2000 <= results[1] <= 0 and 9000 <= results[2] <= 12600:
+                    return True, f"Discharging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
+                else:
+                    return False, f"Invalid discharging current: {results[1]}mA or invalid discharging voltage: {results[2]}mV"
+        return False, "No matched charge values found"
+
     @staticmethod
     def _parse_battery_value(line) -> Any:
         """
@@ -425,6 +460,73 @@ class DiagnosticValidator:
             return True, "Power button pressed and released is detected"
         else:
             return False, f"Event detection failed, Pressed: {key_pressed}, Released: {key_released}"
+    
+    @staticmethod
+    def validate_hdmi_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena HDMI Event validation
+        """
+        hdmi_connected = False
+        hdmi_disconnected = False
+        
+        if "0001 0104 0001" in output:
+            hdmi_connected = True
+        if "0001 0104 0000" in output:
+            hdmi_disconnected = True
+
+        if hdmi_connected and hdmi_disconnected:
+            return True, "HDMI connected and disconnected events are detected"
+        else:
+            return False, f"Event detection failed, Connected: {hdmi_connected}, Disconnected: {hdmi_disconnected}"
+    
+    @staticmethod
+    def validate_camera_port_a_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena Camera Port A Event validation
+        """
+        record_pressed = False
+        record_released = False
+        camera_pressed = False
+        camera_released = False
+
+        if "0001 0100 0001" in output:
+            record_pressed = True
+        if "0001 0100 0000" in output:
+            record_released = True
+        if "0001 0101 0001" in output:
+            camera_pressed = True
+        if "0001 0101 0000" in output:
+            camera_released = True
+
+        if record_pressed and record_released and camera_pressed and camera_released:
+            return True, "Camera port A record and camera button events are detected"
+        else:
+            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
+    
+    @staticmethod
+    def validate_camera_port_b_event(output: str, **kwargs) -> Tuple[bool, str]:
+        """
+        Athena Camera Port B Event validation
+        """
+        record_pressed = False
+        record_released = False
+        camera_pressed = False
+        camera_released = False
+
+        if "0001 0102 0001" in output:
+            record_pressed = True
+        if "0001 0102 0000" in output:
+            record_released = True
+        if "0001 0103 0001" in output:
+            camera_pressed = True
+        if "0001 0103 0000" in output:
+            camera_released = True
+
+        if record_pressed and record_released and camera_pressed and camera_released:
+            return True, "Camera port B record and camera button events are detected"
+        else:
+            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
+
 
 
 class DiagnosticService(QObject):

@@ -179,6 +179,24 @@
     ],
     "validate_function": "validate_read_write"
   },
+  "diagnostic_Charging_Current_Voltage": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will validate charging current/voltage.\nPlease plug AC and click OK to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0a r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x09 r2"
+    ],
+    "validate_function": "validate_charging_current_voltage"
+  },
+  "diagnostic_Discharging_Current_Voltage": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will validate discharging current/voltage.\nPlease unplug AC and click OK to proceed.",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x16 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x16 r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x0a r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x0a r2",
+      "i2ctransfer -f -y 1 w4@0x4c 0x03 0x51 0x00 0x09 r1; sleep 0.1; i2ctransfer -f -y 1 w4@0x4c 0x03 0x53 0x00 0x09 r2"
+    ],
+    "validate_function": "validate_discharging_current_voltage"
+  },
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will listen to power button event.\nPlease click power button in 10 seconds.",
@@ -280,12 +298,33 @@
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
+  "diagnostic_Camera_Port_A_Event": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to Camera port A event.\nPlease plug in camera cable to port A then press record and camera button in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_camera_port_a_event"
+  },
+  "diagnostic_Camera_Port_B_Event": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to Camera port B event.\nPlease plug in camera cable to port B then press record and camera button in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_camera_port_b_event"
+  },
   "diagnostic_Camera_Preview": {
     "commands": [
       "systemctl start verathon-video-pipeline.service",
       "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to JigA (Jig B if exists).\nCheck if camera preview is normal.",
       "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed."
     ]
+  },
+  "diagnostic_HDMI_Event": {
+    "commands": [
+      "manual_check_required. [Precondition]\nFollowing process will listen to HDMI event.\nPlease plug in HDMI cable with external monitor then unplug it in 10 seconds.",
+      "stdbuf -oL hexdump -v /dev/input/event0"
+    ],
+    "validate_function": "validate_hdmi_event"
   },
   "diagnostic_HDMI_Mirror_Display": {
     "commands": [
