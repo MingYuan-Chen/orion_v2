@@ -3,7 +3,7 @@ import os
 import re
 import time
 from typing import Dict, List, Tuple, Any, Optional
-from PySide6.QtCore import QObject, Signal, QTimer, Slot
+from PySide6.QtCore import QObject, Signal, QTimer, Slot, QEventLoop
 import sys
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
@@ -509,24 +509,6 @@ class DiagnosticValidator:
         return True, "Probe capture and CRC check successful"
     
     @staticmethod
-    def validate_power_button(output: str, **kwargs) -> Tuple[bool, str]:
-        """
-        Athena Power Button validation
-        """
-        key_pressed = False
-        key_released = False
-        
-        if "0001 0074 0001" in output:
-            key_pressed = True
-        if "0001 0074 0000" in output:
-            key_released = True
-
-        if key_pressed and key_released:
-            return True, "Power button pressed and released is detected"
-        else:
-            return False, f"Event detection failed, Pressed: {key_pressed}, Released: {key_released}"
-    
-    @staticmethod
     def validate_hdmi_event(output: str, **kwargs) -> Tuple[bool, str]:
         """
         Athena HDMI Event validation
@@ -611,6 +593,7 @@ class DiagnosticService(QObject):
         self._running = False
         self._current_key = None
         self._current_commands = []
+        self._current_config = []
         self._current_output = []
         self._load_diagnostics()
         self._results_history = []
@@ -666,8 +649,8 @@ class DiagnosticService(QObject):
             self._running = False
             return
 
-        self._current_key, config = self._queue.pop(0)
-        self._current_commands = list(config.get("commands", []))
+        self._current_key, self._current_config = self._queue.pop(0)
+        self._current_commands = list(self._current_config.get("commands", []))
         self._current_output = []
         
         if not self._current_commands:
@@ -708,19 +691,35 @@ class DiagnosticService(QObject):
                     self._current_output.append(f"Invalid sleep duration in command: {cmd}")
                     continue
 
+            if cmd.startswith("monitor_keywords"):
+                try:
+                    # Parse JSON config
+                    # format: monitor_keywords, timeout 10
+                    timeout = cmd.split(" ")[-1]
+                    keywords = self._current_config.get("expected_response", [])
+                    
+                    if isinstance(keywords, str):
+                        keywords = [keywords]
+
+                    result_msg = self._wait_for_keywords_sync(float(timeout), keywords)
+                    self._current_output.append(result_msg)
+                    continue
+
+                except Exception as e:
+                     self._current_output.append(f"Error in monitor_keywords: {e}")
+                     continue
+
             # Execute command
             if "U-Boot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
-            elif "ts_test_mt -j 2 -v" in cmd:
-                self._model.send_command_queued(cmd, timeout= 60)
+            elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd or "stdbuf -oL" in cmd:
+                self._model.send_command_queued(cmd)
             elif "touch_qt_path" in cmd:
                 if self.touch_qt_path:
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
-            elif "TouchTestQt64" in cmd:
-                self._model.send_command_queued(cmd, timeout= 60)
             elif "odin_power_key_monitor.sh" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="Key pressed!", timeout=10)
             elif "usb1_path" in cmd:
@@ -761,9 +760,10 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd)
             
             # Get output string
-            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
                 output_str = "Touch Test Tool Launched"
-
+            elif "stdbuf -oL" in cmd:
+                output_str = "Dump event"
             elif "usb1_path" in cmd and not self.usb1_path:
                 output_str = "USB1 path not found"
             elif "usb2_path" in cmd and not self.usb2_path:
@@ -784,6 +784,58 @@ class DiagnosticService(QObject):
         # If we are here, either all commands are done or we stopped running
         if not self._current_commands:
             self._finish_current_diagnostic()
+
+    def _wait_for_keywords_sync(self, timeout: float, keywords: List[str]) -> str:
+        """
+        Wait for specific keywords to appear in the serial output within a timeout.
+        Returns a result message causing PASS or FAIL.
+        """
+        if not keywords:
+            return "Monitor Result: PASS (No keywords specified)"
+            
+        loop = QEventLoop()
+        found_keywords = set()
+        required_keywords = set(keywords)
+        
+        # Helper to stop loop
+        def stop_loop():
+            if loop.isRunning():
+                loop.quit()
+
+        # Data handler
+        def on_data_received(data: str):
+
+            for key in required_keywords:
+                if key not in found_keywords and key in data:
+                    found_keywords.add(key)
+            
+            # Check if all found
+            if found_keywords == required_keywords:
+                stop_loop()
+
+        # Connect signal
+        self._model.data_received.connect(on_data_received)
+        
+        # Setup timeout
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(stop_loop)
+        timer.start(int(timeout * 1000))
+        
+        # Block
+        loop.exec()
+        
+        # Cleanup
+        self._model._raw_send(b'\x03')
+        self._model.data_received.disconnect(on_data_received)
+        timer.stop()
+        
+        if found_keywords == required_keywords:
+            return f"Monitor Result: PASS (Found strict keywords: {', '.join(keywords)})"
+        else:
+            missing = required_keywords - found_keywords
+            return f"Monitor Result: FAIL (Timeout {timeout}s. Missing: {', '.join(missing)})"
+
 
     @Slot(str)
     def resume_diagnostic(self, result: str):
@@ -827,11 +879,17 @@ class DiagnosticService(QObject):
             display_str = "Audio record from microphone and play by speaker:"
         elif self._current_key == "diagnostic_Dimming":
             display_str = "Brightness switch from 100 ~ 0% and turn on/off display:"
+
         # Validate
         if "manual_check_result_PASS" in combined_output:
             is_valid, msg = True, f"{display_str} Pass"
         elif "manual_check_result_FAIL" in combined_output:
             is_valid, msg = False, f"{display_str} Fail"
+        elif self._current_key == "diagnostic_Power_Button":
+            if "Monitor Result: PASS" in combined_output:
+                is_valid, msg = True, f"Power button pressed and released is detected"
+            else:
+                is_valid, msg = False, f"Power button pressed and released is not detected"
         else:
             is_valid, msg = self.validate_result(self._current_key, combined_output)
         

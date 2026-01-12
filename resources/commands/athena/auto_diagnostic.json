@@ -200,9 +200,13 @@
   "diagnostic_Power_Button": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will listen to power button event.\nPlease click power button in 10 seconds.",
-      "stdbuf -oL hexdump -v /dev/input/event0"
+      "stdbuf -oL hexdump -v /dev/input/event0",
+      "monitor_keywords, timeout: 10"
     ],
-    "validate_function": "validate_power_button"
+    "expected_response": [
+      "0001 0074 0001",
+      "0001 0074 0000"
+    ]
   },
   "diagnostic_Audio_Record_Play": {
     "commands": [
