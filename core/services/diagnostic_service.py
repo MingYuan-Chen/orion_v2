@@ -133,6 +133,9 @@ class DiagnosticValidator:
             elif key == "diagnostic_eMMc_R/W":
                 read_speed_threshold = 104
                 write_speed_threshold = 104
+            elif key == "diagnostic_SD_Card_R/W":
+                read_speed_threshold = 10
+                write_speed_threshold = 10
         
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
@@ -471,6 +474,7 @@ class DiagnosticService(QObject):
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
+        self.sd_card_path = None
         self.eeprom_1_byte = None
         self.eeprom_19_bytes = None
         self.touch_qt_path = None
@@ -601,6 +605,10 @@ class DiagnosticService(QObject):
             elif "usb3_path" in cmd:
                 if self.usb3_path:
                     cmd_replace = cmd.replace("usb3_path", self.usb3_path)
+                    response_lines = self._model.send_command_sync(cmd_replace)
+            elif "sd_card_path" in cmd:
+                if self.sd_card_path:
+                    cmd_replace = cmd.replace("sd_card_path", self.sd_card_path)
                     response_lines = self._model.send_command_sync(cmd_replace)
             elif "find_usb_path" in cmd:
                 self._find_valid_usb_path()       
@@ -1121,6 +1129,15 @@ class DiagnosticService(QObject):
                     elif 'sdb1' in name and self.usb2_path is None:
                         self.usb2_path = f"/run/media/{name}"
                         file_path = f"{self.usb2_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                            if "odin_audio8k16S.wav" in line and self.test_audio_path is None:
+                                self.test_audio_path = f"{file_path}/odin_audio8k16S.wav"
+                    elif 'mmcblk1p1' in name and self.sd_card_path is None:
+                        self.sd_card_path = f"/run/media/{name}"
+                        file_path = f"{self.sd_card_path}/dqa_package"
                         response = self._model.send_command_sync(f"ls {file_path}")
                         for line in response:
                             if "TouchTestQt64" in line and self.touch_qt_path is None:

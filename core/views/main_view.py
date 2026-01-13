@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
 )
-from PySide6.QtGui import QKeyEvent, QFont
+from PySide6.QtGui import QKeyEvent, QFont, QPainter, QColor, QBrush
 from core.view_models.device_view_model import DeviceViewModel
 from util.logger import logger
 

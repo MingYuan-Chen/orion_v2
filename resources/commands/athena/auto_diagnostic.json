@@ -179,6 +179,14 @@
     ],
     "validate_function": "validate_read_write"
   },
+  "diagnostic_SD_Card_R/W": {
+    "commands": [
+      "dd if=/dev/zero of='sd_card_path/usb_throughput' bs=1M count=200 status=progress",
+      "dd if='sd_card_path/usb_throughput' of=/dev/null bs=1M",
+      "rm -f 'sd_card_path/usb_throughput'"
+    ],
+    "validate_function": "validate_read_write"
+  },
   "diagnostic_Charging_Current_Voltage": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will validate charging current/voltage.\nPlease plug AC and click OK to proceed.",
