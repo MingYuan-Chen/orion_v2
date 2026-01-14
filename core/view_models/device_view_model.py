@@ -25,7 +25,7 @@ class DeviceViewModel(QObject):
         self._led_worker = None
         self._backlight_worker = None
         self._battery_monitor_is_running = False
-        self._wifi_service = None
+        self._network_service = None
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -86,7 +86,8 @@ class DeviceViewModel(QObject):
     wifi_scan_finished = Signal(list)
     wifi_connection_result = Signal(bool, str)
     wifi_status_updated = Signal(dict)
-    open_wifi_view_requested = Signal()
+    network_status_updated = Signal(dict)
+
 
     # =================================================================================
     # Properties accessible by the View
@@ -379,24 +380,28 @@ class DeviceViewModel(QObject):
         self._model.disconnect_device()
 
     # --- WiFi Slots ---
-    @Slot()
-    def open_wifi_view(self):
-        self.open_wifi_view_requested.emit()
     
     @Slot()
     def scan_wifi(self):
-        if self._wifi_service:
-            self._wifi_service.scan_networks()
+        if self._network_service:
+            self._network_service.scan_networks()
 
     @Slot(str, str)
     def connect_wifi(self, ssid: str, password: str):
-        if self._wifi_service:
-            self._wifi_service.connect_network(ssid, password)
+        if self._network_service:
+            self._network_service.connect_network(ssid, password)
             
     @Slot()
     def check_wifi_status(self):
-        if self._wifi_service:
-            self._wifi_service.check_status()
+        if self._network_service:
+            self._network_service.check_status()
+
+    @Slot()
+    def check_network_status(self):
+        """Checks both Ethernet and WiFi status."""
+        if self._network_service:
+            self._network_service.check_network_status()
+
 
 
     # =================================================================================
@@ -463,7 +468,7 @@ class DeviceViewModel(QObject):
             from core.services.system_info_service import SystemInfoService
             from core.services.diagnostic_service import DiagnosticService
             from core.services.battery_monitor_service import BatteryMonitorService
-            from core.services.wifi_connection_service import WifiConnectionService
+            from core.services.network_service import NetworkService
             from core.workers.led_worker import LedWorker
             from core.workers.backlight_worker import BacklightWorker
 
@@ -495,10 +500,12 @@ class DeviceViewModel(QObject):
             self._backlight_worker.backlight_updated.connect(self.backlight_updated)
             
             # Initialize WiFi Service
-            self._wifi_service = WifiConnectionService(self._model)
-            self._wifi_service.scan_finished.connect(self.wifi_scan_finished)
-            self._wifi_service.connection_result.connect(self.wifi_connection_result)
-            self._wifi_service.status_updated.connect(self.wifi_status_updated)
+            self._network_service = NetworkService(self._model)
+            self._network_service.scan_finished.connect(self.wifi_scan_finished)
+            self._network_service.connection_result.connect(self.wifi_connection_result)
+            self._network_service.status_updated.connect(self.wifi_status_updated)
+            self._network_service.network_status_updated.connect(self.on_network_status_updated)
+
         
         if self.platform_name == "Athena":
             self.toggle_production_tool_service("stop")
@@ -531,6 +538,10 @@ class DeviceViewModel(QObject):
     @Slot(dict)
     def on_battery_data_updated(self, data: dict):
         self.battery_data_updated.emit(data)
+
+    @Slot(dict)
+    def on_network_status_updated(self, status: dict):
+        self.network_status_updated.emit(status)
 
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""

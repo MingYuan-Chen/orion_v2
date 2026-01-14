@@ -4,13 +4,14 @@ from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 from typing import Optional, List, Dict
 
-class WifiConnectionService(QObject):
+class NetworkService(QObject):
     """
-    Service for handling WiFi connections using nmcli via SerialDeviceModel.
+    Service for handling network connections using nmcli via SerialDeviceModel.
     """
     scan_finished = Signal(list)  # Emits list of dicts: [{'ssid': '...', 'signal': '...', 'security': '...'}]
     connection_result = Signal(bool, str) # success, message
     status_updated = Signal(dict) # {'connected': bool, 'ssid': str, 'ip': str}
+    network_status_updated = Signal(dict) # {'ethernet': {...}, 'wifi': {...}}
 
     def __init__(self, device_model: SerialDeviceModel, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -173,6 +174,55 @@ class WifiConnectionService(QObject):
             
         except Exception as e:
             logger.error(f"Error checking status: {e}")
+
+    def check_network_status(self) -> Dict[str, Dict[str, str]]:
+        """
+        Checks status of ethernet and wifi interfaces using `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status`.
+        Returns a dictionary keyed by interface type ('ethernet', 'wifi').
+        """
+        status_info = {}
+        try:
+            cmd = "nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status"
+            response = self._model.send_command_sync(cmd, timeout=10)
+            
+            for line in response:
+                line = line.strip()
+                if not line or "Error" in line:
+                    continue
+                
+                parts = self._split_terse(line)
+                if len(parts) >= 4:
+                    device, dev_type, state, connection = parts[0], parts[1], parts[2], parts[3]
+                    
+                    if dev_type in ["ethernet", "wifi"]:
+                        info = {
+                            "device": device,
+                            "state": state,
+                            "connection": connection,
+                            "ip": ""
+                        }
+                        # If connected, get IP address
+                        if state == "connected":
+                            ip_cmd = f"nmcli -t -f IP4.ADDRESS dev show {device}"
+                            ip_resp = self._model.send_command_sync(ip_cmd, timeout=5)
+                            if ip_resp and len(ip_resp) > 0:
+                                # Output: IP4.ADDRESS:192.168.1.10/24
+                                ip_str = ip_resp[0].strip()
+                                if ":" in ip_str:
+                                    ip_str = ip_str.split(":", 1)[1]
+                                if "/" in ip_str:
+                                    ip_str = ip_str.split("/")[0]
+                                info["ip"] = ip_str
+                        
+                        status_info[dev_type] = info
+            
+            self.network_status_updated.emit(status_info)
+            return status_info
+
+        except Exception as e:
+            logger.error(f"Error checking network status: {e}")
+            return {}
+
     
     def down_wifi(self, ssid: str) -> bool:
         """
