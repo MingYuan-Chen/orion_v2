@@ -133,6 +133,9 @@ class DiagnosticValidator:
             elif key == "diagnostic_eMMc_R/W":
                 read_speed_threshold = 104
                 write_speed_threshold = 104
+            elif key == "diagnostic_SD_Card_R/W":
+                read_speed_threshold = 10
+                write_speed_threshold = 10
         
         pattern = r'(\d+\.?\d*)\s+(MB/s|MiB/s|M/s|GB/s|GiB/s|G/s)'
         matches = re.findall(pattern, output)
@@ -508,73 +511,6 @@ class DiagnosticValidator:
 
         return True, "Probe capture and CRC check successful"
     
-    @staticmethod
-    def validate_hdmi_event(output: str, **kwargs) -> Tuple[bool, str]:
-        """
-        Athena HDMI Event validation
-        """
-        hdmi_connected = False
-        hdmi_disconnected = False
-        
-        if "0001 0104 0001" in output:
-            hdmi_connected = True
-        if "0001 0104 0000" in output:
-            hdmi_disconnected = True
-
-        if hdmi_connected and hdmi_disconnected:
-            return True, "HDMI connected and disconnected events are detected"
-        else:
-            return False, f"Event detection failed, Connected: {hdmi_connected}, Disconnected: {hdmi_disconnected}"
-    
-    @staticmethod
-    def validate_camera_port_a_event(output: str, **kwargs) -> Tuple[bool, str]:
-        """
-        Athena Camera Port A Event validation
-        """
-        record_pressed = False
-        record_released = False
-        camera_pressed = False
-        camera_released = False
-
-        if "0001 0100 0001" in output:
-            record_pressed = True
-        if "0001 0100 0000" in output:
-            record_released = True
-        if "0001 0101 0001" in output:
-            camera_pressed = True
-        if "0001 0101 0000" in output:
-            camera_released = True
-
-        if record_pressed and record_released and camera_pressed and camera_released:
-            return True, "Camera port A record and camera button events are detected"
-        else:
-            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
-    
-    @staticmethod
-    def validate_camera_port_b_event(output: str, **kwargs) -> Tuple[bool, str]:
-        """
-        Athena Camera Port B Event validation
-        """
-        record_pressed = False
-        record_released = False
-        camera_pressed = False
-        camera_released = False
-
-        if "0001 0102 0001" in output:
-            record_pressed = True
-        if "0001 0102 0000" in output:
-            record_released = True
-        if "0001 0103 0001" in output:
-            camera_pressed = True
-        if "0001 0103 0000" in output:
-            camera_released = True
-
-        if record_pressed and record_released and camera_pressed and camera_released:
-            return True, "Camera port B record and camera button events are detected"
-        else:
-            return False, f"Event detection failed, Record Pressed: {record_pressed}, Record Released: {record_released}, Camera Pressed: {camera_pressed}, Camera Released: {camera_released}"
-
-
 
 class DiagnosticService(QObject):
     """
@@ -603,6 +539,7 @@ class DiagnosticService(QObject):
         self.usb1_path = None
         self.usb2_path = None
         self.usb3_path = None
+        self.sd_card_path = None
         self.eeprom_1_byte = None
         self.eeprom_19_bytes = None
         self.touch_qt_path = None
@@ -734,6 +671,10 @@ class DiagnosticService(QObject):
                 if self.usb3_path:
                     cmd_replace = cmd.replace("usb3_path", self.usb3_path)
                     response_lines = self._model.send_command_sync(cmd_replace)
+            elif "sd_card_path" in cmd:
+                if self.sd_card_path:
+                    cmd_replace = cmd.replace("sd_card_path", self.sd_card_path)
+                    response_lines = self._model.send_command_sync(cmd_replace)
             elif "find_usb_path" in cmd:
                 self._find_valid_usb_path()       
             elif "eeprom_1_byte" in cmd:
@@ -763,7 +704,7 @@ class DiagnosticService(QObject):
             if "touch_qt_path" in cmd or "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd:
                 output_str = "Touch Test Tool Launched"
             elif "stdbuf -oL" in cmd:
-                output_str = "Dump event"
+                output_str = "Event dump"
             elif "usb1_path" in cmd and not self.usb1_path:
                 output_str = "USB1 path not found"
             elif "usb2_path" in cmd and not self.usb2_path:
@@ -874,7 +815,7 @@ class DiagnosticService(QObject):
         elif self._current_key == "diagnostic_Camera_Preview":
             display_str = "LVDS, MIPI VGA, Scorpios, LVDS(smart cable) preview:"
         elif self._current_key == "diagnostic_HDMI_Mirror_Display":
-            display_str = "HDMI mirror display:"
+            display_str = "HDMI mirror display and event detection:"
         elif self._current_key in "diagnostic_Audio_Record_Play":
             display_str = "Audio record from microphone and play by speaker:"
         elif self._current_key == "diagnostic_Dimming":
@@ -887,9 +828,19 @@ class DiagnosticService(QObject):
             is_valid, msg = False, f"{display_str} Fail"
         elif self._current_key == "diagnostic_Power_Button":
             if "Monitor Result: PASS" in combined_output:
-                is_valid, msg = True, f"Power button pressed and released is detected"
+                is_valid, msg = True, f"Power button pressed and released are detected"
             else:
-                is_valid, msg = False, f"Power button pressed and released is not detected"
+                is_valid, msg = False, f"Power button pressed and released are not detected"
+        elif self._current_key == "diagnostic_Camera_Port_A_Event":
+            if "Monitor Result: PASS" in combined_output:
+                is_valid, msg = True, f"Camera port A record and camera button events are detected"
+            else:
+                is_valid, msg = False, f"Camera port A record and camera button events are not detected"
+        elif self._current_key == "diagnostic_Camera_Port_B_Event":
+            if "Monitor Result: PASS" in combined_output:
+                is_valid, msg = True, f"Camera port B record and camera button events are detected"
+            else:
+                is_valid, msg = False, f"Camera port B record and camera button events are not detected"
         else:
             is_valid, msg = self.validate_result(self._current_key, combined_output)
         
@@ -1249,6 +1200,15 @@ class DiagnosticService(QObject):
                                 self.touch_qt_path = f"{file_path}/TouchTestQt64"
                             if "odin_audio8k16S.wav" in line and self.test_audio_path is None:
                                 self.test_audio_path = f"{file_path}/odin_audio8k16S.wav"
+                    elif 'mmcblk1p1' in name and self.sd_card_path is None:
+                        self.sd_card_path = f"/run/media/{name}"
+                        file_path = f"{self.sd_card_path}/dqa_package"
+                        response = self._model.send_command_sync(f"ls {file_path}")
+                        for line in response:
+                            if "TouchTestQt64" in line and self.touch_qt_path is None:
+                                self.touch_qt_path = f"{file_path}/TouchTestQt64"
+                            if "odin_audio8k16S.wav" in line and self.test_audio_path is None:
+                                self.test_audio_path = f"{file_path}/odin_audio8k16S.wav"
                     else:
                         logger.debug(f"Ignored device: {name}")
                 
@@ -1291,7 +1251,7 @@ class DiagnosticService(QObject):
             ws.title = "Diagnostic Report"
             
             # Headers
-            headers = ["Timestamp", "Test Name", "Result", "Message"]
+            headers = ["Timestamp", "Items", "Result", "Criteria and Response"]
             ws.append(headers)
             
             # Style Headers

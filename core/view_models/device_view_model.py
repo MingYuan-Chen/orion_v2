@@ -4,13 +4,7 @@ from typing import List, Optional, Dict
 from PySide6.QtCore import QObject, Signal, Slot, Property, QStringListModel, Qt, QTimer
 from core.models.serial_device_model import SerialDeviceModel
 from core.services.platform_detection_service import PlatformDetectionService
-from core.services.system_info_service import SystemInfoService
 from core.services.hw_config_service import HWConfigService
-from core.services.diagnostic_service import DiagnosticService
-from core.services.battery_monitor_service import BatteryMonitorService
-from core.services.wifi_connection_service import WifiConnectionService
-from core.workers.led_worker import LedWorker
-from core.workers.backlight_worker import BacklightWorker
 from util.logger import logger
 
 class DeviceViewModel(QObject):
@@ -470,6 +464,14 @@ class DeviceViewModel(QObject):
             else:
                 self._platform_detected = True
                 self.platform_name_changed.emit()
+
+            # Lazy load services
+            from core.services.system_info_service import SystemInfoService
+            from core.services.diagnostic_service import DiagnosticService
+            from core.services.battery_monitor_service import BatteryMonitorService
+            from core.services.wifi_connection_service import WifiConnectionService
+            from core.workers.led_worker import LedWorker
+            from core.workers.backlight_worker import BacklightWorker
 
             # Initialize system info service with the detected platform name
             self._system_info_service = SystemInfoService(device_model=self._model, platform_name=self._platform_name)

@@ -5,14 +5,8 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLineEdit, QTextEdit, QLabel, QFrame
 )
-from PySide6.QtGui import QKeyEvent, QFont
+from PySide6.QtGui import QKeyEvent, QFont, QPainter, QColor, QBrush
 from core.view_models.device_view_model import DeviceViewModel
-from core.views.system_info_view import SystemInfoView
-from core.views.hw_config_view import HWConfigView
-from core.views.diagnostic_view import DiagnosticView
-from core.views.battery_monitor_view import BatteryMonitorView
-from core.views.function_control_view import FunctionControlView
-from core.views.wifi_connection_view import WifiConnectionView
 from util.logger import logger
 
 class CommandInputLineEdit(QLineEdit):
@@ -285,18 +279,21 @@ class MainView(QWidget):
     @Slot()
     def open_system_info_view(self):
         if self._system_info_view is None:
+            from core.views.system_info_view import SystemInfoView
             self._system_info_view = SystemInfoView(self._vm)
         self._system_info_view.show()
 
     @Slot()
     def open_hw_config_view(self):
         if self._hw_config_view is None:
+            from core.views.hw_config_view import HWConfigView
             self._hw_config_view = HWConfigView(self._vm)
         self._hw_config_view.show()
 
     @Slot()
     def open_diagnostic_view(self):
         if self._diagnostic_view is None:
+            from core.views.diagnostic_view import DiagnosticView
             self._diagnostic_view = DiagnosticView(self._vm)
         self._diagnostic_view.start_diagnostic()
         self._diagnostic_view.show()
@@ -305,18 +302,21 @@ class MainView(QWidget):
     @Slot()
     def open_battery_monitor_view(self):
         if self._battery_monitor_view is None:
+            from core.views.battery_monitor_view import BatteryMonitorView
             self._battery_monitor_view = BatteryMonitorView(self._vm)
         self._battery_monitor_view.show()
 
     @Slot()
     def open_function_control_view(self):
         if self._function_control_view is None:
+            from core.views.function_control_view import FunctionControlView
             self._function_control_view = FunctionControlView(self._vm)
         self._function_control_view.show()
 
     @Slot()
     def open_wifi_view(self):
         if self._wifi_view is None:
+            from core.views.wifi_connection_view import WifiConnectionView
             self._wifi_view = WifiConnectionView(self._vm)
         self._wifi_view.show()
     

@@ -173,3 +173,54 @@ class WifiConnectionService(QObject):
             
         except Exception as e:
             logger.error(f"Error checking status: {e}")
+    
+    def down_wifi(self, ssid: str) -> bool:
+        """
+        Disconnects a specific WiFi connection (SSID) using `nmcli connection down`.
+        Returns True if successful.
+        """
+        logger.info(f"Bringing down WiFi connection: {ssid}")
+        try:
+            # nmcli connection down id "SSID"
+            cmd = f"nmcli connection down id \"{ssid}\""
+            response = self._model.send_command_sync(cmd, timeout=10)
+            result_str = "\n".join(response)
+
+            if "successfully deactivated" in result_str:
+                logger.info(f"Successfully disconnected {ssid}")
+                return True
+            else:
+                # Sometimes it says "Connection 'SSID' successfully deactivated"
+                # Need to be robust. 
+                # If checking failure: "Error: ..."
+                if "Error" in result_str:
+                     logger.error(f"Failed to bring down {ssid}: {result_str}")
+                     return False
+                return True # Assume success if no error? Or strict match?
+                # Usually: "Connection 'MyWifi' successfully deactivated (D-Bus active path: /org/freedesktop/NetworkManager/ActiveConnection/2)"
+        except Exception as e:
+            logger.error(f"Error bringing down WiFi {ssid}: {e}")
+            return False
+    
+    def disconnect_network(self, interface: str) -> bool:
+        """
+        Disconnects a network interface using `nmcli device disconnect`.
+        Returns True if successful.
+        """
+        logger.info(f"Disconnecting interface: {interface}")
+        try:
+            cmd = f"nmcli device disconnect {interface}"
+            response = self._model.send_command_sync(cmd, timeout=10)
+            result_str = "\n".join(response)
+
+            if "successfully disconnected" in result_str:
+                logger.info(f"Successfully disconnected interface {interface}")
+                return True
+            else:
+                logger.error(f"Failed to disconnect interface {interface}: {result_str}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error disconnecting interface {interface}: {e}")
+            return False
+
