@@ -332,7 +332,7 @@ class DiagnosticValidator:
             
             # If status is Discharging (192, 144) -> Fail Charge Test (AC likely unplugged)
             if status_code in (192, 144, 4288, 3024, 3008, 2688, 2432, 2176):
-                 return False, f"Charge Fail. Status indicates Discharging. {display_msg}"
+                 return False, f"Charge Fail. {display_msg}"
 
             # Standard Charge Check: 0 ~ 3250
             if 0 <= current <= 3250:
@@ -355,11 +355,11 @@ class DiagnosticValidator:
             # Discharge Test Logic (User Strict Request)
             # 1. Status MUST be 192 (Discharging) or 144 (Full Discharged)
             if status_code not in (192, 144):
-                return False, f"Discharge Fail. Status must be Discharging. Got: {status_desc}"
+                return False, f"Discharge Fail. Status must be Discharging. Got: {status_desc}, Current:{current}m, SoC:{soc}%"
             
             # 2. Current MUST be negative (< 0)
             if current >= 0:
-                return False, f"Discharge Fail. Current must be negative (< 0mA). Got: {current}mA"
+                return False, f"Discharge Fail. Current must be negative (< 0mA). Got: {current}mA, SoC:{soc}%"
             
             # 3. Valid Range (-2000 to -1)
             if -2000 <= current < 0:

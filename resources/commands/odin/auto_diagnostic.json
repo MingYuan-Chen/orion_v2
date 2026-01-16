@@ -1,6 +1,7 @@
 {
   "diagnostic_CPU_Core_Type": {
     "commands": [
+      "systemctl restart weston & systemctl start odin-production.service",
       "cat /sys/devices/soc0/soc_id"
     ],
     "expected_response": [
