@@ -365,6 +365,12 @@ class DeviceViewModel(QObject):
             self._model.send_command_sync("dmesg -n 3")
     
     @Slot()
+    def toggle_cursor_blink_disable(self):
+        """Disable the cursor blink."""
+        if self._model:
+            self._model.send_command_sync("echo 0 > /sys/class/graphics/fbcon/cursor_blink")
+
+    @Slot()
     def toggle_USB_port_power_enable(self):
         """Enable the USB port power."""
         if self._model:
@@ -505,6 +511,7 @@ class DeviceViewModel(QObject):
         if self.platform_name == "Odin":
             self.toggle_USBC_dmesg_disable()
             self.toggle_USB_port_power_enable()
+            self.toggle_cursor_blink_disable()
     
     @Slot(bool, str)
     def on_info_updated(self, key: str, result: str):
