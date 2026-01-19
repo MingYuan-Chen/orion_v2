@@ -657,7 +657,7 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
-            elif self._platform_name == "Odin" and "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+            elif self._platform_name == "Odin" and ("TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd):
                 response_lines = self._model.send_command_sync(cmd, timeout=60)    
             elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd or "stdbuf -oL" in cmd:
                 self._model.send_command_queued(cmd)
