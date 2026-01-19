@@ -6,6 +6,7 @@ class StabilityTestWorker(QThread):
     Merges the previous StabilityTestWorker and WorkerSignals.
     """
     result = Signal(str)
+    ping_started = Signal()
 
     def __init__(self, service, duration: int, ip: str, ssid: str = None, password: str = None):
         super().__init__()
@@ -31,6 +32,7 @@ class StabilityTestWorker(QThread):
                 self.service.disconnect_network("wlp1s0")
 
             # Run Ping Test
+            self.ping_started.emit()
             summary = self.service.run_ping_test(self.duration, self.ip)
             self.result.emit(summary)
             

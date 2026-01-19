@@ -271,14 +271,13 @@ class StabilityTestView(QWidget):
                 password
             )
             self.worker.result.connect(self.on_test_finished)
+            self.worker.ping_started.connect(self.on_ping_started)
             # worker.signals.error.connect(...) # Can handle error if separate signal needed
             self.worker.start()
             
             # Start Timer
             self.elapsed_seconds = 0
             self.total_duration = duration
-            self.progress_timer.start(1000)
-            self.update_progress()
             
         else:
             # Stop Test
@@ -290,8 +289,13 @@ class StabilityTestView(QWidget):
             # But run_ping_test should return after interruption.
 
     def update_progress(self):
-        self.lbl_progress.setText(f"{self.elapsed_seconds}/{self.total_duration} s")
         self.elapsed_seconds += 1
+        self.lbl_progress.setText(f"{self.elapsed_seconds}/{self.total_duration} s")
+        
+    @Slot()
+    def on_ping_started(self):
+        self.progress_timer.start(1000)
+        self.update_progress()
         
     def on_test_finished(self, summary: str):
         self.progress_timer.stop()
@@ -311,7 +315,7 @@ class StabilityTestView(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self._status_timer.start(60000) # Poll every 60 seconds
-        QTimer.singleShot(200, self._vm.check_network_status) # Immediate check
+        QTimer.singleShot(300, self._vm.check_network_status) # Immediate check
 
     def closeEvent(self, event):
         self._status_timer.stop()

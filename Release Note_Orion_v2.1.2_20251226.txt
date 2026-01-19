@@ -1,0 +1,43 @@
+Release Notes - Orion Tool
+
+1. Date: 2025-1226
+
+2. Purpose:
+  a. Update display string
+  b. Implement new audio test function
+  c. Update some validation logic and commands
+
+3. Version: 
+
+v2.1.2 (2025/12/26)
+
+Changes:
+  Update:
+    - Implement Audio test(Speaker and Microphone)
+    - Update commands:
+      - Backlight: Update steps from (0,1,2,3,4,5,6,7,8,9,10) to (10,8,6,4,2,0,10)
+      - LCD: Update steps from (red,green,blue,black,white,colorbar,gradient256,frame,gray16,gray64,gray256) to (white,black,red,green,blue,colorbar,gradient256,frame)
+      - Memory Size: update command as "free | grep 'Mem:'"
+    - Update UX:
+      - Set LCD to white when open LED/Backlight
+      - Customize Criteria and Response for each test item
+    - Update display string:
+      - System Info: update Memory total as GB
+      - Function Test: Update 'WiFi Module' as 'WiFi Controller'
+      - Function Test: Update 'Bluetooth Module' as 'Bluetooth Controller'
+  Issue Fixing:
+    - Doesn't display 'U-Boot' string under system info > u-boot version
+
+4. Known issue:
+- Wifi connection test sometimes failed.
+- Camera test not working under BLT environment
+- Touch drag and draw test not working under BLT environment
+- USB read speed sometime grep wrong info
+
+5. Supported BSP version: BSP_V2P11 with athena-production-tool.service
+- https://pms.promate.com.tw/boards/1210/topics/46229
+
+6. Note:
+- There is "dqa_package" folder exist after download and extract the zip file. Please ensure "dqa_package" folder copied to any of USB disk and plug in the USB disk to target device
+- [Function Test][Touch 9 Points] Please ensure tool closed by tap "Close" button before you click "Pass/Fail" button
+- [Function Test][Touch Drag Draw] Please ensure tool closed by tap "Quit" button before you click "Pass/Fail" button
