@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, Slot, QTimer, QThreadPool
 from PySide6.QtGui import QPainter, QBrush, QColor, QIntValidator
 from core.view_models.device_view_model import DeviceViewModel
 from core.workers.stability_test_worker import StabilityTestWorker
+from core.views.components.ping_test_item import PingTestItem
 
 class LEDIndicator(QWidget):
     """
@@ -41,18 +42,15 @@ class StabilityTestView(QWidget):
         super().__init__(parent)
         self._vm = view_model
         self._wifi_view = None
+        self.test_items = [] # List to store PingTestItem instances
         self.setWindowTitle("Stability Test")
-        self.resize(600, 400)
+        self.resize(600, 500)
         self._setup_ui()
         self._setup_bindings()
 
         # Timer to poll network status when this view is visible
-        # Timer to poll network status when this view is visible
         self._status_timer = QTimer(self)
         self._status_timer.timeout.connect(self._vm.check_network_status)
-        
-        # ThreadPool for tasks
-        self.threadpool = QThreadPool()
         
         # Progress timer
         self.progress_timer = QTimer(self)
@@ -65,13 +63,31 @@ class StabilityTestView(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
 
+        # Top row: Start Button
+        top_layout = QHBoxLayout()
+        self.btn_start = QPushButton("Start")
+        self.btn_start.setFixedWidth(100)
+        top_layout.addWidget(self.btn_start)
+        
+        self.lbl_progress = QLabel("")
+        top_layout.addWidget(self.lbl_progress)
+        
+        top_layout.addStretch()
+        main_layout.addLayout(top_layout)
+
         # 1. Network Frame
         network_frame = QFrame()
-        network_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        network_frame.setObjectName("network_frame") # Set object name for CSS targeting
+        network_frame.setStyleSheet("""
+            #network_frame {
+                border: 1px solid #555;
+                border-radius: 6px;
+            }
+        """)
         network_layout = QVBoxLayout(network_frame)
         main_layout.addWidget(network_frame)
 
-        # Row 1: Status Row (Label + LEDs)
+        # Row 1: Status Row (Label + LEDs + Add Button)
         status_row = QHBoxLayout()
         status_label = QLabel("Network")
         status_label.setStyleSheet("font-weight: bold; font-size: 14px;")
@@ -92,93 +108,72 @@ class StabilityTestView(QWidget):
         status_row.addWidget(self.wifi_label)
         
         status_row.addStretch()
+        
+        # Add Button
+        self.btn_add_item = QPushButton("+")
+        self.btn_add_item.setFixedSize(30, 30)
+        self.btn_add_item.setStyleSheet("font-size: 18px; font-weight: bold;")
+        self.btn_add_item.setToolTip("Add new test item")
+        self.btn_add_item.clicked.connect(self.add_test_item)
+        status_row.addWidget(self.btn_add_item)
+        
         network_layout.addLayout(status_row)
         
         # Separator line
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
+        line.setStyleSheet("border: 1px solid #555; border-radius: 5px;")
         network_layout.addWidget(line)
 
-        # 2. Ping Test Frame (inside Network Frame)
-        ping_test_frame = QFrame()
-        ping_test_layout = QVBoxLayout(ping_test_frame)
-        network_layout.addWidget(ping_test_frame)
-
-        # Row 1: Type, Duration, Address
-        row1_layout = QHBoxLayout()
+        # 2. Test Items Area
+        # We use a scroll area just in case, or just a vertical layout if items are few
+        # Let's stick to layout inside network_frame for now as requested "ping_test_frame wrapped"
+        # The user wanted ping_test_frame to be a component.
+        # We will add items to this layout.
+        self.items_layout = QVBoxLayout()
+        network_layout.addLayout(self.items_layout)
         
-        # Radio Buttons
-        self.rb_ethernet = QRadioButton("Ethernet")
-        self.rb_wifi = QRadioButton("WiFi")
-        self.rb_ethernet.setChecked(True) # Default
-        self.btn_group = QButtonGroup(self)
-        self.btn_group.addButton(self.rb_ethernet)
-        self.btn_group.addButton(self.rb_wifi)
-        
-        row1_layout.addWidget(QLabel("Type:"))
-        row1_layout.addWidget(self.rb_ethernet)
-        row1_layout.addWidget(self.rb_wifi)
-        row1_layout.addSpacing(20)
-
-        # Duration
-        row1_layout.addWidget(QLabel("Duration (s):"))
-        self.txt_duration = QLineEdit("3600")
-        self.txt_duration.setFixedWidth(60)
-        self.txt_duration.setValidator(QIntValidator(1, 999999))
-        row1_layout.addWidget(self.txt_duration)
-        row1_layout.addSpacing(20)
-
-        # Address
-        row1_layout.addWidget(QLabel("Ping Address:"))
-        self.txt_address = QLineEdit("8.8.8.8")
-        self.txt_address.setFixedWidth(100)
-        row1_layout.addWidget(self.txt_address)
-        
-        row1_layout.addStretch()
-        ping_test_layout.addLayout(row1_layout)
-
-        # Row 2: Target Detail
-        row2_layout = QHBoxLayout()
-        self.lbl_target_detail = QLabel("Target: Ethernet - IP: Unknown")
-        row2_layout.addWidget(self.lbl_target_detail)
-        
-        self.btn_select_ap = QPushButton("Select AP...")
-        self.btn_select_ap.setVisible(False)
-        self.btn_select_ap.clicked.connect(self.open_wifi_view)
-        row2_layout.addWidget(self.btn_select_ap)
-        
-        self.txt_wifi_password = QLineEdit()
-        self.txt_wifi_password.setPlaceholderText("WiFi Password")
-        self.txt_wifi_password.setEchoMode(QLineEdit.Password)
-        self.txt_wifi_password.setVisible(False)
-        self.txt_wifi_password.setFixedWidth(150)
-        row2_layout.addWidget(self.txt_wifi_password)
-        
-        row2_layout.addStretch()
-        ping_test_layout.addLayout(row2_layout)
-
-        # Row 3: Start Button
-        row3_layout = QHBoxLayout()
-        self.btn_start = QPushButton("Start")
-        self.btn_start.setFixedWidth(100)
-        row3_layout.addWidget(self.btn_start)
-        
-        self.lbl_progress = QLabel("")
-        row3_layout.addWidget(self.lbl_progress)
-        
-        row3_layout.addStretch()
-        ping_test_layout.addLayout(row3_layout)
+        # Add one initial item
+        self.add_test_item()
 
         # Spacer
         main_layout.addStretch()
 
-        # Connect internal signals
-        self.btn_group.buttonClicked.connect(self.update_target_detail)
+    def add_test_item(self):
+        item = PingTestItem()
+        item.remove_requested.connect(self.remove_test_item)
+        item.request_wifi_selection.connect(self.on_request_wifi_selection)
+        self.items_layout.addWidget(item)
+        self.test_items.append(item)
+
+    def remove_test_item(self, item):
+        if len(self.test_items) > 1: # Keep at least one
+            self.items_layout.removeWidget(item)
+            item.deleteLater()
+            self.test_items.remove(item)
+        else:
+            # Maybe just clear inputs? Or allow removing if we handle empty start
+            pass
 
     def _setup_bindings(self):
         self._vm.network_status_updated.connect(self.update_status)
         self.btn_start.clicked.connect(self.on_start_clicked)
+
+    @Slot(object)
+    def on_request_wifi_selection(self, item):
+        self._current_selecting_item = item
+        if self._wifi_view is None:
+            from core.views.wifi_connection_view import WifiConnectionView
+            self._wifi_view = WifiConnectionView(self._vm)
+            # Connect the signal from the view
+            self._wifi_view.ssid_selected.connect(self.on_wifi_ssid_selected)
+        self._wifi_view.show()
+
+    @Slot(str)
+    def on_wifi_ssid_selected(self, ssid: str):
+        if hasattr(self, '_current_selecting_item') and self._current_selecting_item:
+            self._current_selecting_item.set_wifi_ssid(ssid)
 
     @Slot(dict)
     def update_status(self, status: dict):
@@ -202,73 +197,49 @@ class StabilityTestView(QWidget):
         else:
             self.wifi_label.setText("WiFi: Disconnected")
 
-        self.update_target_detail()
-
-    @Slot()
-    def update_target_detail(self):
-        if self.rb_ethernet.isChecked():
-            self.lbl_target_detail.setText(f"Target: Ethernet - IP: {getattr(self, 'eth_ip', 'Unknown')}")
-            self.btn_select_ap.setVisible(False)
-            self.txt_wifi_password.setVisible(False)
-        else:
-            if getattr(self, 'wifi_ssid', '') not in [None, '']:
-                self.lbl_target_detail.setText(f"Target: WiFi - SSID: {self.wifi_ssid}")
-            else:
-                self.lbl_target_detail.setText("Target: WiFi - SSID: Unknown")
-            self.btn_select_ap.setVisible(True)
-            self.txt_wifi_password.setVisible(True)
-
-    @Slot()
-    def open_wifi_view(self):
-        if self._wifi_view is None:
-            from core.views.wifi_connection_view import WifiConnectionView
-            self._wifi_view = WifiConnectionView(self._vm)
-            # Connect the signal from the view
-            self._wifi_view.ssid_selected.connect(self.on_wifi_ssid_selected)
-        self._wifi_view.show()
-
-    @Slot(str)
-    def on_wifi_ssid_selected(self, ssid: str):
-        self.wifi_ssid = ssid
-        self.update_target_detail()
+        # Update status for each test item
+        for item in self.test_items:
+            item.update_network_status(eth_connected, self.eth_ip, wifi_connected)
 
     @Slot()
     def on_start_clicked(self):
         if self.btn_start.text() == "Start":
-            # Validation
-            try:
-                duration = int(self.txt_duration.text())
-            except ValueError:
-                self.lbl_progress.setText("Invalid duration")
-                return
-                
-            ip_address = self.txt_address.text()
-            if not ip_address:
-                self.lbl_progress.setText("Invalid IP")
-                return
-
-            ssid = None
-            password = None
-            if self.rb_wifi.isChecked():
-                ssid = getattr(self, 'wifi_ssid', None)
-                if not ssid:
-                     self.lbl_progress.setText("Select WiFi AP")
+            # Collect Configs
+            test_configs = []
+            total_duration = 0
+            
+            for item in self.test_items:
+                config = item.get_config()
+                # Basic Validation
+                if config['duration'] <= 0:
+                     self.lbl_progress.setText("Invalid duration in an item")
                      return
-                password = self.txt_wifi_password.text()
+                if not config['ip']:
+                     self.lbl_progress.setText("Invalid IP in an item")
+                     return
+                if config['interface_type'] == 'wifi' and not config['ssid']:
+                     self.lbl_progress.setText("WiFi SSID missing in an item")
+                     return
+                
+                test_configs.append(config)
+                total_duration += config['duration']
+
+            if not test_configs:
+                return
 
             # Start Test
             self.btn_start.setText("Stop")
             self._set_inputs_enabled(False)
             self.lbl_progress.setText("Starting...")
+            self.btn_add_item.setEnabled(False)
             
-            # Start Worker
+            # Stop status timer to prevent interference with test commands
+            self._status_timer.stop()
+            
             # Start Worker
             self.worker = StabilityTestWorker(
                 self._vm._network_service,
-                duration,
-                ip_address,
-                ssid,
-                password
+                test_configs
             )
             self.worker.result.connect(self.on_test_finished)
             self.worker.ping_started.connect(self.on_ping_started)
@@ -277,7 +248,7 @@ class StabilityTestView(QWidget):
             
             # Start Timer
             self.elapsed_seconds = 0
-            self.total_duration = duration
+            self.total_duration = total_duration # This is approximate, as there is setup time
             
         else:
             # Stop Test
@@ -299,17 +270,16 @@ class StabilityTestView(QWidget):
         
     def on_test_finished(self, summary: str):
         self.progress_timer.stop()
+        self._status_timer.start(60000) # Restart status polling
+        
         self.btn_start.setText("Start")
         self._set_inputs_enabled(True)
         self.lbl_progress.setText(summary)
 
     def _set_inputs_enabled(self, enabled: bool):
-        self.rb_ethernet.setEnabled(enabled)
-        self.rb_wifi.setEnabled(enabled)
-        self.txt_duration.setEnabled(enabled)
-        self.txt_address.setEnabled(enabled)
-        self.btn_select_ap.setEnabled(enabled)
-        self.txt_wifi_password.setEnabled(enabled)
+        for item in self.test_items:
+            item.set_enabled_inputs(enabled)
+        self.btn_add_item.setEnabled(enabled)
 
 
     def showEvent(self, event):

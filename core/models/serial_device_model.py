@@ -67,23 +67,30 @@ class SerialDeviceModel(QObject):
     queue_finished = Signal()
     # Single command completion: command, response_lines
     command_finished = Signal(str, list)
+    
+    # Internal signal to trigger command processing on the main thread
+    _trigger_process = Signal()
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
         self.device: Optional[serial.Serial] = None
         self.listener: Optional[SerialListener] = None
+        
+        # Connect internal trigger to processing slot
+        # QueuedConnection is default across threads, ensuring execution on the object's thread
+        self._trigger_process.connect(self._process_next_command)
 
         # Queue control
         self.command_queue = deque()   # Each item: {cmd, wait_for, timeout}
         self.is_processing = False
         self.current_wait_token = None  # str or re.Pattern
-
+        
         # Outer timeout: maximum alive time for the entire command
         self.timeout_timer = QTimer(self)
         self.timeout_timer.setSingleShot(True)
         self.timeout_timer.timeout.connect(self._on_command_timeout)
         self.current_timeout_sec = 3.0
-
+        
         # Inner settle timer: output stability detection
         self.settle_timer = QTimer(self)
         self.settle_timer.setSingleShot(True)
@@ -186,8 +193,9 @@ class SerialDeviceModel(QObject):
             "wait_for": wait_for,
             "timeout": timeout,
         })
-        self._process_next_command()
-
+        self._trigger_process.emit()
+    
+    @Slot()
     def _process_next_command(self):
         """Check state and send the next command"""
         if not self.is_connected():

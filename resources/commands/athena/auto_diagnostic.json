@@ -341,8 +341,7 @@
   "diagnostic_Touch_9_Points": {
     "commands": [
       "touch_qt_path",
-      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed.",
-      "/usr/bin/drawfb -p white"
+      "manual_check_required. [Test Hints]\nPlease tap the 9 points on the screen. then tap the Close button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
     ]
   },
   "diagnostic_Touch_Drag_Draw": {

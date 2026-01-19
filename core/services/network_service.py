@@ -129,7 +129,7 @@ class NetworkService(QObject):
         logger.info(f"Connecting to {ssid}...")
         try:
             # Connection can take time (DHCP etc), so increased timeout
-            response = self._model.send_command_sync(cmd, timeout=30)
+            response = self._model.send_command_sync(cmd, timeout=60)
             
             # Check response for success
             # Success: "Device 'wlan0' successfully activated with '...'"

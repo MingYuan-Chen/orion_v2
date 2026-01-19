@@ -29,10 +29,10 @@ def main():
 
     # Set application name
     app.setApplicationName("Orion")
-    app.setApplicationDisplayName(f'v2.1.2_Odin_V2_{time.strftime("%Y%m%d")}')
+    app.setApplicationDisplayName(f'v2.2.0_{time.strftime("%Y%m%d")}')
     app.setOrganizationName("Orion")
     app.setOrganizationDomain("orion.com")
-    app.setApplicationVersion("2.1.2.0")
+    app.setApplicationVersion("2.2.0.0")
 
     # Set application icon
     app.setWindowIcon(QIcon(str(icon_path)))
