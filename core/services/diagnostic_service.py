@@ -213,6 +213,30 @@ class DiagnosticValidator:
             return True, "EEPROM Read and Write OK"
         return False, "EEPROM Read and Write Failed"
     
+    BATTERY_STATUS_MAP = { 
+        128: "Charging",
+        192: "Discharging",
+        160: "Full Charged",
+        224: "Full Charged",
+        144: "Full Discharged",
+        32770: "Initializing",
+        32896: "Over Charged",
+        16512: "Terminate Charge",
+        16544: "Full Charged, Terminate Charge",
+        20608: "Over Temperature, Terminate Charge",
+        20672: "Over Temperature, Terminate Charge",
+        4224: "Over Temperature - Charge",
+        4288: "Over Temperature - Discharge",
+        3024: "Terminate Discharge, Fully Discharged",
+        3008: "Terminate Discharge, Remaining Capacity and Time Alarm",
+        2688: "Terminate Discharge, Remaining Capacity Alarm",
+        2432: "Terminate Discharge, Remaining Time Alarm",
+        2176: "Terminate Discharge",
+        960: "Remaining Capacity and Time Alarm",
+        704: "Remaining Capacity Alarm",
+        448: "Remaining Time Alarm"
+    }
+
     @staticmethod
     def validate_charge_discharge_odin(output: str, **kwargs) -> Tuple[bool, str]:
         """
@@ -228,15 +252,13 @@ class DiagnosticValidator:
 
         responses = output.split("\n")
 
-        status = None
+        status_code = None
+        status_desc = "Unknown"
         soc = None
         current = None
 
         is_charge_cmd = False
         is_discharge_cmd = False
-
-        CHARGE_STATUS = 128      # 0x00 0x80
-        DISCHARGE_STATUS = 192   # 0x00 0xC0
 
         # -----------------------
         # Detect command intent
@@ -253,57 +275,100 @@ class DiagnosticValidator:
 
         if not is_charge_cmd and not is_discharge_cmd:
             return False, "No Charge/Discharge command detected"
+
         # -----------------------
         # Parse values
         # -----------------------
+        parsed_values = []
         for line in responses:
-            value = DiagnosticValidator._parse_battery_value(line)
-
-            if not isinstance(value, int):
+            val = DiagnosticValidator._parse_battery_value(line)
+            if isinstance(val, int):
+                parsed_values.append(val)
+        
+        # Heuristic assignment
+        for val in parsed_values:
+            # 1. Check if it's a known Status Code
+            if val in DiagnosticValidator.BATTERY_STATUS_MAP:
+                status_code = val
+                status_desc = DiagnosticValidator.BATTERY_STATUS_MAP[val]
+                continue
+            
+            # 2. Check for Current (High magnitude or negative)
+            if val < 0:
+                current = val
+                continue
+            
+            if val > 100:
+                current = val
                 continue
 
-            # Status (display only)
-            if value in (CHARGE_STATUS, DISCHARGE_STATUS):
-                status = value
-                continue
-
-            # Battery SoC
-            if 0 <= value <= 100:
-                soc = value
-                continue
-
-            # Current (signed)
-            if abs(value) >= 100:
-                current = value
-
+            # If 0 <= val <= 100: Could be SoC or Small Current
+            if 0 <= val <= 100:
+                if soc is None:
+                    # Prefer assigning to SoC first if not set
+                    soc = val
+                else:
+                    # If SoC is already set, assume this is Current (e.g. 0mA)
+                    if current is None:
+                        current = val
+        
         if current is None:
-            return False, "Current value not found"
+            return False, f"Current value not found (Parsed: {parsed_values})"
+
         # -----------------------
         # PASS / FAIL by command
         # -----------------------
+        
+        display_msg = f"Battery SoC: {soc}%, Current: {current}mA, Status: {status_desc}"
+
+        # Helper to check if "Full"
+        is_full = status_desc and ("Full" in status_desc or "Terminate" in status_desc)
+
         if is_charge_cmd:
-            if not (0 <= current <= 3250):
-                return False, (
-                    f"Now Charge current is {current}mA, "
-                    f"Charge current should 0mA ~ 3250mA, "
-                    f"Battery SoC: {soc}%"
-                )
-            mode = "Charging"
+            # Charge Test Logic
+            # 1. Status should imply Charging or Full.
+            # 128 = Charging
+            # 160, 224, 16544... = Full Charged
+            
+            # If status is Discharging (192, 144) -> Fail Charge Test (AC likely unplugged)
+            if status_code in (192, 144, 4288, 3024, 3008, 2688, 2432, 2176):
+                 return False, f"Charge Fail. {display_msg}"
+
+            # Standard Charge Check: 0 ~ 3250
+            if 0 <= current <= 3250:
+                 # If Current is 0, we generally want confirmation of Full Status, 
+                 # but logic allows 0-3250.
+                 # If current is 0 and NOT Full? (e.g. just plugged in but not charging?)
+                 # For now, strict range 0-3250 is PASS.
+                 # But if specific Full Check is desired:
+                 if current == 0 and not is_full:
+                     # Maybe warning? But sticking to range for now unless user complains.
+                     pass
+                 return True, display_msg
+
+            return False, (
+                f"Charge Fail. {display_msg}. "
+                f"Expected 0mA ~ 3250mA."
+            )
 
         else:  # Discharge command
-            if not (-2000 <= current <= 0):
-                return False, (
-                    f"Now Current is {current}mA, "
-                    f"Discharge current should -2000mA ~ 0A, "
-                    f"Battery SoC: {soc}%"
-
-                )
-            mode = "Discharging"
-
-        return True, (
-            f"Battery SoC: {soc}%, "
-            f"Current: {current}mA"
-        )
+            # Discharge Test Logic (User Strict Request)
+            # 1. Status MUST be 192 (Discharging) or 144 (Full Discharged)
+            if status_code not in (192, 144):
+                return False, f"Discharge Fail. Status must be Discharging. Got: {status_desc}, Current:{current}m, SoC:{soc}%"
+            
+            # 2. Current MUST be negative (< 0)
+            if current >= 0:
+                return False, f"Discharge Fail. Current must be negative (< 0mA). Got: {current}mA, SoC:{soc}%"
+            
+            # 3. Valid Range (-2000 to -1)
+            if -2000 <= current < 0:
+                return True, display_msg
+             
+            return False, (
+                f"Discharge Fail. {display_msg}. "
+                f"Expected -2000mA ~ -1mA."
+            )
     
     @staticmethod
     def validate_charge_for_athena(output: str, **kwargs) -> Tuple[bool, str]:
