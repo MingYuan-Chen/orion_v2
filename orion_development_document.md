@@ -59,6 +59,19 @@ Orion 專案採用標準的 **MVVM (Model-View-ViewModel)** 架構設計，以�
     *   **Data Parsing**: 針對不同暫存器回傳的 Hex String 進行解析 (Signed/Unsigned 轉換)。
     *   **Persistence**: 即時將數據寫入 Excel，防止程式崩潰導致長時間監控數據遺失。
 
+### 3.4 StabilityTestWorker (穩定性測試 Worker)
+*   **職責**: 獨立執行緒執行長時間的穩定性測試 (如 Ping Test)，避免阻塞 UI 主執行緒。
+*   **設計**:
+    *   **QThread Inheritance**: 繼承自 `QThread`，將測試邏輯與信號發射 (`result`, `ping_started`) 封裝於單一類別。
+    *   **Network Isolation**: 測試執行前自動隔離非測試網路介面 (如測 WiFi 時中斷 Ethernet)，測試後自動恢復，確保測試路徑正確。
+    *   **Interruption**: 支援即時中斷 (透過 `SerialDeviceModel` 的 `send_bytes_immediate` 發送 Ctrl+C)。
+
+### 3.5 NetworkService (網路服務)
+*   **職責**: 管理 WiFi 與 Ethernet 連線狀態。
+*   **設計**:
+    *   **nmcli Wrapper**: 封裝 `nmcli` 指令，提供 Scan, Connect, Disconnect, Status Check 等功能。
+    *   **Isolation Support**: 提供 `disconnect_network` 與 `connect_device` 方法，支援測試時的網路隔離與恢復。
+
 ## 4. 工作流程 (High-Level Workflows)
 
 ### 4.1 自動診斷流程 (Diagnostic Workflow)
@@ -79,6 +92,15 @@ Orion 專案採用標準的 **MVVM (Model-View-ViewModel)** 架構設計，以�
 5.  **記錄**: Append 一行數據至 Excel Log。
 6.  **排程**: 計算耗時，動態調整下一次 `QTimer` 的觸發時間，確保採樣間隔穩定。
 
+### 4.3 穩定性測試流程 (Stability Test Workflow)
+1.  **啟動**: `StabilityTestView` 實例化 `StabilityTestWorker` 並執行 `.start()`。
+2.  **網路準備**:
+    *   若為 WiFi 測試: 連接指定的 SSID，並**斷開 eth0**。
+    *   若為 Ethernet 測試: **斷開 WiFi 介面**。
+3.  **執行測試**: 發送 `ping` 指令 (同步等待結果，但位於 Worker 線程不卡 UI)。
+4.  **即時中斷**: 若使用者點擊 Stop，UI 透過 `DeviceViewModel` 呼叫 `send_bytes_immediate(b'\x03')` 發送 Ctrl+C 中斷測試。
+5.  **清理與恢復**: 測試結束 (無論成功失敗)，Worker 在 `finally` 區塊呼叫 `NetworkService.connect_device("eth0")` 恢復網路環境。
+
 ## 5. 狀態機 (State Machine)
 
 `SerialDeviceModel` 內部維護了一個隱式的狀態機來處理複雜的序列埠串流資料：
@@ -98,6 +120,11 @@ stateDiagram-v2
         MatchingToken --> TailStage : Token Matched
         TailStage --> TailStage : Data Received (Reset Timer)
         TailStage --> CommandFinished : Settle Timer Timeout
+    }
+    
+    state Immediate {
+       [*] --> RawSend : send_bytes_immediate()
+       RawSend --> [*] : Bypass Queue
     }
 
     CommandFinished --> Idle : queue_finished

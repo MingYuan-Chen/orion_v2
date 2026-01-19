@@ -94,7 +94,8 @@ class MainView(QWidget):
         self._diagnostic_view = None
         self._battery_monitor_view = None
         self._function_control_view = None
-        self._wifi_view = None
+        self._function_control_view = None
+        self._stability_test_view = None
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -113,7 +114,7 @@ class MainView(QWidget):
         self.diagnostic_button = QPushButton("Function Test")
         self.battery_monitor_button = QPushButton("Battery Monitor")
         self.function_control_button = QPushButton("LED / Backlight")
-        self.wifi_button = QPushButton("WiFi")
+        self.stability_button = QPushButton("Stability Test")
         self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -133,7 +134,7 @@ class MainView(QWidget):
         self.diagnostic_button.setFixedSize(100, 30)
         self.battery_monitor_button.setFixedSize(120, 30)
         self.function_control_button.setFixedSize(120, 30)
-        self.wifi_button.setFixedSize(80, 30)
+        self.stability_button.setFixedSize(100, 30)
         self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
@@ -159,7 +160,7 @@ class MainView(QWidget):
         # Row 2
         row2_layout = QHBoxLayout()
         row2_layout.addWidget(self.function_control_button)
-        #row2_layout.addWidget(self.wifi_button)
+        row2_layout.addWidget(self.stability_button)
         row2_layout.addStretch()
 
         control_panel_layout.addLayout(row1_layout)
@@ -186,7 +187,7 @@ class MainView(QWidget):
 
         main_layout.addLayout(top_layout)
         main_layout.addLayout(second_layout)
-        #main_layout.addLayout(cmd_layout)             # Hide command input and send button for release
+        main_layout.addLayout(cmd_layout)             # Hide command input and send button for release
         main_layout.addWidget(QLabel("Log & Received Data:"))
         main_layout.addWidget(self.log_view, 1)
         main_layout.addLayout(platform_layout)
@@ -214,7 +215,7 @@ class MainView(QWidget):
         self.diagnostic_button.clicked.connect(self.open_diagnostic_view)
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         self.function_control_button.clicked.connect(self.open_function_control_view)
-        self.wifi_button.clicked.connect(self._vm.open_wifi_view)
+        self.stability_button.clicked.connect(self.open_stability_test_view)
         self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
@@ -227,7 +228,7 @@ class MainView(QWidget):
         # --- Connect ViewModel signals to View slots (for opening sub-views) ---
         self._vm.open_system_info_requested.connect(self.open_system_info_view)
         self._vm.open_hw_config_requested.connect(self.open_hw_config_view)
-        self._vm.open_wifi_view_requested.connect(self.open_wifi_view)
+
 
         # --- Enable/Disable UI elements based on connection status ---
         self.port_combo.setModel(self._vm.port_list_model)
@@ -262,7 +263,7 @@ class MainView(QWidget):
         self.diagnostic_button.setEnabled(connected and detected)
         self.battery_monitor_button.setEnabled(connected and detected)
         self.function_control_button.setEnabled(connected and detected)
-        self.wifi_button.setEnabled(connected and detected)
+        self.stability_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
@@ -313,12 +314,13 @@ class MainView(QWidget):
             self._function_control_view = FunctionControlView(self._vm)
         self._function_control_view.show()
 
+
     @Slot()
-    def open_wifi_view(self):
-        if self._wifi_view is None:
-            from core.views.wifi_connection_view import WifiConnectionView
-            self._wifi_view = WifiConnectionView(self._vm)
-        self._wifi_view.show()
+    def open_stability_test_view(self):
+        if self._stability_test_view is None:
+            from core.views.stability_test_view import StabilityTestView
+            self._stability_test_view = StabilityTestView(self._vm)
+        self._stability_test_view.show()
     
     @Slot()
     def on_platform_detection_button_clicked(self):
@@ -338,6 +340,6 @@ class MainView(QWidget):
         if self._diagnostic_view: self._diagnostic_view.close()
         if self._battery_monitor_view: self._battery_monitor_view.close()
         if self._function_control_view: self._function_control_view.close()
-        if self._wifi_view: self._wifi_view.close()
+        if self._stability_test_view: self._stability_test_view.close()
         self._vm.clean_up()
         super().closeEvent(event)

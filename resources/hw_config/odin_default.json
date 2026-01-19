@@ -1,0 +1,44 @@
+{
+  "platform_name": "odin",
+  "platform_model": "Default",
+  "platform_serial": "0000",
+  "config_name": "hw_config",
+  "created_date": "2025-11-13T11:51:41.906666",
+  "components": [
+    {
+      "id": "touch",
+      "component": "Touch",
+      "part_number": "--",
+      "serial_number": "--",
+      "note": "--"
+    },
+    {
+      "id": "display",
+      "component": "Display",
+      "part_number": "--",
+      "serial_number": "--",
+      "note": "--"
+    },
+    {
+      "id": "main_board",
+      "component": "Main Board",
+      "part_number": "--",
+      "serial_number": "--",
+      "note": "--"
+    },
+    {
+      "id": "edp_board",
+      "component": "eDP Board",
+      "part_number": "N/A",
+      "serial_number": "N/A",
+      "note": "--"
+    },
+    {
+      "id": "battery",
+      "component": "Battery",
+      "part_number": "--",
+      "serial_number": "--",
+      "note": "--"
+    }
+  ]
+}

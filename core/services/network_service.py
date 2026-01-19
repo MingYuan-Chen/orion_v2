@@ -4,13 +4,14 @@ from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 from typing import Optional, List, Dict
 
-class WifiConnectionService(QObject):
+class NetworkService(QObject):
     """
-    Service for handling WiFi connections using nmcli via SerialDeviceModel.
+    Service for handling network connections using nmcli via SerialDeviceModel.
     """
     scan_finished = Signal(list)  # Emits list of dicts: [{'ssid': '...', 'signal': '...', 'security': '...'}]
     connection_result = Signal(bool, str) # success, message
     status_updated = Signal(dict) # {'connected': bool, 'ssid': str, 'ip': str}
+    network_status_updated = Signal(dict) # {'ethernet': {...}, 'wifi': {...}}
 
     def __init__(self, device_model: SerialDeviceModel, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -110,8 +111,16 @@ class WifiConnectionService(QObject):
         """
         Connects to a WiFi network.
         """
-        # nmcli dev wifi connect <ssid> password <password>
-        # Note: If no password, omit password param
+        success, message = self.connect_network_sync(ssid, password)
+        self.connection_result.emit(success, message)
+        if success:
+             self.check_status() 
+
+    def connect_network_sync(self, ssid: str, password: str) -> tuple[bool, str]:
+        """
+        Connects to a WiFi network synchronously.
+        Returns: (success, message)
+        """
         if password:
             cmd = f"nmcli dev wifi connect \"{ssid}\" password \"{password}\""
         else:
@@ -120,19 +129,18 @@ class WifiConnectionService(QObject):
         logger.info(f"Connecting to {ssid}...")
         try:
             # Connection can take time (DHCP etc), so increased timeout
-            response = self._model.send_command_sync(cmd, timeout=30)
+            response = self._model.send_command_sync(cmd, timeout=60)
             
             # Check response for success
             # Success: "Device 'wlan0' successfully activated with '...'"
             result_str = "\n".join(response)
             if "successfully activated" in result_str:
-                self.connection_result.emit(True, f"Connected to {ssid}")
-                self.check_status() # Update status
+                return True, f"Connected to {ssid}"
             else:
-                self.connection_result.emit(False, f"Failed to connect: {result_str}")
+                return False, f"Failed to connect: {result_str}"
         except Exception as e:
             logger.error(f"Error connecting to WiFi: {e}")
-            self.connection_result.emit(False, f"Error: {e}")
+            return False, f"Error: {e}"
 
     @Slot()
     def check_status(self):
@@ -173,6 +181,55 @@ class WifiConnectionService(QObject):
             
         except Exception as e:
             logger.error(f"Error checking status: {e}")
+
+    def check_network_status(self) -> Dict[str, Dict[str, str]]:
+        """
+        Checks status of ethernet and wifi interfaces using `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status`.
+        Returns a dictionary keyed by interface type ('ethernet', 'wifi').
+        """
+        status_info = {}
+        try:
+            cmd = "nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status"
+            response = self._model.send_command_sync(cmd, timeout=10)
+            
+            for line in response:
+                line = line.strip()
+                if not line or "Error" in line:
+                    continue
+                
+                parts = self._split_terse(line)
+                if len(parts) >= 4:
+                    device, dev_type, state, connection = parts[0], parts[1], parts[2], parts[3]
+                    
+                    if dev_type in ["ethernet", "wifi"]:
+                        info = {
+                            "device": device,
+                            "state": state,
+                            "connection": connection,
+                            "ip": ""
+                        }
+                        # If connected, get IP address
+                        if state == "connected":
+                            ip_cmd = f"nmcli -t -f IP4.ADDRESS dev show {device}"
+                            ip_resp = self._model.send_command_sync(ip_cmd, timeout=5)
+                            if ip_resp and len(ip_resp) > 0:
+                                # Output: IP4.ADDRESS:192.168.1.10/24
+                                ip_str = ip_resp[0].strip()
+                                if ":" in ip_str:
+                                    ip_str = ip_str.split(":", 1)[1]
+                                if "/" in ip_str:
+                                    ip_str = ip_str.split("/")[0]
+                                info["ip"] = ip_str
+                        
+                        status_info[dev_type] = info
+            
+            self.network_status_updated.emit(status_info)
+            return status_info
+
+        except Exception as e:
+            logger.error(f"Error checking network status: {e}")
+            return {}
+
     
     def down_wifi(self, ssid: str) -> bool:
         """
@@ -223,4 +280,105 @@ class WifiConnectionService(QObject):
         except Exception as e:
             logger.error(f"Error disconnecting interface {interface}: {e}")
             return False
+
+    def connect_device(self, interface: str) -> bool:
+        """
+        Connects a network interface using `nmcli device connect`.
+        Returns True if successful.
+        """
+        logger.info(f"Connecting interface: {interface}")
+        try:
+            cmd = f"nmcli device connect {interface}"
+            response = self._model.send_command_sync(cmd, timeout=10)
+            result_str = "\n".join(response)
+
+            if "successfully activated" in result_str:
+                logger.info(f"Successfully connected interface {interface}")
+                return True
+            else:
+                logger.error(f"Failed to connect interface {interface}: {result_str}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error connecting interface {interface}: {e}")
+            return False
+
+    def run_ping_test(self, duration_sec: int, ip_address: str) -> str:
+        """
+        Runs a ping test for a specified duration and IP address.
+        Logs the output to a file and returns a summary message.
+        
+        Args:
+            duration_sec: Duration in seconds to run the test.
+            ip_address: IP address to ping.
+            
+        Returns:
+            A summary message of the ping test result.
+        """
+        import time
+        import os
+        
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        log_file = os.path.join(log_dir, f"ping_test_{timestamp}.log")
+        logger.info(f"Starting ping test to {ip_address} for {duration_sec} seconds. Log: {log_file}")
+        
+        # Construct ping command
+        # Using -c (count) assuming 1 packet per second which is default for ping
+        # If the system supports -w (deadline), it would be better, but -c is more universal.
+        # Let's try to use -w if we are on standard Linux options, or fallback to -c.
+        # Given we are sending this via serial to a device, we stick to common args.
+        # We'll use -c <duration> since standard ping interval is 1s.
+        cmd = f"ping {ip_address} -c {duration_sec}"
+
+        summary_message = "Ping test failed to start or complete."
+        
+        try:
+            # We use a timeout slightly longer than the duration to allow for command completion
+            timeout = duration_sec + 10
+            response = self._model.send_command_sync(cmd, timeout=timeout)
+            
+            # Write to log file
+            with open(log_file, "w", encoding="utf-8") as f:
+                for line in response:
+                    f.write(line + "\n")
+            
+            # Parse summary from the last lines
+            # Example output:
+            # --- 8.8.8.8 ping statistics ---
+            # 5 packets transmitted, 5 received, 0% packet loss, time 4005ms
+            # rtt min/avg/max/mdev = 14.234/15.123/16.456/0.789 ms
+            
+            packet_loss_line = None
+            rtt_line = None
+            
+            # Parse from the end to find statistics
+            for line in reversed(response):
+                if "packet loss" in line and not packet_loss_line:
+                    packet_loss_line = line.strip()
+                if "rtt" in line and "=" in line and not rtt_line:
+                     rtt_line = line.strip()
+                
+                if packet_loss_line and rtt_line:
+                    break
+            
+            if packet_loss_line:
+                summary_message = packet_loss_line
+                if rtt_line:
+                    summary_message += f"\n{rtt_line}"
+            else:
+                 # If we didn't find the stats line, maybe process the whole response or just first/last few?
+                 if len(response) > 0:
+                     summary_message = f"Test finished. Last line: {response[-1]}"
+                 else:
+                     summary_message = "Test finished but no output received."
+
+        except Exception as e:
+            logger.error(f"Ping test error: {e}")
+            summary_message = f"Ping test error: {str(e)}"
+            
+        return summary_message
 

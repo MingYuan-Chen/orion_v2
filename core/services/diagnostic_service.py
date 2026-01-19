@@ -717,6 +717,8 @@ class DiagnosticService(QObject):
                 output_str = "USB2 path not found"
             elif "usb3_path" in cmd and not self.usb3_path:
                 output_str = "USB3 path not found"
+            elif "sd_card_path" in cmd and not self.sd_card_path:
+                output_str = "SD card path not found"
             elif "eeprom_1_byte" in cmd and not self.eeprom_1_byte:
                 output_str = "EEPROM 1 byte not found"
             elif "eeprom_19_bytes" in cmd and not self.eeprom_19_bytes:
