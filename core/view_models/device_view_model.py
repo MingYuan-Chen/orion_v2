@@ -348,7 +348,7 @@ class DeviceViewModel(QObject):
                 log_message = "[SEND]: ESC"
             
             self._append_log(log_message)
-            self._model.send_command_queued(interrupt_bytes)
+            self._model.send_bytes_immediate(interrupt_bytes)
 
     @Slot(str)
     def toggle_production_tool_service(self, command: str):

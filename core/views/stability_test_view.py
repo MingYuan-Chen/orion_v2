@@ -3,9 +3,10 @@ from PySide6.QtWidgets import (
     QFrame, QRadioButton, QButtonGroup, QLineEdit, QSpacerItem, 
     QSizePolicy
 )
-from PySide6.QtCore import Qt, Slot, QTimer
+from PySide6.QtCore import Qt, Slot, QTimer, QThreadPool
 from PySide6.QtGui import QPainter, QBrush, QColor, QIntValidator
 from core.view_models.device_view_model import DeviceViewModel
+from core.workers.stability_test_worker import StabilityTestWorker
 
 class LEDIndicator(QWidget):
     """
@@ -46,8 +47,18 @@ class StabilityTestView(QWidget):
         self._setup_bindings()
 
         # Timer to poll network status when this view is visible
+        # Timer to poll network status when this view is visible
         self._status_timer = QTimer(self)
         self._status_timer.timeout.connect(self._vm.check_network_status)
+        
+        # ThreadPool for tasks
+        self.threadpool = QThreadPool()
+        
+        # Progress timer
+        self.progress_timer = QTimer(self)
+        self.progress_timer.timeout.connect(self.update_progress)
+        self.elapsed_seconds = 0
+        self.total_duration = 0
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -137,6 +148,13 @@ class StabilityTestView(QWidget):
         self.btn_select_ap.clicked.connect(self.open_wifi_view)
         row2_layout.addWidget(self.btn_select_ap)
         
+        self.txt_wifi_password = QLineEdit()
+        self.txt_wifi_password.setPlaceholderText("WiFi Password")
+        self.txt_wifi_password.setEchoMode(QLineEdit.Password)
+        self.txt_wifi_password.setVisible(False)
+        self.txt_wifi_password.setFixedWidth(150)
+        row2_layout.addWidget(self.txt_wifi_password)
+        
         row2_layout.addStretch()
         ping_test_layout.addLayout(row2_layout)
 
@@ -145,6 +163,10 @@ class StabilityTestView(QWidget):
         self.btn_start = QPushButton("Start")
         self.btn_start.setFixedWidth(100)
         row3_layout.addWidget(self.btn_start)
+        
+        self.lbl_progress = QLabel("")
+        row3_layout.addWidget(self.lbl_progress)
+        
         row3_layout.addStretch()
         ping_test_layout.addLayout(row3_layout)
 
@@ -156,6 +178,7 @@ class StabilityTestView(QWidget):
 
     def _setup_bindings(self):
         self._vm.network_status_updated.connect(self.update_status)
+        self.btn_start.clicked.connect(self.on_start_clicked)
 
     @Slot(dict)
     def update_status(self, status: dict):
@@ -173,9 +196,9 @@ class StabilityTestView(QWidget):
         wifi_info = status.get("wifi", {})
         wifi_connected = wifi_info.get("state") == "connected"
         self.wifi_led.set_status(wifi_connected)
-        self.wifi_ssid = wifi_info.get('connection', '')
+        
         if wifi_connected:
-            self.wifi_label.setText(f"WiFi: {self.wifi_ssid}")
+            self.wifi_label.setText(f"WiFi: {wifi_info.get('connection', '')}")
         else:
             self.wifi_label.setText("WiFi: Disconnected")
 
@@ -186,21 +209,109 @@ class StabilityTestView(QWidget):
         if self.rb_ethernet.isChecked():
             self.lbl_target_detail.setText(f"Target: Ethernet - IP: {getattr(self, 'eth_ip', 'Unknown')}")
             self.btn_select_ap.setVisible(False)
+            self.txt_wifi_password.setVisible(False)
         else:
-            self.lbl_target_detail.setText("Target: WiFi")
+            if getattr(self, 'wifi_ssid', '') not in [None, '']:
+                self.lbl_target_detail.setText(f"Target: WiFi - SSID: {self.wifi_ssid}")
+            else:
+                self.lbl_target_detail.setText("Target: WiFi - SSID: Unknown")
             self.btn_select_ap.setVisible(True)
+            self.txt_wifi_password.setVisible(True)
 
     @Slot()
     def open_wifi_view(self):
         if self._wifi_view is None:
             from core.views.wifi_connection_view import WifiConnectionView
             self._wifi_view = WifiConnectionView(self._vm)
+            # Connect the signal from the view
+            self._wifi_view.ssid_selected.connect(self.on_wifi_ssid_selected)
         self._wifi_view.show()
+
+    @Slot(str)
+    def on_wifi_ssid_selected(self, ssid: str):
+        self.wifi_ssid = ssid
+        self.update_target_detail()
+
+    @Slot()
+    def on_start_clicked(self):
+        if self.btn_start.text() == "Start":
+            # Validation
+            try:
+                duration = int(self.txt_duration.text())
+            except ValueError:
+                self.lbl_progress.setText("Invalid duration")
+                return
+                
+            ip_address = self.txt_address.text()
+            if not ip_address:
+                self.lbl_progress.setText("Invalid IP")
+                return
+
+            ssid = None
+            password = None
+            if self.rb_wifi.isChecked():
+                ssid = getattr(self, 'wifi_ssid', None)
+                if not ssid:
+                     self.lbl_progress.setText("Select WiFi AP")
+                     return
+                password = self.txt_wifi_password.text()
+
+            # Start Test
+            self.btn_start.setText("Stop")
+            self._set_inputs_enabled(False)
+            self.lbl_progress.setText("Starting...")
+            
+            # Start Worker
+            # Start Worker
+            self.worker = StabilityTestWorker(
+                self._vm._network_service,
+                duration,
+                ip_address,
+                ssid,
+                password
+            )
+            self.worker.result.connect(self.on_test_finished)
+            # worker.signals.error.connect(...) # Can handle error if separate signal needed
+            self.worker.start()
+            
+            # Start Timer
+            self.elapsed_seconds = 0
+            self.total_duration = duration
+            self.progress_timer.start(1000)
+            self.update_progress()
+            
+        else:
+            # Stop Test
+            # Send interrupt (Ctrl+C)
+            self._vm.send_interrupt_bytes(b'\x03')
+            self.lbl_progress.setText("Stopping...")
+            # The worker will finish when the command is interrupted (hopefully)
+            # We don't manually force terminate thread in QThreadPool generally.
+            # But run_ping_test should return after interruption.
+
+    def update_progress(self):
+        self.lbl_progress.setText(f"{self.elapsed_seconds}/{self.total_duration} s")
+        self.elapsed_seconds += 1
+        
+    def on_test_finished(self, summary: str):
+        self.progress_timer.stop()
+        self.btn_start.setText("Start")
+        self._set_inputs_enabled(True)
+        self.lbl_progress.setText(summary)
+
+    def _set_inputs_enabled(self, enabled: bool):
+        self.rb_ethernet.setEnabled(enabled)
+        self.rb_wifi.setEnabled(enabled)
+        self.txt_duration.setEnabled(enabled)
+        self.txt_address.setEnabled(enabled)
+        self.btn_select_ap.setEnabled(enabled)
+        self.txt_wifi_password.setEnabled(enabled)
+
 
     def showEvent(self, event):
         super().showEvent(event)
         self._status_timer.start(60000) # Poll every 60 seconds
-        QTimer.singleShot(100, self._vm.check_network_status) # Immediate check
+        QTimer.singleShot(200, self._vm.check_network_status) # Immediate check
 
     def closeEvent(self, event):
         self._status_timer.stop()

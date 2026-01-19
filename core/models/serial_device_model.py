@@ -399,6 +399,16 @@ class SerialDeviceModel(QObject):
     # ==========================================
     #  Synchronous API
     # ==========================================
+    def send_bytes_immediate(self, data: bytes):
+        """
+        Sends bytes immediately to the device, bypassing the command queue.
+        Useful for interrupts (Ctrl+C) or other urgent signals.
+        """
+        if not self.is_connected():
+            return
+        
+        self._raw_send(data)
+
     def send_command_sync(self, cmd: str,
                           wait_for: Union[str, re.Pattern] = "#",
                           timeout: float = 5.0) -> List[str]:
