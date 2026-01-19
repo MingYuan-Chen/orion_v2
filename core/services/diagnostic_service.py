@@ -165,7 +165,16 @@ class DiagnosticValidator:
                 return True, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}"
             else:
                 return False, f"{device_type} Read speed: {matches[1][0]} {matches[1][1]}, Write speed: {matches[0][0]} {matches[0][1]}, Expected resuls - Read speed:{read_speed_threshold} MB/s, Write speed: {write_speed_threshold} MB/s"
-        return False, "No USB drive found"
+        
+        # Correctly identify device type for the "Not found" message
+        if "SD_card" in key:
+            missing_msg = "No SD card found"
+        elif "USB" in key:
+            missing_msg = "No USB drive found"
+        else:
+            missing_msg = "No eMMC found"
+            
+        return False, missing_msg
     
     @staticmethod
     def validate_eeprom_for_odin(output: str, **kwargs) -> Tuple[bool, str]:
@@ -352,16 +361,13 @@ class DiagnosticValidator:
             )
 
         else:  # Discharge command
-            # Discharge Test Logic (User Strict Request)
-            # 1. Status MUST be 192 (Discharging) or 144 (Full Discharged)
-            if status_code not in (192, 144):
-                return False, f"Discharge Fail. Status must be Discharging. Got: {status_desc}, Current:{current}m, SoC:{soc}%"
+            # Discharge Test Logic (User Request: Only verify current is negative)
             
-            # 2. Current MUST be negative (< 0)
+            # 1. Current MUST be negative (< 0)
             if current >= 0:
                 return False, f"Discharge Fail. Current must be negative (< 0mA). Got: {current}mA, SoC:{soc}%"
             
-            # 3. Valid Range (-2000 to -1)
+            # 2. Valid Range (-2000 to -1)
             if -2000 <= current < 0:
                 return True, display_msg
              
@@ -651,6 +657,8 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "reboot" in cmd:
                 response_lines = self._model.send_command_sync(cmd, wait_for="login:", timeout=60)
+            elif self._platform_name == "Odin" and "TouchTestQt64" in cmd or "ts_test_mt -j 2 -v" in cmd:
+                response_lines = self._model.send_command_sync(cmd, timeout=60)    
             elif "ts_test_mt -j 2 -v" in cmd or "TouchTestQt64" in cmd or "stdbuf -oL" in cmd:
                 self._model.send_command_queued(cmd)
             elif "touch_qt_path" in cmd:
@@ -658,7 +666,7 @@ class DiagnosticService(QObject):
                     cmd_replace = cmd.replace("touch_qt_path", self.touch_qt_path)
                     self._model.send_command_queued(f"'{cmd_replace}'")
             elif "odin_power_key_monitor.sh" in cmd:
-                response_lines = self._model.send_command_sync(cmd, wait_for="Key pressed!", timeout=10)
+                response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "usb1_path" in cmd:
                 if self.usb1_path:
                     cmd = cmd.replace("usb1_path", self.usb1_path)
@@ -693,8 +701,6 @@ class DiagnosticService(QObject):
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             elif "aplay" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
-            elif "odin_power_key_monitor.sh" in cmd:
-                response_lines = self._model.send_command_sync(cmd, timeout=10)
             elif "configure_console.sh" or "probe-capture" or "check_crc.sh" in cmd:
                 response_lines = self._model.send_command_sync(cmd, timeout=20)
             else:
@@ -826,11 +832,6 @@ class DiagnosticService(QObject):
             is_valid, msg = True, f"{display_str} Pass"
         elif "manual_check_result_FAIL" in combined_output:
             is_valid, msg = False, f"{display_str} Fail"
-        elif self._current_key == "diagnostic_Power_Button":
-            if "Monitor Result: PASS" in combined_output:
-                is_valid, msg = True, f"Power button pressed and released are detected"
-            else:
-                is_valid, msg = False, f"Power button pressed and released are not detected"
         elif self._current_key == "diagnostic_Camera_Port_A_Event":
             if "Monitor Result: PASS" in combined_output:
                 is_valid, msg = True, f"Camera port A record and camera button events are detected"
