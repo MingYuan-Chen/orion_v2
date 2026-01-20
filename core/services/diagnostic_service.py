@@ -83,7 +83,7 @@ class DiagnosticValidator:
             rtc_time_str = rtc_matches[-1] if rtc_matches else "N/A"
             if ntp_ok :
                 return True, (
-                    f"NTP sync OK by time server {server_ip})-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
+                    f"NTP sync OK by time server {server_ip}-System Time:{system_time_str} / RTC Time:{rtc_time_str}"
                 )
             if not ntp_ok:
                 return False, (
