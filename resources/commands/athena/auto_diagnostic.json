@@ -352,9 +352,10 @@
   },
   "diagnostic_Camera_Preview": {
     "commands": [
-      "systemctl start verathon-video-pipeline.service",
+      "modetest -M xlnx -w 41:alpha:0",
       "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to JigA (Jig B if exists).\nCheck if camera preview is normal.",
-      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed."
+      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed.",
+      "modetest -M xlnx -w 41:alpha:255"
     ]
   }
 }

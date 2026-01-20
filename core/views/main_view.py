@@ -115,6 +115,7 @@ class MainView(QWidget):
         self.battery_monitor_button = QPushButton("Battery Monitor")
         self.function_control_button = QPushButton("LED / Backlight")
         self.stability_button = QPushButton("Stability Test")
+        self.stability_button.setVisible(False)
         self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -264,6 +265,7 @@ class MainView(QWidget):
         self.battery_monitor_button.setEnabled(connected and detected)
         self.function_control_button.setEnabled(connected and detected)
         self.stability_button.setEnabled(connected and detected)
+        self.stability_button.setVisible(connected and detected and self._vm.platform_name == "Athena")
 
     @Slot()
     def on_platform_name_changed(self):
