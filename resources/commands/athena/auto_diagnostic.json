@@ -244,6 +244,14 @@
       "0001 0101 0000"
     ]
   },
+  "diagnostic_Camera_Preview_Port_A": {
+    "commands": [
+      "modetest -M xlnx -w 41:alpha:0",
+      "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to Port A.\nCheck if camera preview is normal.",
+      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed.",
+      "modetest -M xlnx -w 41:alpha:255"
+    ]
+  },
   "diagnostic_Camera_Port_B_Event": {
     "commands": [
       "manual_check_required. [Precondition]\nFollowing process will listen to Camera port B event.\nPlease plug in camera cable to port B then press record and camera button in 10 seconds.",
@@ -255,6 +263,14 @@
       "0001 0102 0000",
       "0001 0103 0001",
       "0001 0103 0000"
+    ]
+  },
+  "diagnostic_Camera_Preview_Port_B": {
+    "commands": [
+      "modetest -M xlnx -w 41:alpha:0",
+      "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to Port B.\nCheck if camera preview is normal.",
+      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed.",
+      "modetest -M xlnx -w 41:alpha:255"
     ]
   },
   "diagnostic_Audio_Record_Play": {
@@ -348,14 +364,6 @@
     "commands": [
       "ts_test_mt -j 2 -v",
       "manual_check_required. [Test Hints]\nPlease test drag and draw function on the screen. then tap the Quit button.\nAfter closing the Touch Test Tool, please confirm Pass/Fail to proceed."
-    ]
-  },
-  "diagnostic_Camera_Preview": {
-    "commands": [
-      "modetest -M xlnx -w 41:alpha:0",
-      "manual_check_required. [Precondition]\nPlease plug in LVDS, MIPI VGA, Scorpios, LVDS(smart cable) to JigA (Jig B if exists).\nCheck if camera preview is normal.",
-      "manual_check_required. [Test Hints]\nPlease confirm all cameras previewing are normal. Click Pass/Fail to proceed.",
-      "modetest -M xlnx -w 41:alpha:255"
     ]
   }
 }
