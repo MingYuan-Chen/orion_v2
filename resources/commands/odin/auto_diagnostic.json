@@ -174,7 +174,7 @@
   },
   "diagnostic_SD_card_R/W": {
     "commands": [
-      "",
+      "umount /run/media/sdcard || true",
       "mkdir -p /run/media/sdcard && mount /dev/mmcblk1p1 /run/media/sdcard",
       "mount -o remount,rw /run/media/sdcard",
       "dd if=/dev/zero of=/run/media/sdcard/sd_throughput bs=1M count=200 status=progress",
