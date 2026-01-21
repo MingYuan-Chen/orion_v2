@@ -157,3 +157,29 @@ class PingTestItem(QFrame):
         self.btn_select_ap.setEnabled(enabled)
         self.txt_wifi_password.setEnabled(enabled)
         self.btn_remove.setEnabled(enabled)
+
+    def set_config(self, config: dict):
+        """Populates fields from a configuration dictionary."""
+        # Duration
+        if "duration" in config:
+            self.txt_duration.setText(str(config["duration"]))
+        
+        # IP Address
+        if "ip" in config:
+            self.txt_address.setText(config["ip"])
+            
+        # Interface Type
+        if config.get("interface_type") == "wifi":
+            self.rb_wifi.setChecked(True)
+            self.rb_ethernet.setChecked(False)
+            
+            if "ssid" in config:
+                self.wifi_ssid = config["ssid"]
+            if "password" in config:
+                self.txt_wifi_password.setText(config["password"])
+        else:
+            self.rb_ethernet.setChecked(True)
+            self.rb_wifi.setChecked(False)
+
+        # Update UI state (visibility of WiFi fields)
+        self.update_target_detail()

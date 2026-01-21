@@ -214,3 +214,51 @@ sequenceDiagram
     Service->>VP: emit all_diagnostics_completed
     VP->>View: Show Completion Message
 ```
+
+### 6.2 Stability Test Execution Sequence
+
+以下展示「穩定性測試」的執行流程，說明了 Worker 如何協調 NetworkService 進行網路切換、隔離與 Ping 測試：
+
+```mermaid
+sequenceDiagram
+    participant View as StabilityTestView
+    participant Worker as StabilityTestWorker
+    participant Service as NetworkService
+    participant Model as SerialDeviceModel
+
+    View->>Worker: start()
+    
+    loop For Each Test Config
+        Worker->>Worker: Check Interface Type
+        
+        alt is WiFi
+            Worker->>Service: connect_device("wlp1s0")
+            Service->>Model: nmcli device connect wlp1s0
+            Worker->>Service: connect_network_sync(ssid, pwd)
+            Service->>Model: nmcli dev wifi connect ...
+            Worker->>Service: disconnect_network("eth0")
+            Note right of Service: Isolate Ethernet to ensure WiFi path
+            Service->>Model: nmcli device disconnect eth0
+        else is Ethernet
+            Worker->>Service: disconnect_network("wlp1s0")
+            Note right of Service: Isolate WiFi to ensure Ethernet path
+            Service->>Model: nmcli device disconnect wlp1s0
+            Worker->>Service: connect_device("eth0")
+            Service->>Model: nmcli device connect eth0
+        end
+
+        Worker->>Service: run_ping_test(duration, ip)
+        Service->>Model: ping <ip> -c <duration>
+        Model-->>Service: Return Raw Output
+        Service->>Service: Parse Packet Loss & RTT
+        Service-->>Worker: Return Summary
+        Worker->>View: emit item_finished
+        
+        Note over Worker: Teardown (Cleanup)
+        Worker->>Service: connect_device("eth0")
+        Service->>Model: nmcli device connect eth0
+        Worker->>Worker: Sleep 5s (Stabilization)
+    end
+    
+    Worker->>View: emit result("All tests completed")
+```

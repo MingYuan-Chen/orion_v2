@@ -26,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name = f'orion_serial_tool_v2.1.2_{time.strftime("%Y%m%d")}',
+    name = f'orion_serial_tool_v2.2.0_{time.strftime("%Y%m%d")}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

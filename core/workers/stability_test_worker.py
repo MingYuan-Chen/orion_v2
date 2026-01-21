@@ -72,3 +72,35 @@ class StabilityTestWorker(QThread):
             
         except Exception as e:
             self.result.emit(f"Error during test execution: {e}")
+
+    @staticmethod
+    def save_config(file_path: str, configs: list) -> bool:
+        """
+        Saves the test configuration list to a JSON file.
+        """
+        import json
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(configs, f, indent=4)
+            return True
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            return False
+
+    @staticmethod
+    def load_config(file_path: str) -> list:
+        """
+        Loads the test configuration list from a JSON file.
+        """
+        import json
+        import os
+        if not os.path.exists(file_path):
+            return []
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                configs = json.load(f)
+            return configs if isinstance(configs, list) else []
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            return []

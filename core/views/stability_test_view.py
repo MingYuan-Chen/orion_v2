@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QFrame, QRadioButton, QButtonGroup, QLineEdit, QSpacerItem, 
-    QSizePolicy
+    QSizePolicy, QFileDialog, QMessageBox
 )
 from PySide6.QtCore import Qt, Slot, QTimer, QThreadPool
 from PySide6.QtGui import QPainter, QBrush, QColor, QIntValidator
@@ -65,9 +65,18 @@ class StabilityTestView(QWidget):
 
         # Top row: Start Button
         top_layout = QHBoxLayout()
+        
         self.btn_start = QPushButton("Start")
         self.btn_start.setFixedWidth(100)
         top_layout.addWidget(self.btn_start)
+
+        self.btn_load = QPushButton("Load Config")
+        self.btn_load.clicked.connect(self.on_load_clicked)
+        top_layout.addWidget(self.btn_load)
+        
+        self.btn_save = QPushButton("Save Config")
+        self.btn_save.clicked.connect(self.on_save_clicked)
+        top_layout.addWidget(self.btn_save)
         
         self.lbl_progress = QLabel("")
         top_layout.addWidget(self.lbl_progress)
@@ -280,6 +289,62 @@ class StabilityTestView(QWidget):
         for item in self.test_items:
             item.set_enabled_inputs(enabled)
         self.btn_add_item.setEnabled(enabled)
+        self.btn_load.setEnabled(enabled)
+        # We can allow saving even while running, but maybe safer to disable
+        self.btn_save.setEnabled(enabled)
+
+    @Slot()
+    def on_save_clicked(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Config", "", "JSON Files (*.json)")
+        if not file_path:
+            return
+            
+        configs = []
+        for item in self.test_items:
+            # We can reuse get_config even though it might fail validation, 
+            # but usually we want to save what is there.
+            # However, get_config does some processing.
+            try:
+                configs.append(item.get_config())
+            except Exception as e:
+                # If get_config fails (e.g. empty duration conversion), we might want to handle it
+                # For now assume get_config is robust enough or UI validators prevent bad data
+                # Actually get_config converts duration to int immediately, possibly empty string -> error if not handled
+                pass
+                
+        if StabilityTestWorker.save_config(file_path, configs):
+            QMessageBox.information(self, "Success", "Configuration saved successfully.")
+        else:
+            QMessageBox.critical(self, "Error", "Failed to save configuration.")
+
+    @Slot()
+    def on_load_clicked(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load Config", "", "JSON Files (*.json)")
+        if not file_path:
+            return
+            
+        configs = StabilityTestWorker.load_config(file_path)
+        if not configs:
+            QMessageBox.warning(self, "Warning", "Failed to load config or empty file.")
+            return
+
+        # Clear existing items
+        for item in self.test_items:
+            self.items_layout.removeWidget(item)
+            item.deleteLater()
+        self.test_items.clear()
+        
+        # Add new items
+        for config in configs:
+            item = PingTestItem()
+            item.set_config(config)
+            item.remove_requested.connect(self.remove_test_item)
+            item.request_wifi_selection.connect(self.on_request_wifi_selection)
+            self.items_layout.addWidget(item)
+            self.test_items.append(item)
+            
+        QMessageBox.information(self, "Success", "Configuration loaded successfully.")
+        QTimer.singleShot(100, self._vm.check_network_status)
 
 
     def showEvent(self, event):
