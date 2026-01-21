@@ -22,7 +22,7 @@ class StabilityTestWorker(QThread):
         try:
             for i, config in enumerate(self.test_configs):
                 test_type = config.get("type", "ping")
-                duration = config.get("duration", 60)
+                duration = config.get("duration", 3600)
                 ip = config.get("ip", "")
                 iface = config.get("interface_type", "ethernet")
                 ssid = config.get("ssid")
@@ -59,7 +59,7 @@ class StabilityTestWorker(QThread):
                 
                 # Run Test
                 self.ping_started.emit()
-                summary = self.service.run_ping_test(duration, ip)
+                summary = self.service.run_ping_test(duration, ip, config)
                 self.result.emit(f"{title} Finished.\n{summary}")
                 self.item_finished.emit(title, summary)
                 all_results.append(f"{title}: {summary}")

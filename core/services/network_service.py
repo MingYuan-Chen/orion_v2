@@ -303,7 +303,7 @@ class NetworkService(QObject):
             logger.error(f"Error connecting interface {interface}: {e}")
             return False
 
-    def run_ping_test(self, duration_sec: int, ip_address: str) -> str:
+    def run_ping_test(self, duration_sec: int, ip_address: str, config: dict) -> str:
         """
         Runs a ping test for a specified duration and IP address.
         Logs the output to a file and returns a summary message.
@@ -319,11 +319,19 @@ class NetworkService(QObject):
         import os
         
         timestamp = time.strftime("%Y%m%d_%H%M%S")
+        interface = config.get("interface_type", "ethernet")
+        duration = config.get("duration", 3600)
+        ssid = config.get("ssid", None)
+        ip_address = config.get("eth_ip", "Unknown")
+        if ssid:
+            log_name = f"PingTest_{interface}({ssid})_{duration}_{timestamp}.log"
+        else:
+            log_name = f"PingTest_{interface}({ip_address})_{duration}_{timestamp}.log"
         log_dir = "logs"
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
             
-        log_file = os.path.join(log_dir, f"ping_test_{timestamp}.log")
+        log_file = os.path.join(log_dir, log_name)
         logger.info(f"Starting ping test to {ip_address} for {duration_sec} seconds. Log: {log_file}")
         
         # Construct ping command

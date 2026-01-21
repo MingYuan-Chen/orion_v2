@@ -60,7 +60,7 @@ class PingTestItem(QFrame):
         
         # Duration
         row2_layout.addWidget(QLabel("Duration (s):"))
-        self.txt_duration = QLineEdit("60")
+        self.txt_duration = QLineEdit("3600")
         self.txt_duration.setFixedWidth(60)
         self.txt_duration.setValidator(QIntValidator(1, 999999))
         row2_layout.addWidget(self.txt_duration)
@@ -136,7 +136,8 @@ class PingTestItem(QFrame):
             "type": "ping",
             "duration": int(self.txt_duration.text()) if self.txt_duration.text() else 0,
             "ip": self.txt_address.text(),
-            "interface_type": "wifi" if self.rb_wifi.isChecked() else "ethernet"
+            "interface_type": "wifi" if self.rb_wifi.isChecked() else "ethernet",
+            "eth_ip": getattr(self, 'eth_ip', None)
         }
         
         if config["interface_type"] == "wifi":
