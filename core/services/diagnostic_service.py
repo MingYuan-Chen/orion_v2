@@ -238,7 +238,8 @@ class DiagnosticValidator:
         4288: "Over Temperature - Discharge",
         3024: "Terminate Discharge, Fully Discharged",
         3008: "Terminate Discharge, Remaining Capacity and Time Alarm",
-        2688: "Terminate Discharge, Remaining Capacity Alarm",
+        2752: "Terminate Discharge, Remaining Capacity Alarm",
+        2688: "Terminate Discharge, Remaining Capacity Alarm, Fully Discharged",
         2432: "Terminate Discharge, Remaining Time Alarm",
         2176: "Terminate Discharge",
         960: "Remaining Capacity and Time Alarm",
@@ -425,7 +426,7 @@ class DiagnosticValidator:
             if result:
                 results.append(result)
         if len(results) == 3:
-            if results[0] == 192: # Discharging
+            if results[0] in [192, 144, 704, 960, 4288, 3024, 3008, 2752, 2688, 2432, 2176]: # Discharging
                 if -2000 <= results[1] <= 0 and 9000 <= results[2] <= 12600:
                     return True, f"Discharging with valid current: {results[1]}mA, and valid voltage: {results[2]}mV"
                 else:

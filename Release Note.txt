@@ -1,13 +1,50 @@
 Release Notes - Orion Tool
 
-1. Date: 2025-1226
+1. Date: 2026-0122
 
 2. Purpose:
-  a. Update display string
-  b. Implement new audio test function
-  c. Update some validation logic and commands
+  a. New feature: Stability test
+  b. Functions: GPIO event test / Camera test / SD card test
+  c. Issue fixing
 
 3. Version: 
+
+v2.2.0 (2026/01/22)
+
+Changes:
+  New Feature:
+    - Stability test
+      - A new button "Stability Test" display in Main view (Only Athena platform support)
+      - A new view for Stability test can setup test items and run tests
+      - Setup ping test for ethernet and wifi
+      - Save and load all configs as json file
+      - Save all test result as log file
+  Update:
+    - Function Test Item:
+      - SD Card R/W: new add storage R/W test item
+      - Power Button Event: new add power button test item
+        - Use "stdbuf -oL hexdump -v /dev/input/event0" to receive event
+        - Test Button press and release
+      - Camera Event: new add camera event test item
+        - Use "stdbuf -oL hexdump -v /dev/input/event0" to receive event
+        - Test "Right" and "Left" Button press and release
+      - Camera Preview: Use correct command to display camera preview window
+        - Use "modetest -M xlnx -w 41:alpha:0" to display camera preview window then start test
+        - Use "modetest -M xlnx -w 41:alpha:255" to hide camera preview window after test
+      - HDMI Mirror Display: Merge event receiving test as one test item
+        - Use "stdbuf -oL hexdump -v /dev/input/event0" to receive event
+        - Test HDMI connect and disconnect
+  Issue Fixing:
+    - https://pms.promate.com.tw/issues/18776
+    - https://pms.promate.com.tw/issues/18775
+    - https://pms.promate.com.tw/issues/18774
+    - https://pms.promate.com.tw/issues/18773
+    - https://pms.promate.com.tw/issues/18771
+    - https://pms.promate.com.tw/issues/18769
+    - https://pms.promate.com.tw/issues/18768
+    - https://pms.promate.com.tw/issues/18767
+    - https://pms.promate.com.tw/issues/18766
+    - https://pms.promate.com.tw/issues/18765
 
 v2.1.2 (2025/12/26)
 
@@ -28,16 +65,33 @@ Changes:
   Issue Fixing:
     - Doesn't display 'U-Boot' string under system info > u-boot version
 
-4. Known issue:
-- Wifi connection test sometimes failed.
-- Camera test not working under BLT environment
-- Touch drag and draw test not working under BLT environment
-- USB read speed sometime grep wrong info
+4. Known issue: https://pms.promate.com.tw/projects/test-auotmation-2026/issues?set_filter=1&sort=id%3Adesc&f%5B%5D=status_id&op%5Bstatus_id%5D=o&f%5B%5D=subject&op%5Bsubject%5D=%7E&v%5Bsubject%5D%5B%5D=Athena&f%5B%5D=&c%5B%5D=tracker&c%5B%5D=status&c%5B%5D=priority&c%5B%5D=subject&c%5B%5D=assigned_to&c%5B%5D=due_date&c%5B%5D=updated_on&group_by=&t%5B%5D=
+- OrionTool_Athena – Function Test: Touch Test - 9-point calibration screen can't be close
+  - https://pms.promate.com.tw/issues/18770
+- OrionTool_Athena – Function Test: Touch Drag Draw - drawing screen cannot be displayed
+  - https://pms.promate.com.tw/issues/18772
+- OrionTool_Athena - Audio Record Play : (Known-issue) Playback speed too fast
+  - https://pms.promate.com.tw/issues/18763
+- OrionTool_Athena - Single Test Item : (Suggestion) Pop-up windows should stay on the same screen as the Main Window
+  - https://pms.promate.com.tw/issues/18707
 
-5. Supported BSP version: BSP_V2P11 with athena-production-tool.service
-- https://pms.promate.com.tw/boards/1210/topics/46229
+5. Required Software:
+- OS Image: Athena v1.02_20251202 (BSP_V2P11 + athena-production-tool.service)
+  - https://pms.promate.com.tw/boards/1210/topics/46229
+- PIC Firmware: v011
+  - https://pms.promate.com.tw/boards/1210/topics/45894
 
 6. Note:
-- There is "dqa_package" folder exist after download and extract the zip file. Please ensure "dqa_package" folder copied to any of USB disk and plug in the USB disk to target device
-- [Function Test][Touch 9 Points] Please ensure tool closed by tap "Close" button before you click "Pass/Fail" button
-- [Function Test][Touch Drag Draw] Please ensure tool closed by tap "Quit" button before you click "Pass/Fail" button
+- Installation:  
+  - Please ensure "dqa_package" folder copied to root directory of any of USB flash drive and plug in target device before launch tool.
+    - There is "dqa_package" folder exist after download and extract the zip file.
+- Peripheral Device Connection:
+  - 2 × USB-A drives
+  - 1 x Micro SD card
+  - HDMI cable connect to display monitor
+  - 1 x camera connector with Left and Right button
+  - 4 x camera modules (LVDS, LVDS Smart Cable, MIPI VGA, Scorpius)
+  - 1 x AC adapter
+- Test Operation:
+  - [Touch 9 Points] Please ensure tool closed by tap "Close" button before you click "Pass/Fail" button
+  - [Touch Drag Draw] Please ensure tool closed by tap "Quit" button before you click "Pass/Fail" button
