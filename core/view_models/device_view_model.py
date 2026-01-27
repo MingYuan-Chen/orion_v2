@@ -26,6 +26,7 @@ class DeviceViewModel(QObject):
         self._backlight_worker = None
         self._battery_monitor_is_running = False
         self._network_service = None
+        self._stress_test_service = None
         
         self._hw_config_list = []
         self._current_hw_config = {}
@@ -88,6 +89,8 @@ class DeviceViewModel(QObject):
     wifi_status_updated = Signal(dict)
     network_status_updated = Signal(dict)
 
+    # Stress Test signal
+    stress_test_status_updated = Signal(dict)
 
     # =================================================================================
     # Properties accessible by the View
@@ -512,6 +515,11 @@ class DeviceViewModel(QObject):
             self._network_service.status_updated.connect(self.wifi_status_updated)
             self._network_service.network_status_updated.connect(self.on_network_status_updated)
 
+            # Initialize Stress Test Service
+            from core.services.stress_test_service import StressTestService
+            self._stress_test_service = StressTestService(self._model, self._platform_name)
+            self._stress_test_service.status_updated.connect(self.on_stress_test_status_updated)
+
         
         if self.platform_name == "Athena":
             self.toggle_production_tool_service("stop")
@@ -549,6 +557,33 @@ class DeviceViewModel(QObject):
     @Slot(dict)
     def on_network_status_updated(self, status: dict):
         self.network_status_updated.emit(status)
+
+    # --- Stress Test Slots ---
+    
+    @Slot(int, int)
+    def start_stress_test(self, cpu_loading: int, mem_loading: int):
+        """Starts the stress test."""
+        if self._stress_test_service:
+            self._stress_test_service.start_stress_test(cpu_loading, mem_loading)
+            self._append_log(f"Started stress test: CPU={cpu_loading}%, Mem={mem_loading}MB")
+
+    @Slot()
+    def stop_stress_test(self):
+        """Stops the stress test."""
+        if self._stress_test_service:
+            self._stress_test_service.stop_stress_test()
+            self._append_log("Stopped stress test.")
+
+    @Slot(result=float)
+    def get_free_memory_mb(self) -> float:
+        """Returns the free memory in MB."""
+        if self._stress_test_service:
+            return self._stress_test_service.get_free_memory_mb()
+        return 0.0
+
+    @Slot(dict)
+    def on_stress_test_status_updated(self, status: dict):
+        self.stress_test_status_updated.emit(status)
 
     def _append_log(self, message: str):
         """Appends a message to the log and emits change signal."""

@@ -96,6 +96,7 @@ class MainView(QWidget):
         self._function_control_view = None
         self._function_control_view = None
         self._stability_test_view = None
+        self._stress_test_view = None
 
         # --- UI Widgets ---
         font_bold = QFont()
@@ -116,6 +117,8 @@ class MainView(QWidget):
         self.function_control_button = QPushButton("LED / Backlight")
         self.stability_button = QPushButton("Stability Test")
         self.stability_button.setVisible(False)
+        self.stress_test_button = QPushButton("Stress Test")
+
         self.platform_detection_button = QPushButton("Connected Device Initial")
         self.platform_label = QLabel(f"Platform: {self._vm.platform_name}")
         self.platform_label.setStyleSheet("font-size: 16px;")
@@ -136,6 +139,7 @@ class MainView(QWidget):
         self.battery_monitor_button.setFixedSize(120, 30)
         self.function_control_button.setFixedSize(120, 30)
         self.stability_button.setFixedSize(100, 30)
+        self.stress_test_button.setFixedSize(100, 30)
         self.platform_detection_button.setFixedSize(200, 30)
 
         # --- Layouts ---
@@ -161,6 +165,7 @@ class MainView(QWidget):
         # Row 2
         row2_layout = QHBoxLayout()
         row2_layout.addWidget(self.function_control_button)
+        row2_layout.addWidget(self.stress_test_button)
         row2_layout.addWidget(self.stability_button)
         row2_layout.addStretch()
 
@@ -217,6 +222,7 @@ class MainView(QWidget):
         self.battery_monitor_button.clicked.connect(self.open_battery_monitor_view)
         self.function_control_button.clicked.connect(self.open_function_control_view)
         self.stability_button.clicked.connect(self.open_stability_test_view)
+        self.stress_test_button.clicked.connect(self.open_stress_test_view)
         self.platform_detection_button.clicked.connect(self.on_platform_detection_button_clicked)
         
         # --- Bind ViewModel property changes to View update slots ---
@@ -266,6 +272,7 @@ class MainView(QWidget):
         self.function_control_button.setEnabled(connected and detected)
         self.stability_button.setEnabled(connected and detected)
         self.stability_button.setVisible(connected and detected and self._vm.platform_name == "Athena")
+        self.stress_test_button.setEnabled(connected and detected)
 
     @Slot()
     def on_platform_name_changed(self):
@@ -323,6 +330,13 @@ class MainView(QWidget):
             from core.views.stability_test_view import StabilityTestView
             self._stability_test_view = StabilityTestView(self._vm)
         self._stability_test_view.show()
+
+    @Slot()
+    def open_stress_test_view(self):
+        if self._stress_test_view is None:
+            from core.views.stress_test_view import StressTestView
+            self._stress_test_view = StressTestView(self._vm)
+        self._stress_test_view.show()
     
     @Slot()
     def on_platform_detection_button_clicked(self):
@@ -343,5 +357,6 @@ class MainView(QWidget):
         if self._battery_monitor_view: self._battery_monitor_view.close()
         if self._function_control_view: self._function_control_view.close()
         if self._stability_test_view: self._stability_test_view.close()
+        if self._stress_test_view: self._stress_test_view.close()
         self._vm.clean_up()
         super().closeEvent(event)

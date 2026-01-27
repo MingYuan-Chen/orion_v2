@@ -2,6 +2,7 @@ from PySide6.QtCore import QObject, Signal, QTimer
 from core.models.serial_device_model import SerialDeviceModel
 from util.logger import logger
 import re
+import os
 import time
 
 class StressTestService(QObject):
@@ -27,6 +28,15 @@ class StressTestService(QObject):
         :param cpu_loading_percent: CPU loading percentage (25, 50, 75, 100).
         :param mem_loading_mb: Memory loading in MB.
         """
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        log_name = f"StressTest_{cpu_loading_percent}%_{mem_loading_mb}MB_{timestamp}.log"
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        self.log_file = os.path.join(log_dir, log_name)
+        logger.info(f"Starting stress test. Log: {self.log_file}")
+
         commands = []
 
         # CPU Loading Logic
@@ -88,6 +98,10 @@ class StressTestService(QObject):
         status = self.get_status()
         if status:
             self.status_updated.emit(status)
+            with open(self.log_file, "a") as f:
+                f.write(f"{status['timestamp']}[{status['duration']}] - CPU: {status['cpu_usage']}%, "
+                        f"Mem: {status['memory_usage']}%, "
+                        f"Temp: {status['temperature']}C\n")
 
     def get_status(self) -> dict:
         """
@@ -173,8 +187,6 @@ class StressTestService(QObject):
                     val = int("0x" + line_hex[0] + line_hex[1], 16)
                     temp_c = round((val / 10.0) - 273.2, 1) # Using standard Kelvin to Celsius
                     results["temperature"] = f"{temp_c}"
-                else:
-                    results["temperature"] = "Unknown"
 
         except Exception as e:
             logger.warning(f"Failed to parse temperature: {e}")
