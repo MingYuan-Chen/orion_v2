@@ -250,7 +250,9 @@ class StabilityTestView(QWidget):
                 self._vm._network_service,
                 test_configs
             )
-            self.worker.result.connect(self.on_test_finished)
+            self.worker.result.connect(self.lbl_progress.setText)
+            self.worker.item_finished.connect(self.on_item_finished)
+            self.worker.finished.connect(self.on_worker_finished)
             self.worker.ping_started.connect(self.on_ping_started)
             # worker.signals.error.connect(...) # Can handle error if separate signal needed
             self.worker.start()
@@ -261,12 +263,15 @@ class StabilityTestView(QWidget):
             
         else:
             # Stop Test
-            # Send interrupt (Ctrl+C)
+            # Signal the worker to stop the loop
+            if hasattr(self, 'worker') and self.worker.isRunning():
+                self.worker.request_stop()
+            
+            # Send interrupt (Ctrl+C) to stop the current command (ping) immediately
             self._vm.send_interrupt_bytes(b'\x03')
             self.lbl_progress.setText("Stopping...")
-            # The worker will finish when the command is interrupted (hopefully)
-            # We don't manually force terminate thread in QThreadPool generally.
-            # But run_ping_test should return after interruption.
+            # The worker will finish when the command is interrupted
+            # and the flag check will prevent the next iteration.
 
     def update_progress(self):
         self.elapsed_seconds += 1
@@ -277,13 +282,22 @@ class StabilityTestView(QWidget):
         self.progress_timer.start(1000)
         self.update_progress()
         
-    def on_test_finished(self, summary: str):
+    @Slot(str, str)
+    def on_item_finished(self, title: str, result: str):
         self.progress_timer.stop()
-        self._status_timer.start(60000) # Restart status polling
+        # Optionally update label to show item cleanup status if needed
+        # self.lbl_progress.setText(f"{title} Done. Preparing next...")
+
+    def on_worker_finished(self):
+        self.progress_timer.stop()
+        
+        # Only restart status polling if the view is still visible
+        if self.isVisible():
+            self._status_timer.start(60000) 
         
         self.btn_start.setText("Start")
         self._set_inputs_enabled(True)
-        self.lbl_progress.setText(summary)
+        # self.lbl_progress.setText("Finished") # Optional, or leave the last message
 
     def _set_inputs_enabled(self, enabled: bool):
         for item in self.test_items:

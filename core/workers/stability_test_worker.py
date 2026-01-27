@@ -15,12 +15,20 @@ class StabilityTestWorker(QThread):
         super().__init__()
         self.service = service
         self.test_configs = test_configs
-        
+        self._stop_requested = False
+
+    def request_stop(self):
+        self._stop_requested = True
+
     def run(self):
         all_results = []
         
         try:
             for i, config in enumerate(self.test_configs):
+                if self._stop_requested:
+                    self.result.emit("Test stopped by user.")
+                    break
+
                 test_type = config.get("type", "ping")
                 duration = config.get("duration", 3600)
                 ip = config.get("ip", "")
@@ -57,6 +65,10 @@ class StabilityTestWorker(QThread):
                     self.service.connect_device("eth0")
                     time.sleep(3) # Stabilization
                 
+                if self._stop_requested:
+                    self.result.emit("Test stopped by user.")
+                    break
+
                 # Run Test
                 self.ping_started.emit()
                 summary = self.service.run_ping_test(duration, ip, config)
@@ -64,11 +76,16 @@ class StabilityTestWorker(QThread):
                 self.item_finished.emit(title, summary)
                 all_results.append(f"{title}: {summary}")
                 
+                if self._stop_requested:
+                    self.result.emit("Test stopped by user.")
+                    break
+
                 # Teardown / Cleanup for next item
                 self.service.connect_device("eth0")
                 time.sleep(5) # Give time for Eth0 to fully come up and network stack to settle before next iteration
                 
-            self.result.emit("All tests completed.")
+            if not self._stop_requested:
+                self.result.emit("All tests completed.")
             
         except Exception as e:
             self.result.emit(f"Error during test execution: {e}")

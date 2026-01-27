@@ -322,7 +322,9 @@ class NetworkService(QObject):
         interface = config.get("interface_type", "ethernet")
         duration = config.get("duration", 3600)
         ssid = config.get("ssid", None)
-        ip_address = config.get("eth_ip", "Unknown")
+        if not ip_address or ip_address == "Unknown":
+             ip_address = config.get("eth_ip", "Unknown")
+             
         if ssid:
             log_name = f"PingTest_{interface}({ssid})_{duration}_{timestamp}.log"
         else:
