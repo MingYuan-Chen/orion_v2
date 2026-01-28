@@ -101,7 +101,8 @@ class StressTestService(QObject):
             with open(self.log_file, "a") as f:
                 f.write(f"{status['timestamp']}[{status['duration']}] - CPU: {status['cpu_usage']}%, "
                         f"Mem: {status['memory_usage']}%, "
-                        f"Temp: {status['temperature']}C\n")
+                        f"Battery Temp: {status['battery_temperature']}C, "
+                        f"CPU Temp: {status['cpu_temperature']}C\n")
 
     def get_status(self) -> dict:
         """
@@ -110,7 +111,8 @@ class StressTestService(QObject):
         - Memory Usage (%)
         - Timestamp (current time)
         - Duration (since start_stress_test)
-        - Temperature (from I2C command)
+        - Battery Temperature (from I2C command)
+        - CPU Temperature (from /sys/class/hwmon/hwmon0/temp1_input)
         
         Returns:
             dict: A dictionary containing the above 5 keys.
@@ -121,7 +123,8 @@ class StressTestService(QObject):
             "memory_usage": 0.0,
             "timestamp": "Unknown",
             "duration": "0s",
-            "temperature": "Unknown"
+            "battery_temperature": "Unknown",
+            "cpu_temperature": "Unknown"
         }
 
         # 1. Get Timestamp
@@ -186,10 +189,23 @@ class StressTestService(QObject):
                 if len(line_hex) == 2:
                     val = int("0x" + line_hex[0] + line_hex[1], 16)
                     temp_c = round((val / 10.0) - 273.2, 1) # Using standard Kelvin to Celsius
-                    results["temperature"] = f"{temp_c}"
+                    results["battery_temperature"] = f"{temp_c}"
 
         except Exception as e:
             logger.warning(f"Failed to parse temperature: {e}")
+        
+        # 5. Get CPU temperature
+        cmd_cpu_temp = "cat /sys/class/hwmon/hwmon0/temp1_input 2>/dev/null || echo '0'"
+        response_cpu_temp = self._device_model.send_command_sync(cmd_cpu_temp)
+        
+        try:
+            for line in response_cpu_temp:
+                if line.isdigit():
+                    temp_celsius = round(float(line) / 1000.0, 1)
+                    results["cpu_temperature"] = f"{temp_celsius}"
+
+        except Exception as e:
+            logger.warning(f"Failed to parse CPU temperature: {e}")
 
         return results
 

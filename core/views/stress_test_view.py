@@ -96,12 +96,14 @@ class StressTestView(QWidget):
         self.lbl_cpu = QLabel("0.0%")
         self.lbl_mem = QLabel("0.0%")
         self.lbl_temp = QLabel("Unknown")
+        self.lbl_cpu_temp = QLabel("Unknown")
         
         monitor_layout.addRow("Timestamp:", self.lbl_timestamp)
         monitor_layout.addRow("Duration:", self.lbl_duration)
         monitor_layout.addRow("CPU Usage:", self.lbl_cpu)
         monitor_layout.addRow("Memory Usage:", self.lbl_mem)
-        monitor_layout.addRow("Temperature:", self.lbl_temp)
+        monitor_layout.addRow("Battery Temperature:", self.lbl_temp)
+        monitor_layout.addRow("CPU Temperature:", self.lbl_cpu_temp)
         
         self.monitor_group.setLayout(monitor_layout)
         self.main_layout.addWidget(self.monitor_group)
@@ -152,4 +154,5 @@ class StressTestView(QWidget):
         self.lbl_duration.setText(status.get("duration", "N/A"))
         self.lbl_cpu.setText(f"{status.get('cpu_usage', 0)}%")
         self.lbl_mem.setText(f"{status.get('memory_usage', 0)}%")
-        self.lbl_temp.setText(f"{status.get('temperature', 'Unknown')}°C")
+        self.lbl_temp.setText(f"{status.get('battery_temperature', 'Unknown')}°C")
+        self.lbl_cpu_temp.setText(f"{status.get('cpu_temperature', 'Unknown')}°C")

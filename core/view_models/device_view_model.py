@@ -478,6 +478,7 @@ class DeviceViewModel(QObject):
             from core.services.diagnostic_service import DiagnosticService
             from core.services.battery_monitor_service import BatteryMonitorService
             from core.services.network_service import NetworkService
+            from core.services.stress_test_service import StressTestService
             from core.workers.led_worker import LedWorker
             from core.workers.backlight_worker import BacklightWorker
 
@@ -516,7 +517,6 @@ class DeviceViewModel(QObject):
             self._network_service.network_status_updated.connect(self.on_network_status_updated)
 
             # Initialize Stress Test Service
-            from core.services.stress_test_service import StressTestService
             self._stress_test_service = StressTestService(self._model, self._platform_name)
             self._stress_test_service.status_updated.connect(self.on_stress_test_status_updated)
 
